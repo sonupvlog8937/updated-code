@@ -201,34 +201,19 @@ const buildSearchSuggestions = (products = [], query = "", correctedQuery = "") 
   const cleanQuery = normalizeSearchText(query);
   if (!cleanQuery) return [];
 
-  const templates = [
-    `${cleanQuery} for men`,
-    `${cleanQuery} for women`,
-    `${cleanQuery} under 999`,
-    `${cleanQuery} latest`,
-  ];
+   const keywordSuggestions = [];
 
-  const dynamic = new Set();
-  products.slice(0, 25).forEach((item) => {
-    const name = normalizeSearchText(item?.name);
-    const brand = normalizeSearchText(item?.brand);
-    const catName = normalizeSearchText(item?.catName);
-
-    if (brand && cleanQuery !== brand) dynamic.add(`${cleanQuery} ${brand}`);
-    if (catName && cleanQuery !== catName) dynamic.add(`${cleanQuery} ${catName}`);
-
-    if (name) {
-      const parts = name.split(" ").slice(0, 3).join(" ");
-      if (parts && parts !== cleanQuery) {
-        dynamic.add(parts);
+  products.slice(0, 40).forEach((item) => {
+    normalizeKeywords(item?.keywords).forEach((keyword) => {
+      if (keyword.includes(cleanQuery) || cleanQuery.includes(keyword)) {
+        keywordSuggestions.push(keyword);
       }
-    }
+    });
   });
 
   const suggestionSet = new Set([
     ...(correctedQuery ? [normalizeSearchText(correctedQuery)] : []),
-    ...templates,
-    ...Array.from(dynamic),
+    ...keywordSuggestions,
   ]);
 
   return Array.from(suggestionSet).filter(Boolean).slice(0, 12);

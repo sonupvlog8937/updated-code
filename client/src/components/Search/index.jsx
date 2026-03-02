@@ -27,21 +27,7 @@ const POPULAR_TERMS = [
   "white shirt",
 ];
 
-const buildContextualSuggestions = (query) => {
-  const term = query.toLowerCase().trim();
-  if (!term) return [];
 
-  return [
-    `${term} for men`,
-    `${term} for women`,
-    `${term} for kids`,
-    `${term} under 500`,
-    `${term} zara`,
-    `black ${term}`,
-    `white ${term}`,
-    `cotton ${term}`,
-  ];
-};
 
 const Search = () => {
 
@@ -50,7 +36,6 @@ const Search = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [querySuggestions, setQuerySuggestions] = useState([]);
   const [recentSearches, setRecentSearches] = useState([]);
-  const [liveSuggestions, setLiveSuggestions] = useState([]);
   const [suggestedCorrection, setSuggestedCorrection] = useState("");
   const [aiHintSummary, setAiHintSummary] = useState("");
   const [aiHintHighlights, setAiHintHighlights] = useState([]);
@@ -131,7 +116,6 @@ const Search = () => {
 
   const onClearSearch = () => {
     setSearchQuery("");
-    setLiveSuggestions([]);
     setQuerySuggestions([]);
     setSuggestedCorrection("");
     setAiHintSummary("");
@@ -178,7 +162,6 @@ const Search = () => {
     }
 
     if (searchQuery.trim().length < 2) {
-      setLiveSuggestions([]);
       setQuerySuggestions([]);
       setSuggestedCorrection("");
       setAiHintSummary("");
@@ -192,7 +175,6 @@ const Search = () => {
         limit: 8,
         query: searchQuery.trim(),
       }).then((res) => {
-        setLiveSuggestions(res?.products || []);
         setQuerySuggestions(res?.suggestions || []);
         setSuggestedCorrection(res?.correctedQuery || "");
         setAiHintSummary(res?.aiInsights?.summary || "");
@@ -208,14 +190,8 @@ const Search = () => {
   }, [searchQuery]);
 
   const predictiveSuggestions = useMemo(() => {
-    const titleSuggestions = normalizedSuggestions;
-    const productSeedSuggestions = liveSuggestions
-      .map((item) => item?.catName || item?.brand)
-      .filter(Boolean)
-      .map((item) => `${searchQuery.trim().toLowerCase()} ${item.toLowerCase()}`);
-    const contextualSuggestions = buildContextualSuggestions(searchQuery);
-    return [...new Set([...titleSuggestions, ...productSeedSuggestions, ...contextualSuggestions])].slice(0, 10);
-  }, [normalizedSuggestions, liveSuggestions, searchQuery]);
+    return [...new Set(normalizedSuggestions)].slice(0, 10);
+  }, [normalizedSuggestions]);
 
   return (
     <div ref={searchWrapperRef} className="searchContainer relative w-[100%]">
