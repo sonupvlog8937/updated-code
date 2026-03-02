@@ -35,8 +35,11 @@ const buildContextualSuggestions = (query) => {
     `${term} for men`,
     `${term} for women`,
     `${term} for kids`,
-    `${term} under 999`,
-    `${term} branded`,
+    `${term} under 500`,
+    `${term} zara`,
+    `black ${term}`,
+    `white ${term}`,
+    `cotton ${term}`,
   ];
 };
 
@@ -240,7 +243,7 @@ const Search = () => {
 
       {isDropdownOpen && (
         <div className="searchDropdown absolute top-[56px] left-0 w-full bg-[#efefef] rounded-[8px] shadow-lg z-[200] p-3 max-h-[75vh] overflow-y-auto">
-          {normalizedSuggestions.length > 0 ? (
+         {searchQuery.trim().length > 0 && predictiveSuggestions.length > 0 ? (
             <ul className="searchSuggestionsList">
               {suggestedCorrection && suggestedCorrection !== searchQuery.trim().toLowerCase() && (
                 <li>
