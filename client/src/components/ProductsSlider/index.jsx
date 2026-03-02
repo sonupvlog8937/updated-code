@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import "swiper/css";
 import "swiper/css/navigation";
@@ -6,11 +6,11 @@ import 'swiper/css/free-mode';
 
 import { Navigation, FreeMode } from "swiper/modules";
 import ProductItem from "../ProductItem";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 
 const ProductsSlider = (props) => {
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
 
   return (
     <div className="productsSlider pt-1 lg:pt-3 pb-0">
@@ -18,7 +18,7 @@ const ProductsSlider = (props) => {
         slidesPerView={props.items}
         spaceBetween={10}
         slidesPerGroup={4}
-        navigation={context?.windowWidth<992 ? false : true}
+        navigation={context?.windowWidth < 992 ? false : true}
         modules={[Navigation, FreeMode]}
         freeMode={true}
         breakpoints={{

@@ -4,7 +4,7 @@ import Button from "@mui/material/Button";
 import { IoMdEye } from "react-icons/io";
 import { IoMdEyeOff } from "react-icons/io";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 import CircularProgress from '@mui/material/CircularProgress';
 import { postData } from "../../utils/api";
 
@@ -19,7 +19,7 @@ const ForgotPassword = () => {
     confirmPassword: ''
   });
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
   const history = useNavigate();
 
 

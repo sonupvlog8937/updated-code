@@ -1,18 +1,19 @@
 import { Button } from '@mui/material'
-import React, { useContext, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { IoHomeOutline } from "react-icons/io5";
 import { IoSearch } from "react-icons/io5";
 import { LuHeart } from "react-icons/lu";
 import { BsBagCheck } from "react-icons/bs";
+import { MdOutlineShoppingCart } from "react-icons/md";
 import { FiUser } from "react-icons/fi";
 import { NavLink } from "react-router";
 import { MdOutlineFilterAlt } from "react-icons/md";
-import { MyContext } from '../../../App';
+import { useAppContext } from "../../../hooks/useAppContext";
 import { useLocation } from "react-router-dom";
 
 const MobileNav = () => {
 
-    const context = useContext(MyContext)
+    const context = useAppContext()
 
     const location = useLocation();
 
@@ -50,9 +51,9 @@ const MobileNav = () => {
             }
 
             <Button className="flex-col !w-[40px] !min-w-[40px] !capitalize !text-gray-700"
-            onClick={()=>context?.setOpenSearchPanel(true)}>
-                <IoSearch size={18} />
-                <span className='text-[12px]'>Search</span>
+            onClick={()=>context?.setOpenCartPanel(true)}>
+                <MdOutlineShoppingCart size={18} />
+                <span className='text-[12px]'>Cart</span>
             </Button>
 
 

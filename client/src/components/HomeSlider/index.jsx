@@ -1,14 +1,14 @@
-import React, { useContext } from "react";
+import React from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import "swiper/css";
 import "swiper/css/navigation";
 
 import { Navigation, Autoplay } from "swiper/modules";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 
 const HomeSlider = (props) => {
 
-  const context  = useContext(MyContext);
+  const context  = useAppContext();
 
   return (
     <div className="homeSlider pb-3 pt-3 lg:pb-5 lg:pt-5 relative z-[99]">

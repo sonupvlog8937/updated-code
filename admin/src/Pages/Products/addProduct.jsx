@@ -37,12 +37,15 @@ const AddProduct = () => {
         rating: "",
         isFeatured: false,
         discount: "",
+        sale: 0,
         productRam: [],
         size: [],
         productWeight: [],
+        colorOptions: [{ name: '', code: '', images: '' }],
+        specifications: [{ key: '', value: '' }],
         bannerTitleName: '',
         bannerimages: [],
-        isDisplayOnHomeBanner:false
+        isDisplayOnHomeBanner: false
 
     })
 
@@ -186,6 +189,51 @@ const AddProduct = () => {
         ))
     }
 
+    const handleColorOptionChange = (index, field, value) => {
+        const updatedColors = [...formFields.colorOptions];
+        updatedColors[index] = { ...updatedColors[index], [field]: value };
+        setFormFields((prev) => ({
+            ...prev,
+            colorOptions: updatedColors
+        }));
+    }
+
+    const addColorOption = () => {
+        setFormFields((prev) => ({
+            ...prev,
+            colorOptions: [...prev.colorOptions, { name: '', code: '', images: '' }]
+        }));
+    }
+
+    const removeColorOption = (index) => {
+        setFormFields((prev) => ({
+            ...prev,
+            colorOptions: prev.colorOptions.filter((_, idx) => idx !== index)
+        }));
+    }
+
+    const handleSpecificationChange = (index, field, value) => {
+        const updatedSpecs = [...formFields.specifications];
+        updatedSpecs[index] = { ...updatedSpecs[index], [field]: value };
+        setFormFields((prev) => ({
+            ...prev,
+            specifications: updatedSpecs
+        }));
+    }
+
+    const addSpecification = () => {
+        setFormFields((prev) => ({
+            ...prev,
+            specifications: [...prev.specifications, { key: '', value: '' }]
+        }));
+    }
+
+    const removeSpecification = (index) => {
+        setFormFields((prev) => ({
+            ...prev,
+            specifications: prev.specifications.filter((_, idx) => idx !== index)
+        }));
+    }
 
     const setPreviewsFun = (previewsArr) => {
         const imgArr = previews;
@@ -216,7 +264,7 @@ const AddProduct = () => {
 
 
 
-   const removeImg = (image, index) => {
+    const removeImg = (image, index) => {
         var imageArr = [];
         imageArr = previews;
         deleteImages(`/api/category/deteleImage?img=${image}`).then((res) => {
@@ -248,7 +296,7 @@ const AddProduct = () => {
     }
 
 
-    const handleChangeSwitch=(event)=>{
+    const handleChangeSwitch = (event) => {
         setCheckedSwitch(event.target.checked);
         formFields.isDisplayOnHomeBanner = event.target.checked;
     }
@@ -320,10 +368,18 @@ const AddProduct = () => {
             return false;
         }
 
+        const payload = {
+            ...formFields,
+            colorOptions: (formFields.colorOptions || []).map((item) => ({
+                ...item,
+                images: item.images ? item.images.split(",").map((img) => img.trim()).filter(Boolean) : []
+            })).filter((item) => item.name),
+            specifications: (formFields.specifications || []).filter((item) => item.key && item.value)
+        };
 
         setIsLoading(true);
 
-        postData("/api/product/create", formFields).then((res) => {
+        postData("/api/product/create", payload).then((res) => {
 
             if (res?.error === false) {
                 context.alertBox("success", res?.message);
@@ -514,6 +570,10 @@ const AddProduct = () => {
                             <input type="number" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="discount" value={formFields.discount} onChange={onChangeInput} />
                         </div>
 
+                        <div className='col'>
+                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Sale</h3>
+                            <input type="number" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="sale" value={formFields.sale} onChange={onChangeInput} />
+                        </div>
 
                         <div className='col'>
                             <h3 className='text-[14px] font-[500] mb-1 text-black'>Product RAMS</h3>
@@ -610,7 +670,42 @@ const AddProduct = () => {
 
                     </div>
 
+ <div className='col w-full p-5 px-0'>
+                        <div className='flex items-center justify-between mb-3'>
+                            <h3 className="font-[700] text-[18px]">Colour Options</h3>
+                            <Button type="button" onClick={addColorOption}>Add Colour</Button>
+                        </div>
 
+                        <div className='grid grid-cols-1 gap-3'>
+                            {formFields?.colorOptions?.map((colorItem, index) => (
+                                <div key={index} className='grid grid-cols-1 md:grid-cols-4 gap-3 bg-gray-100 p-3 rounded-sm'>
+                                    <input type="text" placeholder='Colour Name (Red)' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] rounded-sm p-3 text-sm' value={colorItem.name} onChange={(e) => handleColorOptionChange(index, 'name', e.target.value)} />
+                                    <input type="text" placeholder='Colour Code (#ff0000)' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] rounded-sm p-3 text-sm' value={colorItem.code} onChange={(e) => handleColorOptionChange(index, 'code', e.target.value)} />
+                                    <input type="text" placeholder='Image URLs (comma separated)' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] rounded-sm p-3 text-sm md:col-span-2' value={colorItem.images} onChange={(e) => handleColorOptionChange(index, 'images', e.target.value)} />
+                                    <div className='md:col-span-4'>
+                                        <Button type="button" color="error" onClick={() => removeColorOption(index)} disabled={formFields?.colorOptions?.length === 1}>Remove</Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className='col w-full p-5 px-0'>
+                        <div className='flex items-center justify-between mb-3'>
+                            <h3 className="font-[700] text-[18px]">Specifications</h3>
+                            <Button type="button" onClick={addSpecification}>Add Specification</Button>
+                        </div>
+
+                        <div className='grid grid-cols-1 gap-3'>
+                            {formFields?.specifications?.map((specItem, index) => (
+                                <div key={index} className='grid grid-cols-1 md:grid-cols-3 gap-3 bg-gray-100 p-3 rounded-sm'>
+                                    <input type="text" placeholder='Key (Display)' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] rounded-sm p-3 text-sm' value={specItem.key} onChange={(e) => handleSpecificationChange(index, 'key', e.target.value)} />
+                                    <input type="text" placeholder='Value (6.7 inch)' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] rounded-sm p-3 text-sm' value={specItem.value} onChange={(e) => handleSpecificationChange(index, 'value', e.target.value)} />
+                                    <Button type="button" color="error" onClick={() => removeSpecification(index)} disabled={formFields?.specifications?.length === 1}>Remove</Button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
 
 
                     <div className='col w-full p-5 px-0'>
@@ -650,7 +745,7 @@ const AddProduct = () => {
                         <div className='bg-gray-100 p-4 w-full'>
                             <div className="flex items-center gap-8">
                                 <h3 className="font-[700] text-[18px] mb-3">Banner Images</h3>
-                                <Switch {...label} onChange={handleChangeSwitch} checked={checkedSwitch}/>
+                                <Switch {...label} onChange={handleChangeSwitch} checked={checkedSwitch} />
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
 

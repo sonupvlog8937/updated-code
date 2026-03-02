@@ -32,6 +32,14 @@ const cartProductSchema = new mongoose.Schema({
     ram:{
         type:String,
     },
+    color:{
+        type:String,
+        default:""
+    },
+    colorCode:{
+        type:String,
+        default:""
+    },
     quantity:{
         type:Number,
         required:true

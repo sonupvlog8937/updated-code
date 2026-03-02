@@ -185,7 +185,7 @@ const Dashboard = () => {
       <div className="w-full py-4 lg:py-1 px-5 border bg-[#f1faff] border-[rgba(0,0,0,0.1)] flex items-center gap-8 mb-5 justify-between rounded-md">
         <div className="info">
           <h1 className="text-[26px] lg:text-[35px] font-bold leading-8 lg:leading-10 mb-3">
-            Welcome,
+            Welcome Zeedaddy,
             <br />
             <span className="text-primary">{context?.userData?.name}</span>
           </h1>

@@ -43,7 +43,7 @@ const Orders = () => {
             <div className="py-5 px-5 border-b border-[rgba(0,0,0,0.1)]">
               <h2>My Orders</h2>
               <p className="mt-0 mb-0">
-                There are <span className="font-bold text-primary">{ orders?.data?.length}</span>{" "}
+                There are <span className="font-bold text-primary">{orders?.data?.length}</span>{" "}
                 orders
               </p>
 
@@ -124,7 +124,7 @@ const Orders = () => {
                               <td className="px-6 py-4 font-[500]">{order?.delivery_address?.mobile}</td>
 
                               <td className="px-6 py-4 font-[500]">
-                               <span className='inline-block text-[13px] font-[500] p-1 bg-[#f1f1f1] rounded-md'>{order?.delivery_address?.addressType}</span>
+                                <span className='inline-block text-[13px] font-[500] p-1 bg-[#f1f1f1] rounded-md'>{order?.delivery_address?.addressType}</span>
                                 <span className="block w-[400px]">
                                   {order?.delivery_address?.
                                     address_line1 + " " +
@@ -187,6 +187,12 @@ const Orders = () => {
                                             scope="col"
                                             className="px-6 py-3 whitespace-nowrap"
                                           >
+                                            Color
+                                          </th>
+                                          <th
+                                            scope="col"
+                                            className="px-6 py-3 whitespace-nowrap"
+                                          >
                                             Quantity
                                           </th>
                                           <th
@@ -200,6 +206,24 @@ const Orders = () => {
                                             className="px-6 py-3 whitespace-nowrap"
                                           >
                                             Sub Total
+                                          </th>
+                                          <th
+                                            scope="col"
+                                            className="px-6 py-3 whitespace-nowrap"
+                                          >
+                                            Size
+                                          </th>
+                                          <th
+                                            scope="col"
+                                            className="px-6 py-3 whitespace-nowrap"
+                                          >
+                                            Weight
+                                          </th>
+                                          <th
+                                            scope="col"
+                                            className="px-6 py-3 whitespace-nowrap"
+                                          >
+                                            Ram
                                           </th>
                                         </tr>
                                       </thead>
@@ -225,6 +249,9 @@ const Orders = () => {
                                                     className="w-[40px] h-[40px] object-cover rounded-md"
                                                   />
                                                 </td>
+                                                <td className="px-6 py-4 font-[500] whitespace-nowrap">
+                                                  {item?.color || "-"}
+                                                </td>
 
                                                 <td className="px-6 py-4 font-[500] whitespace-nowrap">
                                                   {item?.quantity}
@@ -233,6 +260,15 @@ const Orders = () => {
                                                 <td className="px-6 py-4 font-[500]">{item?.price?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}</td>
 
                                                 <td className="px-6 py-4 font-[500]">{(item?.price * item?.quantity)?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}</td>
+                                                <td className="px-6 py-4 font-[500] whitespace-nowrap">
+                                                  {item?.size}
+                                                </td>
+                                                <td className="px-6 py-4 font-[500] whitespace-nowrap">
+                                                  {item?.weight}
+                                                </td>
+                                                <td className="px-6 py-4 font-[500] whitespace-nowrap">
+                                                  {item?.ram}
+                                                </td>
                                               </tr>
                                             )
                                           })

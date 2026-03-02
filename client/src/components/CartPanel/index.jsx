@@ -2,12 +2,12 @@ import React, { useContext } from "react";
 import { Link } from "react-router-dom";
 import { MdOutlineDeleteOutline } from "react-icons/md";
 import Button from "@mui/material/Button";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 import { deleteData } from "../../utils/api";
 
 const CartPanel = (props) => {
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
 
   const removeItem = (id) => {
     deleteData(`/api/cart/delete-cart-item/${id}`).then((res) => {

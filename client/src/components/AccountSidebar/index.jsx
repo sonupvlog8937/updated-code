@@ -6,7 +6,7 @@ import { IoBagCheckOutline } from "react-icons/io5";
 import { IoMdHeartEmpty } from "react-icons/io";
 import { IoIosLogOut } from "react-icons/io";
 import { NavLink } from "react-router";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 import CircularProgress from '@mui/material/CircularProgress';
 import { fetchDataFromApi, uploadImage } from "../../utils/api";
 import { LuMapPin } from "react-icons/lu";
@@ -18,7 +18,7 @@ const AccountSidebar = () => {
   const [previews, setPreviews] = useState([]);
   const [uploading, setUploading] = useState(false);
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
 
   useEffect(() => {
     const userAvtar = [];

@@ -1,16 +1,16 @@
-import React, { useContext, useState } from "react";
+import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Search from "../Search";
 import Badge from "@mui/material/Badge";
 import { styled } from "@mui/material/styles";
 import IconButton from "@mui/material/IconButton";
 import { MdOutlineShoppingCart } from "react-icons/md";
-import { IoGitCompareOutline } from "react-icons/io5";
 import { FaRegHeart } from "react-icons/fa6";
 import Tooltip from "@mui/material/Tooltip";
 import Navigation from "./Navigation";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 import { Button } from "@mui/material";
+import { IoGitCompareOutline, IoSearch } from "react-icons/io5";
 import { FaRegUser } from "react-icons/fa";
 
 import Menu from "@mui/material/Menu";
@@ -22,6 +22,7 @@ import { fetchDataFromApi } from "../../utils/api";
 import { LuMapPin } from "react-icons/lu";
 import { useEffect } from "react";
 import { HiOutlineMenu } from "react-icons/hi";
+import "./Navigation/style.css"
 
 
 const StyledBadge = styled(Badge)(({ theme }) => ({
@@ -39,16 +40,24 @@ const Header = () => {
 
   const [isOpenCatPanel, setIsOpenCatPanel] = useState(false);
 
-  const context = useContext(MyContext);
+  const [loading, setLoading] = useState(false);
+  const context = useAppContext();
 
   const history = useNavigate();
 
-  const handleClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
   const handleClose = () => {
     setAnchorEl(null);
   };
+
+  const handleClick = () => {
+    setLoading(true);
+
+    // Optional: loading ko thoda time baad hata sakte ho
+    setTimeout(() => {
+      setLoading(false);
+    }, 3000);
+  };
+
 
 
   const location = useLocation();
@@ -140,6 +149,14 @@ const Header = () => {
                 <img src={localStorage.getItem('logo')} className="max-w-[140px] lg:max-w-[200px]" />
               </Link>
             </div>
+            <a
+        href="/699b044d39ee2939e558446e.apk"
+        download
+        onClick={handleClick}
+        className={`download-btn ${loading ? "loading" : ""}`}
+      >
+        {loading ? "loading" : "📲 App"}
+      </a>
 
             <div className={`col2 fixed top-0 left-0 w-full h-full lg:w-[40%] lg:static p-2 lg:p-0 bg-white z-50 ${context?.windowWidth > 992 && '!block'} ${context?.openSearchPanel === true ? 'block' : 'hidden'}`}>
               <Search />
@@ -297,15 +314,12 @@ const Header = () => {
 
 
                 <li>
-                  <Tooltip title="Cart">
+                  <Tooltip title="Search">
                     <IconButton
-                      aria-label="cart"
-                      onClick={() => context.setOpenCartPanel(true)}
+                      aria-label="search"
+                      onClick={() => context?.setOpenSearchPanel(true)}
                     >
-
-                      <StyledBadge badgeContent={context?.cartData?.length !== 0 ? context?.cartData?.length : 0} color="secondary">
-                        <MdOutlineShoppingCart />
-                      </StyledBadge>
+                      <IoSearch />
                     </IconButton>
                   </Tooltip>
                 </li>

@@ -11,7 +11,8 @@ import MenuItem from "@mui/material/MenuItem";
 import Pagination from "@mui/material/Pagination";
 import ProductLoadingGrid from "../../components/ProductLoading/productLoadingGrid";
 import { postData } from "../../utils/api";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
+import { MdOutlineFilterAlt } from "react-icons/md";
 
 const SearchPage = () => {
   const [itemView, setItemView] = useState("grid");
@@ -25,7 +26,7 @@ const SearchPage = () => {
 
   const [selectedSortVal, setSelectedSortVal] = useState("Name, A to Z");
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -73,7 +74,7 @@ const SearchPage = () => {
           {
             context?.windowWidth < 992 &&
             <div className={`filter_overlay w-full h-full bg-[rgba(0,0,0,0.5)] fixed top-0 left-0 z-[101]  ${context?.openFilter === true ? 'block' : 'hidden'}`}
-              onClick={()=>context?.setOpenFilter(false)}
+              onClick={() => context?.setOpenFilter(false)}
             ></div>
           }
 
@@ -95,7 +96,12 @@ const SearchPage = () => {
                 >
                   <IoGridSharp className="text-[rgba(0,0,0,0.7)] text-[14px]" />
                 </Button>
-
+                <Button
+                  className="!text-[12px] !capitalize !bg-white !text-[#333] !border !border-[#ccc] !ml-2"
+                  onClick={() => context?.setOpenFilter(!context?.openFilter)}
+                >
+                  <MdOutlineFilterAlt className="mr-1 text-[16px]" /> Filter
+                </Button>
                 <span className="text-[14px] hidden sm:block md:block lg:block font-[500] pl-3 text-[rgba(0,0,0,0.7)]">
                   There are {productsData?.products?.length !== 0 ? productsData?.products?.length : 0}  products.
                 </span>

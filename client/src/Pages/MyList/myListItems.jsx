@@ -2,12 +2,12 @@ import React, { useContext, useState } from "react";
 import { Link } from "react-router-dom";
 import Rating from "@mui/material/Rating";
 import { IoCloseSharp } from "react-icons/io5";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 import { deleteData } from "../../utils/api";
 
 const MyListItems = (props) => {
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
 
   const removeItem=(id)=>{
     deleteData(`/api/myList/${id}`).then((res)=>{

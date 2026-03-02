@@ -16,7 +16,7 @@ import { FaInstagram } from "react-icons/fa";
 
 import Drawer from "@mui/material/Drawer";
 import CartPanel from "../CartPanel";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 
 
 import Button from "@mui/material/Button";
@@ -29,7 +29,7 @@ import AddAddress from "../../Pages/MyAccount/addAddress";
 
 
 const Footer = () => {
-  const context = useContext(MyContext);
+  const context = useAppContext();
 
   return (
     <>
@@ -74,20 +74,20 @@ const Footer = () => {
             <div className="part1 w-full lg:w-[25%] border-r border-[rgba(0,0,0,0.1)]">
               <h2 className="text-[18px] font-[600] mb-4">Contact us</h2>
               <p className="text-[13px] font-[400] pb-4">
-                Classyshop - Mega Super Store
+                Zeedaddy - Mega Super Store
                 <br />
-                507-Union Trade Centre France
+                Makhdumpur, Jehnabad, Bihar (India) 804424
               </p>
 
               <Link
                 className="link text-[13px]"
-                to="mailto:someone@example.com"
+                to="sonuee15@gmail.com"
               >
-                sales@yourcompany.com
+                sonuee15@gmail.com
               </Link>
 
               <span className="text-[22px] font-[600] block w-full mt-3 mb-5 text-primary">
-                (+91) 9876-543-210
+                (+91) 8969737537
               </span>
 
               <div className="flex items-center gap-2">
@@ -250,7 +250,7 @@ const Footer = () => {
           </ul>
 
           <p className="text-[13px] text-center mb-0">
-            © 2024 - Ecommerce Template
+            © 2026 - Zeedaddy Online Shopping App
           </p>
 
 

@@ -3,7 +3,7 @@ import OtpBox from "../../components/OtpBox";
 import Button from "@mui/material/Button";
 import { postData } from "../../utils/api";
 import { useNavigate } from "react-router-dom";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 
 const Verify = () => {
   const [otp, setOtp] = useState("");
@@ -12,7 +12,7 @@ const Verify = () => {
   };
 
   const history = useNavigate();
-  const context = useContext(MyContext)
+  const context = useAppContext()
 
   const verityOTP = (e) => {
     e.preventDefault();

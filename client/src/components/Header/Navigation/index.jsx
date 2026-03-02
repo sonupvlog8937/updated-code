@@ -8,14 +8,14 @@ import CategoryPanel from "./CategoryPanel";
 
 import "../Navigation/style.css";
 import { fetchDataFromApi } from "../../../utils/api";
-import { MyContext } from "../../../App";
+import { useAppContext } from "../../../hooks/useAppContext";
 import MobileNav from "./MobileNav";
 
 const Navigation = (props) => {
   const [isOpenCatPanel, setIsOpenCatPanel] = useState(false);
   const [catData, setCatData] = useState([]);
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
 
   useEffect(() => {
     setCatData(context?.catData);

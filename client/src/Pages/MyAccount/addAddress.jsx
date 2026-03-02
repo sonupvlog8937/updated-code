@@ -5,7 +5,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import FormControl from '@mui/material/FormControl';
 import FormLabel from '@mui/material/FormLabel';
 import { useContext } from 'react';
-import { MyContext } from '../../App';
+import { useAppContext } from "../../hooks/useAppContext";
 import TextField from '@mui/material/TextField';
 
 import { PhoneInput } from 'react-international-phone';
@@ -34,7 +34,7 @@ const AddAddress = () => {
 
     const [isLoading, setIsLoading] = useState(false);
 
-    const context = useContext(MyContext);
+    const context = useAppContext();
 
     useEffect(() => {
         if (context?.userData?._id !== undefined) {

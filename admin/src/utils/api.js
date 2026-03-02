@@ -55,7 +55,6 @@ export const uploadImage = async (url, updatedData ) => {
     const params={
         headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`, // Include your API key in the Authorization header
-            'Content-Type': 'multipart/form-data', // Adjust the content type as needed
           },
     
     } 
@@ -63,6 +62,8 @@ export const uploadImage = async (url, updatedData ) => {
     var response;
     await axios.put(apiUrl + url,updatedData, params).then((res)=>{
         response=res;
+        }).catch((error)=>{
+        response = error?.response;
         
     })
     return response;
@@ -74,7 +75,6 @@ export const uploadImages = async (url, formData ) => {
     const params={
         headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`, // Include your API key in the Authorization header
-            'Content-Type': 'multipart/form-data', // Adjust the content type as needed
           },
     
     } 
@@ -82,6 +82,8 @@ export const uploadImages = async (url, formData ) => {
     var response;
     await axios.post(apiUrl + url,formData, params).then((res)=>{
         response=res;
+        }).catch((error)=>{
+        response = error?.response;
         
     })
     return response;

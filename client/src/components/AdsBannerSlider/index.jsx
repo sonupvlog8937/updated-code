@@ -6,11 +6,11 @@ import 'swiper/css/free-mode';
 
 import { Navigation, FreeMode } from "swiper/modules";
 import BannerBox from "../BannerBox";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 
 const AdsBannerSlider = (props) => {
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
 
   return (
     <div className="py-5 w-full">

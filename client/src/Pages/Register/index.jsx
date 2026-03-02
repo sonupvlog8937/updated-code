@@ -5,7 +5,7 @@ import { IoMdEye } from "react-icons/io";
 import { IoMdEyeOff } from "react-icons/io";
 import { Link } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 import { postData } from "../../utils/api";
 import CircularProgress from '@mui/material/CircularProgress';
 import { useNavigate } from "react-router-dom";
@@ -25,7 +25,7 @@ const Register = () => {
     password: ""
   })
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
   const history = useNavigate();
 
     useEffect(()=>{

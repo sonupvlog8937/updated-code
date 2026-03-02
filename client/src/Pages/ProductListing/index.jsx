@@ -1,6 +1,5 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Sidebar } from "../../components/Sidebar";
-import Breadcrumbs from "@mui/material/Breadcrumbs";
 import ProductItem from "../../components/ProductItem";
 import ProductItemListView from "../../components/ProductItemListView";
 import Button from "@mui/material/Button";
@@ -11,7 +10,8 @@ import MenuItem from "@mui/material/MenuItem";
 import Pagination from "@mui/material/Pagination";
 import ProductLoadingGrid from "../../components/ProductLoading/productLoadingGrid";
 import { postData } from "../../utils/api";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
+import { MdOutlineFilterAlt } from "react-icons/md";
 
 const ProductListing = () => {
   const [itemView, setItemView] = useState("grid");
@@ -24,12 +24,133 @@ const ProductListing = () => {
   const [totalPages, setTotalPages] = useState(1);
 
   const [selectedSortVal, setSelectedSortVal] = useState("Name, A to Z");
+const [activeTab, setActiveTab] = useState("all");
+  const [selectedBrands, setSelectedBrands] = useState([]);
+  const [selectedSizes, setSelectedSizes] = useState([]);
+   const [selectedProductTypes, setSelectedProductTypes] = useState([]);
+  const [selectedPriceRanges, setSelectedPriceRanges] = useState([]);
+  const [selectedSaleOnly, setSelectedSaleOnly] = useState(false);
+  const [selectedStockStatus, setSelectedStockStatus] = useState("all");
+  const [selectedDiscountRanges, setSelectedDiscountRanges] = useState([]);
+  const [selectedWeights, setSelectedWeights] = useState([]);
+  const [selectedRamOptions, setSelectedRamOptions] = useState([]);
+  const context = useAppContext();
+  const resetAllFilters = () => {
+    setSelectedBrands([]);
+    setSelectedSizes([]);
+    setSelectedProductTypes([]);
+    setSelectedPriceRanges([]);
+    setSelectedSaleOnly(false);
+    setSelectedStockStatus("all");
+    setSelectedDiscountRanges([]);
+    setSelectedWeights([]);
+    setSelectedRamOptions([]);
+    setActiveTab("all");
+  };
 
-  const context = useContext(MyContext);
+  const getProductType = (product) => {
+    return product?.productType || product?.thirdSubCatName || product?.subCatName || product?.catName || "";
+  };
+
+  const isBrandedProduct = (product) => {
+    const brandName = product?.brand?.trim()?.toLowerCase();
+    return brandName && brandName !== "no brand" && brandName !== "generic";
+  };
+
+  const filteredProducts = useMemo(() => {
+    const allProducts = productsData?.products || [];
+
+    return allProducts.filter((product) => {
+      if (activeTab === "branded" && !isBrandedProduct(product)) {
+        return false;
+      }
+
+      if (activeTab === "classic" && isBrandedProduct(product)) {
+        return false;
+      }
+
+      if (selectedBrands.length > 0) {
+        const productBrand = product?.brand?.trim();
+        if (!selectedBrands.includes(productBrand)) {
+          return false;
+        }
+      }
+
+      if (selectedSizes.length > 0) {
+        const productSizes = product?.size || [];
+        const hasMatchingSize = productSizes.some((size) => selectedSizes.includes(size));
+
+        if (!hasMatchingSize) {
+          return false;
+        }
+      }
+
+       if (selectedProductTypes.length > 0) {
+        const productType = getProductType(product);
+
+          if (!selectedProductTypes.includes(productType)) {
+          return false;
+        }
+      }
+
+      if (selectedPriceRanges.length > 0) {
+        const productPrice = Number(product?.price || 0);
+        const hasMatchingPriceRange = selectedPriceRanges.some((range) => {
+          const [minPrice, maxPrice] = range.split("-").map(Number);
+          return productPrice >= minPrice && productPrice <= maxPrice;
+        });
+
+        if (!hasMatchingPriceRange) {
+          return false;
+        }
+      }
+
+      if (selectedSaleOnly && !Number(product?.discount || 0)) {
+        return false;
+      }
+
+       if (selectedStockStatus === "inStock" && Number(product?.countInStock || 0) <= 0) {
+        return false;
+      }
+
+      if (selectedStockStatus === "outOfStock" && Number(product?.countInStock || 0) > 0) {
+        return false;
+      }
+
+      if (selectedDiscountRanges.length > 0) {
+        const productDiscount = Number(product?.discount || 0);
+        const matchesDiscountBand = selectedDiscountRanges.some((minimumDiscount) => productDiscount >= minimumDiscount);
+        if (!matchesDiscountBand) {
+          return false;
+        }
+      }
+
+      if (selectedWeights.length > 0) {
+        const productWeights = product?.productWeight || [];
+        const hasMatchingWeight = productWeights.some((weight) => selectedWeights.includes(weight));
+        if (!hasMatchingWeight) {
+          return false;
+        }
+      }
+
+      if (selectedRamOptions.length > 0) {
+        const productRamOptions = product?.productRam || [];
+        const hasMatchingRam = productRamOptions.some((ram) => selectedRamOptions.includes(ram));
+        if (!hasMatchingRam) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [productsData, activeTab, selectedBrands, selectedSizes, selectedProductTypes, selectedPriceRanges, selectedSaleOnly, selectedStockStatus, selectedDiscountRanges, selectedWeights, selectedRamOptions]);
+
+
+
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [])
+  }, []);
 
 
   const open = Boolean(anchorEl);
@@ -51,8 +172,8 @@ const ProductListing = () => {
     }).then((res) => {
       setProductsData(res);
       setAnchorEl(null);
-    })
-  }
+    });
+  };
 
   return (
     <section className=" pb-0">
@@ -67,6 +188,25 @@ const ProductListing = () => {
               setIsLoading={setIsLoading}
               page={page}
               setTotalPages={setTotalPages}
+              selectedBrands={selectedBrands}
+              setSelectedBrands={setSelectedBrands}
+              selectedSizes={selectedSizes}
+              setSelectedSizes={setSelectedSizes}
+              selectedProductTypes={selectedProductTypes}
+              setSelectedProductTypes={setSelectedProductTypes}
+              selectedPriceRanges={selectedPriceRanges}
+              setSelectedPriceRanges={setSelectedPriceRanges}
+              selectedSaleOnly={selectedSaleOnly}
+              setSelectedSaleOnly={setSelectedSaleOnly}
+              selectedStockStatus={selectedStockStatus}
+              setSelectedStockStatus={setSelectedStockStatus}
+              selectedDiscountRanges={selectedDiscountRanges}
+              setSelectedDiscountRanges={setSelectedDiscountRanges}
+              selectedWeights={selectedWeights}
+              setSelectedWeights={setSelectedWeights}
+              selectedRamOptions={selectedRamOptions}
+              setSelectedRamOptions={setSelectedRamOptions}
+              onResetAllFilters={resetAllFilters}
             />
           </div>
 
@@ -97,7 +237,7 @@ const ProductListing = () => {
                 </Button>
 
                 <span className="text-[14px] hidden sm:block md:block lg:block font-[500] pl-3 text-[rgba(0,0,0,0.7)]">
-                  There are {productsData?.products?.length !== 0 ? productsData?.products?.length : 0}  products.
+                  There are {filteredProducts?.length !== 0 ? filteredProducts?.length : 0} products.
                 </span>
               </div>
 
@@ -161,6 +301,35 @@ const ProductListing = () => {
                 </Menu>
               </div>
             </div>
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                 <Button
+                onClick={() => context?.setOpenFilter(true)}
+                className="!text-[12px] !capitalize !rounded-full !border !bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"
+              >
+                <MdOutlineFilterAlt className="mr-1" size={20}/><b className="text-[14px]">Filters</b> 
+              </Button>
+              <Button
+                onClick={() => setActiveTab("all")}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "all" ? "!bg-[#ff5252] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+              >
+                All
+              </Button>
+
+              <Button
+                onClick={() => setActiveTab("branded")}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "branded" ? "!bg-[#ff5252] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+              >
+                Branded
+              </Button>
+
+              <Button
+                onClick={() => setActiveTab("classic")}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "classic" ? "!bg-[#ff5252] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+              >
+                Classic
+              </Button>
+            </div>
+
 
             <div
               className={`grid ${itemView === "grid"
@@ -175,7 +344,7 @@ const ProductListing = () => {
                     isLoading === true ? <ProductLoadingGrid view={itemView} />
                       :
 
-                      productsData?.products?.length !== 0 && productsData?.products?.map((item, index) => {
+                     filteredProducts?.length !== 0 && filteredProducts?.map((item, index) => {
                         return (
                           <ProductItem key={index} item={item} />
                         )
@@ -191,7 +360,7 @@ const ProductListing = () => {
                     isLoading === true ? <ProductLoadingGrid view={itemView} />
                       :
 
-                      productsData?.products?.length !== 0 && productsData?.products?.map((item, index) => {
+                     filteredProducts?.length !== 0 && filteredProducts?.map((item, index) => {
                         return (
                           <ProductItemListView key={index} item={item} />
                         )

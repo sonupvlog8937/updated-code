@@ -6,7 +6,7 @@ import { GoTriangleDown } from "react-icons/go";
 import Rating from "@mui/material/Rating";
 import { IoCloseSharp } from "react-icons/io5";
 import { deleteData, editData, fetchDataFromApi } from "../../utils/api";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 
 const CartItems = (props) => {
   const [sizeanchorEl, setSizeAnchorEl] = useState(null);
@@ -19,7 +19,7 @@ const CartItems = (props) => {
 
   const numbers = Array.from({ length: 20 }, () => Math.floor(Math.random() * 10) + 1);
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
 
   const handleClickSize = (event) => {
     setSizeAnchorEl(event.currentTarget);
@@ -180,6 +180,11 @@ const CartItems = (props) => {
             className="w-full group-hover:scale-105 transition-all"
           />
         </Link>
+        <span
+                    className="flex items-center justify-center bg-[#f1f1f1] text-[12px] font-[600] py-1 px-1 rounded-md cursor-pointer"
+                  >
+                    Colour: {props?.item?.color} 
+                  </span>
       </div>
 
       <div className="info  w-[70%]  sm:w-[80%]  lg:w-[85%] relative">
@@ -199,8 +204,7 @@ const CartItems = (props) => {
                 props?.productSizeData?.length !== 0 &&
                 <div className="relative">
                   <span
-                    className="flex items-center justify-center bg-[#f1f1f1] text-[11px]
-       font-[600] py-1 px-2 rounded-md cursor-pointer"
+                    className="flex items-center justify-center bg-[#f1f1f1] text-[11px] font-[600] py-1 px-2 rounded-md cursor-pointer"
                     onClick={handleClickSize}
                   >
                     Size: {selectedSize} <GoTriangleDown />
@@ -232,6 +236,7 @@ const CartItems = (props) => {
               }
             </>
           }
+        
 
 
           {
@@ -241,8 +246,7 @@ const CartItems = (props) => {
                 props?.productRamsData?.length !== 0 &&
                 <div className="relative">
                   <span
-                    className="flex items-center justify-center bg-[#f1f1f1] text-[11px]
-       font-[600] py-1 px-2 rounded-md cursor-pointer"
+                    className="flex items-center justify-center bg-[#f1f1f1] text-[11px] font-[600] py-1 px-2 rounded-md cursor-pointer"
                     onClick={handleClickSize}
                   >
                     RAM: {selectedSize} <GoTriangleDown />

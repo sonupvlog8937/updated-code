@@ -3,7 +3,7 @@ import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { HiOutlineDotsVertical } from "react-icons/hi";
-import { MyContext } from '../../App';
+import { useAppContext } from "../../hooks/useAppContext";
 
 const ITEM_HEIGHT = 48;
 
@@ -11,7 +11,7 @@ const AddressBox = (props) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const open = Boolean(anchorEl);
 
-    const context = useContext(MyContext);
+    const context = useAppContext();
 
     const handleClick = (event) => {
         setAnchorEl(event.currentTarget);

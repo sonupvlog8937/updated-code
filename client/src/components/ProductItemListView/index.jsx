@@ -1,4 +1,4 @@
-import React,{useContext,useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import "../ProductItem/style.css";
 import { Link } from "react-router-dom";
 import Rating from "@mui/material/Rating";
@@ -6,7 +6,7 @@ import Button from "@mui/material/Button";
 import { FaRegHeart } from "react-icons/fa";
 import { IoGitCompareOutline } from "react-icons/io5";
 import { MdZoomOutMap } from "react-icons/md";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 import { MdOutlineShoppingCart } from "react-icons/md";
 import { FaMinus } from "react-icons/fa6";
 import { FaPlus } from "react-icons/fa6";
@@ -17,188 +17,188 @@ import { IoMdHeart } from "react-icons/io";
 
 const ProductItem = (props) => {
 
-    const [quantity, setQuantity] = useState(1);
-    const [isAdded, setIsAdded] = useState(false);
-    const [isAddedInMyList, setIsAddedInMyList] = useState(false);
-    const [cartItem, setCartItem] = useState([]);
-  
-    const [activeTab, setActiveTab] = useState(null);
-    const [isShowTabs, setIsShowTabs] = useState(false);
-    const [selectedTabName, setSelectedTabName] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-  
-  
-    const context = useContext(MyContext);
-  
-    const addToCart = (product, userId, quantity) => {
-  
-      const productItem = {
-        _id: product?._id,
-        name: product?.name,
-        image: product?.images[0],
-        rating: product?.rating,
-        price: product?.price,
-        oldPrice: product?.oldPrice,
-        discount: product?.discount,
-        quantity: quantity,
-        subTotal: parseInt(product?.price * quantity),
-        productId: product?._id,
-        countInStock: product?.countInStock,
-        brand: product?.brand,
-        size: props?.item?.size?.length !== 0 ? selectedTabName : '',
-        weight: props?.item?.productWeight?.length !== 0 ? selectedTabName : '',
-        ram: props?.item?.productRam?.length !== 0 ? selectedTabName : ''
-  
-      }
-  
-  
-      setIsLoading(true);
-  
-      if (props?.item?.size?.length !== 0 || props?.item?.productRam?.length !== 0 || props?.item?.productWeight
-        ?.length !== 0) {
-        setIsShowTabs(true)
-      } else {
-        setIsAdded(true);
-  
+  const [quantity, setQuantity] = useState(1);
+  const [isAdded, setIsAdded] = useState(false);
+  const [isAddedInMyList, setIsAddedInMyList] = useState(false);
+  const [cartItem, setCartItem] = useState([]);
+
+  const [activeTab, setActiveTab] = useState(null);
+  const [isShowTabs, setIsShowTabs] = useState(false);
+  const [selectedTabName, setSelectedTabName] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+
+  const context = useAppContext();
+
+  const addToCart = (product, userId, quantity) => {
+
+    const productItem = {
+      _id: product?._id,
+      name: product?.name,
+      image: product?.images[0],
+      rating: product?.rating,
+      price: product?.price,
+      oldPrice: product?.oldPrice,
+      discount: product?.discount,
+      quantity: quantity,
+      subTotal: parseInt(product?.price * quantity),
+      productId: product?._id,
+      countInStock: product?.countInStock,
+      brand: product?.brand,
+      size: props?.item?.size?.length !== 0 ? selectedTabName : '',
+      weight: props?.item?.productWeight?.length !== 0 ? selectedTabName : '',
+      ram: props?.item?.productRam?.length !== 0 ? selectedTabName : ''
+
+    }
+
+
+    setIsLoading(true);
+
+    if (props?.item?.size?.length !== 0 || props?.item?.productRam?.length !== 0 || props?.item?.productWeight
+      ?.length !== 0) {
+      setIsShowTabs(true)
+    } else {
+      setIsAdded(true);
+
+      setIsShowTabs(false);
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 500);
+      context?.addToCart(productItem, userId, quantity);
+
+    }
+
+
+
+    if (activeTab !== null) {
+      context?.addToCart(productItem, userId, quantity);
+      setIsAdded(true);
+      setIsShowTabs(false)
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 500);
+    }
+
+
+  }
+
+
+  const handleClickActiveTab = (index, name) => {
+    setActiveTab(index)
+    setSelectedTabName(name)
+  }
+
+  useEffect(() => {
+    const item = context?.cartData?.filter((cartItem) =>
+      cartItem.productId.includes(props?.item?._id)
+    )
+
+    const myListItem = context?.myListData?.filter((item) =>
+      item.productId.includes(props?.item?._id)
+    )
+
+    if (item?.length !== 0) {
+      setCartItem(item)
+      setIsAdded(true);
+      setQuantity(item[0]?.quantity)
+    } else {
+      setQuantity(1)
+    }
+
+
+    if (myListItem?.length !== 0) {
+      setIsAddedInMyList(true);
+    } else {
+      setIsAddedInMyList(false)
+    }
+
+  }, [context?.cartData]);
+
+
+  const minusQty = () => {
+    if (quantity !== 1 && quantity > 1) {
+      setQuantity(quantity - 1)
+    } else {
+      setQuantity(1)
+    }
+
+
+    if (quantity === 1) {
+      deleteData(`/api/cart/delete-cart-item/${cartItem[0]?._id}`).then((res) => {
+        setIsAdded(false);
+        context.alertBox("success", "Item Removed ");
+        context?.getCartItems();
         setIsShowTabs(false);
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 500);
-        context?.addToCart(productItem, userId, quantity);
-  
-      }
-  
-  
-  
-      if (activeTab !== null) {
-        context?.addToCart(productItem, userId, quantity);
-        setIsAdded(true);
-        setIsShowTabs(false)
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 500);
-      }
-  
-  
-    }
-  
-  
-    const handleClickActiveTab = (index, name) => {
-      setActiveTab(index)
-      setSelectedTabName(name)
-    }
-  
-    useEffect(() => {
-      const item = context?.cartData?.filter((cartItem) =>
-        cartItem.productId.includes(props?.item?._id)
-      )
-  
-      const myListItem = context?.myListData?.filter((item) =>
-        item.productId.includes(props?.item?._id)
-      )
-  
-      if (item?.length !== 0) {
-        setCartItem(item)
-        setIsAdded(true);
-        setQuantity(item[0]?.quantity)
-      } else {
-        setQuantity(1)
-      }
-  
-  
-      if (myListItem?.length !== 0) {
-        setIsAddedInMyList(true);
-      } else {
-        setIsAddedInMyList(false)
-      }
-  
-    }, [context?.cartData]);
-  
-  
-    const minusQty = () => {
-      if (quantity !== 1 && quantity > 1) {
-        setQuantity(quantity - 1)
-      } else {
-        setQuantity(1)
-      }
-  
-  
-      if (quantity === 1) {
-        deleteData(`/api/cart/delete-cart-item/${cartItem[0]?._id}`).then((res) => {
-          setIsAdded(false);
-          context.alertBox("success", "Item Removed ");
-          context?.getCartItems();
-          setIsShowTabs(false);
-          setActiveTab(null);
-        })
-      } else {
-        const obj = {
-          _id: cartItem[0]?._id,
-          qty: quantity - 1,
-          subTotal: props?.item?.price * (quantity - 1)
-        }
-  
-        editData(`/api/cart/update-qty`, obj).then((res) => {
-          context.alertBox("success", res?.data?.message);
-          context?.getCartItems();
-        })
-      }
-  
-    }
-  
-  
-    const addQty = () => {
-  
-      setQuantity(quantity + 1);
-  
+        setActiveTab(null);
+      })
+    } else {
       const obj = {
         _id: cartItem[0]?._id,
-        qty: quantity + 1,
-        subTotal: props?.item?.price * (quantity + 1)
+        qty: quantity - 1,
+        subTotal: props?.item?.price * (quantity - 1)
       }
-  
+
       editData(`/api/cart/update-qty`, obj).then((res) => {
         context.alertBox("success", res?.data?.message);
         context?.getCartItems();
       })
-  
-  
-  
     }
-  
-  
-    const handleAddToMyList = (item) => {
-      if (context?.userData === null) {
-        context?.alertBox("error", "you are not login please login first");
-        return false
+
+  }
+
+
+  const addQty = () => {
+
+    setQuantity(quantity + 1);
+
+    const obj = {
+      _id: cartItem[0]?._id,
+      qty: quantity + 1,
+      subTotal: props?.item?.price * (quantity + 1)
+    }
+
+    editData(`/api/cart/update-qty`, obj).then((res) => {
+      context.alertBox("success", res?.data?.message);
+      context?.getCartItems();
+    })
+
+
+
+  }
+
+
+  const handleAddToMyList = (item) => {
+    if (context?.userData === null) {
+      context?.alertBox("error", "you are not login please login first");
+      return false
+    }
+
+    else {
+      const obj = {
+        productId: item?._id,
+        userId: context?.userData?._id,
+        productTitle: item?.name,
+        image: item?.images[0],
+        rating: item?.rating,
+        price: item?.price,
+        oldPrice: item?.oldPrice,
+        brand: item?.brand,
+        discount: item?.discount
       }
-  
-      else {
-        const obj = {
-          productId: item?._id,
-          userId: context?.userData?._id,
-          productTitle: item?.name,
-          image: item?.images[0],
-          rating: item?.rating,
-          price: item?.price,
-          oldPrice: item?.oldPrice,
-          brand: item?.brand,
-          discount: item?.discount
+
+
+      postData("/api/myList/add", obj).then((res) => {
+        if (res?.error === false) {
+          context?.alertBox("success", res?.message);
+          setIsAddedInMyList(true);
+          context?.getMyListData();
+        } else {
+          context?.alertBox("error", res?.message);
         }
-  
-  
-        postData("/api/myList/add", obj).then((res) => {
-          if (res?.error === false) {
-            context?.alertBox("success", res?.message);
-            setIsAddedInMyList(true);
-            context?.getMyListData();
-          } else {
-            context?.alertBox("error", res?.message);
-          }
-        })
-  
-      }
+      })
+
     }
+  }
 
   return (
     <div className="productItem p-4 shadow-md bg-[#f1f1f1] rounded-md overflow-hidden border-1 border-[rgba(0,0,0,0.1)] flex items-center flex-col lg:flex-row">
@@ -210,7 +210,7 @@ const ProductItem = (props) => {
               className="w-full"
             />
 
-           {
+            {
               props?.item?.images?.length > 1 &&
               <img
                 src={`${API_URL}/download/${props?.item?.images[1]}`}
@@ -221,7 +221,7 @@ const ProductItem = (props) => {
           </div>
         </Link>
 
-          {
+        {
           isShowTabs === true &&
           <div className="flex items-center justify-center absolute top-0 left-0 w-full h-full 
       bg-[rgba(0,0,0,0.7)] z-[60] p-3 gap-2">
@@ -289,7 +289,7 @@ const ProductItem = (props) => {
             onClick={() => handleAddToMyList(props?.item)}
           >
             {
-              isAddedInMyList === true ? <IoMdHeart  className="text-[18px] !text-primary group-hover:text-white hover:!text-white"/> :
+              isAddedInMyList === true ? <IoMdHeart className="text-[18px] !text-primary group-hover:text-white hover:!text-white" /> :
                 <FaRegHeart className="text-[18px] !text-black group-hover:text-white hover:!text-white" />
 
             }
@@ -301,24 +301,24 @@ const ProductItem = (props) => {
       <div className="info p-3 py-5 pb-0 px-3 lg:px-8  w-full lg:w-[75%]">
         <h6 className="text-[15px] !font-[400]">
           <Link to="/" className="link transition-all">
-           {props?.item?.brand}
+            {props?.item?.brand}
           </Link>
         </h6>
-        <h3 className="text-[18px] title mt-3 font-[500] mb-1 text-[#000]" style={{lineHeight:'25px'}}>
+        <h3 className="text-[18px] title mt-3 font-[500] mb-1 text-[#000]" style={{ lineHeight: '25px' }}>
           <Link to={`/product/${props?.item?._id}`} className="link transition-all">
-           {props?.item?.name}
+            {props?.item?.name}
           </Link>
         </h3>
 
         <p className="text-[14px] mb-3">
-         {props?.item?.description}
+          {props?.item?.description}
         </p>
 
         <Rating name="size-small" value={props?.item?.rating} size="small" readOnly />
 
         <div className="flex items-center gap-4">
           <span className="oldPrice line-through text-gray-500 text-[15px] font-[500]">
-          &#x20b9;{props?.item?.oldPrice}
+            &#x20b9;{props?.item?.oldPrice}
           </span>
           <span className="price text-primary text-[15px]  font-[600]">
             &#x20b9;{props?.item?.price}
@@ -326,7 +326,7 @@ const ProductItem = (props) => {
         </div>
 
         <div className="mt-3 w-[180px]">
-         {
+          {
             isAdded === false ?
 
               <Button className="btn-org btn-border flex w-full btn-sm gap-2 " size="small"

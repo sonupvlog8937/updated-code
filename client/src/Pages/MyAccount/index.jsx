@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { Button } from "@mui/material";
 import TextField from "@mui/material/TextField";
 import AccountSidebar from "../../components/AccountSidebar";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 import { useNavigate } from "react-router-dom";
 import { editData, postData } from "../../utils/api";
 import CircularProgress from '@mui/material/CircularProgress';
@@ -31,7 +31,7 @@ const MyAccount = () => {
     confirmPassword: ''
   });
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
   const history = useNavigate();
 
   useEffect(() => {

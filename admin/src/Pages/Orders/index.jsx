@@ -92,29 +92,29 @@ export const Orders = () => {
   }, [searchQuery])
 
 
-    const deleteOrder = (id) => {
-          if (context?.userData?.role === "ADMIN") {
-              deleteData(`/api/order/deleteOrder/${id}`).then((res) => {
-                fetchDataFromApi(`/api/order/order-list?page=${pageOrder}&limit=5`).then((res) => {
-                  if (res?.error === false) {
-                    setOrdersData(res?.data)
-                    context?.setProgress(100);
-                    context.alertBox("success", "Order Delete successfully!");
-                  }
-                })
-
-                fetchDataFromApi(`/api/order/order-list`).then((res) => {
-                  if (res?.error === false) {
-                    setTotalOrdersData(res)
-                  }
-                })
-                
-              })
-          } else {
-              context.alertBox("error", "Only admin can delete data");
+  const deleteOrder = (id) => {
+    if (context?.userData?.role === "ADMIN") {
+      deleteData(`/api/order/deleteOrder/${id}`).then((res) => {
+        fetchDataFromApi(`/api/order/order-list?page=${pageOrder}&limit=5`).then((res) => {
+          if (res?.error === false) {
+            setOrdersData(res?.data)
+            context?.setProgress(100);
+            context.alertBox("success", "Order Delete successfully!");
           }
-      }
-  
+        })
+
+        fetchDataFromApi(`/api/order/order-list`).then((res) => {
+          if (res?.error === false) {
+            setTotalOrdersData(res)
+          }
+        })
+
+      })
+    } else {
+      context.alertBox("error", "Only admin can delete data");
+    }
+  }
+
 
   return (
     <div className="card my-2 md:mt-4 shadow-md sm:rounded-lg bg-white">
@@ -226,7 +226,7 @@ export const Orders = () => {
                       <td className="px-6 py-4 font-[500]">{order?.totalAmt}</td>
 
                       <td className="px-6 py-4 font-[500]">
-                        {order?.userId?.email?.substr(0,5)+'***'}
+                        {order?.userId?.email?.substr(0, 5) + '***'}
                       </td>
 
                       <td className="px-6 py-4 font-[500]">
@@ -285,6 +285,12 @@ export const Orders = () => {
                                     Image
                                   </th>
                                   <th
+                                          scope="col"
+                                          className="px-6 py-3 whitespace-nowrap"
+                                        >
+                                          Color
+                                        </th>
+                                  <th
                                     scope="col"
                                     className="px-6 py-3 whitespace-nowrap"
                                   >
@@ -301,6 +307,24 @@ export const Orders = () => {
                                     className="px-6 py-3 whitespace-nowrap"
                                   >
                                     Sub Total
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="px-6 py-3 whitespace-nowrap"
+                                  >
+                                    Size
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="px-6 py-3 whitespace-nowrap"
+                                  >
+                                    Weight
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    className="px-6 py-3 whitespace-nowrap"
+                                  >
+                                    Ram
                                   </th>
                                 </tr>
                               </thead>
@@ -328,12 +352,25 @@ export const Orders = () => {
                                         </td>
 
                                         <td className="px-6 py-4 font-[500] whitespace-nowrap">
+                                          {item?.color || "-"}
+                                        </td>
+
+                                        <td className="px-6 py-4 font-[500] whitespace-nowrap">
                                           {item?.quantity}
                                         </td>
 
                                         <td className="px-6 py-4 font-[500]">{item?.price?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}</td>
 
                                         <td className="px-6 py-4 font-[500]">{(item?.price * item?.quantity)?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}</td>
+                                        <td className="px-6 py-4 font-[500] whitespace-nowrap">
+                                          {item?.size}
+                                        </td>
+                                        <td className="px-6 py-4 font-[500] whitespace-nowrap">
+                                          {item?.weight}
+                                        </td>
+                                        <td className="px-6 py-4 font-[500] whitespace-nowrap">
+                                          {item?.ram}
+                                        </td>
                                       </tr>
                                     )
                                   })

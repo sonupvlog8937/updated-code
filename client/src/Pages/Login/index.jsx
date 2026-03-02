@@ -5,7 +5,7 @@ import { IoMdEye } from "react-icons/io";
 import { IoMdEyeOff } from "react-icons/io";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 import CircularProgress from '@mui/material/CircularProgress';
 import { postData } from "../../utils/api";
 
@@ -22,7 +22,7 @@ const Login = () => {
     password:''
   });
 
-  const context  = useContext(MyContext);
+  const context  = useAppContext();
   const history = useNavigate();
 
  
@@ -228,7 +228,7 @@ const Login = () => {
             <a className="link cursor-pointer text-[14px] font-[600]" onClick={forgotPassword}>Forgot Password?</a>
 
             <div className="flex items-center w-full mt-3 mb-3">
-            <Button type="submit" disabled={!valideValue} className="btn-org btn-lg w-full flex gap-3">
+            <Button type="submit" disabled={!valideValue} className="!bg-[#f1f1f1] btn-lg w-full flex gap-3">
               {
                 isLoading === true ? <CircularProgress color="inherit" />
                   :
@@ -243,7 +243,7 @@ const Login = () => {
 
             <p className="text-center font-[500]">Or continue with social account</p>
 
-            <Button className="flex gap-3 w-full !bg-[#f1f1f1] btn-lg !text-black"
+            <Button className="flex gap-3 w-full btn-org btn-lg !text-black"
             onClick={authWithGoogle}>
             <FcGoogle className="text-[20px]"/> Login with Google</Button>
 

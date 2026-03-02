@@ -24,10 +24,10 @@ const BannerBoxV2 = (props) => {
         <div className="w-full">
           {
             props?.item?.subCatId !== undefined && props?.item?.subCatId !== null ?
-              <Link to={`/products?subCatId=${props?.item?.subCatId}`} className="text-[16px] font-[600] link">SHOP NOW</Link>
+              <Link to={`/products?subCatId=${props?.item?.subCatId}`} className="text-[16px] border-radius text-white bg-red-600 p-2 font-[600] link">SHOP NOW</Link>
               :
 
-              <Link to={`/products?catId=${props?.item?.catId}`} className="text-[16px] font-[600] link">SHOP NOW</Link>
+              <Link to={`/products?catId=${props?.item?.catId}`} className="text-[16px] border-radius text-white bg-red-600 p-2 font-[600] link">SHOP NOW</Link>
 
           }
 

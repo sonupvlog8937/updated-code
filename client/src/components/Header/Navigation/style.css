@@ -10,3 +10,37 @@
 
 .nav li .submenu li .submenu button{color: rgba(0,0,0,0.80) !important;}
 .nav li .submenu li .submenu button:hover{color: #ff5252 !important;}
+
+.download-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px;
+          background: #fd7200;
+          color: #fff;
+          border-radius: 8px;
+          text-decoration: none;
+          font-weight: bold;
+          font-size: 16px;
+          transition: all 0.3s ease;
+          min-width: 80px;
+        }
+
+        .download-btn:hover {
+          background: #e86500;
+          transform: scale(1.03);
+        }
+
+        .download-btn.loading {
+          pointer-events: none;
+          opacity: 0.8;
+        }
+
+        /* 📱 Mobile Responsive */
+        @media (max-width: 600px) {
+          .download-btn {
+            width: 100px;
+            padding: 8px;
+            font-size: 15px;
+          }
+        }

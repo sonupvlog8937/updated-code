@@ -2,13 +2,13 @@ import React, { useContext, useEffect, useState } from "react";
 
 import MyListItems from "./myListItems";
 import AccountSidebar from "../../components/AccountSidebar";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 import Button from "@mui/material/Button";
 import { Link } from "react-router-dom";
 
 const MyList = () => {
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
 
   useEffect(()=>{
     window.scrollTo(0,0);

@@ -4,13 +4,13 @@ import Drawer from "@mui/material/Drawer";
 import { IoCloseSharp } from "react-icons/io5";
 import { CategoryCollapse } from "../../CategoryCollapse";
 import { Button } from "@mui/material";
-import { MyContext } from "../../../App";
+import { useAppContext } from "../../../hooks/useAppContext";
 import { Link } from "react-router-dom";
 import { fetchDataFromApi } from "../../../utils/api";
 
 const CategoryPanel = (props) => {
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
 
   const toggleDrawer = (newOpen) => () => {
     props.setIsOpenCatPanel(newOpen);

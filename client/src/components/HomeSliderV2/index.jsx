@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 // Import Swiper styles
 import "swiper/css";
@@ -10,11 +10,11 @@ import "swiper/css/pagination";
 import { EffectFade, Navigation, Pagination, Autoplay } from "swiper/modules";
 import Button from "@mui/material/Button";
 import { Link } from "react-router-dom";
-import { MyContext } from "../../App";
+import { useAppContext } from "../../hooks/useAppContext";
 
 const HomeBannerV2 = (props) => {
 
-  const context = useContext(MyContext);
+  const context = useAppContext();
 
   return (
     <Swiper

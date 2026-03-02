@@ -1,7 +1,7 @@
 import React from 'react'
 import AccountSidebar from '../../components/AccountSidebar';
 import { useContext } from 'react';
-import { MyContext } from '../../App';
+import { useAppContext } from "../../hooks/useAppContext";
 
 import { useState } from 'react';
 
@@ -16,7 +16,7 @@ const Address = () => {
 
     const [address, setAddress] = useState([]);
 
-    const context = useContext(MyContext);
+    const context = useAppContext();
 
     useEffect(() => {
         if (context?.userData?._id !== "" && context?.userData?._id !== undefined) {
