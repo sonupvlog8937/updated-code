@@ -35,10 +35,34 @@ const normalizeSearchText = (value = "") =>
     .replace(/\s+/g, " ")
     .trim();
 
-    const tokenizeText = (value = "") =>
+   const tokenizeText = (value = "") =>
   normalizeSearchText(value)
     .split(" ")
     .filter(Boolean);
+
+    const SEARCH_STOP_WORDS = new Set([
+  "for",
+  "the",
+  "and",
+  "with",
+  "from",
+  "new",
+  "latest",
+  "best",
+  "buy",
+  "shop",
+  "online",
+]);
+
+const getMeaningfulSearchTokens = (value = "") => {
+  const tokens = tokenizeText(value);
+  const filtered = tokens.filter(
+    (token) => token.length > 1 && !SEARCH_STOP_WORDS.has(token),
+  );
+
+  return filtered.length ? filtered : tokens;
+};
+
 
 const levenshteinDistance = (a = "", b = "") => {
   const first = normalizeSearchText(a);
@@ -129,6 +153,18 @@ const getSpellCorrectedQuery = (query = "", vocabulary = []) => {
   }
 
   return correctedWords.join(" ");
+};
+
+const buildSearchIntentPhrases = (query = "") => {
+  const tokens = getMeaningfulSearchTokens(query);
+  if (!tokens.length) return [];
+
+  const phrases = [tokens.join(" ")];
+  if (tokens.length >= 2) {
+    phrases.push(tokens.slice(0, 2).join(" "));
+  }
+
+  return Array.from(new Set(phrases.filter(Boolean)));
 };
 
 const buildAiSearchInsights = (products = [], correctedQuery = "") => {
@@ -1624,9 +1660,25 @@ export async function searchProductController(request, response) {
     }
 
     const cleanQuery = normalizeSearchText(query);
-    const queryParts = tokenizeText(cleanQuery);
+    const queryParts = getMeaningfulSearchTokens(cleanQuery);
+    const intentPhrases = buildSearchIntentPhrases(cleanQuery);
 
     const fullQueryRegex = new RegExp(cleanQuery, "i");
+    const intentPhraseMatchers = intentPhrases.map((phrase) => {
+      const phraseRegex = new RegExp(phrase, "i");
+      return {
+        $or: [
+          { name: phraseRegex },
+          { brand: phraseRegex },
+          { description: phraseRegex },
+          { keywords: phraseRegex },
+          { catName: phraseRegex },
+          { subCat: phraseRegex },
+          { thirdsubCat: phraseRegex },
+        ],
+      };
+    });
+
     const termBasedMatcher = queryParts.map((term) => {
       const termRegex = new RegExp(term, "i");
       return {
@@ -1653,14 +1705,16 @@ export async function searchProductController(request, response) {
         { catName: fullQueryRegex },
         { subCat: fullQueryRegex },
         { thirdsubCat: fullQueryRegex },
+        ...intentPhraseMatchers,
         ...(termBasedMatcher.length ? [{ $and: termBasedMatcher }] : []),
       ],
     })
       .populate("category")
       .limit(250);
 
-      const vocabulary = buildSearchVocabulary(products);
+       const vocabulary = buildSearchVocabulary(products);
     const correctedQuery = getSpellCorrectedQuery(cleanQuery, vocabulary);
+     const correctedTokens = getMeaningfulSearchTokens(correctedQuery || cleanQuery);
 
     let scoredProducts = products
       .map((item) => {
@@ -1678,7 +1732,7 @@ export async function searchProductController(request, response) {
 
         let score = 0;
 
-        for (const term of queryParts) {
+        for (const term of correctedTokens) {
           const hasContainMatch = data.some(
             (field) => field.includes(term) || term.includes(field),
           );
@@ -1703,7 +1757,12 @@ export async function searchProductController(request, response) {
           }
         }
 
-        if (normalizeSearchText(item?.name).includes(cleanQuery)) {
+        if (
+          normalizeSearchText(item?.name).includes(cleanQuery) ||
+          intentPhrases.some((phrase) =>
+            normalizeSearchText(item?.name).includes(phrase),
+          )
+        ) {
           score += 10;
         }
 
@@ -1723,6 +1782,9 @@ export async function searchProductController(request, response) {
          const fallbackVocabulary = buildSearchVocabulary(fuzzyFallback);
       const fallbackCorrection =
         correctedQuery || getSpellCorrectedQuery(cleanQuery, fallbackVocabulary);
+        const fallbackTokens = getMeaningfulSearchTokens(
+        fallbackCorrection || cleanQuery,
+      );
       scoredProducts = fuzzyFallback
         .map((item) => {
           const fields = [item?.name, ...(item?.keywords || []), item?.brand]
@@ -1733,7 +1795,11 @@ export async function searchProductController(request, response) {
             ...fields.map((field) => {
               const words = field.split(" ").filter(Boolean);
               return Math.min(
-                ...words.map((word) => levenshteinDistance(cleanQuery, word)),
+                ...fallbackTokens.map((token) =>
+                  Math.min(
+                    ...words.map((word) => levenshteinDistance(token, word)),
+                  ),
+                ),
               );
             }),
           );

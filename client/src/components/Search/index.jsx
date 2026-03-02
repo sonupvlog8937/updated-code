@@ -15,11 +15,11 @@ const TRENDING_TERMS = [
   "t shirts",
   "bag",
   "watches",
-  "touser",
+  "trouser",
 ];
 
 const POPULAR_TERMS = [
-  "formal paint",
+  "formal pant",
   "zara jeans",
   "formal shirt",
   "baggy jeans",
@@ -52,6 +52,8 @@ const Search = () => {
   const [recentSearches, setRecentSearches] = useState([]);
   const [liveSuggestions, setLiveSuggestions] = useState([]);
   const [suggestedCorrection, setSuggestedCorrection] = useState("");
+  const [aiHintSummary, setAiHintSummary] = useState("");
+  const [aiHintHighlights, setAiHintHighlights] = useState([]);
 
   const context = useAppContext();
 
@@ -132,6 +134,8 @@ const Search = () => {
     setLiveSuggestions([]);
     setQuerySuggestions([]);
     setSuggestedCorrection("");
+    setAiHintSummary("");
+    setAiHintHighlights([]);
     setIsDropdownOpen(true);
   };
 
@@ -177,6 +181,8 @@ const Search = () => {
       setLiveSuggestions([]);
       setQuerySuggestions([]);
       setSuggestedCorrection("");
+      setAiHintSummary("");
+      setAiHintHighlights([]);
       return;
     }
 
@@ -189,6 +195,8 @@ const Search = () => {
         setLiveSuggestions(res?.products || []);
         setQuerySuggestions(res?.suggestions || []);
         setSuggestedCorrection(res?.correctedQuery || "");
+        setAiHintSummary(res?.aiInsights?.summary || "");
+        setAiHintHighlights((res?.aiInsights?.highlights || []).slice(0, 2));
       });
     }, 300);
 
@@ -251,6 +259,21 @@ const Search = () => {
                     <span className="font-[500] text-[14px] text-[#6a6a6a]">Did you mean</span>
                     <span className="font-[700]">{suggestedCorrection}</span>
                   </button>
+                </li>
+              )}
+              {aiHintSummary && (
+                <li>
+                  <div className="rounded-[8px] bg-[#e8f2ff] p-2 mb-1">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-[#2e63b8] font-[700]">AI suggestion</p>
+                    <p className="text-[12px] text-[#1e1e1e]">{aiHintSummary}</p>
+                    {aiHintHighlights.length > 0 && (
+                      <ul className="mt-1 text-[11px] text-[#3f3f3f] list-disc pl-4">
+                        {aiHintHighlights.map((hint) => (
+                          <li key={hint}>{hint}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </li>
               )}
               {predictiveSuggestions.map((item) => (
