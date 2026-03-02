@@ -3,7 +3,7 @@ import "../Search/style.css";
 import Button from "@mui/material/Button";
 import { IoSearch } from "react-icons/io5";
 import { useAppContext } from "../../hooks/useAppContext";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { postData } from "../../utils/api";
 import CircularProgress from "@mui/material/CircularProgress";
 import { IoTimeOutline } from "react-icons/io5";
@@ -45,6 +45,7 @@ const Search = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [querySuggestions, setQuerySuggestions] = useState([]);
   const [recentSearches, setRecentSearches] = useState([]);
   const [liveSuggestions, setLiveSuggestions] = useState([]);
   const [suggestedCorrection, setSuggestedCorrection] = useState("");
@@ -52,16 +53,29 @@ const Search = () => {
   const context = useAppContext();
 
   const history = useNavigate();
+  const location = useLocation();
+  const STORAGE_KEY = "recent_searches_v1";
   const searchWrapperRef = useRef(null);
   const debounceTimeoutRef = useRef(null);
-    const inputRef = useRef(null);
+  const inputRef = useRef(null);
 
   const normalizedSuggestions = useMemo(() => {
-    return liveSuggestions
-      ?.map((item) => item?.name)
+    return querySuggestions
+      ?.map((item) => item?.toLowerCase()?.trim())
       .filter(Boolean)
-      .slice(0, 8);
-  }, [liveSuggestions]);
+      .slice(0, 10);
+  }, [querySuggestions]);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      if (Array.isArray(saved)) {
+        setRecentSearches(saved.slice(0, 6));
+      }
+    } catch (error) {
+      setRecentSearches([]);
+    }
+  }, []);
 
   const performSearch = (query = searchQuery) => {
     const trimmedQuery = query.trim();
@@ -85,7 +99,9 @@ const Search = () => {
 
       setRecentSearches((prev) => {
         const uniqueValues = [trimmedQuery, ...prev.filter((item) => item !== trimmedQuery)];
-        return uniqueValues.slice(0, 4);
+        const nextValues = uniqueValues.slice(0, 6);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextValues));
+        return nextValues;
       });
 
       setTimeout(() => {
@@ -111,6 +127,7 @@ const Search = () => {
   const onClearSearch = () => {
     setSearchQuery("");
     setLiveSuggestions([]);
+    setQuerySuggestions([]);
     setSuggestedCorrection("");
     setIsDropdownOpen(true);
   };
@@ -120,6 +137,12 @@ const Search = () => {
       performSearch();
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const queryValue = params.get("query") || "";
+    setSearchQuery(queryValue);
+  }, [location.search]);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
@@ -149,6 +172,7 @@ const Search = () => {
 
     if (searchQuery.trim().length < 2) {
       setLiveSuggestions([]);
+      setQuerySuggestions([]);
       setSuggestedCorrection("");
       return;
     }
@@ -160,6 +184,7 @@ const Search = () => {
         query: searchQuery.trim(),
       }).then((res) => {
         setLiveSuggestions(res?.products || []);
+        setQuerySuggestions(res?.suggestions || []);
         setSuggestedCorrection(res?.correctedQuery || "");
       });
     }, 300);
@@ -172,19 +197,21 @@ const Search = () => {
   }, [searchQuery]);
 
   const predictiveSuggestions = useMemo(() => {
-    const titleSuggestions = normalizedSuggestions
-      .map((item) => item?.toLowerCase())
-      .filter(Boolean);
+    const titleSuggestions = normalizedSuggestions;
+    const productSeedSuggestions = liveSuggestions
+      .map((item) => item?.catName || item?.brand)
+      .filter(Boolean)
+      .map((item) => `${searchQuery.trim().toLowerCase()} ${item.toLowerCase()}`);
     const contextualSuggestions = buildContextualSuggestions(searchQuery);
-    return [...new Set([...titleSuggestions, ...contextualSuggestions])].slice(0, 10);
-  }, [normalizedSuggestions, searchQuery]);
+    return [...new Set([...titleSuggestions, ...productSeedSuggestions, ...contextualSuggestions])].slice(0, 10);
+  }, [normalizedSuggestions, liveSuggestions, searchQuery]);
 
   return (
     <div ref={searchWrapperRef} className="searchContainer relative w-[100%]">
       <div className="searchBox w-[100%] h-[50px] bg-[#e5e5e5] rounded-[8px] relative p-2 border border-transparent focus-within:border-[#0d6efd]">
         <IoSearch className="absolute left-[14px] top-[14px] text-[22px] text-[#666] cursor-pointer" onClick={() => inputRef.current?.focus()} />
         <input
-         ref={inputRef}
+          ref={inputRef}
           type="text"
           placeholder="Search for Products, Brands and More"
           className="w-full h-[35px] focus:outline-none bg-inherit pl-10 pr-14 text-[15px]"
@@ -193,7 +220,7 @@ const Search = () => {
           onChange={onChangeInput}
           onKeyDown={onKeyDownInput}
         />
-         {searchQuery.trim().length > 0 && (
+        {searchQuery.trim().length > 0 && (
           <button
             type="button"
             aria-label="Clear search"

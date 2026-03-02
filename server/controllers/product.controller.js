@@ -161,6 +161,43 @@ const buildAiSearchInsights = (products = [], correctedQuery = "") => {
   };
 };
 
+const buildSearchSuggestions = (products = [], query = "", correctedQuery = "") => {
+  const cleanQuery = normalizeSearchText(query);
+  if (!cleanQuery) return [];
+
+  const templates = [
+    `${cleanQuery} for men`,
+    `${cleanQuery} for women`,
+    `${cleanQuery} under 999`,
+    `${cleanQuery} latest`,
+  ];
+
+  const dynamic = new Set();
+  products.slice(0, 25).forEach((item) => {
+    const name = normalizeSearchText(item?.name);
+    const brand = normalizeSearchText(item?.brand);
+    const catName = normalizeSearchText(item?.catName);
+
+    if (brand && cleanQuery !== brand) dynamic.add(`${cleanQuery} ${brand}`);
+    if (catName && cleanQuery !== catName) dynamic.add(`${cleanQuery} ${catName}`);
+
+    if (name) {
+      const parts = name.split(" ").slice(0, 3).join(" ");
+      if (parts && parts !== cleanQuery) {
+        dynamic.add(parts);
+      }
+    }
+  });
+
+  const suggestionSet = new Set([
+    ...(correctedQuery ? [normalizeSearchText(correctedQuery)] : []),
+    ...templates,
+    ...Array.from(dynamic),
+  ]);
+
+  return Array.from(suggestionSet).filter(Boolean).slice(0, 12);
+};
+
 cloudinary.config({
   cloud_name: process.env.cloudinary_Config_Cloud_Name,
   api_key: process.env.cloudinary_Config_api_key,
@@ -1589,6 +1626,19 @@ export async function searchProductController(request, response) {
     const cleanQuery = normalizeSearchText(query);
     const queryParts = cleanQuery.split(" ").filter(Boolean);
 
+    const queryRegex = new RegExp(cleanQuery, "i");
+    const termBasedMatcher = queryParts.map((term) => ({
+      $or: [
+        { name: { $regex: queryRegex } },
+        { brand: { $regex: queryRegex } },
+        { description: { $regex: queryRegex } },
+        { catName: { $regex: queryRegex } },
+        { subCat: { $regex: queryRegex } },
+        { thirdsubCat: { $regex: queryRegex } },
+        { $and: termBasedMatcher },
+      ],
+    }));
+
     const products = await ProductModel.find({
       $or: [
         { name: { $regex: query, $options: "i" } },
@@ -1703,6 +1753,7 @@ export async function searchProductController(request, response) {
         totalPages: Math.max(1, Math.ceil(total / requestedLimit)),
         originalQuery: query,
         correctedQuery: fallbackCorrection,
+        suggestions: buildSearchSuggestions(scoredProducts, query, fallbackCorrection),
         aiInsights: buildAiSearchInsights(paginatedProducts, fallbackCorrection),
       });
     }
@@ -1723,6 +1774,7 @@ export async function searchProductController(request, response) {
       totalPages: Math.max(1, Math.ceil(total / requestedLimit)),
       originalQuery: query,
       correctedQuery,
+      suggestions: buildSearchSuggestions(scoredProducts, query, correctedQuery),
       aiInsights: buildAiSearchInsights(paginatedProducts, correctedQuery),
     });
   } catch (error) {
