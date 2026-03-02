@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import HomeSlider from "../../components/HomeSlider";
 import HomeCatSlider from "../../components/HomeCatSlider";
 import { LiaShippingFastSolid } from "react-icons/lia";
@@ -46,37 +46,33 @@ const Home = () => {
 
 
   useEffect(() => {
-
+    let isMounted = true;
     window.scrollTo(0, 0);
 
-    fetchDataFromApi("/api/homeSlides").then((res) => {
-      setHomeSlidesData(res?.data)
-    })
-    fetchDataFromApi("/api/product/getAllProducts?page=1&limit=12").then((res) => {
-      setAllProductsData(res?.products)
-    })
+     Promise.all([
+      fetchDataFromApi("/api/homeSlides"),
+      fetchDataFromApi("/api/product/getAllProducts?page=1&limit=12"),
+      fetchDataFromApi("/api/product/getAllProducts"),
+      fetchDataFromApi("/api/product/getAllFeaturedProducts"),
+      fetchDataFromApi("/api/bannerV1"),
+      fetchDataFromApi("/api/bannerList2"),
+      fetchDataFromApi("/api/blog"),
+    ])
+      .then(([slides, products, bannerProducts, featured, bannerV1, bannerList2, blogs]) => {
+        if (!isMounted) return;
+        setHomeSlidesData(slides?.data || []);
+        setAllProductsData(products?.products || []);
+        setProductsBanners(bannerProducts?.products || []);
+        setFeaturedProducts(featured?.products || []);
+        setBannerV1Data(bannerV1?.data || []);
+        setBannerList2Data(bannerList2?.data || []);
+        setBlogData(blogs?.blogs || []);
+      });
 
-     fetchDataFromApi("/api/product/getAllProducts").then((res) => {
-      setProductsBanners(res?.products)
-    })
-
-    
-    fetchDataFromApi("/api/product/getAllFeaturedProducts").then((res) => {
-      setFeaturedProducts(res?.products)
-    })
-
-    fetchDataFromApi("/api/bannerV1").then((res) => {
-      setBannerV1Data(res?.data);
-    });
-
-    fetchDataFromApi("/api/bannerList2").then((res) => {
-      setBannerList2Data(res?.data);
-    });
-
-    fetchDataFromApi("/api/blog").then((res) => {
-      setBlogData(res?.blogs);
-    });
-  }, [])
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
 
 
@@ -97,13 +93,13 @@ const Home = () => {
       ?.sort(() => Math.random() - 0.5)
       ?.slice(0, 4);
 
-      getRendomProducts(categoryIndexes || [], context?.catData)
+      getRandomProducts(categoryIndexes || [], context?.catData)
 
   }, [context?.catData])
 
 
 
-  const getRendomProducts = (arr, catArr) => {
+  const getRandomProducts = (arr, catArr) => {
 
     const filterData = [];
 
@@ -120,7 +116,7 @@ const Home = () => {
           data: res?.products
         })
 
-        setRandomCatProducts(filterData)
+         setRandomCatProducts([...filterData])
       })
 
     }
@@ -253,10 +249,17 @@ const Home = () => {
           </div>
 
           <div className="part2 scrollableBox w-full lg:w-[30%] flex items-center gap-5 justify-between flex-row lg:flex-col">
-            <BannerBoxV2 info={bannerV1Data[bannerV1Data?.length - 1]?.alignInfo} image={bannerV1Data[bannerV1Data?.length - 1]?.images[0]} item={bannerV1Data[bannerV1Data?.length - 1]} />
-
-            <BannerBoxV2 info={bannerV1Data[bannerV1Data?.length - 2]?.alignInfo} image={bannerV1Data[bannerV1Data?.length - 2]?.images[0]} item={bannerV1Data[bannerV1Data?.length - 2]} />
-          </div>
+             {
+              bannerV1Data?.length > 1 ? (
+                <>
+                  <BannerBoxV2 image={bannerV1Data[bannerV1Data?.length - 1]?.images[0]} item={bannerV1Data[bannerV1Data?.length - 1]} />
+                  <BannerBoxV2 image={bannerV1Data[bannerV1Data?.length - 2]?.images[0]} item={bannerV1Data[bannerV1Data?.length - 2]} />
+                </>
+              ) : (
+                <BannerLoading />
+              )
+            }
+            </div>
 
         </div>
       </section>
@@ -267,32 +270,66 @@ const Home = () => {
 
       <section className="py-0 lg:py-4 pt-0 lg:pt-8 pb-0 bg-white">
         <div className="container">
-          <div className="freeShipping relative overflow-hidden w-full md:w-[90%] m-auto p-3 lg:p-5 border border-[#ff5252]/30 bg-gradient-to-r from-[#fff4f4] via-[#ffffff] to-[#fff7e8] flex items-stretch justify-between flex-col md:flex-row rounded-2xl mb-7 shadow-[0_12px_28px_rgba(0,0,0,0.08)] gap-4">
-            <div className="w-full md:w-[34%] h-[170px] md:h-auto overflow-hidden rounded-xl">
-              <img
-                src="/bannerSml.jpg"
-                alt="Free delivery offer"
-                className="w-full h-full object-cover"
-              />
-            </div>
+         <div className="w-full relative overflow-hidden">
 
-             <div className="w-full md:w-[66%] flex items-center justify-between gap-3 lg:gap-5 flex-col lg:flex-row">
-              <div className="col1 flex items-center gap-3 lg:gap-4">
-                <span className="bg-[#ff5252] text-white rounded-full p-2 lg:p-3 shadow-md">
-                  <LiaShippingFastSolid className="text-[26px] lg:text-[34px]" />
-                </span>
-                <div>
-                  <p className="text-[18px] lg:text-[24px] font-[700] uppercase leading-tight mb-1">Free Shipping</p>
-                  <p className="mb-0 mt-0 text-[13px] lg:text-[15px] text-[#4b4b4b] font-[500]">
-                    First order aur ₹200 se upar ki shopping par delivery bilkul free.
-                  </p>
-                </div>
-              </div>
+  
+  <div className="relative w-full min-h-[300px] md:min-h-[380px] overflow-hidden rounded-3xl">
 
+  {/* Premium Background Image */}
+  <img
+    src="https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?q=80&w=2000&auto=format&fit=crop"
+    alt="Fast ecommerce delivery"
+    className="absolute inset-0 w-full h-full object-cover scale-105"
+  />
 
-            <p className="font-bold text-[#ff5252] text-[20px] lg:text-[30px] whitespace-nowrap">Only ₹200*</p>
-            </div>
-          </div>
+  {/* Premium Gradient Overlay */}
+  <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/30"></div>
+
+  {/* Soft Blur Layer */}
+  <div className="absolute inset-0 backdrop-blur-[2px]"></div>
+
+  {/* Content */}
+  <div className="relative z-10 w-full px-6 md:px-16 lg:px-24 py-12 flex flex-col md:flex-row items-center justify-between gap-10 text-white">
+
+    {/* Left Section */}
+    <div className="flex items-start gap-5 max-w-[650px]">
+
+      <span className="bg-[#ff5252] text-white rounded-full p-4 shadow-2xl ring-4 ring-white/20">
+        <LiaShippingFastSolid className="text-[32px] md:text-[40px]" />
+      </span>
+
+      <div>
+        <h2 className="text-[26px] md:text-[42px] font-extrabold uppercase tracking-wide leading-tight">
+          Free & Fast Shipping
+        </h2>
+
+        <p className="text-[15px] md:text-[18px] text-gray-200 mt-3 leading-relaxed">
+          First order aur ₹200 se upar ki shopping par delivery bilkul free.  
+          Safe packaging, fast dispatch & trusted delivery partners.
+        </p>
+      </div>
+    </div>
+
+    {/* Right Section */}
+    <div className="flex flex-col items-center md:items-end gap-5">
+
+      <p className="text-[#ff5252] text-[30px] md:text-[44px] font-black drop-shadow-lg">
+        Only ₹200*
+      </p>
+
+      <Link to="/products">
+        <button className="px-10 py-3 bg-[#ff5252] text-white rounded-full font-bold shadow-xl hover:bg-white hover:text-black transition-all duration-300 transform hover:scale-105">
+          Shop Now
+        </button>
+      </Link>
+
+    </div>
+
+  </div>
+
+</div>
+
+</div>
 
           {
             bannerV1Data?.length !== 0 && <AdsBannerSliderV2 items={4} data={bannerV1Data} />

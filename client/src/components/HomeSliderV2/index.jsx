@@ -1,91 +1,92 @@
 import React from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
-// Import Swiper styles
 import "swiper/css";
 import "swiper/css/effect-fade";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
 
-// import required modules
 import { EffectFade, Navigation, Pagination, Autoplay } from "swiper/modules";
 import Button from "@mui/material/Button";
 import { Link } from "react-router-dom";
 import { useAppContext } from "../../hooks/useAppContext";
 
-const HomeBannerV2 = (props) => {
-
+const HomeBannerV2 = ({ data }) => {
   const context = useAppContext();
 
   return (
     <Swiper
-      loop={true}
+      loop
       slidesPerView={1}
-      spaceBetween={30}
       effect="fade"
-      navigation={context?.windowWidth < 992 ? false : true}
-      pagination={{
-        clickable: true,
-      }}
-      autoplay={{
-        delay: 2500,
-        disableOnInteraction: false,
-      }}
+      navigation={context?.windowWidth >= 992}
+      pagination={{ clickable: true }}
+      autoplay={{ delay: 3500, disableOnInteraction: false }}
       modules={[EffectFade, Navigation, Pagination, Autoplay]}
       className="homeSliderV2"
     >
+      {data?.map((item, index) => {
+        if (item?.isDisplayOnHomeBanner && item?.bannerimages?.length) {
+          return (
+            <SwiperSlide key={index}>
+              
+              {/* Dynamic Height Section */}
+              <div className="relative w-full h-[65vh] sm:h-[75vh] lg:h-[85vh] min-h-[400px] overflow-hidden">
 
-      {
-        props?.data?.map((item, index) => {
-          if (item?.isDisplayOnHomeBanner === true && item?.bannerimages?.length !== 0) {
-            return (
-              <SwiperSlide key={index}>
+                {/* Background Image */}
+                <img
+                  src={item?.bannerimages[0]}
+                  alt={item?.name}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
 
-                <div className="item w-full rounded-md overflow-hidden relative">
-                  <img src={item?.bannerimages[0]} className="w-full" />
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent"></div>
 
-                  <div className="info absolute top-0 -right-[100%] opacity-0 w-[50%] h-[100%] z-50 p-8 flex items-center flex-col justify-center transition-all duration-700">
+                {/* Content Section */}
+                <div className="absolute inset-0 flex items-center">
+                  <div className="container mx-auto px-6 lg:px-16">
 
-                    <h4 className="text-[12px] lg:text-[18px] font-[500] w-full text-left mb-3 relative -right-[100%] opacity-0 hidden lg:block">
-                      {item?.bannerTitleName}
-                    </h4>
-                    {
-                      context?.windowWidth < 992 &&
-                      <h2 className="text-[15px] lg:text-[30px] font-[700] w-full relative -right-[100%] opacity-0">
-                        {item?.name?.length > 30 ? item?.name?.substr(0, 30) + '...' : item?.name}
+                    <div className="max-w-[550px] text-white space-y-4">
+
+                      <h4 className="text-sm md:text-lg font-medium uppercase tracking-wide text-gray-200">
+                        {item?.name}
+                      </h4>
+
+                      <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+                        {item?.brand}
                       </h2>
-                    }
-                    {
-                      context?.windowWidth > 992 &&
-                      <h2 className="text-[16px] sm:text-[20px] md:text-[25px] lg:text-[30px] font-[700] w-full relative -right-[100%] opacity-0">
-                        {item?.name?.length > 70 ? item?.name?.substr(0, 70) + '...' : item?.name}
-                      </h2>
-                    }
 
-                    <h3 className="flex items-center gap-0 lg:gap-3 text-[12px] lg:text-[18px] font-[500] w-full text-left mt-3 mb-0 lg:mb-3 relative -right-[100%] opacity-0 flex-col lg:flex-row">
-                     <span className="w-full lg:w-max hidden lg:block">Starting At Only </span>{" "}
-                      <span
-                        className="text-primary text-[16px] lg:text-[30px] 
-                        font-[700] block lg:inline w-full lg:w-max"
-                      >
-                        {item?.price?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
-                      </span>
-                    </h3>
+                      <p className="text-sm md:text-base text-gray-200">
+                        Starting at only
+                      </p>
 
-                    <div className="w-full relative -right-[100%] opacity-0 btn_">
+                      <h3 className="text-2xl md:text-3xl font-bold text-primary">
+                        {item?.price?.toLocaleString("en-IN", {
+                          style: "currency",
+                          currency: "INR",
+                        })}
+                      </h3>
+
                       <Link to={`/product/${item?._id}`}>
-                        <Button className="btn btn-org">SHOP NOW</Button>
+                        <Button
+                          variant="contained"
+                          className="!bg-primary hover:!bg-black !text-white !px-6 !py-2 !mt-3"
+                        >
+                          SHOP NOW
+                        </Button>
                       </Link>
+
                     </div>
+
                   </div>
                 </div>
-              </SwiperSlide>
-            )
-          }
 
-        })
-      }
-
-
+              </div>
+            </SwiperSlide>
+          );
+        }
+        return null;
+      })}
     </Swiper>
   );
 };
