@@ -25,6 +25,9 @@ import BannerLoading from "../../components/LoadingSkeleton/bannerLoading";
 import { Button } from "@mui/material";
 import { MdArrowRightAlt } from "react-icons/md";
 import { Link } from "react-router-dom";
+import { HiOutlineShieldCheck } from "react-icons/hi";
+import { FiRefreshCcw } from "react-icons/fi";
+import { IoHeadsetOutline } from "react-icons/io5";
 
 const Home = () => {
   const [value, setValue] = useState(0);
@@ -88,17 +91,13 @@ const Home = () => {
       })
     }
 
-    const numbers = new Set();
-    while (numbers.size < context?.catData?.length - 1) {
+    const categoryIndexes = context?.catData
+      ?.map((_, index) => index)
+      ?.filter((index) => index !== 0)
+      ?.sort(() => Math.random() - 0.5)
+      ?.slice(0, 4);
 
-      const number = Math.floor(1 + Math.random() * 8);
-
-      // Add the number to the set (automatically ensures uniqueness)
-      numbers.add(number);
-    }
-
-
-    getRendomProducts(Array.from(numbers), context?.catData)
+      getRendomProducts(categoryIndexes || [], context?.catData)
 
   }, [context?.catData])
 
@@ -110,6 +109,10 @@ const Home = () => {
 
     for (let i = 0; i < arr.length; i++) {
       let catId = catArr[arr[i]]?._id;
+
+       if (!catId) {
+        continue;
+      }
 
       fetchDataFromApi(`/api/product/getAllProductsByCatId/${catId}`).then((res) => {
         filterData.push({
@@ -145,13 +148,44 @@ const Home = () => {
   return (
     <>
 
-      {
-        homeSlidesData?.length === 0 && <BannerLoading />
-      }
+      {homeSlidesData?.length !== 0 && <HomeSlider data={homeSlidesData} />}
 
-      {
+      <section className="pb-3 lg:pb-6 bg-white">
+        <div className="container">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+            <div className="rounded-md border border-slate-200 p-4 bg-slate-50">
+              <p className="text-[12px] uppercase text-slate-500 mb-1">Daily deals</p>
+              <h3 className="text-[18px] font-semibold">Upto 60% Off</h3>
+              <p className="text-[13px] text-slate-600 mb-0">Curated offers across top categories.</p>
+            </div>
+            <div className="rounded-md border border-slate-200 p-4 bg-slate-50 flex gap-2">
+              <HiOutlineShieldCheck className="text-[24px] text-emerald-600 mt-1" />
+              <div>
+                <h3 className="text-[16px] font-semibold mb-1">Secure Payments</h3>
+                <p className="text-[13px] text-slate-600 mb-0">Encrypted checkout with trusted gateways.</p>
+              </div>
+            </div>
+            <div className="rounded-md border border-slate-200 p-4 bg-slate-50 flex gap-2">
+              <FiRefreshCcw className="text-[22px] text-blue-600 mt-1" />
+              <div>
+                <h3 className="text-[16px] font-semibold mb-1">Easy Returns</h3>
+                <p className="text-[13px] text-slate-600 mb-0">Simple return policy for worry-free shopping.</p>
+              </div>
+            </div>
+            <div className="rounded-md border border-slate-200 p-4 bg-slate-50 flex gap-2">
+              <IoHeadsetOutline className="text-[24px] text-purple-600 mt-1" />
+              <div>
+                <h3 className="text-[16px] font-semibold mb-1">24/7 Support</h3>
+                <p className="text-[13px] text-slate-600 mb-0">Our team is always here to help you.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* {
         homeSlidesData?.lengtn !== 0 && <HomeSlider data={homeSlidesData} />
-      }
+      } */}
 
       {
         context?.catData?.length !== 0 && <HomeCatSlider data={context?.catData} />
@@ -233,21 +267,31 @@ const Home = () => {
 
       <section className="py-0 lg:py-4 pt-0 lg:pt-8 pb-0 bg-white">
         <div className="container">
-          <div className="freeShipping w-full md:w-[80%] m-auto py-4 p-4  border-2 border-[#ff5252] flex items-center justify-center lg:justify-between flex-col lg:flex-row rounded-md mb-7">
-            <div className="col1 flex items-center gap-4">
-              <LiaShippingFastSolid className="text-[30px] lg:text-[50px]" />
-              <span className="text-[16px] lg:text-[20px] font-[600] uppercase">
-                Free Shipping{" "}
-              </span>
+          <div className="freeShipping relative overflow-hidden w-full md:w-[90%] m-auto p-3 lg:p-5 border border-[#ff5252]/30 bg-gradient-to-r from-[#fff4f4] via-[#ffffff] to-[#fff7e8] flex items-stretch justify-between flex-col md:flex-row rounded-2xl mb-7 shadow-[0_12px_28px_rgba(0,0,0,0.08)] gap-4">
+            <div className="w-full md:w-[34%] h-[170px] md:h-auto overflow-hidden rounded-xl">
+              <img
+                src="/bannerSml.jpg"
+                alt="Free delivery offer"
+                className="w-full h-full object-cover"
+              />
             </div>
 
-            <div className="col2">
-              <p className="mb-0 mt-0 font-[500] text-center">
-                Free Delivery Now On Your First Order and over ₹200
-              </p>
-            </div>
+             <div className="w-full md:w-[66%] flex items-center justify-between gap-3 lg:gap-5 flex-col lg:flex-row">
+              <div className="col1 flex items-center gap-3 lg:gap-4">
+                <span className="bg-[#ff5252] text-white rounded-full p-2 lg:p-3 shadow-md">
+                  <LiaShippingFastSolid className="text-[26px] lg:text-[34px]" />
+                </span>
+                <div>
+                  <p className="text-[18px] lg:text-[24px] font-[700] uppercase leading-tight mb-1">Free Shipping</p>
+                  <p className="mb-0 mt-0 text-[13px] lg:text-[15px] text-[#4b4b4b] font-[500]">
+                    First order aur ₹200 se upar ki shopping par delivery bilkul free.
+                  </p>
+                </div>
+              </div>
 
-            <p className="font-bold text-[20px] lg:text-[25px]">- Only ₹200*</p>
+
+            <p className="font-bold text-[#ff5252] text-[20px] lg:text-[30px] whitespace-nowrap">Only ₹200*</p>
+            </div>
           </div>
 
           {

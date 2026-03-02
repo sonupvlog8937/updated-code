@@ -27,7 +27,7 @@ const POPULAR_TERMS = [
   "white shirt",
 ];
 
-
+const MAX_TYPEAHEAD_SUGGESTIONS = 7;
 
 const Search = () => {
 
@@ -197,8 +197,29 @@ const Search = () => {
     return [...new Set(normalizedSuggestions)].slice(0, 10);
   }, [normalizedSuggestions]);
 
+   const typeaheadSuggestions = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    if (!normalizedQuery) return [];
+
+    const fallbackPool = [
+      ...recentSearches,
+      ...TRENDING_TERMS,
+      ...POPULAR_TERMS,
+      ...suggestedProducts.map((item) => item?.name || ""),
+    ];
+
+    const ranked = [...predictiveSuggestions, ...fallbackPool]
+      .map((item) => item?.toString().trim())
+      .filter(Boolean)
+      .filter((item) => item.toLowerCase().includes(normalizedQuery));
+
+    return [...new Set(ranked)].slice(0, MAX_TYPEAHEAD_SUGGESTIONS);
+  }, [searchQuery, recentSearches, predictiveSuggestions, suggestedProducts]);
+
+
   const hasLiveSuggestions =
-    predictiveSuggestions.length > 0 ||
+    typeaheadSuggestions.length > 0 ||
     suggestedProducts.length > 0 ||
     Boolean(suggestedCorrection) ||
     Boolean(aiHintSummary);
@@ -262,7 +283,7 @@ const Search = () => {
                   </div>
                 </li>
               )}
-              {predictiveSuggestions.map((item) => (
+              {typeaheadSuggestions.map((item) => (
                 <li key={item}>
                   <button type="button" onClick={() => onSelectSuggestion(item)}>
                     <IoSearch className="text-[20px] text-[#3d3d3d]" />
