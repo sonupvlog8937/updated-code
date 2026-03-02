@@ -34,6 +34,7 @@ const Search = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState([]);
   const [liveSuggestions, setLiveSuggestions] = useState([]);
+  const [suggestedCorrection, setSuggestedCorrection] = useState("");
 
   const context = useAppContext();
 
@@ -97,6 +98,7 @@ const Search = () => {
   const onClearSearch = () => {
     setSearchQuery("");
     setLiveSuggestions([]);
+    setSuggestedCorrection("");
     setIsDropdownOpen(true);
   };
 
@@ -134,6 +136,7 @@ const Search = () => {
 
     if (searchQuery.trim().length < 2) {
       setLiveSuggestions([]);
+      setSuggestedCorrection("");
       return;
     }
 
@@ -144,6 +147,7 @@ const Search = () => {
         query: searchQuery.trim(),
       }).then((res) => {
         setLiveSuggestions(res?.products || []);
+        setSuggestedCorrection(res?.correctedQuery || "");
       });
     }, 300);
 
@@ -190,6 +194,14 @@ const Search = () => {
         <div className="searchDropdown absolute top-[56px] left-0 w-full bg-[#efefef] rounded-[8px] shadow-lg z-[200] p-3 max-h-[75vh] overflow-y-auto">
           {normalizedSuggestions.length > 0 ? (
             <ul className="searchSuggestionsList">
+              {suggestedCorrection && suggestedCorrection !== searchQuery.trim().toLowerCase() && (
+                <li>
+                  <button type="button" className="didYouMeanBtn" onClick={() => onSelectSuggestion(suggestedCorrection)}>
+                    <span className="font-[500] text-[14px] text-[#6a6a6a]">Did you mean</span>
+                    <span className="font-[700]">{suggestedCorrection}</span>
+                  </button>
+                </li>
+              )}
               {normalizedSuggestions.map((item) => (
                 <li key={item}>
                   <button type="button" onClick={() => onSelectSuggestion(item)}>

@@ -23,6 +23,7 @@ const SearchPage = () => {
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [aiInsights, setAiInsights] = useState(null);
 
   const [selectedSortVal, setSelectedSortVal] = useState("Name, A to Z");
 
@@ -41,7 +42,9 @@ const SearchPage = () => {
     setAnchorEl(null);
   };
 
-
+   useEffect(() => {
+    setAiInsights(context?.searchData?.aiInsights || null);
+  }, [context?.searchData]);
 
   const handleSortBy = (name, order, products, value) => {
     setSelectedSortVal(value);
@@ -51,6 +54,7 @@ const SearchPage = () => {
       order: order
     }).then((res) => {
       setProductsData(res);
+      setAiInsights(res?.aiInsights || context?.searchData?.aiInsights || null);
       setAnchorEl(null);
     })
   }
@@ -167,6 +171,25 @@ const SearchPage = () => {
                 </Menu>
               </div>
             </div>
+            {context?.searchData?.correctedQuery && (
+              <div className="bg-[#edf4ff] border border-[#c9dcff] rounded-md p-3 mb-4 text-[14px]">
+                Showing results for <span className="font-[700]">{context?.searchData?.correctedQuery}</span>
+              </div>
+            )}
+
+            {aiInsights?.summary && (
+              <div className="bg-[#101828] text-white rounded-md p-4 mb-4">
+                <p className="text-[13px] uppercase tracking-[0.08em] text-[#9cc5ff]">{aiInsights?.title || "AI Search Assistant"}</p>
+                <p className="text-[14px] mt-1">{aiInsights?.summary}</p>
+                {aiInsights?.highlights?.length > 0 && (
+                  <ul className="list-disc pl-5 mt-2 text-[13px] text-[#d5e6ff]">
+                    {aiInsights?.highlights?.map((point) => (
+                      <li key={point}>{point}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
             <div
               className={`grid ${itemView === "grid"

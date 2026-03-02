@@ -35,6 +35,11 @@ const normalizeSearchText = (value = "") =>
     .replace(/\s+/g, " ")
     .trim();
 
+    const tokenizeText = (value = "") =>
+  normalizeSearchText(value)
+    .split(" ")
+    .filter(Boolean);
+
 const levenshteinDistance = (a = "", b = "") => {
   const first = normalizeSearchText(a);
   const second = normalizeSearchText(b);
@@ -61,6 +66,99 @@ const levenshteinDistance = (a = "", b = "") => {
   }
 
   return matrix[first.length][second.length];
+};
+
+const buildSearchVocabulary = (products = []) => {
+  const vocabulary = new Set();
+
+  products.forEach((item) => {
+    [
+      item?.name,
+      item?.brand,
+      item?.catName,
+      item?.subCat,
+      item?.thirdsubCat,
+      ...(item?.keywords || []),
+    ].forEach((field) => {
+      tokenizeText(field).forEach((token) => {
+        if (token.length > 1) {
+          vocabulary.add(token);
+        }
+      });
+    });
+  });
+
+  return Array.from(vocabulary);
+};
+
+const getSpellCorrectedQuery = (query = "", vocabulary = []) => {
+  const words = tokenizeText(query);
+  if (!words.length || !vocabulary.length) {
+    return null;
+  }
+
+  let isModified = false;
+  const correctedWords = words.map((word) => {
+    if (vocabulary.includes(word)) {
+      return word;
+    }
+
+    let bestMatch = word;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (const token of vocabulary) {
+      if (Math.abs(token.length - word.length) > 3) continue;
+      const distance = levenshteinDistance(word, token);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestMatch = token;
+      }
+    }
+
+    const maxDistance = word.length > 7 ? 2 : 1;
+    if (bestDistance <= maxDistance && bestMatch !== word) {
+      isModified = true;
+      return bestMatch;
+    }
+
+    return word;
+  });
+
+  if (!isModified) {
+    return null;
+  }
+
+  return correctedWords.join(" ");
+};
+
+const buildAiSearchInsights = (products = [], correctedQuery = "") => {
+  if (!products.length) {
+    return {
+      title: "AI Search Assistant",
+      summary:
+        "Mujhe exact product match nahi mila. Aap brand, category ya short keywords try karein.",
+      highlights: [],
+    };
+  }
+
+  const topProducts = products.slice(0, 3);
+  const priceList = topProducts.map((item) => Number(item?.price) || 0);
+  const minPrice = Math.min(...priceList);
+  const maxPrice = Math.max(...priceList);
+
+  return {
+    title: "AI Search Assistant",
+    summary: correctedQuery
+      ? `Aapke search ke liye "${correctedQuery}" use kiya gaya hai. Yeh top relevant options hain.`
+      : "Yeh products relevance, popularity aur pricing ke hisaab se recommend kiye gaye hain.",
+    highlights: [
+      `Top ${topProducts.length} recommendations curated by relevance score`,
+      `Best visible price range: ₹${minPrice} - ₹${maxPrice}`,
+      topProducts[0]?.brand
+        ? `Leading brand in results: ${topProducts[0].brand}`
+        : "Mixed brand results available",
+    ],
+  };
 };
 
 cloudinary.config({
@@ -1505,6 +1603,9 @@ export async function searchProductController(request, response) {
       .populate("category")
       .limit(250);
 
+      const vocabulary = buildSearchVocabulary(products);
+    const correctedQuery = getSpellCorrectedQuery(cleanQuery, vocabulary);
+
     let scoredProducts = products
       .map((item) => {
         const data = [
@@ -1562,6 +1663,10 @@ export async function searchProductController(request, response) {
       const fuzzyFallback = await ProductModel.find()
         .populate("category")
         .limit(200);
+
+         const fallbackVocabulary = buildSearchVocabulary(fuzzyFallback);
+      const fallbackCorrection =
+        correctedQuery || getSpellCorrectedQuery(cleanQuery, fallbackVocabulary);
       scoredProducts = fuzzyFallback
         .map((item) => {
           const fields = [item?.name, ...(item?.keywords || []), item?.brand]
@@ -1582,6 +1687,24 @@ export async function searchProductController(request, response) {
         .filter((item) => item.distance <= 2)
         .sort((a, b) => a.distance - b.distance)
         .map((entry) => entry.item);
+        const total = scoredProducts.length;
+      const start = (requestedPage - 1) * requestedLimit;
+      const paginatedProducts = scoredProducts.slice(
+        start,
+        start + requestedLimit,
+      );
+
+      return response.status(200).json({
+        error: false,
+        success: true,
+        products: paginatedProducts,
+        total,
+        page: requestedPage,
+        totalPages: Math.max(1, Math.ceil(total / requestedLimit)),
+        originalQuery: query,
+        correctedQuery: fallbackCorrection,
+        aiInsights: buildAiSearchInsights(paginatedProducts, fallbackCorrection),
+      });
     }
 
     const total = scoredProducts.length;
@@ -1598,6 +1721,9 @@ export async function searchProductController(request, response) {
       total,
       page: requestedPage,
       totalPages: Math.max(1, Math.ceil(total / requestedLimit)),
+      originalQuery: query,
+      correctedQuery,
+      aiInsights: buildAiSearchInsights(paginatedProducts, correctedQuery),
     });
   } catch (error) {
     return response.status(500).json({

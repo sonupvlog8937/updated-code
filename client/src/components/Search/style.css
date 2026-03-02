@@ -61,3 +61,14 @@
     font-size: 16px;
   }
 }
+.didYouMeanBtn{
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #dbe8ff;
+  color: #0d47a1;
+  border-radius: 8px;
+  padding: 9px 10px;
+  margin-bottom: 8px;
+}
