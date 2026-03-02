@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "../ProductItem/style.css";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import Rating from "@mui/material/Rating";
 import Button from "@mui/material/Button";
 import { FaRegHeart } from "react-icons/fa";
@@ -29,6 +29,8 @@ const ProductItem = (props) => {
 
 
   const context = useAppContext();
+  const location = useLocation();
+  const productDetailsUrl = `/product/${props?.item?._id}${location.pathname === "/search" ? location.search : ""}`;
 
   const addToCart = (product, userId, quantity) => {
 
@@ -203,7 +205,7 @@ const ProductItem = (props) => {
   return (
     <div className="productItem p-4 shadow-md bg-[#f1f1f1] rounded-md overflow-hidden border-1 border-[rgba(0,0,0,0.1)] flex items-center flex-col lg:flex-row">
       <div className="group imgWrapper w-full lg:w-[25%]  overflow-hidden  rounded-md relative">
-        <Link to={`/product/${props?.item?._id}`}>
+        <Link to={productDetailsUrl}>
           <div className="img  overflow-hidden">
             <img
               src={props?.item?.images[0]}
@@ -305,7 +307,7 @@ const ProductItem = (props) => {
           </Link>
         </h6>
         <h3 className="text-[18px] title mt-3 font-[500] mb-1 text-[#000]" style={{ lineHeight: '25px' }}>
-          <Link to={`/product/${props?.item?._id}`} className="link transition-all">
+          <Link to={productDetailsUrl} className="link transition-all">
             {props?.item?.name}
           </Link>
         </h3>

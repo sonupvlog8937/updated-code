@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "../ProductItem/style.css";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import Rating from "@mui/material/Rating";
 import Button from "@mui/material/Button";
 import { FaRegHeart } from "react-icons/fa";
@@ -31,6 +31,8 @@ const ProductItem = (props) => {
 
 
   const context = useAppContext();
+  const location = useLocation();
+  const productDetailsUrl = `/product/${props?.item?._id}${location.pathname === "/search" ? location.search : ""}`;
 
   const addToCart = (product, userId, quantity) => {
 
@@ -224,7 +226,7 @@ const ProductItem = (props) => {
 
           </div>
         </Link> */}
-        <Link to={`/product/${props?.item?._id}`} className="link transition-all">
+        <Link to={productDetailsUrl} className="link transition-all">
           <div className="img h-[200px] overflow-hidden">
             <img
               src={props?.item?.images[0]}
@@ -317,7 +319,7 @@ const ProductItem = (props) => {
           </span>
         </h6>
         <h3 className="text-[12px] lg:text-[13px] title mt-1 font-[500] mb-1 text-[#000]">
-          <Link to={`/product/${props?.item?._id}`} className="link transition-all">
+          <Link to={productDetailsUrl} className="link transition-all">
             {props?.item?.name?.substr(0, 25) + '...'}
           </Link>
         </h3>

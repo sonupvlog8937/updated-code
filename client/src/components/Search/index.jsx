@@ -27,6 +27,19 @@ const POPULAR_TERMS = [
   "white shirt",
 ];
 
+const buildContextualSuggestions = (query) => {
+  const term = query.toLowerCase().trim();
+  if (!term) return [];
+
+  return [
+    `${term} for men`,
+    `${term} for women`,
+    `${term} for kids`,
+    `${term} under 999`,
+    `${term} branded`,
+  ];
+};
+
 const Search = () => {
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -79,7 +92,7 @@ const Search = () => {
         setIsLoading(false);
         setIsDropdownOpen(false);
         context?.setOpenSearchPanel(false);
-        history("/search");
+        history(`/search?query=${encodeURIComponent(trimmedQuery)}&page=1`);
       }, 500);
     });
   };
@@ -158,6 +171,14 @@ const Search = () => {
     };
   }, [searchQuery]);
 
+  const predictiveSuggestions = useMemo(() => {
+    const titleSuggestions = normalizedSuggestions
+      .map((item) => item?.toLowerCase())
+      .filter(Boolean);
+    const contextualSuggestions = buildContextualSuggestions(searchQuery);
+    return [...new Set([...titleSuggestions, ...contextualSuggestions])].slice(0, 10);
+  }, [normalizedSuggestions, searchQuery]);
+
   return (
     <div ref={searchWrapperRef} className="searchContainer relative w-[100%]">
       <div className="searchBox w-[100%] h-[50px] bg-[#e5e5e5] rounded-[8px] relative p-2 border border-transparent focus-within:border-[#0d6efd]">
@@ -202,7 +223,7 @@ const Search = () => {
                   </button>
                 </li>
               )}
-              {normalizedSuggestions.map((item) => (
+              {predictiveSuggestions.map((item) => (
                 <li key={item}>
                   <button type="button" onClick={() => onSelectSuggestion(item)}>
                     <IoSearch className="text-[20px] text-[#3d3d3d]" />
