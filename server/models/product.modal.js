@@ -20,6 +20,12 @@ const productSchema = mongoose.Schema(
       type: String,
       default: "",
     },
+    keywords: [
+      {
+        type: String,
+        default: "",
+      },
+    ],
     price: {
       type: Number,
       default: 0,

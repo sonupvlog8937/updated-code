@@ -26,6 +26,7 @@ const EditProduct = () => {
         description: "",
         images: [],
         brand: "",
+        keywords: "",
         price: "",
         oldPrice: "",
         category: "",
@@ -103,6 +104,7 @@ const EditProduct = () => {
                 description: res?.product?.description,
                 images: res?.product?.images,
                 brand: res?.product?.brand,
+                keywords: (res?.product?.keywords || []).join(', '),
                 price: res?.product?.price,
                 oldPrice: res?.product?.oldPrice,
                 category: res?.product?.category,
@@ -423,7 +425,10 @@ const EditProduct = () => {
                 ...item,
                 images: item.images ? item.images.split(",").map((img) => img.trim()).filter(Boolean) : []
             })).filter((item) => item.name),
-            specifications: (formFields.specifications || []).filter((item) => item.key && item.value)
+            specifications: (formFields.specifications || []).filter((item) => item.key && item.value),
+            keywords: formFields.keywords
+                ? formFields.keywords.split(',').map((item) => item.trim()).filter(Boolean)
+                : []
         };
 
         setIsLoading(true);
@@ -466,7 +471,12 @@ const EditProduct = () => {
                         </div>
                     </div>
 
-
+                    <div className='grid grid-cols-1 mb-3'>
+                        <div className='col'>
+                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Search Keywords (comma separated)</h3>
+                            <input type="text" placeholder='example: tshirt, cotton, summer wear' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="keywords" value={formFields.keywords} onChange={onChangeInput} />
+                        </div>
+                    </div>
 
                     <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 mb-3 gap-4'>
                         <div className='col'>

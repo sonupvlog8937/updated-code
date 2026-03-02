@@ -7,6 +7,62 @@ import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import { request } from "http";
 
+const normalizeKeywords = (keywords) => {
+  if (Array.isArray(keywords)) {
+    return keywords
+      .map((item) =>
+        String(item || "")
+          .trim()
+          .toLowerCase(),
+      )
+      .filter(Boolean);
+  }
+
+  if (typeof keywords === "string") {
+    return keywords
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const normalizeSearchText = (value = "") =>
+  String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const levenshteinDistance = (a = "", b = "") => {
+  const first = normalizeSearchText(a);
+  const second = normalizeSearchText(b);
+
+  if (!first.length) return second.length;
+  if (!second.length) return first.length;
+
+  const matrix = Array.from({ length: first.length + 1 }, () =>
+    Array(second.length + 1).fill(0),
+  );
+
+  for (let i = 0; i <= first.length; i++) matrix[i][0] = i;
+  for (let j = 0; j <= second.length; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= first.length; i++) {
+    for (let j = 1; j <= second.length; j++) {
+      const cost = first[i - 1] === second[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost,
+      );
+    }
+  }
+
+  return matrix[first.length][second.length];
+};
+
 cloudinary.config({
   cloud_name: process.env.cloudinary_Config_Cloud_Name,
   api_key: process.env.cloudinary_Config_api_key,
@@ -98,6 +154,7 @@ export async function createProduct(request, response) {
       bannerTitleName: request.body.bannerTitleName,
       isDisplayOnHomeBanner: request.body.isDisplayOnHomeBanner,
       brand: request.body.brand,
+      keywords: normalizeKeywords(request.body.keywords),
       price: request.body.price,
       oldPrice: request.body.oldPrice,
       catName: request.body.catName,
@@ -856,6 +913,7 @@ export async function updateProduct(request, response) {
         images: request.body.images,
         bannerTitleName: request.body.bannerTitleName,
         brand: request.body.brand,
+        keywords: normalizeKeywords(request.body.keywords),
         price: request.body.price,
         oldPrice: request.body.oldPrice,
         catId: request.body.catId,
@@ -1419,6 +1477,8 @@ export async function sortBy(request, response) {
 export async function searchProductController(request, response) {
   try {
     const { query, page, limit } = request.body;
+    const requestedPage = parseInt(page) || 1;
+    const requestedLimit = parseInt(limit) || 20;
 
     if (!query) {
       return response.status(400).json({
@@ -1428,25 +1488,116 @@ export async function searchProductController(request, response) {
       });
     }
 
+    const cleanQuery = normalizeSearchText(query);
+    const queryParts = cleanQuery.split(" ").filter(Boolean);
+
     const products = await ProductModel.find({
       $or: [
         { name: { $regex: query, $options: "i" } },
         { brand: { $regex: query, $options: "i" } },
+        { description: { $regex: query, $options: "i" } },
+        { keywords: { $in: queryParts.map((item) => new RegExp(item, "i")) } },
         { catName: { $regex: query, $options: "i" } },
         { subCat: { $regex: query, $options: "i" } },
         { thirdsubCat: { $regex: query, $options: "i" } },
       ],
-    }).populate("category");
+    })
+      .populate("category")
+      .limit(250);
 
-    const total = await products?.length;
+    let scoredProducts = products
+      .map((item) => {
+        const data = [
+          item?.name,
+          item?.brand,
+          item?.catName,
+          item?.subCat,
+          item?.thirdsubCat,
+          item?.description,
+          ...(item?.keywords || []),
+        ]
+          .map((field) => normalizeSearchText(field))
+          .filter(Boolean);
+
+        let score = 0;
+
+        for (const term of queryParts) {
+          const hasContainMatch = data.some(
+            (field) => field.includes(term) || term.includes(field),
+          );
+
+          if (hasContainMatch) {
+            score += 8;
+            continue;
+          }
+
+          const hasFuzzyMatch = data.some((field) => {
+            const words = field.split(" ").filter(Boolean);
+            return words.some((word) => {
+              if (!word) return false;
+              const distance = levenshteinDistance(term, word);
+              const allowedDistance = term.length > 6 ? 2 : 1;
+              return distance <= allowedDistance;
+            });
+          });
+
+          if (hasFuzzyMatch) {
+            score += 4;
+          }
+        }
+
+        if (normalizeSearchText(item?.name).includes(cleanQuery)) {
+          score += 10;
+        }
+
+        return { item, score };
+      })
+      .filter((item) => item.score > 0)
+      .sort(
+        (a, b) => b.score - a.score || (b.item.sale || 0) - (a.item.sale || 0),
+      )
+      .map((entry) => entry.item);
+
+    if (!scoredProducts.length) {
+      const fuzzyFallback = await ProductModel.find()
+        .populate("category")
+        .limit(200);
+      scoredProducts = fuzzyFallback
+        .map((item) => {
+          const fields = [item?.name, ...(item?.keywords || []), item?.brand]
+            .map((field) => normalizeSearchText(field))
+            .filter(Boolean);
+
+          const closestDistance = Math.min(
+            ...fields.map((field) => {
+              const words = field.split(" ").filter(Boolean);
+              return Math.min(
+                ...words.map((word) => levenshteinDistance(cleanQuery, word)),
+              );
+            }),
+          );
+
+          return { item, distance: closestDistance };
+        })
+        .filter((item) => item.distance <= 2)
+        .sort((a, b) => a.distance - b.distance)
+        .map((entry) => entry.item);
+    }
+
+    const total = scoredProducts.length;
+    const start = (requestedPage - 1) * requestedLimit;
+    const paginatedProducts = scoredProducts.slice(
+      start,
+      start + requestedLimit,
+    );
 
     return response.status(200).json({
       error: false,
       success: true,
-      products: products,
-      total: 1,
-      page: parseInt(page),
-      totalPages: 1,
+      products: paginatedProducts,
+      total,
+      page: requestedPage,
+      totalPages: Math.max(1, Math.ceil(total / requestedLimit)),
     });
   } catch (error) {
     return response.status(500).json({
