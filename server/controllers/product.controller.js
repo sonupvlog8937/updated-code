@@ -1624,30 +1624,36 @@ export async function searchProductController(request, response) {
     }
 
     const cleanQuery = normalizeSearchText(query);
-    const queryParts = cleanQuery.split(" ").filter(Boolean);
+    const queryParts = tokenizeText(cleanQuery);
 
-    const queryRegex = new RegExp(cleanQuery, "i");
-    const termBasedMatcher = queryParts.map((term) => ({
-      $or: [
-        { name: { $regex: queryRegex } },
-        { brand: { $regex: queryRegex } },
-        { description: { $regex: queryRegex } },
-        { catName: { $regex: queryRegex } },
-        { subCat: { $regex: queryRegex } },
-        { thirdsubCat: { $regex: queryRegex } },
-        { $and: termBasedMatcher },
-      ],
-    }));
+    const fullQueryRegex = new RegExp(cleanQuery, "i");
+    const termBasedMatcher = queryParts.map((term) => {
+      const termRegex = new RegExp(term, "i");
+      return {
+        $or: [
+          { name: termRegex },
+          { brand: termRegex },
+          { description: termRegex },
+          { keywords: termRegex },
+          { catName: termRegex },
+          { subCat: termRegex },
+          { thirdsubCat: termRegex },
+        ],
+      };
+    });
+
+    
 
     const products = await ProductModel.find({
       $or: [
-        { name: { $regex: query, $options: "i" } },
-        { brand: { $regex: query, $options: "i" } },
-        { description: { $regex: query, $options: "i" } },
-        { keywords: { $in: queryParts.map((item) => new RegExp(item, "i")) } },
-        { catName: { $regex: query, $options: "i" } },
-        { subCat: { $regex: query, $options: "i" } },
-        { thirdsubCat: { $regex: query, $options: "i" } },
+        { name: fullQueryRegex },
+        { brand: fullQueryRegex },
+        { description: fullQueryRegex },
+        { keywords: fullQueryRegex },
+        { catName: fullQueryRegex },
+        { subCat: fullQueryRegex },
+        { thirdsubCat: fullQueryRegex },
+        ...(termBasedMatcher.length ? [{ $and: termBasedMatcher }] : []),
       ],
     })
       .populate("category")
