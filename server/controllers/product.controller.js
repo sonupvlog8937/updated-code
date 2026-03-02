@@ -201,23 +201,50 @@ const buildSearchSuggestions = (products = [], query = "", correctedQuery = "") 
   const cleanQuery = normalizeSearchText(query);
   if (!cleanQuery) return [];
 
-   const keywordSuggestions = [];
+   const collectedSuggestions = [];
 
   products.slice(0, 40).forEach((item) => {
+     [
+      item?.name,
+      item?.brand,
+      item?.catName,
+      item?.subCat,
+      item?.thirdsubCat,
+      ...(item?.keywords || []),
+    ].forEach((value) => {
+      const normalized = normalizeSearchText(value);
+      if (
+        normalized &&
+        (normalized.includes(cleanQuery) || cleanQuery.includes(normalized))
+      ) {
+        collectedSuggestions.push(normalized);
+      }
+    });
     normalizeKeywords(item?.keywords).forEach((keyword) => {
       if (keyword.includes(cleanQuery) || cleanQuery.includes(keyword)) {
-        keywordSuggestions.push(keyword);
+         collectedSuggestions.push(keyword);
       }
     });
   });
 
   const suggestionSet = new Set([
     ...(correctedQuery ? [normalizeSearchText(correctedQuery)] : []),
-    ...keywordSuggestions,
+    ...collectedSuggestions,
   ]);
 
   return Array.from(suggestionSet).filter(Boolean).slice(0, 12);
 };
+
+const buildSuggestionProducts = (products = []) => {
+  return products.slice(0, 6).map((item) => ({
+    _id: item?._id,
+    name: item?.name || "",
+    brand: item?.brand || "",
+    description: item?.description || "",
+    image: Array.isArray(item?.images) ? item.images[0] : "",
+  }));
+};
+
 
 cloudinary.config({
   cloud_name: process.env.cloudinary_Config_Cloud_Name,
@@ -1811,6 +1838,7 @@ export async function searchProductController(request, response) {
         originalQuery: query,
         correctedQuery: fallbackCorrection,
         suggestions: buildSearchSuggestions(scoredProducts, query, fallbackCorrection),
+        suggestionProducts: buildSuggestionProducts(scoredProducts),
         aiInsights: buildAiSearchInsights(paginatedProducts, fallbackCorrection),
       });
     }
@@ -1832,6 +1860,7 @@ export async function searchProductController(request, response) {
       originalQuery: query,
       correctedQuery,
       suggestions: buildSearchSuggestions(scoredProducts, query, correctedQuery),
+      suggestionProducts: buildSuggestionProducts(scoredProducts),
       aiInsights: buildAiSearchInsights(paginatedProducts, correctedQuery),
     });
   } catch (error) {

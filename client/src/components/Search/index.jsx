@@ -35,6 +35,7 @@ const Search = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [querySuggestions, setQuerySuggestions] = useState([]);
+  const [suggestedProducts, setSuggestedProducts] = useState([]);
   const [recentSearches, setRecentSearches] = useState([]);
   const [suggestedCorrection, setSuggestedCorrection] = useState("");
   const [aiHintSummary, setAiHintSummary] = useState("");
@@ -117,6 +118,7 @@ const Search = () => {
   const onClearSearch = () => {
     setSearchQuery("");
     setQuerySuggestions([]);
+    setSuggestedProducts([]);
     setSuggestedCorrection("");
     setAiHintSummary("");
     setAiHintHighlights([]);
@@ -163,6 +165,7 @@ const Search = () => {
 
     if (searchQuery.trim().length < 2) {
       setQuerySuggestions([]);
+      setSuggestedProducts([]);
       setSuggestedCorrection("");
       setAiHintSummary("");
       setAiHintHighlights([]);
@@ -176,6 +179,7 @@ const Search = () => {
         query: searchQuery.trim(),
       }).then((res) => {
         setQuerySuggestions(res?.suggestions || []);
+        setSuggestedProducts(res?.suggestionProducts || []);
         setSuggestedCorrection(res?.correctedQuery || "");
         setAiHintSummary(res?.aiInsights?.summary || "");
         setAiHintHighlights((res?.aiInsights?.highlights || []).slice(0, 2));
@@ -192,6 +196,12 @@ const Search = () => {
   const predictiveSuggestions = useMemo(() => {
     return [...new Set(normalizedSuggestions)].slice(0, 10);
   }, [normalizedSuggestions]);
+
+  const hasLiveSuggestions =
+    predictiveSuggestions.length > 0 ||
+    suggestedProducts.length > 0 ||
+    Boolean(suggestedCorrection) ||
+    Boolean(aiHintSummary);
 
   return (
     <div ref={searchWrapperRef} className="searchContainer relative w-[100%]">
@@ -227,7 +237,7 @@ const Search = () => {
 
       {isDropdownOpen && (
         <div className="searchDropdown absolute top-[56px] left-0 w-full bg-[#efefef] rounded-[8px] shadow-lg z-[200] p-3 max-h-[75vh] overflow-y-auto">
-         {searchQuery.trim().length > 0 && predictiveSuggestions.length > 0 ? (
+          {searchQuery.trim().length > 0 && hasLiveSuggestions ? (
             <ul className="searchSuggestionsList">
               {suggestedCorrection && suggestedCorrection !== searchQuery.trim().toLowerCase() && (
                 <li>
@@ -260,6 +270,26 @@ const Search = () => {
                   </button>
                 </li>
               ))}
+               {suggestedProducts.length > 0 && (
+                <li className="mt-2 pt-2 border-t border-[#d0d0d0]">
+                  <h4 className="searchSectionTitle">Suggested products</h4>
+                  <div className="flex flex-col gap-2 mt-2">
+                    {suggestedProducts.map((product) => (
+                      <button
+                        key={product?._id || product?.name}
+                        type="button"
+                        className="text-left bg-white/70 rounded-[8px] p-2 hover:bg-white transition"
+                        onClick={() => onSelectSuggestion(product?.name || "")}
+                      >
+                        <p className="text-[13px] font-[600] leading-[1.2]">{product?.name}</p>
+                        {product?.brand && (
+                          <p className="text-[11px] text-[#5b5b5b] mt-[2px]">Brand: {product?.brand}</p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </li>
+              )}
             </ul>
           ) : (
             <>
