@@ -29,12 +29,30 @@ const restaurantOrderSchema = new mongoose.Schema(
           required: true,
           min: 0,
         },
+         discountPercent: {
+          type: Number,
+          default: 0,
+          min: 0,
+          max: 80,
+        },
       },
     ],
+     pricing: {
+      subtotal: { type: Number, default: 0, min: 0 },
+      itemDiscount: { type: Number, default: 0, min: 0 },
+      deliveryFee: { type: Number, default: 0, min: 0 },
+      platformFee: { type: Number, default: 0, min: 0 },
+      gst: { type: Number, default: 0, min: 0 },
+    },
     totalAmount: {
       type: Number,
       required: true,
       min: 0,
+    },
+    paymentMethod: {
+      type: String,
+      enum: ["upi", "card", "cod", "wallet"],
+      default: "upi",
     },
     paymentStatus: {
       type: String,
@@ -45,6 +63,27 @@ const restaurantOrderSchema = new mongoose.Schema(
       type: String,
       enum: ["placed", "confirmed", "preparing", "out_for_delivery", "delivered", "cancelled"],
       default: "placed",
+    },
+    statusTimeline: [
+      {
+        status: {
+          type: String,
+          required: true,
+        },
+        updatedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    notes: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 500,
+    },
+    estimatedDeliveryAt: {
+      type: Date,
     },
   },
   { timestamps: true }

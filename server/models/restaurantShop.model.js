@@ -31,6 +31,40 @@ const restaurantShopSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    cuisineTags: {
+      type: [String],
+      default: [],
+    },
+    rating: {
+      type: Number,
+      default: 4.1,
+      min: 0,
+      max: 5,
+    },
+    totalRatings: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    avgDeliveryTimeMins: {
+      type: Number,
+      default: 35,
+      min: 10,
+    },
+    minOrderAmount: {
+      type: Number,
+      default: 149,
+      min: 0,
+    },
+    deliveryFee: {
+      type: Number,
+      default: 25,
+      min: 0,
+    },
+    promoted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

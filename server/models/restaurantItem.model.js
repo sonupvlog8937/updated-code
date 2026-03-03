@@ -17,6 +17,11 @@ const restaurantItemSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    category: {
+      type: String,
+      default: "Chef Specials",
+      trim: true,
+    },
     price: {
       type: Number,
       required: true,
@@ -28,9 +33,29 @@ const restaurantItemSchema = new mongoose.Schema(
     },
     rating: {
       type: Number,
-      default: 0,
+      default: 4.2,
       min: 0,
       max: 5,
+    },
+    prepTimeMins: {
+      type: Number,
+      default: 20,
+      min: 5,
+    },
+    vegType: {
+      type: String,
+      enum: ["veg", "non-veg", "egg"],
+      default: "veg",
+    },
+    discountPercent: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 80,
+    },
+    bestseller: {
+      type: Boolean,
+      default: false,
     },
     isAvailable: {
       type: Boolean,
