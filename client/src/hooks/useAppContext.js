@@ -15,6 +15,7 @@ import {
   setOpenFilter,
   setOpenProductDetailsModal,
   setOpenSearchPanel,
+  setGlobalLoading,
   setSearchData,
   setUserData,
   setWindowWidth,
@@ -65,5 +66,6 @@ export const useAppContext = () => {
     setOpenFilter: (payload) => dispatch(setOpenFilter(payload)),
     setisFilterBtnShow: (payload) => dispatch(setisFilterBtnShow(payload)),
     setOpenSearchPanel: (payload) => dispatch(setOpenSearchPanel(payload)),
+    setGlobalLoading: (payload) => dispatch(setGlobalLoading(payload)),
   };
 };

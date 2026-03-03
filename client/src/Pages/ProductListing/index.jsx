@@ -304,27 +304,27 @@ const [activeTab, setActiveTab] = useState("all");
               <div className="flex items-center gap-2 mb-4 flex-wrap">
                  <Button
                 onClick={() => context?.setOpenFilter(true)}
-                className="!text-[12px] !capitalize !rounded-full !border !bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"
+                className="!text-[12px] !capitalize !rounded-full !bg-[#ff5252] !text-white !border-[#ff5252]"
               >
                 <MdOutlineFilterAlt className="mr-1" size={20}/><b className="text-[14px]">Filters</b> 
               </Button>
               <Button
                 onClick={() => setActiveTab("all")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "all" ? "!bg-[#ff5252] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "all" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
               >
                 All
               </Button>
 
               <Button
                 onClick={() => setActiveTab("branded")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "branded" ? "!bg-[#ff5252] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "branded" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
               >
                 Branded
               </Button>
 
               <Button
                 onClick={() => setActiveTab("classic")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "classic" ? "!bg-[#ff5252] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "classic" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
               >
                 Classic
               </Button>

@@ -13,8 +13,7 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/free-mode";
-
-import { Navigation, FreeMode } from "swiper/modules";
+import { Navigation, FreeMode, Autoplay } from "swiper/modules";
 import BlogItem from "../../components/BlogItem";
 import HomeBannerV2 from "../../components/HomeSliderV2";
 import BannerBoxV2 from "../../components/bannerBoxV2";
@@ -50,6 +49,13 @@ const Home = () => {
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
 
   const context = useAppContext();
+
+  const sliderImages = [
+    "https://res.cloudinary.com/dn7ko6gut/image/upload/v1771620709/1771620706193_Untitled_design_53_1.png",
+    "https://res.cloudinary.com/dn7ko6gut/image/upload/v1771620690/1771620686726_Untitled_design_52_1.png",
+    "https://res.cloudinary.com/dn7ko6gut/image/upload/v1771620663/1771620660334_Untitled_design_51_1.png"
+  ];
+
   useEffect(() => {
     const nextMidnight = new Date();
     nextMidnight.setHours(23, 59, 59, 999);
@@ -207,11 +213,59 @@ const Home = () => {
 
   return (
     <>
-      <section className="bg-gradient-to-r from-slate-950 to-slate-800 text-white py-2 text-center text-sm font-medium">
-        🚚 Free delivery above ₹200 | 🔒 100% secure checkout | 🎁 Use code <strong>SAVE20</strong> for extra 20% off
+      <section className="bg-gradient-to-r from-slate-950 to-slate-800 text-white py-2 pt-4 text-center text-sm font-medium">
+        🎁 Use code <strong>SAVE20</strong> for extra 20% off
       </section>
-      {homeSlidesData?.length !== 0 && <HomeSlider data={homeSlidesData} />}
-      <section className="py-4 bg-white">
+      {/* {homeSlidesData?.length !== 0 && <HomeSlider data={homeSlidesData} />} */}
+      <div className="homeSlider pb-3 pt-3 lg:pb-5 lg:pt-5 relative z-[99]">
+        <div className="container">
+          <div className="rounded-[14px] bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center p-5 lg:p-8">
+              <div className="lg:col-span-4">
+                <span className="inline-block text-[11px] uppercase tracking-widest bg-white/15 rounded-full px-3 py-1 mb-4">Top deals</span>
+                <h1 className="text-[22px] lg:text-[34px] font-bold leading-tight">Premium products, better prices.</h1>
+                <p className="text-[14px] text-slate-200 mt-3">Explore handpicked collections with fast delivery, easy returns, and trusted quality.</p>
+                <div className="mt-5 flex gap-3">
+                  <Link to="/products" className="inline-flex items-center justify-center h-[42px] px-5 rounded-md bg-[#ff5252] text-white text-[14px] font-semibold hover:bg-[#eb3f3f] transition-colors">Shop Now</Link>
+                  <Link to="/categories" className="inline-flex items-center justify-center h-[42px] px-5 rounded-md border border-white/40 text-white text-[14px] font-semibold hover:bg-white/10 transition-colors">View catalog</Link>
+                </div>
+              </div>
+
+
+              <div className="lg:col-span-8">
+                <Swiper
+                  loop={true}
+                  spaceBetween={10}
+                  navigation={context?.windowWidth < 992 ? false : true}
+                  modules={[Navigation, Autoplay]}
+                  autoplay={{
+                    delay: 3000,
+                    disableOnInteraction: false,
+                  }}
+                  className="sliderHome"
+                >
+                  {
+                    sliderImages.map((image, index) => {
+                      return (
+                        <SwiperSlide key={index}>
+                          <div className="item rounded-[12px] overflow-hidden border border-white/10 shadow-2xl">
+                            <img
+                              src={image}
+                              alt={`Home banner ${index + 1}`}
+                              className="w-full h-[180px] sm:h-[260px] lg:h-[360px] object-cover"
+                            />
+                          </div>
+                        </SwiperSlide>
+                      )
+                    })
+                  }
+                </Swiper>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* <section className="py-4 bg-white">
         <div className="container">
           <div className="rounded-2xl border border-slate-200 p-3 sm:p-4 flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between shadow-sm">
             <div>
@@ -230,7 +284,7 @@ const Home = () => {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
       <section className="pb-3 lg:pb-6 bg-white">
         <div className="container">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">

@@ -80,15 +80,20 @@ const Login = () => {
       e.preventDefault();
   
       setIsLoading(true);
+      context.setGlobalLoading(true);
   
       if (formFields.email === "") {
         context.alertBox("error", "Please enter email id");
+        setIsLoading(false);
+        context.setGlobalLoading(false);
         return false
       }
   
   
       if (formFields.password === "") {
         context.alertBox("error", "Please enter password");
+        setIsLoading(false);
+        context.setGlobalLoading(false);
         return false
       }
   
@@ -98,6 +103,7 @@ const Login = () => {
   
         if (res?.error !== true) {
           setIsLoading(false);
+          context.setGlobalLoading(false);
           context.alertBox("success", res?.message);
           setFormsFields({
             email: "",
@@ -113,6 +119,7 @@ const Login = () => {
         } else {
           context.alertBox("error", res?.message);
           setIsLoading(false);
+          context.setGlobalLoading(false);
         }
   
       })
@@ -123,6 +130,8 @@ const Login = () => {
 
 
       const authWithGoogle = () => {
+        setIsLoading(true);
+        context.setGlobalLoading(true);
     
         signInWithPopup(auth, googleProvider)
           .then((result) => {
@@ -146,6 +155,7 @@ const Login = () => {
     
               if (res?.error !== true) {
                 setIsLoading(false);
+                context.setGlobalLoading(false);
                 context.alertBox("success", res?.message);
                 localStorage.setItem("userEmail", fields.email)
                 localStorage.setItem("accessToken", res?.data?.accesstoken);
@@ -157,6 +167,7 @@ const Login = () => {
               } else {
                 context.alertBox("error", res?.message);
                 setIsLoading(false);
+                context.setGlobalLoading(false);
               }
     
             })
@@ -165,6 +176,8 @@ const Login = () => {
             // IdP data available using getAdditionalUserInfo(result)
             // ...
           }).catch((error) => {
+             setIsLoading(false);
+            context.setGlobalLoading(false);
             // Handle Errors here.
             const errorCode = error.code;
             const errorMessage = error.message;

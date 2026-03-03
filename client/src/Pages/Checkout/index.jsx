@@ -91,6 +91,7 @@ const Checkout = () => {
   }, [context?.userData, selectedAddress, totalAmount]);
 
   const onApprovePayment = async (data) => {
+    context.setGlobalLoading(true);
     const user = context?.userData;
 
     const info = {
@@ -126,6 +127,7 @@ const Checkout = () => {
 
     context.alertBox("success", response?.data?.message);
     history("/order/success");
+    context.setGlobalLoading(false);
 
     if (!isBuyNowCheckout) {
       deleteData(`/api/cart/emptyCart/${context?.userData?._id}`).then(() => {
@@ -157,6 +159,7 @@ const Checkout = () => {
 
   const checkout = (e) => {
     e.preventDefault();
+    context.setGlobalLoading(true);
 
     if (userData?.address_details?.length !== 0) {
       const options = {
@@ -206,6 +209,7 @@ const Checkout = () => {
               history("/order/failed");
               context.alertBox("error", res?.message);
             }
+            context.setGlobalLoading(false);
           });
 
 
@@ -220,6 +224,7 @@ const Checkout = () => {
       pay.open();
     } else {
       context.alertBox("error", "Please add address");
+      context.setGlobalLoading(false);
     }
 
   };
@@ -230,6 +235,7 @@ const Checkout = () => {
 
     const user = context?.userData;
     setIsloading(true);
+    context.setGlobalLoading(true);
 
     if (userData?.address_details?.length !== 0) {
       const payLoad = {
@@ -260,19 +266,23 @@ const Checkout = () => {
               localStorage.removeItem("couponDiscount");
               localStorage.removeItem("couponFinalTotal");
               setIsloading(false);
+              context.setGlobalLoading(false);
             });
           } else {
             setIsloading(false);
+            context.setGlobalLoading(false);
           }
         } else {
           context.alertBox("error", res?.message);
           setIsloading(false);
+          context.setGlobalLoading(false);
         }
         history("/order/success");
       });
     } else {
       context.alertBox("error", "Please add address");
       setIsloading(false);
+      context.setGlobalLoading(false);
     }
   };
 
@@ -290,7 +300,7 @@ const Checkout = () => {
                     onClick={() => {
                       context?.setOpenAddressPanel(true);
                       context?.setAddressMode("add");
-                   }}
+                    }}
                     className="btn"
                   >
                     <FaPlus />
@@ -305,7 +315,7 @@ const Checkout = () => {
               <div className="flex flex-col gap-4">
 
 
-               {userData?.address_details?.length !== 0 ? (
+                {userData?.address_details?.length !== 0 ? (
                   userData?.address_details?.map((address, index) => {
 
                     return (
@@ -343,7 +353,7 @@ const Checkout = () => {
                     );
                   })
 
-                     ) : (
+                ) : (
                   <div className="flex items-center mt-5 justify-between flex-col p-5">
                     <img src="/map.png" width="100" />
                     <h2 className="text-center">No Addresses found in your account!</h2>
@@ -383,7 +393,7 @@ const Checkout = () => {
                       <div className="flex items-center justify-between py-2" key={index}>
                         <div className="part1 flex items-center gap-3">
                           <div className="img w-[50px] h-[50px] object-cover overflow-hidden rounded-md group cursor-pointer">
-                             <img src={item?.image} className="w-full transition-all group-hover:scale-105" />
+                            <img src={item?.image} className="w-full transition-all group-hover:scale-105" />
                           </div>
 
                           <div className="info">
@@ -392,15 +402,15 @@ const Checkout = () => {
                           </div>
                         </div>
 
-                       <span className="text-[14px] font-[500]">
+                        <span className="text-[14px] font-[500]">
                           {(item?.quantity * item?.price)?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
                         </span>
                       </div>
-                     );
+                    );
                   })}
               </div>
 
-   {!!couponCode && (
+              {!!couponCode && (
                 <div className="bg-[#f7f7f7] rounded-md p-3 mb-3">
                   <p className="text-[13px] mb-1">Coupon: <strong>{couponCode}</strong></p>
                   <p className="text-[13px] mb-0">Discount: -{discountAmount.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}</p>

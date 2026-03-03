@@ -18,6 +18,7 @@ const initialState = {
   openFilter: false,
   isFilterBtnShow: false,
   openSearchPanel: false,
+  globalLoading: false,
 };
 
 export const fetchCategories = createAsyncThunk("app/fetchCategories", async () => {
@@ -132,6 +133,9 @@ const appSlice = createSlice({
     setOpenSearchPanel: (state, action) => {
       state.openSearchPanel = action.payload;
     },
+    setGlobalLoading: (state, action) => {
+      state.globalLoading = action.payload;
+    },
     alertBox: (_, action) => {
       const { type, msg } = action.payload;
       if (type === "success") toast.success(msg);
@@ -171,6 +175,7 @@ export const {
   setOpenFilter,
   setisFilterBtnShow,
   setOpenSearchPanel,
+  setGlobalLoading,
   alertBox,
 } = appSlice.actions;
 

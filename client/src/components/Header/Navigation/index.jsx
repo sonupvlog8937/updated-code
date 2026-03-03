@@ -50,10 +50,17 @@ const Navigation = (props) => {
 
           <div className="col_2 w-full lg:w-[60%]">
             <ul className="flex items-center gap-3 nav">
-              <li className="list-none">
-                <Link to="/" className="link transition text-[14px] font-[500]">
+              {/* <li className="list-none">
+                <Link to="/ten-minute" className="link transition text-[14px] font-[500]">
                   <Button className="link transition !font-[500] !text-[rgba(0,0,0,0.8)] hover:!text-[#ff5252] !py-4">
-                    Home
+                    10 Minutes
+                  </Button>
+                </Link>
+              </li> */}
+              <li className="list-none">
+                <Link to="/categories" className="link transition text-[14px] font-[500]">
+                  <Button className="link transition !font-[500] !text-[rgba(0,0,0,0.8)] hover:!text-[#ff5252] !py-4">
+                    Categories
                   </Button>
                 </Link>
               </li>

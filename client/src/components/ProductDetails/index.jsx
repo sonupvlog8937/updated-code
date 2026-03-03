@@ -111,10 +111,10 @@ export const ProductDetailsComponent = (props) => {
   }, [context?.myListData])
 
     const validateVariantSelection = () => {
-    if (props?.item?.size?.length !== 0 || props?.item?.productWeight?.length !== 0 || props?.item?.productRam?.length !== 0) {
+    if (props?.item?.size?.length !== 0 || props?.item?.productWeight?.length !== 0 || props?.item?.productRam?.length !== 0 || props?.item?.productAge?.length !== 0) {
       if (selectedTabName === null) {
         setTabError(true);
-        context?.alertBox("error", "Please, first select size");
+        context?.alertBox("error", "Please select product options first");
         return false;
       }
     }
@@ -138,6 +138,7 @@ export const ProductDetailsComponent = (props) => {
     size: props?.item?.size?.length > 0 ? selectedTabName : '',
     weight: props?.item?.productWeight?.length > 0 ? selectedTabName : '',
     ram: props?.item?.productRam?.length > 0 ? selectedTabName : '',
+     age: props?.item?.productAge?.length > 0 ? selectedTabName : '',
     color:
       props?.item?.colorOptions?.length > 0
         ? props?.item?.colorOptions?.[selectedColorIndex]?.name || ''
@@ -394,7 +395,7 @@ export const ProductDetailsComponent = (props) => {
           </div>
           {
             tabError === true &&
-            <span className="text-[12px] text-red-600">Please, first select size</span>
+            <span className="text-[12px] text-red-600">Please select product options first</span>
           }
         </div>
       }
@@ -404,7 +405,7 @@ export const ProductDetailsComponent = (props) => {
       {
         props?.item?.productWeight?.length !== 0 &&
         <div className="flex items-center gap-3">
-          <span className="text-[16px]">WEIGHT:</span>
+          <span className="text-[16px]">AGE:</span>
           <div className="flex items-center gap-1 actions">
             {
               props?.item?.productWeight?.map((item, index) => {
