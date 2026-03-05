@@ -298,6 +298,22 @@ const Header = () => {
 
                 }
 
+                {
+                  context?.windowWidth > 992 &&
+                  <li>
+                    <Tooltip title="Cart">
+                      <Link to="/cart">
+                        <IconButton aria-label="cart">
+                          <StyledBadge badgeContent={context?.cartData?.length || 0} color="secondary">
+                            <MdOutlineShoppingCart />
+                          </StyledBadge>
+                        </IconButton>
+                      </Link>
+                    </Tooltip>
+                  </li>
+
+                }
+
 
                 <li>
                   <Tooltip title="Search">

@@ -5,3 +5,6 @@
 .range-slider{height: 3px !important;}
 .range-slider .range-slider__thumb{width: 14px !important; height: 14px !important;}
 .range-slider .range-slider__thumb,.range-slider .range-slider__range{background: #ff5252 !important;}
+.sidebar .sidebarFiltersScroll::-webkit-scrollbar{width: 6px !important;}
+.sidebar .sidebarFiltersScroll::-webkit-scrollbar-thumb{background: #c9c9c9 !important; border-radius: 999px;}
+.sidebar .sidebarFiltersScroll{scrollbar-width: thin; scrollbar-color: #c9c9c9 transparent;}

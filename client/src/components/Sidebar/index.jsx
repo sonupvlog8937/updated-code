@@ -3,7 +3,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
 import "../Sidebar/style.css";
 import { Collapse } from "react-collapse";
-import { FaAngleDown, FaAngleUp } from "react-icons/fa6";
+import { FaAngleDown, FaAngleRight, FaAngleUp } from "react-icons/fa6";
 import Button from "@mui/material/Button";
 import RangeSlider from "react-range-slider-input";
 import Dialog from "@mui/material/Dialog";
@@ -33,6 +33,8 @@ export const Sidebar = (props) => {
   const [isOpenRamFilter, setIsOpenRamFilter] = useState(true);
   const [activeMoreFilter, setActiveMoreFilter] = useState(null);
   const [moreFilterSelections, setMoreFilterSelections] = useState([]);
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState([]);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
 
   const [filters, setFilters] = useState({
@@ -166,6 +168,94 @@ export const Sidebar = (props) => {
       : [...selectedValues, value];
     setSelectedValues(updatedValues);
   };
+
+  const toggleCategoryExpand = (categoryId) => {
+    if (!categoryId) return;
+
+    setExpandedCategoryIds((prev) => (
+      prev.includes(categoryId)
+        ? prev.filter((item) => item !== categoryId)
+        : [...prev, categoryId]
+    ));
+  };
+
+  const handleCategorySelect = ({ level, categoryId }) => {
+    if (!categoryId) return;
+
+    if (level === 0) {
+      setFilters((prev) => ({
+        ...prev,
+        catId: [categoryId],
+        subCatId: [],
+        thirdsubCatId: [],
+        colors: []
+      }));
+      return;
+    }
+
+    if (level === 1) {
+      setFilters((prev) => ({
+        ...prev,
+        catId: [],
+        subCatId: [categoryId],
+        thirdsubCatId: [],
+        colors: []
+      }));
+      return;
+    }
+
+    setFilters((prev) => ({
+      ...prev,
+      catId: [],
+      subCatId: [],
+      thirdsubCatId: [categoryId],
+      colors: []
+    }));
+  };
+
+  const renderCategoryTree = (categories = [], level = 0) => {
+    if (!Array.isArray(categories) || categories.length === 0) return null;
+
+    return categories.map((category) => {
+      const hasChildren = (category?.children || []).length > 0;
+      const isExpanded = expandedCategoryIds.includes(category?._id);
+      const isSelected =
+        (level === 0 && filters?.catId?.includes(category?._id)) ||
+        (level === 1 && filters?.subCatId?.includes(category?._id)) ||
+        (level >= 2 && filters?.thirdsubCatId?.includes(category?._id));
+
+      return (
+        <div key={category?._id} className={`${level > 0 ? "pl-4" : ""} py-1`}>
+          <div className="flex items-center gap-2">
+            {hasChildren ? (
+              <button
+                type="button"
+                onClick={() => toggleCategoryExpand(category?._id)}
+                className="text-[#777]"
+              >
+                {isExpanded ? <FaAngleDown size={12} /> : <FaAngleRight size={12} />}
+              </button>
+            ) : (
+              <span className="w-3" />
+            )}
+
+            <button
+              type="button"
+              onClick={() => handleCategorySelect({ level, categoryId: category?._id })}
+              className={`text-left text-[15px] ${isSelected ? "font-[700] text-[#111]" : "text-[#555]"}`}
+            >
+              {category?.name}
+            </button>
+          </div>
+
+          {hasChildren && isExpanded && (
+            <div className="mt-1">{renderCategoryTree(category?.children, level + 1)}</div>
+          )}
+        </div>
+      );
+    });
+  };
+
 
   const handleApplyFilters = () => {
     context?.setOpenFilter(false);
@@ -365,7 +455,7 @@ export const Sidebar = (props) => {
 
   return (
     <aside className="sidebar py-3  lg:py-5 static lg:sticky top-[130px] z-[50] pr-0 lg:pr-5">
-      <div className=" max-h-[60vh]  lg:overflow-visible overflow-auto  w-full">
+      <div className="sidebarFiltersScroll max-h-[60vh] lg:max-h-[calc(100vh-190px)] overflow-y-auto overflow-x-hidden w-full pr-1">
         <div className="box">
           <h3 className="w-full mb-3 text-[16px] font-[600] flex items-center pr-5">
             Shop by Category
@@ -374,26 +464,12 @@ export const Sidebar = (props) => {
             </Button>
           </h3>
           <Collapse isOpened={isOpenCategoryFilter}>
-            {renderLimitedOptions({
-              title: "Shop by Category",
-              options: context?.catData || [],
-              selectedValues: filters?.catId || [],
-              onToggle: (item) => handleCheckboxChange("catId", item?._id),
-              onApplySelection: (values) => {
-                setFilters((prev) => ({
-                  ...prev,
-                  catId: values,
-                  subCatId: [],
-                  thirdsubCatId: [],
-                  colors: []
-                }));
-              },
-              getOptionKey: (item) => item?._id,
-              getOptionLabel: (item) => item?.name,
-              containerClassName: "scroll px-6 relative -left-[13px]"
-            })}
+            <div className="max-h-[260px] overflow-y-auto pr-2">
+              {renderCategoryTree(context?.catData || [])}
+            </div>
           </Collapse>
         </div>
+        
 
         <div className="box mt-4">
           <h3 className="w-full mb-3 text-[16px] font-[600] flex items-center pr-5">
@@ -530,6 +606,7 @@ export const Sidebar = (props) => {
             </Collapse>
           </div>
         }
+        
 
         <div className="box mt-4">
           <h3 className="w-full mb-3 text-[16px] font-[600] flex items-center pr-5">
@@ -657,13 +734,21 @@ export const Sidebar = (props) => {
             ))}
           </Collapse>
         </div>
+         
+
+        {/* <div className="flex items-center gap-2 py-3 mt-3">
+          <Button className="btn-org w-full !bg-[#ff5252] !text-white" onClick={handleApplyFilters}>
+            Applya {props?.activeFiltersCount > 0 && <span className="ml-1">({props.activeFiltersCount})</span>}
+          </Button>
+          <Button className="w-full !border !border-[#ff5252] !text-[#ff5252]" onClick={handleResetFilters}>Reset</Button>
+        </div> */}
 
 
       </div>
       <br />
       <div className="flex items-center gap-2 py-2">
         <Button className="btn-org w-full !bg-[#ff5252] !text-white" onClick={handleApplyFilters}>
-          Applya {props?.activeFiltersCount > 0 && <span className="ml-1">({props.activeFiltersCount})</span>}
+          Apply  <span className="ml-1">({props.activeFiltersCount})</span>
         </Button>
         <Button className="w-full !border !border-[#ff5252] !text-[#ff5252]" onClick={handleResetFilters}>Reset</Button>
       </div>

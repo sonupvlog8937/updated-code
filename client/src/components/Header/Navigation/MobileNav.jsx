@@ -1,4 +1,5 @@
 import { Button } from '@mui/material'
+import Badge from "@mui/material/Badge";
 import React, { useEffect } from 'react';
 import { IoHomeOutline } from "react-icons/io5";
 import { IoSearch } from "react-icons/io5";
@@ -44,7 +45,9 @@ const MobileNav = () => {
 
             <NavLink to="/cart" exact={true} activeClassName="isActive" onClick={() => context?.setOpenSearchPanel(false)}>
                 <Button className="flex-col !w-[40px] !min-w-[40px] !capitalize !text-gray-700">
-                    <MdOutlineShoppingCart size={18} />
+                    <Badge badgeContent={context?.cartData?.length || 0} color="secondary">
+                        <MdOutlineShoppingCart size={18} />
+                    </Badge>
                     <span className='text-[12px]'>Cart</span>
                 </Button>
             </NavLink>

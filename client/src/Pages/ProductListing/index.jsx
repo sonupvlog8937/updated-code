@@ -36,6 +36,31 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
   const [selectedColors, setSelectedColors] = useState([]);
   const [selectedRatingBands, setSelectedRatingBands] = useState([]);
   const context = useAppContext();
+   const activeFiltersCount = useMemo(() => (
+    selectedBrands.length +
+    selectedSizes.length +
+    selectedProductTypes.length +
+    selectedPriceRanges.length +
+    (selectedSaleOnly ? 1 : 0) +
+    (selectedStockStatus !== "all" ? 1 : 0) +
+    selectedDiscountRanges.length +
+    selectedWeights.length +
+    selectedRamOptions.length +
+    selectedColors.length +
+    selectedRatingBands.length
+  ), [
+    selectedBrands,
+    selectedSizes,
+    selectedProductTypes,
+    selectedPriceRanges,
+    selectedSaleOnly,
+    selectedStockStatus,
+    selectedDiscountRanges,
+    selectedWeights,
+    selectedRamOptions,
+    selectedColors,
+    selectedRatingBands,
+  ]);
   const resetAllFilters = () => {
     setSelectedBrands([]);
     setSelectedSizes([]);
@@ -196,8 +221,7 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
 
     return getProductTimestamp(b) - getProductTimestamp(a);
     });
-  }, [productsData, selectedSortType, selectedBrands, selectedSizes, selectedProductTypes, selectedPriceRanges, selectedSaleOnly, selectedStockStatus, selectedDiscountRanges, selectedWeights, selectedRamOptions]);
-
+   }, [productsData, selectedSortType, selectedBrands, selectedSizes, selectedProductTypes, selectedPriceRanges, selectedSaleOnly, selectedStockStatus, selectedDiscountRanges, selectedWeights, selectedRamOptions, selectedColors, selectedRatingBands]);
   
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -225,7 +249,7 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
 
       <div className="bg-white p-2">
         <div className="container flex gap-3">
-          <div className={`sidebarWrapper fixed -bottom-[100%] left-0 w-fulllg:h-full lg:static lg:w-[20%] bg-white z-[102] lg:z-[100] p-3 lg:p-0  transition-all lg:opacity-100 opacity-0 ${context?.openFilter === true ? 'open' : ''}`}>
+          <div className={`sidebarWrapper fixed -bottom-[100%] left-0 w-full lg:h-full lg:static lg:w-[20%] bg-white z-[102] lg:z-[100] p-3 lg:p-0  transition-all lg:opacity-100 opacity-0 ${context?.openFilter === true ? 'open' : ''}`}>
             <Sidebar
               productsData={productsData}
               setProductsData={setProductsData}
@@ -251,6 +275,7 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
               setSelectedWeights={setSelectedWeights}
               selectedRamOptions={selectedRamOptions}
               setSelectedRamOptions={setSelectedRamOptions}
+              activeFiltersCount={activeFiltersCount}
               onResetAllFilters={resetAllFilters}
             />
           </div>
@@ -270,7 +295,9 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
                   onClick={() => context?.setOpenFilter(true)}
                   className="!text-[12px] !capitalize !rounded-full !bg-[#ff5252] !text-white !border-[#ff5252]"
                 >
-                 <MdOutlineFilterAlt className="mr-1" size={20} /><b className="text-[14px]">Filters</b>
+                 <MdOutlineFilterAlt className="mr-1" size={20} />
+                 <b className="text-[14px]">Filters</b>
+                 {activeFiltersCount > 0 && <span className="ml-1 text-[13px]">({activeFiltersCount})</span>}
                 </Button>
                 
               </div>
