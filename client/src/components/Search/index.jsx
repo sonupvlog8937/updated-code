@@ -77,6 +77,7 @@ const Search = () => {
       return;
     }
 
+    setIsDropdownOpen(false);
     setIsLoading(true);
 
     const obj = {
@@ -97,7 +98,6 @@ const Search = () => {
 
       setTimeout(() => {
         setIsLoading(false);
-        setIsDropdownOpen(false);
         context?.setOpenSearchPanel(false);
         history(`/search?query=${encodeURIComponent(trimmedQuery)}&page=1`);
       }, 500);

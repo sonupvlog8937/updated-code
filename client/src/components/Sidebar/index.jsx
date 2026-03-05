@@ -403,19 +403,45 @@ export const Sidebar = (props) => {
 
     //console.log(context?.searchData)
 
-    if (context?.searchData?.products?.length > 0) {
-      props.setProductsData(context?.searchData);
-      props.setIsLoading(false);
-      props.setTotalPages(context?.searchData?.totalPages)
-      window.scrollTo(0, 0);
-    } else {
-      postData(`/api/product/filters`, filters).then((res) => {
+    const requestPayload = {
+      ...filters,
+      sortType: props?.selectedSortType,
+      brands: props?.selectedBrands || [],
+      sizes: props?.selectedSizes || [],
+      productTypes: props?.selectedProductTypes || [],
+      priceRanges: props?.selectedPriceRanges || [],
+      saleOnly: props?.selectedSaleOnly || false,
+      stockStatus: props?.selectedStockStatus || "all",
+      discountRanges: props?.selectedDiscountRanges || [],
+      weights: props?.selectedWeights || [],
+      ramOptions: props?.selectedRamOptions || [],
+      colors: props?.selectedColors || filters?.colors || [],
+      ratingBands: props?.selectedRatingBands || [],
+    };
+
+     const isSearchPage = location.pathname.includes("/search");
+
+    if (isSearchPage) {
+      const queryText = new URLSearchParams(location.search).get("query") || "";
+      postData(`/api/product/search/get`, {
+        ...requestPayload,
+        query: queryText,
+      }).then((res) => {
+        context?.setSearchData(res);
         props.setProductsData(res);
         props.setIsLoading(false);
-        props.setTotalPages(res?.totalPages)
+      props.setTotalPages(res?.totalPages || 1);
         window.scrollTo(0, 0);
-      })
+      });
+      return;
     }
+
+     postData(`/api/product/filters`, requestPayload).then((res) => {
+      props.setProductsData(res);
+      props.setIsLoading(false);
+      props.setTotalPages(res?.totalPages || 1)
+      window.scrollTo(0, 0);
+    })
 
 
   }
@@ -425,7 +451,24 @@ export const Sidebar = (props) => {
   useEffect(() => {
     filters.page = props.page;
     filtesData();
-  }, [filters, props.page])
+   }, [
+    filters,
+    props.page,
+    props?.selectedSortType,
+    props?.selectedBrands,
+    props?.selectedSizes,
+    props?.selectedProductTypes,
+    props?.selectedPriceRanges,
+    props?.selectedSaleOnly,
+    props?.selectedStockStatus,
+    props?.selectedDiscountRanges,
+    props?.selectedWeights,
+    props?.selectedRamOptions,
+    props?.selectedColors,
+    props?.selectedRatingBands,
+    location.pathname,
+    location.search,
+  ])
 
 
   useEffect(() => {
@@ -669,7 +712,7 @@ export const Sidebar = (props) => {
               options: availableWeights,
               selectedValues: props?.selectedWeights || [],
               onToggle: (weight) => handleMultiSelect(props?.selectedWeights, props?.setSelectedWeights, weight),
-              onApplySelection: (values) => props?.setSelectedDiscountRanges?.(values),
+               onApplySelection: (values) => props?.setSelectedWeights?.(values),
               getOptionKey: (weight) => weight,
               getOptionLabel: (weight) => weight
             })}

@@ -22,11 +22,11 @@ const ProductListing = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
+  const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
   const [selectedSortType, setSelectedSortType] = useState("bestSeller");
   const [selectedBrands, setSelectedBrands] = useState([]);
   const [selectedSizes, setSelectedSizes] = useState([]);
-   const [selectedProductTypes, setSelectedProductTypes] = useState([]);
+  const [selectedProductTypes, setSelectedProductTypes] = useState([]);
   const [selectedPriceRanges, setSelectedPriceRanges] = useState([]);
   const [selectedSaleOnly, setSelectedSaleOnly] = useState(false);
   const [selectedStockStatus, setSelectedStockStatus] = useState("all");
@@ -36,7 +36,7 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
   const [selectedColors, setSelectedColors] = useState([]);
   const [selectedRatingBands, setSelectedRatingBands] = useState([]);
   const context = useAppContext();
-   const activeFiltersCount = useMemo(() => (
+  const activeFiltersCount = useMemo(() => (
     selectedBrands.length +
     selectedSizes.length +
     selectedProductTypes.length +
@@ -79,13 +79,13 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
     return product?.productType || product?.thirdSubCatName || product?.subCatName || product?.catName || "";
   };
 
- const getProductTimestamp = (product) => {
+  const getProductTimestamp = (product) => {
     const dateString = product?.createdAt || product?.updatedAt || product?.date;
     const parsed = new Date(dateString).getTime();
     return Number.isNaN(parsed) ? 0 : parsed;
   };
 
- 
+
 
   const filteredProducts = useMemo(() => {
     const allProducts = productsData?.products || [];
@@ -107,10 +107,10 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
         }
       }
 
-       if (selectedProductTypes.length > 0) {
+      if (selectedProductTypes.length > 0) {
         const productType = getProductType(product);
 
-          if (!selectedProductTypes.includes(productType)) {
+        if (!selectedProductTypes.includes(productType)) {
           return false;
         }
       }
@@ -131,7 +131,7 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
         return false;
       }
 
-       if (selectedStockStatus === "inStock" && Number(product?.countInStock || 0) <= 0) {
+      if (selectedStockStatus === "inStock" && Number(product?.countInStock || 0) <= 0) {
         return false;
       }
 
@@ -163,7 +163,7 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
         }
       }
 
-       if (selectedColors.length > 0) {
+      if (selectedColors.length > 0) {
         const productColors = Array.isArray(product?.colorOptions)
           ? product.colorOptions.map((colorItem) => colorItem?.name?.toLowerCase().trim()).filter(Boolean)
           : [];
@@ -188,6 +188,11 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
     });
 
     return [...productsAfterFilters].sort((a, b) => {
+
+      if (selectedSortType === "bestSeller") {
+        return Number(b?.sale || 0) - Number(a?.sale || 0);
+      }
+
       if (selectedSortType === "latest") {
         return getProductTimestamp(b) - getProductTimestamp(a);
       }
@@ -195,34 +200,28 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
       if (selectedSortType === "popular") {
         const ratingDifference = Number(b?.rating || 0) - Number(a?.rating || 0);
 
-     if (ratingDifference !== 0) {
+        if (ratingDifference !== 0) {
           return ratingDifference;
         }
 
-     return Number(b?.sale || 0) - Number(a?.sale || 0);
+        return Number(b?.sale || 0) - Number(a?.sale || 0);
       }
 
-
-    if (selectedSortType === "featured") {
-        const featuredDifference = Number(Boolean(b?.isFeatured)) - Number(Boolean(a?.isFeatured));
+      if (selectedSortType === "featured") {
+        const featuredDifference =
+          Number(Boolean(b?.isFeatured)) - Number(Boolean(a?.isFeatured));
 
         if (featuredDifference !== 0) {
           return featuredDifference;
         }
 
-     return Number(b?.sale || 0) - Number(a?.sale || 0);
-      }
+        return Number(b?.sale || 0) - Number(a?.sale || 0);
+      } 
 
-      const saleDifference = Number(b?.sale || 0) - Number(a?.sale || 0);
-
-      if (saleDifference !== 0) {
-        return saleDifference;
-      }
-
-    return getProductTimestamp(b) - getProductTimestamp(a);
+      return 0;
     });
-   }, [productsData, selectedSortType, selectedBrands, selectedSizes, selectedProductTypes, selectedPriceRanges, selectedSaleOnly, selectedStockStatus, selectedDiscountRanges, selectedWeights, selectedRamOptions, selectedColors, selectedRatingBands]);
-  
+  }, [productsData, selectedSortType, selectedBrands, selectedSizes, selectedProductTypes, selectedPriceRanges, selectedSaleOnly, selectedStockStatus, selectedDiscountRanges, selectedWeights, selectedRamOptions, selectedColors, selectedRatingBands]);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -283,7 +282,7 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
           {
             context?.windowWidth < 992 &&
             <div className={`filter_overlay w-full h-full bg-[rgba(0,0,0,0.5)] fixed top-0 left-0 z-[101]  ${context?.openFilter === true ? 'block' : 'hidden'}`}
-              onClick={()=>context?.setOpenFilter(false)}
+              onClick={() => context?.setOpenFilter(false)}
             ></div>
           }
 
@@ -295,11 +294,11 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
                   onClick={() => context?.setOpenFilter(true)}
                   className="!text-[12px] !capitalize !rounded-full !bg-[#ff5252] !text-white !border-[#ff5252]"
                 >
-                 <MdOutlineFilterAlt className="mr-1" size={20} />
-                 <b className="text-[14px]">Filters</b>
-                 {activeFiltersCount > 0 && <span className="ml-1 text-[13px]">({activeFiltersCount})</span>}
+                  <MdOutlineFilterAlt className="mr-1" size={20} />
+                  <b className="text-[14px]">Filters</b>
+                  {activeFiltersCount > 0 && <span className="ml-1 text-[13px]">({activeFiltersCount})</span>}
                 </Button>
-                
+
               </div>
 
               <div className="col2 ml-auto flex items-center justify-end gap-3 pr-4">
@@ -332,7 +331,7 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
                     onClick={() => handleSortBy('Best Seller', 'bestSeller')}
                     className="!text-[13px] !text-[#000] !capitalize"
                   >
-                     Best Seller
+                    Best Seller
                   </MenuItem>
 
 
@@ -345,7 +344,7 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
 
 
                   <MenuItem
-                   onClick={() => handleSortBy('Popular', 'popular')}
+                    onClick={() => handleSortBy('Popular', 'popular')}
                     className="!text-[13px] !text-[#000] !capitalize"
                   >
                     Popular
@@ -353,7 +352,7 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
 
 
                   <MenuItem
-                   onClick={() => handleSortBy('Featured', 'featured')}
+                    onClick={() => handleSortBy('Featured', 'featured')}
                     className="!text-[13px] !text-[#000] !capitalize"
                   >
                     Featured
@@ -362,18 +361,18 @@ const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
                 </Menu>
               </div>
             </div>
-               
-       
+
+
 
 
             <div
-              
-                 className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
+
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
             >
-               {
+              {
                 isLoading === true ? <ProductLoadingGrid view="grid" />
                   :
-                 filteredProducts?.length !== 0 && filteredProducts?.map((item, index) => {
+                  filteredProducts?.length !== 0 && filteredProducts?.map((item, index) => {
                     return (
                       <ProductItem key={index} item={item} />
                     )

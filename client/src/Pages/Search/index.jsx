@@ -44,6 +44,27 @@ const SearchPage = () => {
   const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const searchQuery = queryParams.get("query") || "";
   const pageLimit = 20;
+  const activeFiltersCount = useMemo(() => (
+    selectedBrands.length +
+    selectedSizes.length +
+    selectedProductTypes.length +
+    selectedPriceRanges.length +
+    (selectedSaleOnly ? 1 : 0) +
+    (selectedStockStatus !== "all" ? 1 : 0) +
+    selectedDiscountRanges.length +
+    selectedWeights.length +
+    selectedRamOptions.length
+  ), [
+    selectedBrands,
+    selectedSizes,
+    selectedProductTypes,
+    selectedPriceRanges,
+    selectedSaleOnly,
+    selectedStockStatus,
+    selectedDiscountRanges,
+    selectedWeights,
+    selectedRamOptions,
+  ]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -186,7 +207,7 @@ const SearchPage = () => {
 
       <div className="bg-white p-2">
         <div className="container flex gap-3">
-          <div className={`sidebarWrapper fixed -bottom-[100%] left-0 w-fulllg:h-full lg:static lg:w-[20%] bg-white z-[102] lg:z-[100] p-3 lg:p-0  transition-all lg:opacity-100 opacity-0 ${context?.openFilter === true ? 'open' : ''}`}>
+          <div className={`sidebarWrapper fixed -bottom-[100%] left-0 w-full lg:h-full lg:static lg:w-[20%] bg-white z-[102] lg:z-[100] p-3 lg:p-0  transition-all lg:opacity-100 opacity-0 ${context?.openFilter === true ? 'open' : ''}`}>
             <Sidebar
               productsData={productsData}
               setProductsData={setProductsData}
@@ -212,6 +233,7 @@ const SearchPage = () => {
               setSelectedRamOptions={setSelectedRamOptions}
               selectedPriceRanges={selectedPriceRanges}
               setSelectedPriceRanges={setSelectedPriceRanges}
+              activeFiltersCount={activeFiltersCount}
               onResetAllFilters={handleResetAllFilters}
             />
           </div>
@@ -219,37 +241,23 @@ const SearchPage = () => {
           {
             context?.windowWidth < 992 &&
             <div className={`filter_overlay w-full h-full bg-[rgba(0,0,0,0.5)] fixed top-0 left-0 z-[101]  ${context?.openFilter === true ? 'block' : 'hidden'}`}
-              onClick={() => context?.setOpenFilter(false)}
+              onClick={()=>context?.setOpenFilter(false)}
             ></div>
           }
 
 
           <div className="rightContent w-full lg:w-[80%] py-3">
             <div className="bg-[#f1f1f1] p-2 w-full mb-4 rounded-md flex items-center justify-between sticky top-[135px] z-[99]">
-              <div className="col1 flex items-center itemViewActions">
+              <div className="col1 flex items-center itemViewActions gap-2">
                 <Button
-                  className={`!w-[35px] !h-[35px] !min-w-[35px] !rounded-full 
-                    !text-[#000] ${itemView === "list" && "active !bg-[#dfdfdf]"}`}
-                  onClick={() => setItemView("list")}
+                  onClick={() => context?.setOpenFilter(true)}
+                  className="!text-[12px] !capitalize !rounded-full !bg-[#ff5252] !text-white !border-[#ff5252]"
                 >
-                  <LuMenu className="text-[rgba(0,0,0,0.7)] text-[16px]" />
+                 <MdOutlineFilterAlt className="mr-1" size={20} />
+                 <b className="text-[14px]">Filters</b>
+                 {activeFiltersCount > 0 && <span className="ml-1 text-[13px]">({activeFiltersCount})</span>}
                 </Button>
-                <Button
-                  className={`!w-[35px] !h-[35px] !min-w-[35px] !rounded-full 
-                    !text-[#000] ${itemView === "grid" && "active !bg-[#dfdfdf]"}`}
-                  onClick={() => setItemView("grid")}
-                >
-                  <IoGridSharp className="text-[rgba(0,0,0,0.7)] text-[14px]" />
-                </Button>
-                <Button
-                  className="!text-[12px] !capitalize !bg-white !text-[#333] !border !border-[#ccc] !ml-2"
-                  onClick={() => context?.setOpenFilter(!context?.openFilter)}
-                >
-                  <MdOutlineFilterAlt className="mr-1 text-[16px]" /> Filter
-                </Button>
-                <span className="text-[14px] hidden sm:block md:block lg:block font-[500] pl-3 text-[rgba(0,0,0,0.7)]">
-                There are {filteredProducts?.length !== 0 ? filteredProducts?.length : 0}  products.
-                </span>
+                
               </div>
 
               <div className="col2 ml-auto flex items-center justify-end gap-3 pr-4">
