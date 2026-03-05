@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "../../components/Sidebar";
 import ProductItem from "../../components/ProductItem";
 import ProductItemListView from "../../components/ProductItemListView";
@@ -21,6 +21,9 @@ const ProductListing = () => {
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const loadMoreRef = useRef(null);
+  const isFetchingRef = useRef(false);
+
 
   const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
   const [selectedSortType, setSelectedSortType] = useState("bestSeller");
@@ -226,6 +229,54 @@ const ProductListing = () => {
     window.scrollTo(0, 0);
   }, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [
+    selectedSortType,
+    selectedBrands,
+    selectedSizes,
+    selectedProductTypes,
+    selectedPriceRanges,
+    selectedSaleOnly,
+    selectedStockStatus,
+    selectedDiscountRanges,
+    selectedWeights,
+    selectedRamOptions,
+    selectedColors,
+    selectedRatingBands,
+  ]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        const hasMorePages = page < totalPages;
+
+        if (entry?.isIntersecting && !isFetchingRef.current && hasMorePages) {
+          isFetchingRef.current = true;
+          setPage((prevPage) => prevPage + 1);
+        }
+      },
+      { rootMargin: "200px" },
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+      observer.disconnect();
+    };
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    isFetchingRef.current = isLoading;
+  }, [isLoading]);
+
 
   const open = Boolean(anchorEl);
   const handleClick = (event) => {
@@ -256,6 +307,7 @@ const ProductListing = () => {
               setIsLoading={setIsLoading}
               page={page}
               setTotalPages={setTotalPages}
+              infiniteScroll={true}
               selectedBrands={selectedBrands}
               setSelectedBrands={setSelectedBrands}
               selectedSizes={selectedSizes}
@@ -381,17 +433,13 @@ const ProductListing = () => {
               }
             </div>
 
-            {
-              totalPages > 1 &&
-              <div className="flex items-center justify-center mt-10">
-                <Pagination
-                  showFirstButton showLastButton
-                  count={totalPages}
-                  page={page}
-                  onChange={(e, value) => setPage(value)}
-                />
+             <div ref={loadMoreRef} className="h-[20px] w-full" />
+
+            {isLoading && page > 1 && (
+              <div className="mt-4">
+                <ProductLoadingGrid view="grid" />
               </div>
-            }
+            )}
 
 
           </div>
