@@ -32,6 +32,8 @@ export const Sidebar = (props) => {
   const [isOpenWeightFilter, setIsOpenWeightFilter] = useState(true);
   const [isOpenRamFilter, setIsOpenRamFilter] = useState(true);
   const [activeMoreFilter, setActiveMoreFilter] = useState(null);
+  const [moreFilterSelections, setMoreFilterSelections] = useState([]);
+
 
   const [filters, setFilters] = useState({
     catId: [],
@@ -157,7 +159,7 @@ export const Sidebar = (props) => {
 
   };
 
-   const handleMultiSelect = (selectedValues = [], setSelectedValues, value) => {
+  const handleMultiSelect = (selectedValues = [], setSelectedValues, value) => {
     if (typeof setSelectedValues !== "function") return;
     const updatedValues = selectedValues.includes(value)
       ? selectedValues.filter((item) => item !== value)
@@ -171,10 +173,26 @@ export const Sidebar = (props) => {
 
   const openMoreFilterModal = (config) => {
     setActiveMoreFilter(config);
+    setMoreFilterSelections(config?.selectedValues || []);
   };
 
   const closeMoreFilterModal = () => {
     setActiveMoreFilter(null);
+    setMoreFilterSelections([]);
+  };
+
+  const toggleMoreFilterSelection = (optionKey) => {
+    setMoreFilterSelections((prev) => (
+      prev.includes(optionKey)
+        ? prev.filter((item) => item !== optionKey)
+        : [...prev, optionKey]
+    ));
+  };
+
+  const applyMoreFilterSelection = () => {
+    activeMoreFilter?.onApplySelection?.(moreFilterSelections);
+    closeMoreFilterModal();
+    context?.setOpenFilter(false);
   };
 
   const renderLimitedOptions = ({
@@ -182,6 +200,7 @@ export const Sidebar = (props) => {
     options = [],
     selectedValues = [],
     onToggle,
+    onApplySelection,
     getOptionKey,
     getOptionLabel,
     containerClassName = "scroll px-3"
@@ -210,7 +229,7 @@ export const Sidebar = (props) => {
         {hasMore && (
           <div className="px-3 pb-1">
             <Button
-              onClick={() => openMoreFilterModal({ title, options, selectedValues, onToggle, getOptionKey, getOptionLabel })}
+              onClick={() => openMoreFilterModal({ title, options, selectedValues, onApplySelection, getOptionKey, getOptionLabel })}
               className="!normal-case !text-[#1976d2] !font-[600]"
             >
               More ({options.length - 5})
@@ -355,11 +374,20 @@ export const Sidebar = (props) => {
             </Button>
           </h3>
           <Collapse isOpened={isOpenCategoryFilter}>
-             {renderLimitedOptions({
+            {renderLimitedOptions({
               title: "Shop by Category",
               options: context?.catData || [],
               selectedValues: filters?.catId || [],
               onToggle: (item) => handleCheckboxChange("catId", item?._id),
+              onApplySelection: (values) => {
+                setFilters((prev) => ({
+                  ...prev,
+                  catId: values,
+                  subCatId: [],
+                  thirdsubCatId: [],
+                  colors: []
+                }));
+              },
               getOptionKey: (item) => item?._id,
               getOptionLabel: (item) => item?.name,
               containerClassName: "scroll px-6 relative -left-[13px]"
@@ -380,6 +408,7 @@ export const Sidebar = (props) => {
               options: availableBrands,
               selectedValues: props?.selectedBrands || [],
               onToggle: (brand) => handleMultiSelect(props?.selectedBrands, props?.setSelectedBrands, brand),
+              onApplySelection: (values) => props?.setSelectedBrands?.(values),
               getOptionKey: (brand) => brand,
               getOptionLabel: (brand) => brand
             })}
@@ -394,11 +423,12 @@ export const Sidebar = (props) => {
             </Button>
           </h3>
           <Collapse isOpened={isOpenSizeFilter}>
-              {renderLimitedOptions({
+            {renderLimitedOptions({
               title: "Filter By Size",
               options: availableSizes,
               selectedValues: props?.selectedSizes || [],
               onToggle: (size) => handleMultiSelect(props?.selectedSizes, props?.setSelectedSizes, size),
+              onApplySelection: (values) => props?.setSelectedSizes?.(values),
               getOptionKey: (size) => size,
               getOptionLabel: (size) => size
             })}
@@ -418,6 +448,7 @@ export const Sidebar = (props) => {
               options: availableProductTypes,
               selectedValues: props?.selectedProductTypes || [],
               onToggle: (type) => handleMultiSelect(props?.selectedProductTypes, props?.setSelectedProductTypes, type),
+              onApplySelection: (values) => props?.setSelectedProductTypes?.(values),
               getOptionKey: (type) => type,
               getOptionLabel: (type) => type
             })}
@@ -437,6 +468,7 @@ export const Sidebar = (props) => {
               options: availablePriceRanges,
               selectedValues: props?.selectedPriceRanges || [],
               onToggle: (range) => handleMultiSelect(props?.selectedPriceRanges, props?.setSelectedPriceRanges, range.value),
+              onApplySelection: (values) => props?.setSelectedPriceRanges?.(values),
               getOptionKey: (range) => range.value,
               getOptionLabel: (range) => range.label,
               containerClassName: "px-2"
@@ -469,17 +501,23 @@ export const Sidebar = (props) => {
           <div className="box mt-4">
             <h3 className="w-full mb-3 text-[16px] font-[600] flex items-center pr-5">
               Filter By Colour
-               <Button className="!w-[30px] !h-[30px] !min-w-[30px] !rounded-full !ml-auto !text-[#000]" onClick={() => setIsOpenColorFilter(!isOpenColorFilter)}>
+              <Button className="!w-[30px] !h-[30px] !min-w-[30px] !rounded-full !ml-auto !text-[#000]" onClick={() => setIsOpenColorFilter(!isOpenColorFilter)}>
                 {isOpenColorFilter ? <FaAngleUp /> : <FaAngleDown />}
               </Button>
             </h3>
 
-           <Collapse isOpened={isOpenColorFilter}>
-               {renderLimitedOptions({
+            <Collapse isOpened={isOpenColorFilter}>
+              {renderLimitedOptions({
                 title: "Filter By Colour",
                 options: availableColors,
                 selectedValues: filters?.colors || [],
                 onToggle: (color) => handleCheckboxChange("colors", color?.name),
+                onApplySelection: (values) => {
+                  setFilters((prev) => ({
+                    ...prev,
+                    colors: values
+                  }));
+                },
                 getOptionKey: (color) => color?.name,
                 getOptionLabel: (color) => (
                   <span className="flex items-center gap-2">
@@ -533,6 +571,7 @@ export const Sidebar = (props) => {
               options: discountBands,
               selectedValues: props?.selectedDiscountRanges || [],
               onToggle: (band) => handleMultiSelect(props?.selectedDiscountRanges, props?.setSelectedDiscountRanges, band.min),
+              onApplySelection: (values) => props?.setSelectedDiscountRanges?.(values),
               getOptionKey: (band) => band.min,
               getOptionLabel: (band) => band.label,
               containerClassName: "px-2"
@@ -548,11 +587,12 @@ export const Sidebar = (props) => {
             </Button>
           </h3>
           <Collapse isOpened={isOpenWeightFilter}>
-             {renderLimitedOptions({
+            {renderLimitedOptions({
               title: "Filter By Weight",
               options: availableWeights,
               selectedValues: props?.selectedWeights || [],
               onToggle: (weight) => handleMultiSelect(props?.selectedWeights, props?.setSelectedWeights, weight),
+              onApplySelection: (values) => props?.setSelectedDiscountRanges?.(values),
               getOptionKey: (weight) => weight,
               getOptionLabel: (weight) => weight
             })}
@@ -567,11 +607,12 @@ export const Sidebar = (props) => {
             </Button>
           </h3>
           <Collapse isOpened={isOpenRamFilter}>
-           {renderLimitedOptions({
+            {renderLimitedOptions({
               title: "Filter By RAM",
               options: availableRamOptions,
               selectedValues: props?.selectedRamOptions || [],
               onToggle: (ram) => handleMultiSelect(props?.selectedRamOptions, props?.setSelectedRamOptions, ram),
+              onApplySelection: (values) => props?.setSelectedRamOptions?.(values),
               getOptionKey: (ram) => ram,
               getOptionLabel: (ram) => ram
             })}
@@ -597,12 +638,12 @@ export const Sidebar = (props) => {
         <div className="box mt-4">
           <h3 className="w-full mb-3 text-[16px] font-[600] flex items-center pr-5">
             Filter By Rating
-             <Button className="!w-[30px] !h-[30px] !min-w-[30px] !rounded-full !ml-auto !text-[#000]" onClick={() => setIsOpenRatingFilter(!isOpenRatingFilter)}>
+            <Button className="!w-[30px] !h-[30px] !min-w-[30px] !rounded-full !ml-auto !text-[#000]" onClick={() => setIsOpenRatingFilter(!isOpenRatingFilter)}>
               {isOpenRatingFilter ? <FaAngleUp /> : <FaAngleDown />}
             </Button>
           </h3>
 
-             <Collapse isOpened={isOpenRatingFilter}>
+          <Collapse isOpened={isOpenRatingFilter}>
             {[5, 4, 3, 2, 1].map((rating) => (
               <div key={rating} className="flex items-center pl-2 lg:pl-1">
                 <FormControlLabel
@@ -620,33 +661,36 @@ export const Sidebar = (props) => {
 
       </div>
       <br />
-       <div className="flex items-center gap-2 py-2">
-        <Button className="btn-org w-full !bg-[#ff5252] !text-white" onClick={handleApplyFilters}>Apply</Button>
+      <div className="flex items-center gap-2 py-2">
+        <Button className="btn-org w-full !bg-[#ff5252] !text-white" onClick={handleApplyFilters}>
+          Applya {props?.activeFiltersCount > 0 && <span className="ml-1">({props.activeFiltersCount})</span>}
+        </Button>
         <Button className="w-full !border !border-[#ff5252] !text-[#ff5252]" onClick={handleResetFilters}>Reset</Button>
       </div>
       <Button className="btn-org w-full !flex lg:!hidden mt-2" onClick={() => context?.setOpenFilter(false)}><MdOutlineFilterAlt size={20} /> Cancel</Button>
 
-       <Dialog open={Boolean(activeMoreFilter)} onClose={closeMoreFilterModal} fullWidth maxWidth="sm">
+      <Dialog open={Boolean(activeMoreFilter)} onClose={closeMoreFilterModal} fullWidth maxWidth="sm">
         <DialogTitle className="!font-[700] !text-[18px] !pb-2">{activeMoreFilter?.title}</DialogTitle>
         <DialogContent>
           <p className="text-[13px] text-[#666] mb-3">Select filters and apply directly from this list.</p>
-          <div className="max-h-[60vh] overflow-auto">
+          <div className="max-h-[60vh] overflow-auto px-4">
             {(activeMoreFilter?.options || []).map((option) => {
               const optionKey = activeMoreFilter?.getOptionKey?.(option);
               return (
                 <FormControlLabel
                   key={optionKey}
                   control={<Checkbox />}
-                  checked={(activeMoreFilter?.selectedValues || []).includes(optionKey)}
-                  onChange={() => activeMoreFilter?.onToggle?.(option)}
+                  checked={moreFilterSelections.includes(optionKey)}
+                  onChange={() => toggleMoreFilterSelection(optionKey)}
                   label={activeMoreFilter?.getOptionLabel?.(option)}
                   className="w-full"
                 />
               );
             })}
           </div>
-          <div className="flex justify-end pt-2">
-            <Button onClick={closeMoreFilterModal} className="!bg-[#111] !text-white !px-5">Done</Button>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button onClick={closeMoreFilterModal} className="!text-[#555]">Cancel</Button>
+            <Button onClick={applyMoreFilterSelection} className="!bg-[#111] !text-white !px-5">Apply</Button>
           </div>
         </DialogContent>
       </Dialog>
