@@ -34,6 +34,37 @@ const ProductItem = (props) => {
   const location = useLocation();
   const productDetailsUrl = `/product/${props?.item?._id}${location.pathname === "/search" ? location.search : ""}`;
 
+const getProductTag = (product) => {
+    const stockCount = Number(product?.countInStock || 0);
+
+    if (stockCount <= 0) {
+      return "Not Available";
+    }
+
+    if (stockCount <= 5) {
+      return `${stockCount} Available`;
+    }
+
+    if (stockCount <= 7) {
+      return `${stockCount} Available`;
+    }
+
+    if (Number(product?.rating || 0) >= 4.6) {
+      return "Best Seller";
+    }
+
+    if (Number(product?.rating || 0) >= 4.2) {
+      return "Popular";
+    }
+
+    if (Number(product?.discount || 0) >= 25) {
+      return "Trending";
+    }
+
+    return "Latest";
+  };
+
+
   const addToCart = (product, userId, quantity) => {
 
     const productItem = {
@@ -287,6 +318,10 @@ const ProductItem = (props) => {
 
         <span className="discount flex items-center absolute top-[10px] left-[10px] z-50 bg-primary text-white rounded-lg p-1 text-[12px] font-[500]">
           {props?.item?.discount}%
+        </span>
+
+        <span className="flex items-center absolute top-[45px] left-[10px] z-50 bg-[#1f2937] text-white rounded-lg px-2 py-1 text-[10px] font-[600] uppercase tracking-wide">
+          {getProductTag(props?.item)}
         </span>
 
         <div className="actions absolute top-[-20px] right-[5px] z-50 flex items-center gap-2 flex-col w-[50px] transition-all duration-300 group-hover:top-[15px] opacity-0 group-hover:opacity-100">

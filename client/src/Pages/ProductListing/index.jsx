@@ -24,7 +24,7 @@ const ProductListing = () => {
   const [totalPages, setTotalPages] = useState(1);
 
   const [selectedSortVal, setSelectedSortVal] = useState("Name, A to Z");
-const [activeTab, setActiveTab] = useState("latest");
+const [activeTab, setActiveTab] = useState("all");
   const [selectedBrands, setSelectedBrands] = useState([]);
   const [selectedSizes, setSelectedSizes] = useState([]);
    const [selectedProductTypes, setSelectedProductTypes] = useState([]);
@@ -45,7 +45,7 @@ const [activeTab, setActiveTab] = useState("latest");
     setSelectedDiscountRanges([]);
     setSelectedWeights([]);
     setSelectedRamOptions([]);
-    setActiveTab("latest");
+    setActiveTab("all");
   };
 
   const getProductType = (product) => {
@@ -58,57 +58,28 @@ const [activeTab, setActiveTab] = useState("latest");
     return Number.isNaN(parsed) ? 0 : parsed;
   };
 
-  const getFeatureScore = (product) => {
-    const featuredFlag = product?.isFeatured || product?.featured || false;
-    return featuredFlag ? 2 : Number(product?.discount || 0) >= 20 ? 1 : 0;
-  };
+ 
 
   const filteredProducts = useMemo(() => {
     const allProducts = productsData?.products || [];
 
-    const latestIds = [...allProducts]
-      .sort((a, b) => getProductTimestamp(b) - getProductTimestamp(a))
-      .slice(0, Math.max(6, Math.ceil(allProducts.length * 0.4)))
-      .map((item) => item?._id);
-
-    const topPopularIds = [...allProducts]
-      .sort((a, b) => Number(b?.rating || 0) - Number(a?.rating || 0))
-      .slice(0, Math.max(6, Math.ceil(allProducts.length * 0.35)))
-      .map((item) => item?._id);
-
-    const topFeaturedIds = [...allProducts]
-      .sort((a, b) => getFeatureScore(b) - getFeatureScore(a))
-      .slice(0, Math.max(6, Math.ceil(allProducts.length * 0.4)))
-      .map((item) => item?._id);
-
-    const topTrendingIds = [...allProducts]
-      .sort((a, b) => Number(b?.discount || 0) - Number(a?.discount || 0))
-      .slice(0, Math.max(6, Math.ceil(allProducts.length * 0.4)))
-      .map((item) => item?._id);
-
-    return allProducts.filter((product) => {
-      if (activeTab === "featured") {
-        const featuredFlag = product?.isFeatured || product?.featured || Number(product?.discount || 0) >= 20;
-        if (!featuredFlag) {
-          return false;
-        }
+    const tabFilteredProducts = allProducts.filter((product) => {
+      if (activeTab === "brand") {
+        return Boolean(product?.brand?.trim());
       }
 
-      if (activeTab === "latest" && !latestIds.includes(product?._id)) {
-        return false;
+       if (activeTab === "color") {
+        return Array.isArray(product?.colorOptions) && product?.colorOptions.length > 0;
       }
 
-      if (activeTab === "popular" && !topPopularIds.includes(product?._id)) {
-        return false;
+      if (activeTab === "discount") {
+        return Number(product?.discount || 0) > 0;
       }
 
-      if (activeTab === "featured" && !topFeaturedIds.includes(product?._id)) {
-        return false;
-      }
+       return true;
+    });
 
-      if (activeTab === "trending" && !topTrendingIds.includes(product?._id)) {
-        return false;
-      }
+      const productsAfterFilters = tabFilteredProducts.filter((product) => {
 
       if (selectedBrands.length > 0) {
         const productBrand = product?.brand?.trim();
@@ -184,6 +155,34 @@ const [activeTab, setActiveTab] = useState("latest");
 
       return true;
     });
+
+    if (activeTab === "brand") {
+      return [...productsAfterFilters].sort((a, b) =>
+        (a?.brand || "").localeCompare(b?.brand || "", undefined, { sensitivity: "base" }),
+      );
+    }
+
+    if (activeTab === "price") {
+      return [...productsAfterFilters].sort((a, b) => Number(a?.price || 0) - Number(b?.price || 0));
+    }
+
+    if (activeTab === "discount") {
+      return [...productsAfterFilters].sort((a, b) => Number(b?.discount || 0) - Number(a?.discount || 0));
+    }
+
+    if (activeTab === "rating") {
+      return [...productsAfterFilters].sort((a, b) => Number(b?.rating || 0) - Number(a?.rating || 0));
+    }
+
+    if (activeTab === "color") {
+      return [...productsAfterFilters].sort((a, b) => {
+        const aColor = a?.colorOptions?.[0]?.name || "";
+        const bColor = b?.colorOptions?.[0]?.name || "";
+        return aColor.localeCompare(bColor, undefined, { sensitivity: "base" });
+      });
+    }
+
+    return [...productsAfterFilters].sort((a, b) => getProductTimestamp(b) - getProductTimestamp(a));
   }, [productsData, activeTab, selectedBrands, selectedSizes, selectedProductTypes, selectedPriceRanges, selectedSaleOnly, selectedStockStatus, selectedDiscountRanges, selectedWeights, selectedRamOptions]);
 
 
@@ -350,31 +349,45 @@ const [activeTab, setActiveTab] = useState("latest");
                 <MdOutlineFilterAlt className="mr-1" size={20}/><b className="text-[14px]">Filters</b> 
               </Button>
               <Button
-               onClick={() => setActiveTab("latest")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "latest" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+               onClick={() => setActiveTab("all")}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "all" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
               >
-                Latest
+                All
               </Button>
 
               <Button
-                onClick={() => setActiveTab("popular")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "popular" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+                onClick={() => setActiveTab("brand")}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "brand" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
               >
-                PoPular
+                Brand
               </Button>
 
               <Button
-                onClick={() => setActiveTab("featured")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "featured" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
-                >
-                Featured
+               onClick={() => setActiveTab("color")}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "color" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+              >
+                Color
               </Button>
 
               <Button
-              onClick={() => setActiveTab("trending")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "trending" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+                onClick={() => setActiveTab("price")}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "price" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
               >
-                Trending
+                Price
+              </Button>
+
+              <Button
+                onClick={() => setActiveTab("discount")}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "discount" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+              >
+                Discount
+              </Button>
+
+              <Button
+               onClick={() => setActiveTab("rating")}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "rating" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+              >
+                Rating
               </Button>
             </div>
 

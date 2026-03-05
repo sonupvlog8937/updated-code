@@ -44,7 +44,7 @@ export const ProductDetailsComponent = (props) => {
     if (productActionIndex === index) return;
 
     setIsVariantLoading(true);
-     setTabError(false);
+    setTabError(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
     setProductActionIndex(index)
     setSelectedTabName(name)
@@ -110,7 +110,7 @@ export const ProductDetailsComponent = (props) => {
 
   }, [context?.myListData])
 
-    const validateVariantSelection = () => {
+  const validateVariantSelection = () => {
     if (props?.item?.size?.length !== 0 || props?.item?.productWeight?.length !== 0 || props?.item?.productRam?.length !== 0 || props?.item?.productAge?.length !== 0) {
       if (selectedTabName === null) {
         setTabError(true);
@@ -138,7 +138,7 @@ export const ProductDetailsComponent = (props) => {
     size: props?.item?.size?.length > 0 ? selectedTabName : '',
     weight: props?.item?.productWeight?.length > 0 ? selectedTabName : '',
     ram: props?.item?.productRam?.length > 0 ? selectedTabName : '',
-     age: props?.item?.productAge?.length > 0 ? selectedTabName : '',
+    age: props?.item?.productAge?.length > 0 ? selectedTabName : '',
     color:
       props?.item?.colorOptions?.length > 0
         ? props?.item?.colorOptions?.[selectedColorIndex]?.name || ''
@@ -158,7 +158,7 @@ export const ProductDetailsComponent = (props) => {
       return false;
     }
 
- if (!validateVariantSelection()) return;
+    if (!validateVariantSelection()) return;
 
     const productItem = createProductItem(product, quantity);
 
@@ -206,13 +206,13 @@ export const ProductDetailsComponent = (props) => {
     props?.onColorChange?.(selectedVariantImages);
   }, [selectedVariantImages]);
 
-   const checkPinCode = async () => {
+  const checkPinCode = async () => {
     if (!/^\d{6}$/.test(pinCode)) {
       setDeliveryMessage("Please enter a valid 6-digit pincode.");
       return;
     }
 
-     setIsCheckingPinCode(true);
+    setIsCheckingPinCode(true);
 
     let isServiceable = false;
 
@@ -235,7 +235,7 @@ export const ProductDetailsComponent = (props) => {
         ? "Delivery available. Usually ships within 24 hours with easy returns."
         : "Delivery available. Usually ships within 24 hours with easy returns."
     );
-    
+
     setIsCheckingPinCode(false);
   }
 
@@ -317,9 +317,9 @@ export const ProductDetailsComponent = (props) => {
             &#x20b9;{activeOldPrice}
           </span>
           <span className="price text-primary text-[20px]  font-[600]">
-           &#x20b9;{activePrice}
+            &#x20b9;{activePrice}
           </span>
-           {
+          {
             activeDiscount > 0 &&
             <span className="text-[12px] font-[600] bg-green-100 text-green-700 rounded-full px-2 py-1">{activeDiscount}% OFF</span>
           }
@@ -429,10 +429,10 @@ export const ProductDetailsComponent = (props) => {
         </div>
       }
 
-       {
+      {
         props?.item?.styleOptions?.length !== 0 &&
         <div className="flex items-center gap-3 mt-4">
-          <span className="text-[16px]">STYLE:</span>
+          {/* <span className="text-[16px]">STYLE:</span> */}
           <div className="flex items-center gap-2 flex-wrap">
             {
               props?.item?.styleOptions?.map((styleItem, index) => {
@@ -442,7 +442,7 @@ export const ProductDetailsComponent = (props) => {
                     className={`${selectedStyleIndex === index ? "!bg-primary !text-white" : ""}`}
                     onClick={() => setSelectedStyleIndex(index)}
                   >
-                    {styleItem?.name}
+                    {/* {styleItem?.name} */}
                   </Button>
                 )
               })
@@ -453,7 +453,7 @@ export const ProductDetailsComponent = (props) => {
 
       {
         props?.item?.colorOptions?.length !== 0 &&
-         <div className="flex items-start gap-3 mt-4 flex-col sm:flex-row">
+        <div className="flex items-start gap-3 mt-4 flex-col sm:flex-row">
           <span className="text-[16px]">PRODUCT OPTIONS:</span>
           <div className="flex items-center gap-2 flex-wrap">
             {
@@ -467,9 +467,9 @@ export const ProductDetailsComponent = (props) => {
                     className={`flex items-center gap-2 border rounded-lg px-2 py-1 ${selectedColorIndex === index ? 'border-primary bg-primary/5' : 'border-[rgba(0,0,0,0.2)]'}`}
                     onClick={() => {
                       setSelectedColorIndex(index);
-                     
+
                     }}
-                 >
+                  >
                     <img
                       src={optionImage}
                       alt={colorItem?.name || 'Product option'}
@@ -481,10 +481,10 @@ export const ProductDetailsComponent = (props) => {
               })
             }
           </div>
-         
+
         </div>
       }
-       {
+      {
         props?.item?.size?.length !== 0 &&
         <div className="mt-3">
           <button className="text-primary text-[14px] font-[600] underline" onClick={() => setShowSizeChart((prev) => !prev)}>
@@ -528,35 +528,35 @@ export const ProductDetailsComponent = (props) => {
       <p className="text-[14px] mt-5 mb-2 text-[#000]">
         Free Shipping (Est. Delivery Time 2-3 Days)
       </p>
-       <div className="flex items-center gap-2 text-[13px] text-[rgba(0,0,0,0.75)] mb-3">
-  <FaRegClock className="text-[14px]" />
-  Order now and get it between{" "}
-  <strong>
-    {new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toLocaleDateString(
-      "en-IN",
-      {
-        weekday: "short",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        timeZone: "Asia/Kolkata",
-      }
-    )}
-  </strong>{" "}
-  -{" "}
-  <strong>
-    {new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toLocaleDateString(
-      "en-IN",
-      {
-        weekday: "short",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        timeZone: "Asia/Kolkata",
-      }
-    )}
-  </strong>
-</div>
+      <div className="flex items-center gap-2 text-[13px] text-[rgba(0,0,0,0.75)] mb-3">
+        <FaRegClock className="text-[14px]" />
+        Order now and get it between{" "}
+        <strong>
+          {new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toLocaleDateString(
+            "en-IN",
+            {
+              weekday: "short",
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              timeZone: "Asia/Kolkata",
+            }
+          )}
+        </strong>{" "}
+        -{" "}
+        <strong>
+          {new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toLocaleDateString(
+            "en-IN",
+            {
+              weekday: "short",
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              timeZone: "Asia/Kolkata",
+            }
+          )}
+        </strong>
+      </div>
 
 
       <div className="bg-[#f9fafb] rounded-md p-3 mb-3">
@@ -588,24 +588,39 @@ export const ProductDetailsComponent = (props) => {
           <QtyBox handleSelecteQty={handleSelecteQty} />
         </div>
 
-        <Button className="btn-org btn-lg w-full flex gap-2 items-center" onClick={() => addToCart(props?.item, context?.userData?._id, quantity)}>
-          {
-            isLoading === true ? <CircularProgress /> :
+        <div className="flex gap-3 w-full">
+
+          {/* Add To Cart */}
+          <Button
+            className="btn-org btn-lg flex-1 flex gap-2 items-center justify-center transition-all duration-300 hover:scale-105 hover:shadow-lg"
+            onClick={() => addToCart(props?.item, context?.userData?._id, quantity)}
+          >
+            {isLoading ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : (
               <>
-                {
-                  isAdded === true ? <><MdOutlineShoppingCart className="text-[22px]" /> One More Cart</> :
-                    <>
-                      <MdOutlineShoppingCart className="text-[22px]" /> Add to Cart
-                    </>
-                }
-
+                <MdOutlineShoppingCart className="text-[22px] transition-transform duration-300 group-hover:rotate-12" />
+                {isAdded ? "Add One More" : "Add to Cart"}
               </>
-          }
+            )}
+          </Button>
 
-        </Button>
-         <Button className="btn-dark btn-lg w-full flex gap-2 items-center" onClick={handleBuyNow} disabled={isBuyingNow}>
-          {isBuyingNow ? <CircularProgress size={18} /> : "Buy Now"}
-        </Button>
+          {/* Buy Now */}
+          <Button
+            className="btn-dark btn-lg flex-1 flex gap-2 items-center justify-center transition-all duration-300 hover:scale-105 hover:shadow-lg"
+            onClick={handleBuyNow}
+            disabled={isBuyingNow}
+          >
+            {isBuyingNow ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : (
+              <>
+                ⚡ Buy Now
+              </>
+            )}
+          </Button>
+
+        </div>
       </div>
 
       <div className="flex items-center gap-4 mt-4">
