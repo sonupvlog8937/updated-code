@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Sidebar } from "../../components/Sidebar";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
 import ProductItem from "../../components/ProductItem";
@@ -8,6 +8,7 @@ import { IoGridSharp } from "react-icons/io5";
 import { LuMenu } from "react-icons/lu";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
+import Pagination from "@mui/material/Pagination";
 import ProductLoadingGrid from "../../components/ProductLoading/productLoadingGrid";
 import { postData } from "../../utils/api";
 import { useAppContext } from "../../hooks/useAppContext";
@@ -21,8 +22,8 @@ const SearchPage = () => {
   const [productsData, setProductsData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const [visibleCount, setVisibleCount] = useState(20);
-  const loadMoreRef = useRef(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [aiInsights, setAiInsights] = useState(null);
   const [selectedBrands, setSelectedBrands] = useState([]);
   const [selectedSizes, setSelectedSizes] = useState([]);
@@ -134,9 +135,18 @@ const SearchPage = () => {
     });
   }, [productsData, selectedBrands, selectedSizes, selectedProductTypes, selectedSaleOnly, selectedStockStatus, selectedDiscountRanges, selectedWeights, selectedRamOptions, selectedPriceRanges]);
 
-  
+  const paginatedProducts = useMemo(() => {
+    const start = (page - 1) * pageLimit;
+    return filteredProducts.slice(start, start + pageLimit);
+  }, [filteredProducts, page]);
 
   useEffect(() => {
+    setTotalPages(Math.max(1, Math.ceil(filteredProducts.length / pageLimit)));
+  }, [filteredProducts]);
+
+  useEffect(() => {
+    const nextPage = Number(queryParams.get("page") || 1);
+    setPage(Number.isNaN(nextPage) ? 1 : nextPage);
     setSelectedBrands((queryParams.get("brands") || "").split(",").filter(Boolean));
     setSelectedSizes((queryParams.get("sizes") || "").split(",").filter(Boolean));
     setSelectedProductTypes((queryParams.get("types") || "").split(",").filter(Boolean));
@@ -153,6 +163,7 @@ const SearchPage = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
+    params.set("page", String(page));
     if (selectedBrands.length) params.set("brands", selectedBrands.join(",")); else params.delete("brands");
     if (selectedSizes.length) params.set("sizes", selectedSizes.join(",")); else params.delete("sizes");
     if (selectedProductTypes.length) params.set("types", selectedProductTypes.join(",")); else params.delete("types");
@@ -163,33 +174,7 @@ const SearchPage = () => {
     if (selectedSaleOnly) params.set("sale", "1"); else params.delete("sale");
     if (selectedDiscountRanges.length) params.set("discount", selectedDiscountRanges.join(",")); else params.delete("discount");
     navigate(`${location.pathname}?${params.toString()}`, { replace: true });
-    }, [selectedBrands, selectedSizes, selectedProductTypes, selectedWeights, selectedRamOptions, selectedPriceRanges, selectedStockStatus, selectedSaleOnly, selectedDiscountRanges]);
-
-
-
-  useEffect(() => {
-    setVisibleCount(pageLimit);
-  }, [filteredProducts, searchQuery]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        if (entry?.isIntersecting && visibleCount < filteredProducts.length) {
-          setVisibleCount((prev) => Math.min(prev + pageLimit, filteredProducts.length));
-        }
-      },
-      { rootMargin: "200px" },
-    );
-
-    const currentRef = loadMoreRef.current;
-    if (currentRef) observer.observe(currentRef);
-
-    return () => {
-      if (currentRef) observer.unobserve(currentRef);
-      observer.disconnect();
-    };
-  }, [visibleCount, filteredProducts.length]);
+  }, [page, selectedBrands, selectedSizes, selectedProductTypes, selectedWeights, selectedRamOptions, selectedPriceRanges, selectedStockStatus, selectedSaleOnly, selectedDiscountRanges]);
 
   const handleResetAllFilters = () => {
     setSelectedBrands([]);
@@ -201,6 +186,7 @@ const SearchPage = () => {
     setSelectedWeights([]);
     setSelectedRamOptions([]);
     setSelectedPriceRanges([]);
+    setPage(1);
   };
 
   const handleSortBy = (name, order, products, value) => {
@@ -227,6 +213,8 @@ const SearchPage = () => {
               setProductsData={setProductsData}
               isLoading={isLoading}
               setIsLoading={setIsLoading}
+              page={page}
+              setTotalPages={setTotalPages}
                selectedBrands={selectedBrands}
               setSelectedBrands={setSelectedBrands}
               selectedSizes={selectedSizes}
@@ -365,7 +353,7 @@ const SearchPage = () => {
                     isLoading === true ? <ProductLoadingGrid view={itemView} />
                       :
 
-                       filteredProducts?.length !== 0 && filteredProducts?.slice(0, visibleCount).map((item, index) => {
+                      paginatedProducts?.length !== 0 && paginatedProducts?.map((item, index) => {
                         return (
                           <ProductItem key={index} item={item} />
                         )
@@ -381,7 +369,7 @@ const SearchPage = () => {
                     isLoading === true ? <ProductLoadingGrid view={itemView} />
                       :
 
-                      filteredProducts?.length !== 0 && filteredProducts?.slice(0, visibleCount).map((item, index) => {
+                      paginatedProducts?.length !== 0 && paginatedProducts?.map((item, index) => {
                         return (
                           <ProductItemListView key={index} item={item} />
                         )
@@ -393,7 +381,17 @@ const SearchPage = () => {
               )}
             </div>
 
-            <div ref={loadMoreRef} className="h-[20px] w-full" />
+            {
+              totalPages > 1 &&
+              <div className="flex items-center justify-center mt-10">
+                <Pagination
+                  showFirstButton showLastButton
+                  count={totalPages}
+                  page={page}
+                  onChange={(e, value) => setPage(value)}
+                />
+              </div>
+            }
 
 
           </div>

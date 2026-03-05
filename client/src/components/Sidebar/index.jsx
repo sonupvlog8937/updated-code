@@ -396,23 +396,6 @@ export const Sidebar = (props) => {
 
   }, [location]);
 
-  const appendUniqueProducts = (previousProducts = [], nextProducts = []) => {
-    const productMap = new Map();
-
-    [...previousProducts, ...nextProducts].forEach((product) => {
-      const key = product?._id || product?.id;
-
-      if (key) {
-        productMap.set(key, product);
-        return;
-      }
-
-      productMap.set(`${product?.name || "unknown"}-${productMap.size}`, product);
-    });
-
-    return Array.from(productMap.values());
-  };
-
 
 
   const filtesData = () => {
@@ -420,63 +403,20 @@ export const Sidebar = (props) => {
 
     //console.log(context?.searchData)
 
-    const requestPayload = {
-      ...filters,
-      sortType: props?.selectedSortType,
-      brands: props?.selectedBrands || [],
-      sizes: props?.selectedSizes || [],
-      productTypes: props?.selectedProductTypes || [],
-      priceRanges: props?.selectedPriceRanges || [],
-      saleOnly: props?.selectedSaleOnly || false,
-      stockStatus: props?.selectedStockStatus || "all",
-      discountRanges: props?.selectedDiscountRanges || [],
-      weights: props?.selectedWeights || [],
-      ramOptions: props?.selectedRamOptions || [],
-      colors: props?.selectedColors || filters?.colors || [],
-      ratingBands: props?.selectedRatingBands || [],
-    };
-
-     const isSearchPage = location.pathname.includes("/search");
-
-    if (isSearchPage) {
-      const queryText = new URLSearchParams(location.search).get("query") || "";
-      postData(`/api/product/search/get`, {
-        ...requestPayload,
-        query: queryText,
-      }).then((res) => {
-        context?.setSearchData(res);
-         if (props?.infiniteScroll && (props?.page || 1) > 1) {
-          props.setProductsData((prevData) => ({
-            ...res,
-            products: appendUniqueProducts(prevData?.products || [], res?.products || []),
-          }));
-        } else {
-          props.setProductsData(res);
-        }
+    if (context?.searchData?.products?.length > 0) {
+      props.setProductsData(context?.searchData);
+      props.setIsLoading(false);
+      props.setTotalPages(context?.searchData?.totalPages)
+      window.scrollTo(0, 0);
+    } else {
+      postData(`/api/product/filters`, filters).then((res) => {
+        props.setProductsData(res);
         props.setIsLoading(false);
-        props.setTotalPages(res?.totalPages || 1);
-        if (!props?.infiniteScroll || (props?.page || 1) === 1) {
-          window.scrollTo(0, 0);
-        }
-      });
-      return;
+        props.setTotalPages(res?.totalPages)
+        window.scrollTo(0, 0);
+      })
     }
 
-    postData(`/api/product/filters`, requestPayload).then((res) => {
-      if (props?.infiniteScroll && (props?.page || 1) > 1) {
-        props.setProductsData((prevData) => ({
-          ...res,
-          products: appendUniqueProducts(prevData?.products || [], res?.products || []),
-        }));
-      } else {
-        props.setProductsData(res);
-      }
-      props.setIsLoading(false);
-      props.setTotalPages(res?.totalPages || 1)
-      if (!props?.infiniteScroll || (props?.page || 1) === 1) {
-        window.scrollTo(0, 0);
-      }
-    })
 
   }
 

@@ -1674,10 +1674,10 @@ export async function filters(request, response) {
   }
 
   const sortConfig = {
-    bestSeller: { sale: -1, createdAt: -1 },
-    latest: { createdAt: -1 },
-    popular: { rating: -1, sale: -1 },
-    featured: { isFeatured: -1, sale: -1 },
+    bestSeller: { sale: -1, createdAt: -1, _id: -1 },
+    latest: { createdAt: -1, _id: -1 },
+    popular: { rating: -1, sale: -1, _id: -1 },
+    featured: { isFeatured: -1, sale: -1, _id: -1 },
   };
   try {
     const currentPage = Math.max(1, parseInt(page) || 1);
