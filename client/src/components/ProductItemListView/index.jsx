@@ -34,6 +34,9 @@ const ProductItem = (props) => {
 
   const getProductTag = (product) => {
     const stockCount = Number(product?.countInStock || 0);
+    const soldCount = Number(
+      product?.soldCount || product?.totalSales || product?.sales || product?.sold || 0,
+    );
 
     if (stockCount <= 0) {
       return "Not Available";
@@ -43,23 +46,23 @@ const ProductItem = (props) => {
       return `${stockCount} Available`;
     }
 
-    if (stockCount <= 7) {
+    if (stockCount <= 10) {
       return `${stockCount} Available`;
     }
 
-    if (Number(product?.rating || 0) >= 4.6) {
+    if (soldCount >= 10) {
       return "Best Seller";
     }
 
     if (Number(product?.rating || 0) >= 4.2) {
-      return "Popular";
+      return "Available";
     }
 
     if (Number(product?.discount || 0) >= 25) {
       return "Trending";
     }
 
-    return "Latest";
+    return "Zeedaddy Choice";
   };
 
   const addToCart = (product, userId, quantity) => {
@@ -307,7 +310,7 @@ const ProductItem = (props) => {
           {props?.item?.discount}%
         </span>
 
-        <span className="flex items-center absolute top-[45px] left-[10px] z-50 bg-[#1f2937] text-white rounded-lg px-2 py-1 text-[10px] font-[600] uppercase tracking-wide">
+        <span className="flex items-center absolute top-[145px] left-[10px] z-50 bg-[#1f2937] text-white rounded-lg px-2 py-1 text-[10px] font-[600] uppercase tracking-wide">
           {getProductTag(props?.item)}
         </span>
 

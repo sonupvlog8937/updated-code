@@ -14,7 +14,6 @@ import { useAppContext } from "../../hooks/useAppContext";
 import { MdOutlineFilterAlt } from "react-icons/md";
 
 const ProductListing = () => {
-  const [itemView, setItemView] = useState("grid");
   const [anchorEl, setAnchorEl] = React.useState(null);
 
   const [productsData, setProductsData] = useState([]);
@@ -23,8 +22,8 @@ const ProductListing = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [selectedSortVal, setSelectedSortVal] = useState("Name, A to Z");
-const [activeTab, setActiveTab] = useState("all");
+const [selectedSortVal, setSelectedSortVal] = useState("Best Seller");
+  const [selectedSortType, setSelectedSortType] = useState("bestSeller");
   const [selectedBrands, setSelectedBrands] = useState([]);
   const [selectedSizes, setSelectedSizes] = useState([]);
    const [selectedProductTypes, setSelectedProductTypes] = useState([]);
@@ -34,6 +33,8 @@ const [activeTab, setActiveTab] = useState("all");
   const [selectedDiscountRanges, setSelectedDiscountRanges] = useState([]);
   const [selectedWeights, setSelectedWeights] = useState([]);
   const [selectedRamOptions, setSelectedRamOptions] = useState([]);
+  const [selectedColors, setSelectedColors] = useState([]);
+  const [selectedRatingBands, setSelectedRatingBands] = useState([]);
   const context = useAppContext();
   const resetAllFilters = () => {
     setSelectedBrands([]);
@@ -45,7 +46,8 @@ const [activeTab, setActiveTab] = useState("all");
     setSelectedDiscountRanges([]);
     setSelectedWeights([]);
     setSelectedRamOptions([]);
-    setActiveTab("all");
+    setSelectedColors([]);
+    setSelectedRatingBands([]);
   };
 
   const getProductType = (product) => {
@@ -63,24 +65,7 @@ const [activeTab, setActiveTab] = useState("all");
   const filteredProducts = useMemo(() => {
     const allProducts = productsData?.products || [];
 
-    const tabFilteredProducts = allProducts.filter((product) => {
-      if (activeTab === "brand") {
-        return Boolean(product?.brand?.trim());
-      }
-
-       if (activeTab === "color") {
-        return Array.isArray(product?.colorOptions) && product?.colorOptions.length > 0;
-      }
-
-      if (activeTab === "discount") {
-        return Number(product?.discount || 0) > 0;
-      }
-
-       return true;
-    });
-
-      const productsAfterFilters = tabFilteredProducts.filter((product) => {
-
+    const productsAfterFilters = allProducts.filter((product) => {
       if (selectedBrands.length > 0) {
         const productBrand = product?.brand?.trim();
         if (!selectedBrands.includes(productBrand)) {
@@ -153,41 +138,67 @@ const [activeTab, setActiveTab] = useState("all");
         }
       }
 
+       if (selectedColors.length > 0) {
+        const productColors = Array.isArray(product?.colorOptions)
+          ? product.colorOptions.map((colorItem) => colorItem?.name?.toLowerCase().trim()).filter(Boolean)
+          : [];
+        const hasMatchingColor = selectedColors.some((colorName) => productColors.includes(colorName.toLowerCase()));
+        if (!hasMatchingColor) {
+          return false;
+        }
+      }
+
+      if (selectedRatingBands.length > 0) {
+        const productRating = Number(product?.rating || 0);
+        const hasMatchingRatingBand = selectedRatingBands.some(({ min, max }) =>
+          max === null ? productRating >= min : productRating >= min && productRating < max,
+        );
+        if (!hasMatchingRatingBand) {
+          return false;
+        }
+      }
+
+
       return true;
     });
 
-    if (activeTab === "brand") {
-      return [...productsAfterFilters].sort((a, b) =>
-        (a?.brand || "").localeCompare(b?.brand || "", undefined, { sensitivity: "base" }),
-      );
-    }
+    return [...productsAfterFilters].sort((a, b) => {
+      if (selectedSortType === "latest") {
+        return getProductTimestamp(b) - getProductTimestamp(a);
+      }
 
-    if (activeTab === "price") {
-      return [...productsAfterFilters].sort((a, b) => Number(a?.price || 0) - Number(b?.price || 0));
-    }
+      if (selectedSortType === "popular") {
+        const ratingDifference = Number(b?.rating || 0) - Number(a?.rating || 0);
 
-    if (activeTab === "discount") {
-      return [...productsAfterFilters].sort((a, b) => Number(b?.discount || 0) - Number(a?.discount || 0));
-    }
+     if (ratingDifference !== 0) {
+          return ratingDifference;
+        }
 
-    if (activeTab === "rating") {
-      return [...productsAfterFilters].sort((a, b) => Number(b?.rating || 0) - Number(a?.rating || 0));
-    }
-
-    if (activeTab === "color") {
-      return [...productsAfterFilters].sort((a, b) => {
-        const aColor = a?.colorOptions?.[0]?.name || "";
-        const bColor = b?.colorOptions?.[0]?.name || "";
-        return aColor.localeCompare(bColor, undefined, { sensitivity: "base" });
-      });
-    }
-
-    return [...productsAfterFilters].sort((a, b) => getProductTimestamp(b) - getProductTimestamp(a));
-  }, [productsData, activeTab, selectedBrands, selectedSizes, selectedProductTypes, selectedPriceRanges, selectedSaleOnly, selectedStockStatus, selectedDiscountRanges, selectedWeights, selectedRamOptions]);
+     return Number(b?.sale || 0) - Number(a?.sale || 0);
+      }
 
 
+    if (selectedSortType === "featured") {
+        const featuredDifference = Number(Boolean(b?.isFeatured)) - Number(Boolean(a?.isFeatured));
 
+        if (featuredDifference !== 0) {
+          return featuredDifference;
+        }
 
+     return Number(b?.sale || 0) - Number(a?.sale || 0);
+      }
+
+      const saleDifference = Number(b?.sale || 0) - Number(a?.sale || 0);
+
+      if (saleDifference !== 0) {
+        return saleDifference;
+      }
+
+    return getProductTimestamp(b) - getProductTimestamp(a);
+    });
+  }, [productsData, selectedSortType, selectedBrands, selectedSizes, selectedProductTypes, selectedPriceRanges, selectedSaleOnly, selectedStockStatus, selectedDiscountRanges, selectedWeights, selectedRamOptions]);
+
+  
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -203,16 +214,10 @@ const [activeTab, setActiveTab] = useState("all");
 
 
 
-  const handleSortBy = (name, order, products, value) => {
+  const handleSortBy = (value, type) => {
     setSelectedSortVal(value);
-    postData(`/api/product/sortBy`, {
-      products: products,
-      sortBy: name,
-      order: order
-    }).then((res) => {
-      setProductsData(res);
-      setAnchorEl(null);
-    });
+    setSelectedSortType(type);
+    setAnchorEl(null);
   };
 
   return (
@@ -260,25 +265,14 @@ const [activeTab, setActiveTab] = useState("all");
 
           <div className="rightContent w-full lg:w-[80%] py-3">
             <div className="bg-[#f1f1f1] p-2 w-full mb-4 rounded-md flex items-center justify-between sticky top-[135px] z-[99]">
-              <div className="col1 flex items-center itemViewActions">
+              <div className="col1 flex items-center itemViewActions gap-2">
                 <Button
-                  className={`!w-[35px] !h-[35px] !min-w-[35px] !rounded-full 
-                    !text-[#000] ${itemView === "list" && "active !bg-[#dfdfdf]"}`}
-                  onClick={() => setItemView("list")}
+                  onClick={() => context?.setOpenFilter(true)}
+                  className="!text-[12px] !capitalize !rounded-full !bg-[#ff5252] !text-white !border-[#ff5252]"
                 >
-                  <LuMenu className="text-[rgba(0,0,0,0.7)] text-[16px]" />
+                 <MdOutlineFilterAlt className="mr-1" size={20} /><b className="text-[14px]">Filters</b>
                 </Button>
-                <Button
-                  className={`!w-[35px] !h-[35px] !min-w-[35px] !rounded-full 
-                    !text-[#000] ${itemView === "grid" && "active !bg-[#dfdfdf]"}`}
-                  onClick={() => setItemView("grid")}
-                >
-                  <IoGridSharp className="text-[rgba(0,0,0,0.7)] text-[14px]" />
-                </Button>
-
-                <span className="text-[14px] hidden sm:block md:block lg:block font-[500] pl-3 text-[rgba(0,0,0,0.7)]">
-                  There are {filteredProducts?.length !== 0 ? filteredProducts?.length : 0} products.
-                </span>
+                
               </div>
 
               <div className="col2 ml-auto flex items-center justify-end gap-3 pr-4">
@@ -308,129 +302,57 @@ const [activeTab, setActiveTab] = useState("all");
                   }}
                 >
                   <MenuItem
-                    onClick={() => handleSortBy('name', 'asc', productsData, 'Name, A to Z')}
+                    onClick={() => handleSortBy('Best Seller', 'bestSeller')}
                     className="!text-[13px] !text-[#000] !capitalize"
                   >
-                    Name, A to Z
+                     Best Seller
                   </MenuItem>
 
 
                   <MenuItem
-                    onClick={() => handleSortBy('name', 'desc', productsData, 'Name, Z to A')}
+                    onClick={() => handleSortBy('Latest', 'latest')}
                     className="!text-[13px] !text-[#000] !capitalize"
                   >
-                    Name, Z to A
+                    Latest
                   </MenuItem>
 
 
                   <MenuItem
-                    onClick={() => handleSortBy('price', 'asc', productsData, 'Price, low to high')}
+                   onClick={() => handleSortBy('Popular', 'popular')}
                     className="!text-[13px] !text-[#000] !capitalize"
                   >
-                    Price, low to high
+                    Popular
                   </MenuItem>
 
 
                   <MenuItem
-                    onClick={() => handleSortBy('price', 'desc', productsData, ' Price, high to low')}
+                   onClick={() => handleSortBy('Featured', 'featured')}
                     className="!text-[13px] !text-[#000] !capitalize"
                   >
-                    Price, high to low
+                    Featured
                   </MenuItem>
 
                 </Menu>
               </div>
             </div>
-              <div className="flex items-center gap-2 mb-4 flex-wrap">
-                 <Button
-                onClick={() => context?.setOpenFilter(true)}
-                className="!text-[12px] !capitalize !rounded-full !bg-[#ff5252] !text-white !border-[#ff5252]"
-              >
-                <MdOutlineFilterAlt className="mr-1" size={20}/><b className="text-[14px]">Filters</b> 
-              </Button>
-              <Button
-               onClick={() => setActiveTab("all")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "all" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
-              >
-                All
-              </Button>
-
-              <Button
-                onClick={() => setActiveTab("brand")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "brand" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
-              >
-                Brand
-              </Button>
-
-              <Button
-               onClick={() => setActiveTab("color")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "color" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
-              >
-                Color
-              </Button>
-
-              <Button
-                onClick={() => setActiveTab("price")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "price" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
-              >
-                Price
-              </Button>
-
-              <Button
-                onClick={() => setActiveTab("discount")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "discount" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
-              >
-                Discount
-              </Button>
-
-              <Button
-               onClick={() => setActiveTab("rating")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "rating" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
-              >
-                Rating
-              </Button>
-            </div>
+               
+       
 
 
             <div
-              className={`grid ${itemView === "grid"
-                ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
-                : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-1"
-                } gap-4`}
+              
+                 className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
             >
-              {itemView === "grid" ? (
-                <>
+               {
+                isLoading === true ? <ProductLoadingGrid view="grid" />
+                  :
+                 filteredProducts?.length !== 0 && filteredProducts?.map((item, index) => {
+                    return (
+                      <ProductItem key={index} item={item} />
+                    )
+                  })
 
-                  {
-                    isLoading === true ? <ProductLoadingGrid view={itemView} />
-                      :
-
-                     filteredProducts?.length !== 0 && filteredProducts?.map((item, index) => {
-                        return (
-                          <ProductItem key={index} item={item} />
-                        )
-                      })
-
-                  }
-
-
-                </>
-              ) : (
-                <>
-                  {
-                    isLoading === true ? <ProductLoadingGrid view={itemView} />
-                      :
-
-                     filteredProducts?.length !== 0 && filteredProducts?.map((item, index) => {
-                        return (
-                          <ProductItemListView key={index} item={item} />
-                        )
-                      })
-
-                  }
-
-                </>
-              )}
+              }
             </div>
 
             {

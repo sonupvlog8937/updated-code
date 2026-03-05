@@ -6,6 +6,9 @@ import { Collapse } from "react-collapse";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa6";
 import Button from "@mui/material/Button";
 import RangeSlider from "react-range-slider-input";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
 import "react-range-slider-input/dist/style.css";
 import Rating from "@mui/material/Rating";
 import { useAppContext } from "../../hooks/useAppContext";
@@ -28,6 +31,7 @@ export const Sidebar = (props) => {
   const [isOpenDiscountFilter, setIsOpenDiscountFilter] = useState(true);
   const [isOpenWeightFilter, setIsOpenWeightFilter] = useState(true);
   const [isOpenRamFilter, setIsOpenRamFilter] = useState(true);
+  const [activeMoreFilter, setActiveMoreFilter] = useState(null);
 
   const [filters, setFilters] = useState({
     catId: [],
@@ -165,6 +169,59 @@ export const Sidebar = (props) => {
     context?.setOpenFilter(false);
   };
 
+  const openMoreFilterModal = (config) => {
+    setActiveMoreFilter(config);
+  };
+
+  const closeMoreFilterModal = () => {
+    setActiveMoreFilter(null);
+  };
+
+  const renderLimitedOptions = ({
+    title,
+    options = [],
+    selectedValues = [],
+    onToggle,
+    getOptionKey,
+    getOptionLabel,
+    containerClassName = "scroll px-3"
+  }) => {
+    const visibleOptions = options.slice(0, 5);
+    const hasMore = options.length > 5;
+
+    return (
+      <>
+        <div className={containerClassName}>
+          {visibleOptions.map((option) => {
+            const optionKey = getOptionKey(option);
+            return (
+              <FormControlLabel
+                key={optionKey}
+                control={<Checkbox />}
+                checked={selectedValues.includes(optionKey)}
+                onChange={() => onToggle(option)}
+                label={getOptionLabel(option)}
+                className="w-full"
+              />
+            );
+          })}
+        </div>
+
+        {hasMore && (
+          <div className="px-3 pb-1">
+            <Button
+              onClick={() => openMoreFilterModal({ title, options, selectedValues, onToggle, getOptionKey, getOptionLabel })}
+              className="!normal-case !text-[#1976d2] !font-[600]"
+            >
+              More ({options.length - 5})
+            </Button>
+          </div>
+        )}
+      </>
+    );
+  };
+
+
   const handleResetFilters = () => {
     setFilters((prev) => ({
       ...prev,
@@ -298,21 +355,15 @@ export const Sidebar = (props) => {
             </Button>
           </h3>
           <Collapse isOpened={isOpenCategoryFilter}>
-            <div className="scroll px-6 relative -left-[13px]">
-              {context?.catData?.length !== 0 && context?.catData?.map((item, index) => {
-                return (
-                  <FormControlLabel
-                    key={index}
-                    value={item?._id}
-                    control={<Checkbox />}
-                    checked={filters?.catId?.includes(item?._id)}
-                    label={item?.name}
-                    onChange={() => handleCheckboxChange("catId", item?._id)}
-                    className="w-full"
-                  />
-                );
-              })}
-            </div>
+             {renderLimitedOptions({
+              title: "Shop by Category",
+              options: context?.catData || [],
+              selectedValues: filters?.catId || [],
+              onToggle: (item) => handleCheckboxChange("catId", item?._id),
+              getOptionKey: (item) => item?._id,
+              getOptionLabel: (item) => item?.name,
+              containerClassName: "scroll px-6 relative -left-[13px]"
+            })}
           </Collapse>
         </div>
 
@@ -324,18 +375,14 @@ export const Sidebar = (props) => {
             </Button>
           </h3>
           <Collapse isOpened={isOpenBrandFilter}>
-            <div className="scroll px-3">
-              {availableBrands.map((brand) => (
-                <FormControlLabel
-                  key={brand}
-                  control={<Checkbox />}
-                checked={(props?.selectedBrands || []).includes(brand)}
-                  onChange={() => handleMultiSelect(props?.selectedBrands, props?.setSelectedBrands, brand)}
-                  label={brand}
-                  className="w-full"
-                />
-              ))}
-            </div>
+            {renderLimitedOptions({
+              title: "Filter By Brand",
+              options: availableBrands,
+              selectedValues: props?.selectedBrands || [],
+              onToggle: (brand) => handleMultiSelect(props?.selectedBrands, props?.setSelectedBrands, brand),
+              getOptionKey: (brand) => brand,
+              getOptionLabel: (brand) => brand
+            })}
           </Collapse>
         </div>
 
@@ -347,18 +394,14 @@ export const Sidebar = (props) => {
             </Button>
           </h3>
           <Collapse isOpened={isOpenSizeFilter}>
-            <div className="scroll px-3">
-              {availableSizes.map((size) => (
-                <FormControlLabel
-                  key={size}
-                  control={<Checkbox />}
-                  checked={(props?.selectedSizes || []).includes(size)}
-                  onChange={() => handleMultiSelect(props?.selectedSizes, props?.setSelectedSizes, size)}
-                  label={size}
-                  className="w-full"
-                />
-              ))}
-            </div>
+              {renderLimitedOptions({
+              title: "Filter By Size",
+              options: availableSizes,
+              selectedValues: props?.selectedSizes || [],
+              onToggle: (size) => handleMultiSelect(props?.selectedSizes, props?.setSelectedSizes, size),
+              getOptionKey: (size) => size,
+              getOptionLabel: (size) => size
+            })}
           </Collapse>
         </div>
 
@@ -370,18 +413,14 @@ export const Sidebar = (props) => {
             </Button>
           </h3>
           <Collapse isOpened={isOpenProductTypeFilter}>
-            <div className="scroll px-3">
-              {availableProductTypes.map((type) => (
-                <FormControlLabel
-                  key={type}
-                  control={<Checkbox />}
-                  checked={(props?.selectedProductTypes || []).includes(type)}
-                  onChange={() => handleMultiSelect(props?.selectedProductTypes, props?.setSelectedProductTypes, type)}
-                  label={type}
-                  className="w-full"
-                />
-              ))}
-            </div>
+            {renderLimitedOptions({
+              title: "Filter By Product Type",
+              options: availableProductTypes,
+              selectedValues: props?.selectedProductTypes || [],
+              onToggle: (type) => handleMultiSelect(props?.selectedProductTypes, props?.setSelectedProductTypes, type),
+              getOptionKey: (type) => type,
+              getOptionLabel: (type) => type
+            })}
           </Collapse>
         </div>
 
@@ -393,18 +432,15 @@ export const Sidebar = (props) => {
             </Button>
           </h3>
           <Collapse isOpened={isOpenPriceFilter}>
-            <div className="px-2">
-              {availablePriceRanges.map((range) => (
-                <FormControlLabel
-                  key={range.value}
-                  control={<Checkbox />}
-                  checked={(props?.selectedPriceRanges || []).includes(range.value)}
-                  onChange={() => handleMultiSelect(props?.selectedPriceRanges, props?.setSelectedPriceRanges, range.value)}
-                  label={range.label}
-                  className="w-full"
-                />
-              ))}
-            </div>
+            {renderLimitedOptions({
+              title: "Filter By Price",
+              options: availablePriceRanges,
+              selectedValues: props?.selectedPriceRanges || [],
+              onToggle: (range) => handleMultiSelect(props?.selectedPriceRanges, props?.setSelectedPriceRanges, range.value),
+              getOptionKey: (range) => range.value,
+              getOptionLabel: (range) => range.label,
+              containerClassName: "px-2"
+            })}
           </Collapse>
         </div>
 
@@ -439,28 +475,20 @@ export const Sidebar = (props) => {
             </h3>
 
            <Collapse isOpened={isOpenColorFilter}>
-              <div className="flex flex-col px-3">
-                {availableColors?.map((color) => {
-                  return (
-                    <FormControlLabel
-                      key={color?.name}
-                      value={color?.name}
-                      control={<Checkbox />}
-                      checked={filters?.colors?.includes(color?.name)}
-                      label={
-                        <span className="flex items-center gap-2">
-                          {color?.code &&
-                            <span className="w-[14px] h-[14px] rounded-full border border-[rgba(0,0,0,0.2)]" style={{ background: color?.code }}></span>
-                          }
-                          <span>{color?.name}</span>
-                        </span>
-                      }
-                      onChange={() => handleCheckboxChange("colors", color?.name)}
-                      className="w-full"
-                    />
-                  );
-                })}
-              </div>
+               {renderLimitedOptions({
+                title: "Filter By Colour",
+                options: availableColors,
+                selectedValues: filters?.colors || [],
+                onToggle: (color) => handleCheckboxChange("colors", color?.name),
+                getOptionKey: (color) => color?.name,
+                getOptionLabel: (color) => (
+                  <span className="flex items-center gap-2">
+                    {color?.code && <span className="w-[14px] h-[14px] rounded-full border border-[rgba(0,0,0,0.2)]" style={{ background: color?.code }}></span>}
+                    <span>{color?.name}</span>
+                  </span>
+                ),
+                containerClassName: "flex flex-col px-3"
+              })}
             </Collapse>
           </div>
         }
@@ -500,18 +528,15 @@ export const Sidebar = (props) => {
             </Button>
           </h3>
           <Collapse isOpened={isOpenDiscountFilter}>
-            <div className="px-2">
-              {discountBands.map((band) => (
-                <FormControlLabel
-                  key={band.min}
-                  control={<Checkbox />}
-                  checked={(props?.selectedDiscountRanges || []).includes(band.min)}
-                  onChange={() => handleMultiSelect(props?.selectedDiscountRanges, props?.setSelectedDiscountRanges, band.min)}
-                  label={band.label}
-                  className="w-full"
-                />
-              ))}
-            </div>
+            {renderLimitedOptions({
+              title: "Filter By Discount",
+              options: discountBands,
+              selectedValues: props?.selectedDiscountRanges || [],
+              onToggle: (band) => handleMultiSelect(props?.selectedDiscountRanges, props?.setSelectedDiscountRanges, band.min),
+              getOptionKey: (band) => band.min,
+              getOptionLabel: (band) => band.label,
+              containerClassName: "px-2"
+            })}
           </Collapse>
         </div>
 
@@ -523,18 +548,14 @@ export const Sidebar = (props) => {
             </Button>
           </h3>
           <Collapse isOpened={isOpenWeightFilter}>
-            <div className="scroll px-3">
-              {availableWeights.map((weight) => (
-                <FormControlLabel
-                  key={weight}
-                  control={<Checkbox />}
-                  checked={(props?.selectedWeights || []).includes(weight)}
-                  onChange={() => handleMultiSelect(props?.selectedWeights, props?.setSelectedWeights, weight)}
-                  label={weight}
-                  className="w-full"
-                />
-              ))}
-            </div>
+             {renderLimitedOptions({
+              title: "Filter By Weight",
+              options: availableWeights,
+              selectedValues: props?.selectedWeights || [],
+              onToggle: (weight) => handleMultiSelect(props?.selectedWeights, props?.setSelectedWeights, weight),
+              getOptionKey: (weight) => weight,
+              getOptionLabel: (weight) => weight
+            })}
           </Collapse>
         </div>}
 
@@ -546,18 +567,14 @@ export const Sidebar = (props) => {
             </Button>
           </h3>
           <Collapse isOpened={isOpenRamFilter}>
-            <div className="scroll px-3">
-              {availableRamOptions.map((ram) => (
-                <FormControlLabel
-                  key={ram}
-                  control={<Checkbox />}
-                  checked={(props?.selectedRamOptions || []).includes(ram)}
-                  onChange={() => handleMultiSelect(props?.selectedRamOptions, props?.setSelectedRamOptions, ram)}
-                  label={ram}
-                  className="w-full"
-                />
-              ))}
-            </div>
+           {renderLimitedOptions({
+              title: "Filter By RAM",
+              options: availableRamOptions,
+              selectedValues: props?.selectedRamOptions || [],
+              onToggle: (ram) => handleMultiSelect(props?.selectedRamOptions, props?.setSelectedRamOptions, ram),
+              getOptionKey: (ram) => ram,
+              getOptionLabel: (ram) => ram
+            })}
           </Collapse>
         </div>}
 
@@ -609,6 +626,30 @@ export const Sidebar = (props) => {
       </div>
       <Button className="btn-org w-full !flex lg:!hidden mt-2" onClick={() => context?.setOpenFilter(false)}><MdOutlineFilterAlt size={20} /> Cancel</Button>
 
+       <Dialog open={Boolean(activeMoreFilter)} onClose={closeMoreFilterModal} fullWidth maxWidth="sm">
+        <DialogTitle className="!font-[700] !text-[18px] !pb-2">{activeMoreFilter?.title}</DialogTitle>
+        <DialogContent>
+          <p className="text-[13px] text-[#666] mb-3">Select filters and apply directly from this list.</p>
+          <div className="max-h-[60vh] overflow-auto">
+            {(activeMoreFilter?.options || []).map((option) => {
+              const optionKey = activeMoreFilter?.getOptionKey?.(option);
+              return (
+                <FormControlLabel
+                  key={optionKey}
+                  control={<Checkbox />}
+                  checked={(activeMoreFilter?.selectedValues || []).includes(optionKey)}
+                  onChange={() => activeMoreFilter?.onToggle?.(option)}
+                  label={activeMoreFilter?.getOptionLabel?.(option)}
+                  className="w-full"
+                />
+              );
+            })}
+          </div>
+          <div className="flex justify-end pt-2">
+            <Button onClick={closeMoreFilterModal} className="!bg-[#111] !text-white !px-5">Done</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </aside>
   );
