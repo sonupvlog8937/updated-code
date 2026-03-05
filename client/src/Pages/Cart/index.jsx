@@ -275,7 +275,7 @@ import { fetchDataFromApi } from "../../utils/api";
 import { Link } from "react-router-dom";
 
 const COUPON_CONFIG = {
-  SAVE10: { type: "percentage", value: 10, minAmount: 1000 },
+  SAVE10: { type: "percentage", value: 10, minAmount: 100 },
   FLAT200: { type: "fixed", value: 200, minAmount: 1500 },
   FREESHIP: { type: "fixed", value: 0, minAmount: 0 },
   WISDOM20: { type: "fixed", value: 20, minAmount: 0 },

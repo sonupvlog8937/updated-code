@@ -26,8 +26,7 @@ import SearchPage from "./Pages/Search";
 import Blog from "./Pages/Blog";
 import BlogDetails from "./Pages/BlogDetails";
 import CategoriesPage from "./Pages/Categories";
-import DiscoverRestaurant from "./Pages/Restaurant/Discover";
-import RestaurantMyOrders from "./Pages/Restaurant/MyOrders";
+
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchCartItems,
@@ -90,8 +89,6 @@ const AppContent = () => {
         <Route path={"/blog"} exact={true} element={<Blog />} />
         <Route path={"/blog/:id"} exact={true} element={<BlogDetails />} />
         <Route path={"/categories"} exact={true} element={<CategoriesPage />} />
-        <Route path={"/restaurant"} exact={true} element={<DiscoverRestaurant />} />
-        <Route path={"/restaurant/my-orders"} exact={true} element={<RestaurantMyOrders />} />
       </Routes>
       <Footer />
     </>

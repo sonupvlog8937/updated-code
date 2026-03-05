@@ -23,7 +23,7 @@ import ProductLoading from "../../components/ProductLoading";
 import BannerLoading from "../../components/LoadingSkeleton/bannerLoading";
 import { Button } from "@mui/material";
 import { MdArrowRightAlt } from "react-icons/md";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { HiOutlineShieldCheck } from "react-icons/hi";
 import { FiRefreshCcw } from "react-icons/fi";
 import { IoHeadsetOutline } from "react-icons/io5";
@@ -49,6 +49,8 @@ const Home = () => {
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
 
   const context = useAppContext();
+  const navigate = useNavigate();
+  const [showLoginPopup, setShowLoginPopup] = useState(false);
 
   const sliderImages = [
     "https://res.cloudinary.com/dn7ko6gut/image/upload/v1771620709/1771620706193_Untitled_design_53_1.png",
@@ -107,6 +109,14 @@ const Home = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (context?.isLogin === false) {
+      const popupTimer = setTimeout(() => setShowLoginPopup(true), 500);
+      return () => clearTimeout(popupTimer);
+    }
+
+    setShowLoginPopup(false);
+  }, [context?.isLogin]);
 
   useEffect(() => {
     if (context?.catData?.length !== 0) {
@@ -213,6 +223,49 @@ const Home = () => {
 
   return (
     <>
+    {showLoginPopup && (
+        <div className="fixed inset-0 z-[250] bg-black/45 flex items-center justify-center px-4">
+          <div className="w-full max-w-[460px] rounded-2xl bg-white shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6">
+              <p className="text-[12px] uppercase tracking-[0.16em] text-slate-200">Welcome back</p>
+              <h3 className="text-[24px] font-[700] mt-1">Exclusive access awaits</h3>
+              <p className="text-[14px] text-slate-200 mt-2 mb-0">Login for faster checkout, wishlist sync, premium offers and smart order tracking.</p>
+            </div>
+
+            <div className="p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Button
+                  className="!bg-[#111827] !text-white !rounded-lg !h-[44px]"
+                  onClick={() => {
+                    setShowLoginPopup(false);
+                    navigate('/login');
+                  }}
+                >
+                  Login Now
+                </Button>
+                <Button
+                  variant="outlined"
+                  className="!rounded-lg !h-[44px] !border-[#111827] !text-[#111827]"
+                  onClick={() => {
+                    setShowLoginPopup(false);
+                    navigate('/register');
+                  }}
+                >
+                  Create Account
+                </Button>
+              </div>
+
+              <button
+                type="button"
+                className="w-full mt-3 text-[13px] text-slate-500 hover:text-slate-800 transition"
+                onClick={() => setShowLoginPopup(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <section className="bg-gradient-to-r from-slate-950 to-slate-800 text-white py-2 pt-4 text-center text-sm font-medium">
         🎁 Use code <strong>SAVE20</strong> for extra 20% off
       </section>
@@ -227,7 +280,7 @@ const Home = () => {
                 <p className="text-[14px] text-slate-200 mt-3">Explore handpicked collections with fast delivery, easy returns, and trusted quality.</p>
                 <div className="mt-5 flex gap-3">
                   <Link to="/products" className="inline-flex items-center justify-center h-[42px] px-5 rounded-md bg-[#ff5252] text-white text-[14px] font-semibold hover:bg-[#eb3f3f] transition-colors">Shop Now</Link>
-                  <Link to="/categories" className="inline-flex items-center justify-center h-[42px] px-5 rounded-md border border-white/40 text-white text-[14px] font-semibold hover:bg-white/10 transition-colors">View catalog</Link>
+                  <Link to="/categories" className="inline-flex items-center justify-center h-[42px] px-5 rounded-md border border-white/40 text-white text-[14px] font-semibold hover:bg-white/10 transition-colors">View Categories</Link>
                 </div>
               </div>
 

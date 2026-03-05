@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Search from "../Search";
 import Badge from "@mui/material/Badge";
 import { styled } from "@mui/material/styles";
@@ -60,25 +60,11 @@ const Header = () => {
 
 
 
-  const location = useLocation();
-
   useEffect(() => {
 
     fetchDataFromApi("/api/logo").then((res) => {
       localStorage.setItem('logo', res?.logo[0]?.logo)
     })
-
-
-    setTimeout(() => {
-      const token = localStorage.getItem('accessToken');
-
-      if (token !== undefined && token !== null && token !== "") {
-        const url = window.location.href
-        history(location.pathname)
-      } else {
-        history("/login")
-      }
-    }, [1000])
 
   }, [context?.isLogin]);
 

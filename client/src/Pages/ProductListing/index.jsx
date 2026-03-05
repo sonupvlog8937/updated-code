@@ -24,7 +24,7 @@ const ProductListing = () => {
   const [totalPages, setTotalPages] = useState(1);
 
   const [selectedSortVal, setSelectedSortVal] = useState("Name, A to Z");
-const [activeTab, setActiveTab] = useState("all");
+const [activeTab, setActiveTab] = useState("latest");
   const [selectedBrands, setSelectedBrands] = useState([]);
   const [selectedSizes, setSelectedSizes] = useState([]);
    const [selectedProductTypes, setSelectedProductTypes] = useState([]);
@@ -45,27 +45,68 @@ const [activeTab, setActiveTab] = useState("all");
     setSelectedDiscountRanges([]);
     setSelectedWeights([]);
     setSelectedRamOptions([]);
-    setActiveTab("all");
+    setActiveTab("latest");
   };
 
   const getProductType = (product) => {
     return product?.productType || product?.thirdSubCatName || product?.subCatName || product?.catName || "";
   };
 
-  const isBrandedProduct = (product) => {
-    const brandName = product?.brand?.trim()?.toLowerCase();
-    return brandName && brandName !== "no brand" && brandName !== "generic";
+ const getProductTimestamp = (product) => {
+    const dateString = product?.createdAt || product?.updatedAt || product?.date;
+    const parsed = new Date(dateString).getTime();
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  const getFeatureScore = (product) => {
+    const featuredFlag = product?.isFeatured || product?.featured || false;
+    return featuredFlag ? 2 : Number(product?.discount || 0) >= 20 ? 1 : 0;
   };
 
   const filteredProducts = useMemo(() => {
     const allProducts = productsData?.products || [];
 
+    const latestIds = [...allProducts]
+      .sort((a, b) => getProductTimestamp(b) - getProductTimestamp(a))
+      .slice(0, Math.max(6, Math.ceil(allProducts.length * 0.4)))
+      .map((item) => item?._id);
+
+    const topPopularIds = [...allProducts]
+      .sort((a, b) => Number(b?.rating || 0) - Number(a?.rating || 0))
+      .slice(0, Math.max(6, Math.ceil(allProducts.length * 0.35)))
+      .map((item) => item?._id);
+
+    const topFeaturedIds = [...allProducts]
+      .sort((a, b) => getFeatureScore(b) - getFeatureScore(a))
+      .slice(0, Math.max(6, Math.ceil(allProducts.length * 0.4)))
+      .map((item) => item?._id);
+
+    const topTrendingIds = [...allProducts]
+      .sort((a, b) => Number(b?.discount || 0) - Number(a?.discount || 0))
+      .slice(0, Math.max(6, Math.ceil(allProducts.length * 0.4)))
+      .map((item) => item?._id);
+
     return allProducts.filter((product) => {
-      if (activeTab === "branded" && !isBrandedProduct(product)) {
+      if (activeTab === "featured") {
+        const featuredFlag = product?.isFeatured || product?.featured || Number(product?.discount || 0) >= 20;
+        if (!featuredFlag) {
+          return false;
+        }
+      }
+
+      if (activeTab === "latest" && !latestIds.includes(product?._id)) {
         return false;
       }
 
-      if (activeTab === "classic" && isBrandedProduct(product)) {
+      if (activeTab === "popular" && !topPopularIds.includes(product?._id)) {
+        return false;
+      }
+
+      if (activeTab === "featured" && !topFeaturedIds.includes(product?._id)) {
+        return false;
+      }
+
+      if (activeTab === "trending" && !topTrendingIds.includes(product?._id)) {
         return false;
       }
 
@@ -309,24 +350,31 @@ const [activeTab, setActiveTab] = useState("all");
                 <MdOutlineFilterAlt className="mr-1" size={20}/><b className="text-[14px]">Filters</b> 
               </Button>
               <Button
-                onClick={() => setActiveTab("all")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "all" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+               onClick={() => setActiveTab("latest")}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "latest" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
               >
-                All
+                Latest
               </Button>
 
               <Button
-                onClick={() => setActiveTab("branded")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "branded" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+                onClick={() => setActiveTab("popular")}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "popular" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
               >
-                Branded
+                PoPular
               </Button>
 
               <Button
-                onClick={() => setActiveTab("classic")}
-                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "classic" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+                onClick={() => setActiveTab("featured")}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "featured" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
+                >
+                Featured
+              </Button>
+
+              <Button
+              onClick={() => setActiveTab("trending")}
+                className={`!text-[12px] !capitalize !rounded-full !border ${activeTab === "trending" ? "!bg-[#000] !text-white !border-[#ff5252]" : "!bg-white !text-[#333] !border-[rgba(0,0,0,0.25)]"}`}
               >
-                Classic
+                Trending
               </Button>
             </div>
 

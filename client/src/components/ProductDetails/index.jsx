@@ -453,30 +453,35 @@ export const ProductDetailsComponent = (props) => {
 
       {
         props?.item?.colorOptions?.length !== 0 &&
-        <div className="flex items-center gap-3 mt-4">
-          <span className="text-[16px]">COLOUR:</span>
-          <div className="flex items-center gap-2">
+         <div className="flex items-start gap-3 mt-4 flex-col sm:flex-row">
+          <span className="text-[16px]">PRODUCT OPTIONS:</span>
+          <div className="flex items-center gap-2 flex-wrap">
             {
               props?.item?.colorOptions?.map((colorItem, index) => {
+                const optionImage = colorItem?.images?.[0] || props?.item?.images?.[0];
                 return (
                   <button
                     key={`${colorItem?.name}-${index}`}
                     type="button"
                     title={colorItem?.name}
-                    className={`w-[24px] h-[24px] rounded-full border-2 ${selectedColorIndex === index ? 'border-primary' : 'border-[rgba(0,0,0,0.2)]'}`}
-                    style={{ background: colorItem?.code || '#ddd' }}
+                    className={`flex items-center gap-2 border rounded-lg px-2 py-1 ${selectedColorIndex === index ? 'border-primary bg-primary/5' : 'border-[rgba(0,0,0,0.2)]'}`}
                     onClick={() => {
                       setSelectedColorIndex(index);
                      
                     }}
-                  ></button>
+                 >
+                    <img
+                      src={optionImage}
+                      alt={colorItem?.name || 'Product option'}
+                      className="w-[34px] h-[34px] rounded-md object-cover border border-[rgba(0,0,0,0.15)]"
+                    />
+                    <span className="text-[12px] font-[500] text-[rgba(0,0,0,0.8)]">{colorItem?.name}</span>
+                  </button>
                 )
               })
             }
           </div>
-          <span className="text-[13px] text-[rgba(0,0,0,0.7)]">
-            {props?.item?.colorOptions?.[selectedColorIndex]?.name}
-          </span>
+         
         </div>
       }
        {
