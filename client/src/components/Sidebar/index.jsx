@@ -58,11 +58,17 @@ export const Sidebar = (props) => {
   const location = useLocation();
 
   const availableBrands = useMemo(() => {
+    if (Array.isArray(props?.productsData?.filterOptions?.brands) && props?.productsData?.filterOptions?.brands?.length > 0) {
+      return props.productsData.filterOptions.brands;
+    }
     const items = props?.productsData?.products || [];
     return [...new Set(items.map((product) => product?.brand?.trim()).filter(Boolean))];
   }, [props?.productsData]);
 
   const availableSizes = useMemo(() => {
+     if (Array.isArray(props?.productsData?.filterOptions?.sizes) && props?.productsData?.filterOptions?.sizes?.length > 0) {
+      return props.productsData.filterOptions.sizes;
+    }
     const sizeSet = new Set();
     (props?.productsData?.products || []).forEach((product) => {
       (product?.size || []).forEach((size) => {
@@ -73,6 +79,9 @@ export const Sidebar = (props) => {
   }, [props?.productsData]);
 
   const availableProductTypes = useMemo(() => {
+     if (Array.isArray(props?.productsData?.filterOptions?.productTypes) && props?.productsData?.filterOptions?.productTypes?.length > 0) {
+      return props.productsData.filterOptions.productTypes;
+    }
     const typeSet = new Set();
     (props?.productsData?.products || []).forEach((product) => {
       const typeValue = product?.productType || product?.thirdSubCatName || product?.subCatName || product?.catName;
@@ -101,6 +110,9 @@ export const Sidebar = (props) => {
   }, [props?.productsData]);
 
   const availableWeights = useMemo(() => {
+     if (Array.isArray(props?.productsData?.filterOptions?.weights) && props?.productsData?.filterOptions?.weights?.length > 0) {
+      return props.productsData.filterOptions.weights;
+    }
     const weightSet = new Set();
     (props?.productsData?.products || []).forEach((product) => {
       (product?.productWeight || []).forEach((weight) => {
@@ -111,6 +123,9 @@ export const Sidebar = (props) => {
   }, [props?.productsData]);
 
   const availableRamOptions = useMemo(() => {
+     if (Array.isArray(props?.productsData?.filterOptions?.ramOptions) && props?.productsData?.filterOptions?.ramOptions?.length > 0) {
+      return props.productsData.filterOptions.ramOptions;
+    }
     const ramSet = new Set();
     (props?.productsData?.products || []).forEach((product) => {
       (product?.productRam || []).forEach((ram) => {
@@ -403,19 +418,30 @@ export const Sidebar = (props) => {
 
     //console.log(context?.searchData)
 
-    if (context?.searchData?.products?.length > 0) {
-      props.setProductsData(context?.searchData);
+     const requestPayload = {
+      ...filters,
+      brands: props?.selectedBrands || [],
+      sizes: props?.selectedSizes || [],
+      productTypes: props?.selectedProductTypes || [],
+      priceRanges: props?.selectedPriceRanges || [],
+      saleOnly: props?.selectedSaleOnly || false,
+      stockStatus: props?.selectedStockStatus || "all",
+      discountRanges: props?.selectedDiscountRanges || [],
+      weights: props?.selectedWeights || [],
+      ramOptions: props?.selectedRamOptions || [],
+      ratingBands: props?.selectedRatingBands || [],
+      sortType: props?.selectedSortType || "bestSeller",
+      query: props?.searchQuery || "",
+    };
+
+    const apiUrl = props?.searchQuery ? `/api/product/search/get` : `/api/product/filters`;
+
+     postData(apiUrl, requestPayload).then((res) => {
+      props.setProductsData(res);
       props.setIsLoading(false);
-      props.setTotalPages(context?.searchData?.totalPages)
+      props.setTotalPages(res?.totalPages)
       window.scrollTo(0, 0);
-    } else {
-      postData(`/api/product/filters`, filters).then((res) => {
-        props.setProductsData(res);
-        props.setIsLoading(false);
-        props.setTotalPages(res?.totalPages)
-        window.scrollTo(0, 0);
-      })
-    }
+     })
 
 
   }
@@ -425,7 +451,22 @@ export const Sidebar = (props) => {
   useEffect(() => {
     filters.page = props.page;
     filtesData();
-  }, [filters, props.page])
+  }, [
+    filters,
+    props.page,
+    props.selectedBrands,
+    props.selectedSizes,
+    props.selectedProductTypes,
+    props.selectedPriceRanges,
+    props.selectedSaleOnly,
+    props.selectedStockStatus,
+    props.selectedDiscountRanges,
+    props.selectedWeights,
+    props.selectedRamOptions,
+    props.selectedRatingBands,
+    props.selectedSortType,
+    props.searchQuery,
+  ])
 
 
   useEffect(() => {
@@ -438,6 +479,12 @@ export const Sidebar = (props) => {
 
   useEffect(() => {
     const colorMap = new Map();
+
+    const availableColorOptions = props?.productsData?.filterOptions?.colors;
+    if (Array.isArray(availableColorOptions) && availableColorOptions.length > 0) {
+      setAvailableColors(availableColorOptions.map((name) => ({ name, code: "" })));
+      return;
+    }
 
     props?.productsData?.products?.forEach((product) => {
       product?.colorOptions?.forEach((colorItem) => {

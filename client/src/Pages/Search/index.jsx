@@ -18,7 +18,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 const SearchPage = () => {
   const [itemView, setItemView] = useState("grid");
   const [anchorEl, setAnchorEl] = React.useState(null);
-
+  const [selectedSortType, setSelectedSortType] = useState("bestSeller");
   const [productsData, setProductsData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -80,69 +80,53 @@ const SearchPage = () => {
   };
 
    useEffect(() => {
-    if (!searchQuery) return;
+    if (!searchQuery) {
+      setProductsData([]);
+      setTotalPages(1);
+      return;
+    }
     setIsLoading(true);
     postData(`/api/product/search/get`, {
-      page: 1,
-      limit: 250,
       query: searchQuery,
+      page,
+      limit: pageLimit,
+      brands: selectedBrands,
+      sizes: selectedSizes,
+      productTypes: selectedProductTypes,
+      priceRanges: selectedPriceRanges,
+      saleOnly: selectedSaleOnly,
+      stockStatus: selectedStockStatus,
+      discountRanges: selectedDiscountRanges,
+      weights: selectedWeights,
+      ramOptions: selectedRamOptions,
+      sortType: selectedSortType,
     }).then((res) => {
       context?.setSearchData(res);
       setProductsData(res);
+      setTotalPages(res?.totalPages || 1);
       setAiInsights(res?.aiInsights || null);
       setIsLoading(false);
     });
-  }, [searchQuery]);
+  }, [
+    searchQuery,
+    page,
+    selectedBrands,
+    selectedSizes,
+    selectedProductTypes,
+    selectedPriceRanges,
+    selectedSaleOnly,
+    selectedStockStatus,
+    selectedDiscountRanges,
+    selectedWeights,
+    selectedRamOptions,
+    selectedSortType,
+  ]);
 
   useEffect(() => {
     setAiInsights(context?.searchData?.aiInsights || null);
   }, [context?.searchData]);
 
-  const filteredProducts = useMemo(() => {
-    const items = productsData?.products || [];
-
-    return items.filter((product) => {
-      if (selectedBrands.length && !selectedBrands.includes(product?.brand)) return false;
-      if (selectedSizes.length && !(product?.size || []).some((size) => selectedSizes.includes(size))) return false;
-
-      if (selectedProductTypes.length) {
-        const productType = product?.productType || product?.thirdSubCatName || product?.subCatName || product?.catName;
-        if (!selectedProductTypes.includes(productType)) return false;
-      }
-
-      if (selectedSaleOnly && Number(product?.discount || 0) <= 0) return false;
-      if (selectedStockStatus === "inStock" && Number(product?.countInStock || 0) <= 0) return false;
-      if (selectedStockStatus === "outOfStock" && Number(product?.countInStock || 0) > 0) return false;
-
-      if (selectedDiscountRanges.length) {
-        const discount = Number(product?.discount || 0);
-        if (!selectedDiscountRanges.some((min) => discount >= min)) return false;
-      }
-
-      if (selectedWeights.length && !(product?.productWeight || []).some((item) => selectedWeights.includes(item))) return false;
-      if (selectedRamOptions.length && !(product?.productRam || []).some((item) => selectedRamOptions.includes(item))) return false;
-
-      if (selectedPriceRanges.length) {
-        const productPrice = Number(product?.price || 0);
-        const inRange = selectedPriceRanges.some((range) => {
-          const [min, max] = range.split("-").map(Number);
-          return productPrice >= min && productPrice <= max;
-        });
-        if (!inRange) return false;
-      }
-
-      return true;
-    });
-  }, [productsData, selectedBrands, selectedSizes, selectedProductTypes, selectedSaleOnly, selectedStockStatus, selectedDiscountRanges, selectedWeights, selectedRamOptions, selectedPriceRanges]);
-
-  const paginatedProducts = useMemo(() => {
-    const start = (page - 1) * pageLimit;
-    return filteredProducts.slice(start, start + pageLimit);
-  }, [filteredProducts, page]);
-
-  useEffect(() => {
-    setTotalPages(Math.max(1, Math.ceil(filteredProducts.length / pageLimit)));
-  }, [filteredProducts]);
+  const paginatedProducts = productsData?.products || [];
 
   useEffect(() => {
     const nextPage = Number(queryParams.get("page") || 1);
@@ -189,17 +173,11 @@ const SearchPage = () => {
     setPage(1);
   };
 
-  const handleSortBy = (name, order, products, value) => {
+  const handleSortBy = (sortType, value) => {
     setSelectedSortVal(value);
-    postData(`/api/product/sortBy`, {
-      products: products,
-      sortBy: name,
-      order: order
-    }).then((res) => {
-      setProductsData(res);
-      setAiInsights(res?.aiInsights || context?.searchData?.aiInsights || null);
-      setAnchorEl(null);
-    })
+    setSelectedSortType(sortType);
+    setPage(1);
+    setAnchorEl(null);
   }
 
   return (
@@ -232,6 +210,8 @@ const SearchPage = () => {
               selectedRamOptions={selectedRamOptions}
               setSelectedRamOptions={setSelectedRamOptions}
               selectedPriceRanges={selectedPriceRanges}
+              selectedSortType={selectedSortType}
+              searchQuery={searchQuery}
               setSelectedPriceRanges={setSelectedPriceRanges}
               activeFiltersCount={activeFiltersCount}
               onResetAllFilters={handleResetAllFilters}
@@ -287,7 +267,7 @@ const SearchPage = () => {
                   }}
                 >
                   <MenuItem
-                    onClick={() => handleSortBy('name', 'asc', productsData, 'Name, A to Z')}
+                    onClick={() => handleSortBy('nameAsc', 'Name, A to Z')}
                     className="!text-[13px] !text-[#000] !capitalize"
                   >
                     Name, A to Z
@@ -295,7 +275,7 @@ const SearchPage = () => {
 
 
                   <MenuItem
-                    onClick={() => handleSortBy('name', 'desc', productsData, 'Name, Z to A')}
+                    onClick={() => handleSortBy('nameAsc', 'Name, A to Z')}
                     className="!text-[13px] !text-[#000] !capitalize"
                   >
                     Name, Z to A
@@ -303,7 +283,7 @@ const SearchPage = () => {
 
 
                   <MenuItem
-                    onClick={() => handleSortBy('price', 'asc', productsData, 'Price, low to high')}
+                    onClick={() => handleSortBy('priceAsc', 'Price, low to high')}
                     className="!text-[13px] !text-[#000] !capitalize"
                   >
                     Price, low to high
@@ -311,7 +291,7 @@ const SearchPage = () => {
 
 
                   <MenuItem
-                    onClick={() => handleSortBy('price', 'desc', productsData, ' Price, high to low')}
+                   onClick={() => handleSortBy('priceDesc', ' Price, high to low')}
                     className="!text-[13px] !text-[#000] !capitalize"
                   >
                     Price, high to low

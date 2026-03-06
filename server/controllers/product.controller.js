@@ -35,12 +35,10 @@ const normalizeSearchText = (value = "") =>
     .replace(/\s+/g, " ")
     .trim();
 
-   const tokenizeText = (value = "") =>
-  normalizeSearchText(value)
-    .split(" ")
-    .filter(Boolean);
+const tokenizeText = (value = "") =>
+  normalizeSearchText(value).split(" ").filter(Boolean);
 
-    const SEARCH_STOP_WORDS = new Set([
+const SEARCH_STOP_WORDS = new Set([
   "for",
   "the",
   "and",
@@ -62,7 +60,6 @@ const getMeaningfulSearchTokens = (value = "") => {
 
   return filtered.length ? filtered : tokens;
 };
-
 
 const levenshteinDistance = (a = "", b = "") => {
   const first = normalizeSearchText(a);
@@ -197,14 +194,18 @@ const buildAiSearchInsights = (products = [], correctedQuery = "") => {
   };
 };
 
-const buildSearchSuggestions = (products = [], query = "", correctedQuery = "") => {
+const buildSearchSuggestions = (
+  products = [],
+  query = "",
+  correctedQuery = "",
+) => {
   const cleanQuery = normalizeSearchText(query);
   if (!cleanQuery) return [];
 
-   const collectedSuggestions = [];
+  const collectedSuggestions = [];
 
   products.slice(0, 40).forEach((item) => {
-     [
+    [
       item?.name,
       item?.brand,
       item?.catName,
@@ -222,7 +223,7 @@ const buildSearchSuggestions = (products = [], query = "", correctedQuery = "") 
     });
     normalizeKeywords(item?.keywords).forEach((keyword) => {
       if (keyword.includes(cleanQuery) || cleanQuery.includes(keyword)) {
-         collectedSuggestions.push(keyword);
+        collectedSuggestions.push(keyword);
       }
     });
   });
@@ -244,7 +245,6 @@ const buildSuggestionProducts = (products = []) => {
     image: Array.isArray(item?.images) ? item.images[0] : "",
   }));
 };
-
 
 cloudinary.config({
   cloud_name: process.env.cloudinary_Config_Cloud_Name,
@@ -1589,6 +1589,7 @@ export async function filters(request, response) {
     weights,
     ramOptions,
     sortType,
+    query,
   } = request.body;
 
   const filters = {};
@@ -1615,7 +1616,7 @@ export async function filters(request, response) {
   if (colors?.length) {
     filters["colorOptions.name"] = { $in: colors };
   }
-   if (brands?.length) {
+  if (brands?.length) {
     filters.brand = { $in: brands };
   }
 
@@ -1623,13 +1624,31 @@ export async function filters(request, response) {
     filters.size = { $in: sizes };
   }
 
+  const andConditions = [];
+
   if (productTypes?.length) {
-    filters.$or = [
-      { productType: { $in: productTypes } },
-      { thirdSubCatName: { $in: productTypes } },
-      { subCatName: { $in: productTypes } },
-      { catName: { $in: productTypes } },
-    ];
+    andConditions.push({
+      $or: [
+        { productType: { $in: productTypes } },
+        { thirdSubCatName: { $in: productTypes } },
+        { subCatName: { $in: productTypes } },
+        { catName: { $in: productTypes } },
+      ],
+    });
+  }
+
+  if (query?.trim()) {
+    const queryRegex = new RegExp(query.trim(), "i");
+    andConditions.push({
+      $or: [
+        { name: queryRegex },
+        { description: queryRegex },
+        { brand: queryRegex },
+        { catName: queryRegex },
+        { subCatName: queryRegex },
+        { thirdSubCatName: queryRegex },
+      ],
+    });
   }
 
   if (priceRanges?.length) {
@@ -1642,8 +1661,12 @@ export async function filters(request, response) {
       .filter(Boolean);
 
     if (rangeFilters.length) {
-      filters.$and = [...(filters.$and || []), { $or: rangeFilters }];
+      andConditions.push({ $or: rangeFilters });
     }
+  }
+
+  if (andConditions.length) {
+    filters.$and = [...(filters.$and || []), ...andConditions];
   }
 
   if (saleOnly) {
@@ -1678,25 +1701,45 @@ export async function filters(request, response) {
     latest: { createdAt: -1, _id: -1 },
     popular: { rating: -1, sale: -1, _id: -1 },
     featured: { isFeatured: -1, sale: -1, _id: -1 },
+    priceAsc: { price: 1, _id: 1 },
+    priceDesc: { price: -1, _id: -1 },
+    nameAsc: { name: 1, _id: 1 },
+    nameDesc: { name: -1, _id: -1 },
   };
   try {
     const currentPage = Math.max(1, parseInt(page) || 1);
     const perPage = Math.max(1, parseInt(limit) || 20);
     const products = await ProductModel.find(filters)
       .populate("category")
-       .sort(sortConfig[sortType] || sortConfig.bestSeller)
+      .sort(sortConfig[sortType] || sortConfig.bestSeller)
       .skip((currentPage - 1) * perPage)
       .limit(perPage);
 
     const total = await ProductModel.countDocuments(filters);
+
+    const filterOptionsProducts = await ProductModel.find(filters)
+      .select("brand size productType thirdSubCatName subCatName catName productWeight productRam colorOptions.name")
+      .lean();
+
+    const filterOptions = {
+      brands: [...new Set(filterOptionsProducts.map((item) => item?.brand?.trim()).filter(Boolean))],
+      sizes: [...new Set(filterOptionsProducts.flatMap((item) => item?.size || []).filter(Boolean))],
+      productTypes: [...new Set(filterOptionsProducts
+        .map((item) => item?.productType || item?.thirdSubCatName || item?.subCatName || item?.catName)
+        .filter(Boolean))],
+      weights: [...new Set(filterOptionsProducts.flatMap((item) => item?.productWeight || []).filter(Boolean))],
+      ramOptions: [...new Set(filterOptionsProducts.flatMap((item) => item?.productRam || []).filter(Boolean))],
+      colors: [...new Set(filterOptionsProducts.flatMap((item) => (item?.colorOptions || []).map((colorItem) => colorItem?.name)).filter(Boolean))],
+    };
 
     return response.status(200).json({
       error: false,
       success: true,
       products: products,
       total: total,
-     page: currentPage,
+      page: currentPage,
       totalPages: Math.max(1, Math.ceil(total / perPage)),
+      filterOptions,
     });
   } catch (error) {
     return response.status(500).json({
@@ -1736,7 +1779,22 @@ export async function sortBy(request, response) {
 
 export async function searchProductController(request, response) {
   try {
-    const { query, page, limit, brands, sizes, productTypes, priceRanges, saleOnly, stockStatus, discountRanges, weights, ramOptions, ratingBands, sortType } = request.body;
+    const {
+      query,
+      page,
+      limit,
+      brands,
+      sizes,
+      productTypes,
+      priceRanges,
+      saleOnly,
+      stockStatus,
+      discountRanges,
+      weights,
+      ramOptions,
+      ratingBands,
+      sortType,
+    } = request.body;
     const requestedPage = parseInt(page) || 1;
     const requestedLimit = parseInt(limit) || 20;
 
@@ -1750,10 +1808,18 @@ export async function searchProductController(request, response) {
     const applyAdvancedFilters = (items = []) => {
       return items.filter((item) => {
         if (brands?.length && !brands.includes(item?.brand)) return false;
-        if (sizes?.length && !(item?.size || []).some((size) => sizes.includes(size))) return false;
+        if (
+          sizes?.length &&
+          !(item?.size || []).some((size) => sizes.includes(size))
+        )
+          return false;
 
         if (productTypes?.length) {
-          const itemType = item?.productType || item?.thirdSubCatName || item?.subCatName || item?.catName;
+          const itemType =
+            item?.productType ||
+            item?.thirdSubCatName ||
+            item?.subCatName ||
+            item?.catName;
           if (!productTypes.includes(itemType)) return false;
         }
 
@@ -1761,26 +1827,44 @@ export async function searchProductController(request, response) {
           const itemPrice = Number(item?.price || 0);
           const inRange = priceRanges.some((range) => {
             const [min, max] = String(range).split("-").map(Number);
-            return !Number.isNaN(min) && !Number.isNaN(max) && itemPrice >= min && itemPrice <= max;
+            return (
+              !Number.isNaN(min) &&
+              !Number.isNaN(max) &&
+              itemPrice >= min &&
+              itemPrice <= max
+            );
           });
           if (!inRange) return false;
         }
 
         if (saleOnly && Number(item?.discount || 0) <= 0) return false;
-        if (stockStatus === "inStock" && Number(item?.countInStock || 0) <= 0) return false;
-        if (stockStatus === "outOfStock" && Number(item?.countInStock || 0) > 0) return false;
+        if (stockStatus === "inStock" && Number(item?.countInStock || 0) <= 0)
+          return false;
+        if (stockStatus === "outOfStock" && Number(item?.countInStock || 0) > 0)
+          return false;
 
         if (discountRanges?.length) {
           const discount = Number(item?.discount || 0);
-          if (!discountRanges.some((min) => discount >= Number(min || 0))) return false;
+          if (!discountRanges.some((min) => discount >= Number(min || 0)))
+            return false;
         }
 
-        if (weights?.length && !(item?.productWeight || []).some((w) => weights.includes(w))) return false;
-        if (ramOptions?.length && !(item?.productRam || []).some((ram) => ramOptions.includes(ram))) return false;
+        if (
+          weights?.length &&
+          !(item?.productWeight || []).some((w) => weights.includes(w))
+        )
+          return false;
+        if (
+          ramOptions?.length &&
+          !(item?.productRam || []).some((ram) => ramOptions.includes(ram))
+        )
+          return false;
 
         if (ratingBands?.length) {
           const rating = Number(item?.rating || 0);
-          const inBand = ratingBands.some(({ min, max }) => max === null ? rating >= min : rating >= min && rating < max);
+          const inBand = ratingBands.some(({ min, max }) =>
+            max === null ? rating >= min : rating >= min && rating < max,
+          );
           if (!inBand) return false;
         }
 
@@ -1790,8 +1874,27 @@ export async function searchProductController(request, response) {
 
     const sortFilteredItems = (items = []) => {
       return [...items].sort((a, b) => {
+        if (sortType === "nameAsc") {
+          return String(a?.name || "").localeCompare(String(b?.name || ""));
+        }
+
+        if (sortType === "nameDesc") {
+          return String(b?.name || "").localeCompare(String(a?.name || ""));
+        }
+
+        if (sortType === "priceAsc") {
+          return Number(a?.price || 0) - Number(b?.price || 0);
+        }
+
+        if (sortType === "priceDesc") {
+          return Number(b?.price || 0) - Number(a?.price || 0);
+        }
+
         if (sortType === "latest") {
-          return new Date(b?.createdAt || b?.updatedAt || 0).getTime() - new Date(a?.createdAt || a?.updatedAt || 0).getTime();
+          return (
+            new Date(b?.createdAt || b?.updatedAt || 0).getTime() -
+            new Date(a?.createdAt || a?.updatedAt || 0).getTime()
+          );
         }
 
         if (sortType === "popular") {
@@ -1801,7 +1904,8 @@ export async function searchProductController(request, response) {
         }
 
         if (sortType === "featured") {
-          const featuredDiff = Number(Boolean(b?.isFeatured)) - Number(Boolean(a?.isFeatured));
+          const featuredDiff =
+            Number(Boolean(b?.isFeatured)) - Number(Boolean(a?.isFeatured));
           if (featuredDiff !== 0) return featuredDiff;
         }
 
@@ -1844,8 +1948,6 @@ export async function searchProductController(request, response) {
       };
     });
 
-    
-
     const products = await ProductModel.find({
       $or: [
         { name: fullQueryRegex },
@@ -1862,9 +1964,11 @@ export async function searchProductController(request, response) {
       .populate("category")
       .limit(250);
 
-       const vocabulary = buildSearchVocabulary(products);
+    const vocabulary = buildSearchVocabulary(products);
     const correctedQuery = getSpellCorrectedQuery(cleanQuery, vocabulary);
-     const correctedTokens = getMeaningfulSearchTokens(correctedQuery || cleanQuery);
+    const correctedTokens = getMeaningfulSearchTokens(
+      correctedQuery || cleanQuery,
+    );
 
     let scoredProducts = products
       .map((item) => {
@@ -1929,10 +2033,11 @@ export async function searchProductController(request, response) {
         .populate("category")
         .limit(200);
 
-         const fallbackVocabulary = buildSearchVocabulary(fuzzyFallback);
+      const fallbackVocabulary = buildSearchVocabulary(fuzzyFallback);
       const fallbackCorrection =
-        correctedQuery || getSpellCorrectedQuery(cleanQuery, fallbackVocabulary);
-        const fallbackTokens = getMeaningfulSearchTokens(
+        correctedQuery ||
+        getSpellCorrectedQuery(cleanQuery, fallbackVocabulary);
+      const fallbackTokens = getMeaningfulSearchTokens(
         fallbackCorrection || cleanQuery,
       );
       scoredProducts = fuzzyFallback
@@ -1959,7 +2064,7 @@ export async function searchProductController(request, response) {
         .filter((item) => item.distance <= 2)
         .sort((a, b) => a.distance - b.distance)
         .map((entry) => entry.item);
-        scoredProducts = sortFilteredItems(applyAdvancedFilters(scoredProducts));
+      scoredProducts = sortFilteredItems(applyAdvancedFilters(scoredProducts));
 
       const total = scoredProducts.length;
       const start = (requestedPage - 1) * requestedLimit;
@@ -1967,6 +2072,15 @@ export async function searchProductController(request, response) {
         start,
         start + requestedLimit,
       );
+
+       const filterOptions = {
+        brands: [...new Set(scoredProducts.map((item) => item?.brand?.trim()).filter(Boolean))],
+        sizes: [...new Set(scoredProducts.flatMap((item) => item?.size || []).filter(Boolean))],
+        productTypes: [...new Set(scoredProducts.map((item) => item?.productType || item?.thirdSubCatName || item?.subCatName || item?.catName).filter(Boolean))],
+        weights: [...new Set(scoredProducts.flatMap((item) => item?.productWeight || []).filter(Boolean))],
+        ramOptions: [...new Set(scoredProducts.flatMap((item) => item?.productRam || []).filter(Boolean))],
+        colors: [...new Set(scoredProducts.flatMap((item) => (item?.colorOptions || []).map((colorItem) => colorItem?.name)).filter(Boolean))],
+      };
 
       return response.status(200).json({
         error: false,
@@ -1977,9 +2091,17 @@ export async function searchProductController(request, response) {
         totalPages: Math.max(1, Math.ceil(total / requestedLimit)),
         originalQuery: query,
         correctedQuery: fallbackCorrection,
-        suggestions: buildSearchSuggestions(scoredProducts, query, fallbackCorrection),
+        suggestions: buildSearchSuggestions(
+          scoredProducts,
+          query,
+          fallbackCorrection,
+        ),
         suggestionProducts: buildSuggestionProducts(scoredProducts),
-        aiInsights: buildAiSearchInsights(paginatedProducts, fallbackCorrection),
+        aiInsights: buildAiSearchInsights(
+          paginatedProducts,
+          fallbackCorrection,
+        ),
+        filterOptions,
       });
     }
 
@@ -1991,6 +2113,15 @@ export async function searchProductController(request, response) {
       start + requestedLimit,
     );
 
+    const filterOptions = {
+      brands: [...new Set(scoredProducts.map((item) => item?.brand?.trim()).filter(Boolean))],
+      sizes: [...new Set(scoredProducts.flatMap((item) => item?.size || []).filter(Boolean))],
+      productTypes: [...new Set(scoredProducts.map((item) => item?.productType || item?.thirdSubCatName || item?.subCatName || item?.catName).filter(Boolean))],
+      weights: [...new Set(scoredProducts.flatMap((item) => item?.productWeight || []).filter(Boolean))],
+      ramOptions: [...new Set(scoredProducts.flatMap((item) => item?.productRam || []).filter(Boolean))],
+      colors: [...new Set(scoredProducts.flatMap((item) => (item?.colorOptions || []).map((colorItem) => colorItem?.name)).filter(Boolean))],
+    };
+
     return response.status(200).json({
       error: false,
       success: true,
@@ -2000,9 +2131,14 @@ export async function searchProductController(request, response) {
       totalPages: Math.max(1, Math.ceil(total / requestedLimit)),
       originalQuery: query,
       correctedQuery,
-      suggestions: buildSearchSuggestions(scoredProducts, query, correctedQuery),
+      suggestions: buildSearchSuggestions(
+        scoredProducts,
+        query,
+        correctedQuery,
+      ),
       suggestionProducts: buildSuggestionProducts(scoredProducts),
       aiInsights: buildAiSearchInsights(paginatedProducts, correctedQuery),
+      filterOptions,
     });
   } catch (error) {
     return response.status(500).json({
