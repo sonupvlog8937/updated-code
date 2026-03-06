@@ -255,7 +255,7 @@ const SearchPage = () => {
 
 
                   <MenuItem
-                    onClick={() => handleSortBy('nameAsc', 'Name, A to Z')}
+                    onClick={() => handleSortBy('nameDesc', 'Name, Z to A')}
                     className="!text-[13px] !text-[#000] !capitalize"
                   >
                     Name, Z to A
