@@ -414,6 +414,15 @@ export const Sidebar = (props) => {
 
 
   const filtesData = () => {
+    const hasSearchProp = typeof props?.searchQuery === "string";
+    const queryValue = (props?.searchQuery || "").trim();
+
+    if (hasSearchProp && !queryValue) {
+      props?.setProductsData?.({ products: [], totalPages: 1, totalPost: 0, currentPage: 1 });
+      props?.setTotalPages?.(1);
+      props?.setIsLoading?.(false);
+      return;
+    }
     props.setIsLoading(true);
 
     //console.log(context?.searchData)
@@ -431,15 +440,18 @@ export const Sidebar = (props) => {
       ramOptions: props?.selectedRamOptions || [],
       ratingBands: props?.selectedRatingBands || [],
       sortType: props?.selectedSortType || "bestSeller",
-      query: props?.searchQuery || "",
+      query: queryValue,
     };
 
     const apiUrl = props?.searchQuery ? `/api/product/search/get` : `/api/product/filters`;
 
      postData(apiUrl, requestPayload).then((res) => {
+      if (hasSearchProp) {
+        context?.setSearchData?.(res);
+      }
       props.setProductsData(res);
       props.setIsLoading(false);
-      props.setTotalPages(res?.totalPages)
+      props.setTotalPages(res?.totalPages || 1)
       window.scrollTo(0, 0);
      })
 

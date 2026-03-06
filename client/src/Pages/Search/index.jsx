@@ -34,7 +34,8 @@ const SearchPage = () => {
   const [selectedWeights, setSelectedWeights] = useState([]);
   const [selectedRamOptions, setSelectedRamOptions] = useState([]);
   const [selectedPriceRanges, setSelectedPriceRanges] = useState([]);
-
+  const [selectedColors, setSelectedColors] = useState([]);
+  const [selectedRatingBands, setSelectedRatingBands] = useState([]);
   const [selectedSortVal, setSelectedSortVal] = useState("Name, A to Z");
 
   const context = useAppContext();
@@ -43,7 +44,6 @@ const SearchPage = () => {
 
   const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const searchQuery = queryParams.get("query") || "";
-  const pageLimit = 20;
   const activeFiltersCount = useMemo(() => (
     selectedBrands.length +
     selectedSizes.length +
@@ -53,7 +53,9 @@ const SearchPage = () => {
     (selectedStockStatus !== "all" ? 1 : 0) +
     selectedDiscountRanges.length +
     selectedWeights.length +
-    selectedRamOptions.length
+    selectedRamOptions.length +
+    selectedColors.length +
+    selectedRatingBands.length
   ), [
     selectedBrands,
     selectedSizes,
@@ -64,6 +66,8 @@ const SearchPage = () => {
     selectedDiscountRanges,
     selectedWeights,
     selectedRamOptions,
+    selectedColors,
+    selectedRatingBands,
   ]);
 
   useEffect(() => {
@@ -83,48 +87,11 @@ const SearchPage = () => {
     if (!searchQuery) {
       setProductsData([]);
       setTotalPages(1);
+      setAiInsights(null);
       return;
     }
-    setIsLoading(true);
-    postData(`/api/product/search/get`, {
-      query: searchQuery,
-      page,
-      limit: pageLimit,
-      brands: selectedBrands,
-      sizes: selectedSizes,
-      productTypes: selectedProductTypes,
-      priceRanges: selectedPriceRanges,
-      saleOnly: selectedSaleOnly,
-      stockStatus: selectedStockStatus,
-      discountRanges: selectedDiscountRanges,
-      weights: selectedWeights,
-      ramOptions: selectedRamOptions,
-      sortType: selectedSortType,
-    }).then((res) => {
-      context?.setSearchData(res);
-      setProductsData(res);
-      setTotalPages(res?.totalPages || 1);
-      setAiInsights(res?.aiInsights || null);
-      setIsLoading(false);
-    });
-  }, [
-    searchQuery,
-    page,
-    selectedBrands,
-    selectedSizes,
-    selectedProductTypes,
-    selectedPriceRanges,
-    selectedSaleOnly,
-    selectedStockStatus,
-    selectedDiscountRanges,
-    selectedWeights,
-    selectedRamOptions,
-    selectedSortType,
-  ]);
-
-  useEffect(() => {
-    setAiInsights(context?.searchData?.aiInsights || null);
-  }, [context?.searchData]);
+      setAiInsights(productsData?.aiInsights || null);
+  }, [productsData, searchQuery]);
 
   const paginatedProducts = productsData?.products || [];
 
@@ -137,9 +104,14 @@ const SearchPage = () => {
     setSelectedWeights((queryParams.get("weights") || "").split(",").filter(Boolean));
     setSelectedRamOptions((queryParams.get("ram") || "").split(",").filter(Boolean));
     setSelectedPriceRanges((queryParams.get("priceRanges") || "").split(",").filter(Boolean));
+    setSelectedColors((queryParams.get("colors") || "").split(",").filter(Boolean));
     setSelectedStockStatus(queryParams.get("stock") || "all");
     setSelectedSaleOnly(queryParams.get("sale") === "1");
     setSelectedDiscountRanges((queryParams.get("discount") || "")
+      .split(",")
+      .map((item) => Number(item))
+      .filter(Boolean));
+      setSelectedRatingBands((queryParams.get("rating") || "")
       .split(",")
       .map((item) => Number(item))
       .filter(Boolean));
@@ -154,11 +126,13 @@ const SearchPage = () => {
     if (selectedWeights.length) params.set("weights", selectedWeights.join(",")); else params.delete("weights");
     if (selectedRamOptions.length) params.set("ram", selectedRamOptions.join(",")); else params.delete("ram");
     if (selectedPriceRanges.length) params.set("priceRanges", selectedPriceRanges.join(",")); else params.delete("priceRanges");
+    if (selectedColors.length) params.set("colors", selectedColors.join(",")); else params.delete("colors");
     if (selectedStockStatus !== "all") params.set("stock", selectedStockStatus); else params.delete("stock");
     if (selectedSaleOnly) params.set("sale", "1"); else params.delete("sale");
     if (selectedDiscountRanges.length) params.set("discount", selectedDiscountRanges.join(",")); else params.delete("discount");
+    if (selectedRatingBands.length) params.set("rating", selectedRatingBands.join(",")); else params.delete("rating");
     navigate(`${location.pathname}?${params.toString()}`, { replace: true });
-  }, [page, selectedBrands, selectedSizes, selectedProductTypes, selectedWeights, selectedRamOptions, selectedPriceRanges, selectedStockStatus, selectedSaleOnly, selectedDiscountRanges]);
+  }, [page, selectedBrands, selectedSizes, selectedProductTypes, selectedWeights, selectedRamOptions, selectedPriceRanges, selectedColors, selectedStockStatus, selectedSaleOnly, selectedDiscountRanges, selectedRatingBands]);
 
   const handleResetAllFilters = () => {
     setSelectedBrands([]);
@@ -170,6 +144,8 @@ const SearchPage = () => {
     setSelectedWeights([]);
     setSelectedRamOptions([]);
     setSelectedPriceRanges([]);
+    setSelectedColors([]);
+    setSelectedRatingBands([]);
     setPage(1);
   };
 
@@ -213,6 +189,10 @@ const SearchPage = () => {
               selectedSortType={selectedSortType}
               searchQuery={searchQuery}
               setSelectedPriceRanges={setSelectedPriceRanges}
+               selectedColors={selectedColors}
+              setSelectedColors={setSelectedColors}
+              selectedRatingBands={selectedRatingBands}
+              setSelectedRatingBands={setSelectedRatingBands}
               activeFiltersCount={activeFiltersCount}
               onResetAllFilters={handleResetAllFilters}
             />
