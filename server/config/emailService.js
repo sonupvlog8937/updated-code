@@ -1,33 +1,46 @@
-import http from 'http';
-import nodemailer from 'nodemailer';
+import dotenv from "dotenv";
+import nodemailer from "nodemailer";
+import logger from "./Logger.js";
 
-// Configure the SMTP transporter
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com', // e.g., 'smtp.gmail.com' for Gmail
-  port: 465, // or 465 for secure
-  secure: true, // true for port 465, false for other ports
-  auth: {
-    user: process.env.EMAIL, // your SMTP username
-    pass: process.env.EMAIL_PASS,    // your SMTP password
-  },
-});
+dotenv.config();
 
-// Function to send email
+function createTransporter() {
+  const emailUser = process.env.SMTP_USER;   // ✅ Fixed: was EMAIL, now SMTP_USER (matches your .env)
+  const emailPass = process.env.SMTP_PASS;   // ✅ Fixed: was EMAIL_PASS, now SMTP_PASS
+
+  if (!emailUser || !emailPass) {
+    throw new Error("Missing SMTP_USER or SMTP_PASS environment variables");
+  }
+
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: process.env.SMTP_SECURE === "true", // ✅ BUG FIX: was "fase" (typo) → now proper boolean check
+    auth: {
+      user: emailUser,
+      pass: emailPass,
+    },
+  });
+}
+
 async function sendEmail(to, subject, text, html) {
   try {
-   
+    const transporter = createTransporter();
+
     const info = await transporter.sendMail({
-      from: process.env.EMAIL, // sender address
-      to, // list of receivers
-      subject, // Subject line
-      text, // plain text body
-      html, // html body
+      from: `${process.env.STORE_NAME || 'Zeedaddy'} <${process.env.SMTP_USER}>`,
+      to: Array.isArray(to) ? to.join(",") : to,
+      subject,
+      text,
+      html,
     });
+
+    logger.info(`Email sent to ${to} | MessageID: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending email:', error);
+    logger.error("Error sending email", { error: error.message, to });
     return { success: false, error: error.message };
   }
 }
 
-export {sendEmail};
+export { sendEmail };

@@ -74,6 +74,10 @@ const EditProduct = () => {
     const history = useNavigate();
 
     const context = useContext(MyContext);
+    const selectedCategory = context?.catData?.find((cat) => cat?._id === productCat);
+    const availableSubCategories = selectedCategory?.children || [];
+    const selectedSubCategory = availableSubCategories?.find((subCat) => subCat?._id === productSubCat);
+    const availableThirdLevelCategories = selectedSubCategory?.children || [];
 
 
     useEffect(() => {
@@ -148,32 +152,42 @@ const EditProduct = () => {
 
 
     const handleChangeProductCat = (event) => {
-        setProductCat(event.target.value);
-        formFields.catId = event.target.value
-        formFields.category = event.target.value
+        const selectedCatId = event.target.value;
+        const selectedCat = context?.catData?.find((cat) => cat?._id === selectedCatId);
+
+    setProductCat(selectedCatId);
+        setProductSubCat('');
+        setProductThirdLavelCat('');
+
+    formFields.catId = selectedCatId;
+        formFields.category = selectedCatId;
+        formFields.catName = selectedCat?.name || "";
+        formFields.subCatId = "";
+        formFields.subCat = "";
+        formFields.thirdsubCatId = "";
+        formFields.thirdsubCat = "";
 
     };
-
-    const selectCatByName = (name) => {
-        formFields.catName = name
-    }
 
     const handleChangeProductSubCat = (event) => {
-        setProductSubCat(event.target.value);
-        formFields.subCatId = event.target.value
-    };
+        const selectedSubCatId = event.target.value;
+        const selectedSubCat = availableSubCategories?.find((subCat) => subCat?._id === selectedSubCatId);
 
-    const selectSubCatByName = (name) => {
-        formFields.subCat = name
-    }
+        setProductSubCat(selectedSubCatId);
+        setProductThirdLavelCat('');
+        formFields.subCatId = selectedSubCatId;
+        formFields.subCat = selectedSubCat?.name || "";
+        formFields.thirdsubCatId = "";
+        formFields.thirdsubCat = "";
+    };
 
     const handleChangeProductThirdLavelCat = (event) => {
-        setProductThirdLavelCat(event.target.value);
-        formFields.thirdsubCatId = event.target.value
-    };
+        const selectedThirdCatId = event.target.value;
+        const selectedThirdCat = availableThirdLevelCategories?.find((thirdLavelCat) => thirdLavelCat?._id === selectedThirdCatId);
 
-    const selectSubCatByThirdLavel = (name) => {
-        formFields.thirdsubCat = name
+     setProductThirdLavelCat(selectedThirdCatId);
+        formFields.thirdsubCatId = selectedThirdCatId;
+        formFields.thirdsubCat = selectedThirdCat?.name || "";
     }
 
 
@@ -496,8 +510,7 @@ const EditProduct = () => {
                                     {
                                         context?.catData?.map((cat, index) => {
                                             return (
-                                                <MenuItem value={cat?._id} key={index}
-                                                    onClick={() => selectCatByName(cat?.name)}>{cat?.name}</MenuItem>
+                                                <MenuItem value={cat?._id} key={cat?._id || index}>{cat?.name}</MenuItem>
                                             )
                                         })
                                     }
@@ -523,16 +536,11 @@ const EditProduct = () => {
                                     onChange={handleChangeProductSubCat}
                                 >
                                     {
-                                        context?.catData?.map((cat, index) => {
+                                        availableSubCategories?.map((subCat, index_) => {
                                             return (
-                                                cat?.children?.length !== 0 && cat?.children?.map((subCat, index_) => {
-                                                    return (
-                                                        <MenuItem value={subCat?._id} key={index}
-                                                            onClick={() => selectSubCatByName(subCat?.name)}
-                                                        >
-                                                            {subCat?.name}</MenuItem>
-                                                    )
-                                                })
+                                                 <MenuItem value={subCat?._id} key={subCat?._id || index_}>
+                                                    {subCat?.name}
+                                                </MenuItem>
 
                                             )
                                         })
@@ -561,17 +569,11 @@ const EditProduct = () => {
                                     onChange={handleChangeProductThirdLavelCat}
                                 >
                                     {
-                                        context?.catData?.map((cat) => {
+                                        availableThirdLevelCategories?.map((thirdLavelCat, index) => {
                                             return (
-                                                cat?.children?.length !== 0 && cat?.children?.map((subCat) => {
-                                                    return (
-                                                        subCat?.children?.length !== 0 && subCat?.children?.map((thirdLavelCat, index) => {
-                                                            return <MenuItem value={thirdLavelCat?._id} key={index}
-                                                                onClick={() => selectSubCatByThirdLavel(thirdLavelCat?.name)}>{thirdLavelCat?.name}</MenuItem>
-                                                        })
-
-                                                    )
-                                                })
+                                                <MenuItem value={thirdLavelCat?._id} key={thirdLavelCat?._id || index}>
+                                                    {thirdLavelCat?.name}
+                                                </MenuItem>
 
                                             )
                                         })

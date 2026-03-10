@@ -260,7 +260,7 @@ const MyAccount = () => {
 
 
           <Collapse isOpened={isChangePasswordFormShow}>
-            <div className="card bg-white p-5 shadow-md rounded-md">
+            <div className="card bg-white p-5 shadow-md rounded-sm">
               <div className="flex items-center pb-3">
                 <h2 className="pb-0">Change Password</h2>
               </div>
@@ -334,6 +334,12 @@ const MyAccount = () => {
 
 
             </div>
+            <div className="card bg-white p-5 shadow-md">
+              <div className="flex items-center pb-3">
+                <h2 className="pb-0">Change Password for Contact Us: <span className="text-primary font-bold item-center">8069737537</span></h2>
+              </div>
+              <hr />
+              </div>
           </Collapse>
 
 

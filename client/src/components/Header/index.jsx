@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import Search from "../Search";
 import Badge from "@mui/material/Badge";
 import { styled } from "@mui/material/styles";
@@ -23,6 +22,7 @@ import { LuMapPin } from "react-icons/lu";
 import { useEffect } from "react";
 import { HiOutlineMenu } from "react-icons/hi";
 import "./Navigation/style.css"
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 
 const StyledBadge = styled(Badge)(({ theme }) => ({
@@ -42,6 +42,9 @@ const Header = () => {
 
   const [loading, setLoading] = useState(false);
   const context = useAppContext();
+  const location = useLocation();
+
+  const hideNavigationOnPage = [""].includes(location.pathname);
 
   const history = useNavigate();
 
@@ -330,11 +333,13 @@ const Header = () => {
           </div>
         </div>
 
-        <Navigation isOpenCatPanel={isOpenCatPanel} setIsOpenCatPanel={setIsOpenCatPanel} />
+         {(!hideNavigationOnPage || isOpenCatPanel) && (
+          <Navigation isOpenCatPanel={isOpenCatPanel} setIsOpenCatPanel={setIsOpenCatPanel} />
+        )}
       </header>
 
 
-      <div className="afterHeader mt-[115px] lg:mt-0"></div>
+      <div className="afterHeader mt-[65px] lg:mt-0"></div>
 
     </>
   );

@@ -1,0 +1,338 @@
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --primary: #e8410a;
+    --primary-light: #fff3ef;
+    --primary-glow: rgba(232,65,10,0.12);
+    --ink: #0f0f0f;
+    --ink-muted: #6b7280;
+    --surface: #ffffff;
+    --surface-2: #f9fafb;
+    --border: rgba(0,0,0,0.08);
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --radius-sm: 10px;
+    --shadow-card: 0 2px 20px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04);
+    --shadow-hover: 0 8px 40px rgba(0,0,0,0.12);
+    --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  .pd-root { font-family: 'DM Sans', sans-serif; color: var(--ink); background: var(--surface); }
+
+  /* ── Breadcrumb ── */
+  .pd-breadcrumb-bar {
+    padding: 12px 0;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    margin-top: -30px;
+  }
+  .pd-breadcrumb-bar .container { padding-inline: 16px; }
+  .pd-breadcrumb-link {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-muted);
+    text-decoration: none;
+    transition: color var(--transition);
+  }
+  .pd-breadcrumb-link:hover { color: var(--primary); }
+  .pd-breadcrumb-current {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  /* ── Loading ── */
+  .pd-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+  }
+
+  /* ── Hero Section ── */
+  .pd-hero {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* Mobile: image full-width, edge-to-edge */
+  .pd-image-wrapper {
+    width: 100%;
+    background: var(--surface-2);
+    position: relative;
+    overflow: hidden;
+  }
+  @media (max-width: 1023px) {
+    .pd-image-wrapper {
+      margin-left: calc(-50vw + 50%);
+      width: 100vw;
+      border-radius: 0;
+      min-height: 340px;
+      max-height: 480px;
+    }
+    .pd-image-wrapper > * {
+      height: 100%;
+      width: 100%;
+    }
+  }
+  @media (min-width: 1024px) {
+    .pd-hero {
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 32px;
+      padding: 32px 0;
+    }
+    .pd-image-wrapper {
+      width: 50%;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      min-height: 500px;
+      flex-shrink: 0;
+    }
+  }
+
+  /* ── Product content ── */
+  .pd-content-col {
+    width: 100%;
+    padding: 20px 0 0 0;
+  }
+  @media (min-width: 1024px) {
+    .pd-content-col {
+      width: 50%;
+      padding: 0;
+      position: sticky;
+      top: 88px;
+    }
+  }
+
+  /* ── Floating badge ── */
+  .pd-image-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    background: var(--primary);
+    color: #fff;
+    font-family: 'Sora', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 100px;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(232,65,10,0.35);
+  }
+
+  /* ── Divider ── */
+  .pd-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 28px 0;
+  }
+
+  /* ── Section headers ── */
+  .pd-section-title {
+    font-family: 'Sora', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .pd-section-title::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(90deg, var(--primary-glow), transparent);
+    border-radius: 2px;
+  }
+
+  /* ── Spec card ── */
+  .pd-specs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  @media (max-width: 480px) {
+    .pd-specs-grid { grid-template-columns: 1fr; }
+  }
+
+  .pd-spec-item {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    transition: border-color var(--transition), box-shadow var(--transition);
+  }
+  .pd-spec-item:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+  }
+  .pd-spec-key {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 3px;
+  }
+  .pd-spec-val {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  /* ── See more / less ── */
+  .pd-see-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--primary-light);
+    border: 1px solid rgba(232,65,10,0.2);
+    border-radius: 100px;
+    padding: 7px 18px;
+    cursor: pointer;
+    transition: background var(--transition), box-shadow var(--transition);
+  }
+  .pd-see-btn:hover {
+    background: rgba(232,65,10,0.15);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+  }
+
+  /* ── Why buy card ── */
+  .pd-why-card {
+    background: linear-gradient(135deg, #fff9f5 0%, #f0f4ff 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 20px 22px;
+  }
+  .pd-why-title {
+    font-family: 'Sora', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--ink);
+  }
+  .pd-why-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .pd-why-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #374151;
+  }
+  .pd-why-list li::before {
+    content: '✓';
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+
+  /* ── Reviews wrapper ── */
+  .pd-reviews-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px 24px;
+    box-shadow: var(--shadow-card);
+  }
+  @media (max-width: 640px) {
+    .pd-reviews-wrapper { padding: 20px 16px; }
+  }
+
+  /* ── Related products ── */
+  .pd-related-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .pd-related-title {
+    font-family: 'Sora', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .pd-related-line {
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(90deg, var(--primary), transparent);
+    border-radius: 2px;
+  }
+
+  .pd-related-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  @media (min-width: 480px) { .pd-related-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 768px) { .pd-related-grid { grid-template-columns: repeat(4, 1fr); } }
+  @media (min-width: 1024px) { .pd-related-grid { grid-template-columns: repeat(5, 1fr); } }
+
+  .pd-load-more-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 32px;
+    background: var(--primary);
+    color: #fff;
+    font-family: 'Sora', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: opacity var(--transition), transform var(--transition), box-shadow var(--transition);
+    box-shadow: 0 4px 16px rgba(232,65,10,0.3);
+  }
+  .pd-load-more-btn:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(232,65,10,0.35);
+  }
+  .pd-load-more-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .pd-no-related {
+    text-align: center;
+    padding: 48px 24px;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius-md);
+    color: var(--ink-muted);
+    font-size: 14px;
+    background: var(--surface-2);
+  }
+
+  /* ── Spacing helpers ── */
+  .pd-section { padding-top: 36px; padding-bottom: 4px; }
+  .pd-section-last { padding-top: 36px; padding-bottom: 48px; }

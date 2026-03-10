@@ -5,7 +5,6 @@ import ProductSIZEModel from "../models/productSIZE.js";
 
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
-import { request } from "http";
 
 const normalizeKeywords = (keywords) => {
   if (Array.isArray(keywords)) {
@@ -391,21 +390,19 @@ export async function createProduct(request, response) {
 //get all products
 export async function getAllProducts(request, response) {
   try {
-    const { page, limit } = request.query;
-    const totalProducts = await ProductModel.find();
+    const page = parseInt(request.query.page) || 1;
+    const limit = parseInt(request.query.limit) || 10;
+
+    // ✅ Fix: poore collection ka count, filtered products ka nahi
+    const total = await ProductModel.countDocuments();
 
     const products = await ProductModel.find()
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    const total = await ProductModel.countDocuments(products);
+      .limit(limit);
 
     if (!products) {
-      return response.status(400).json({
-        error: true,
-        success: false,
-      });
+      return response.status(400).json({ error: true, success: false });
     }
 
     return response.status(200).json({
@@ -413,10 +410,9 @@ export async function getAllProducts(request, response) {
       success: true,
       products: products,
       total: total,
-      page: parseInt(page),
+      page: page,
       totalPages: Math.ceil(total / limit),
-      totalCount: totalProducts?.length,
-      totalProducts: totalProducts,
+      totalCount: total,
     });
   } catch (error) {
     return response.status(500).json({
@@ -431,39 +427,24 @@ export async function getAllProducts(request, response) {
 export async function getAllProductsByCatId(request, response) {
   try {
     const page = parseInt(request.query.page) || 1;
-    const perPage = parseInt(request.query.perPage) || 10000;
+    const perPage = parseInt(request.query.limit) || parseInt(request.query.perPage) || 10;
 
-    const totalPosts = await ProductModel.countDocuments();
-    const totalPages = Math.ceil(totalPosts / perPage);
+    // ✅ Fix: sirf is catId ke products count karo
+    const totalPosts = await ProductModel.countDocuments({ catId: request.params.id });
+    const totalPages = Math.ceil(totalPosts / perPage) || 1;
 
-    if (page > totalPages) {
-      return response.status(404).json({
-        message: "Page not found",
-        success: false,
-        error: true,
-      });
-    }
-
-    const products = await ProductModel.find({
-      catId: request.params.id,
-    })
+    const products = await ProductModel.find({ catId: request.params.id })
       .populate("category")
       .skip((page - 1) * perPage)
       .limit(perPage)
       .exec();
-
-    if (!products) {
-      response.status(500).json({
-        error: true,
-        success: false,
-      });
-    }
 
     return response.status(200).json({
       error: false,
       success: true,
       products: products,
       totalPages: totalPages,
+      totalProducts: totalPosts,
       page: page,
     });
   } catch (error) {
@@ -527,39 +508,25 @@ export async function getAllProductsByCatName(request, response) {
 export async function getAllProductsBySubCatId(request, response) {
   try {
     const page = parseInt(request.query.page) || 1;
-    const perPage = parseInt(request.query.perPage) || 10000;
+    // ✅ Fix: frontend 'limit' bhejta hai, 'perPage' nahi — dono support karo
+    const perPage = parseInt(request.query.limit) || parseInt(request.query.perPage) || 10;
 
-    const totalPosts = await ProductModel.countDocuments();
-    const totalPages = Math.ceil(totalPosts / perPage);
+    // ✅ Fix: totalPages sirf is subCatId ke products se calculate karo, poore DB se nahi
+    const totalPosts = await ProductModel.countDocuments({ subCatId: request.params.id });
+    const totalPages = Math.ceil(totalPosts / perPage) || 1;
 
-    if (page > totalPages) {
-      return response.status(404).json({
-        message: "Page not found",
-        success: false,
-        error: true,
-      });
-    }
-
-    const products = await ProductModel.find({
-      subCatId: request.params.id,
-    })
+    const products = await ProductModel.find({ subCatId: request.params.id })
       .populate("category")
       .skip((page - 1) * perPage)
       .limit(perPage)
       .exec();
-
-    if (!products) {
-      response.status(500).json({
-        error: true,
-        success: false,
-      });
-    }
 
     return response.status(200).json({
       error: false,
       success: true,
       products: products,
       totalPages: totalPages,
+      totalProducts: totalPosts,
       page: page,
     });
   } catch (error) {
@@ -619,43 +586,28 @@ export async function getAllProductsBySubCatName(request, response) {
   }
 }
 
-//get all products by sub category id
+//get all products by third level category id
 export async function getAllProductsByThirdLavelCatId(request, response) {
   try {
     const page = parseInt(request.query.page) || 1;
-    const perPage = parseInt(request.query.perPage) || 10000;
+    const perPage = parseInt(request.query.limit) || parseInt(request.query.perPage) || 10;
 
-    const totalPosts = await ProductModel.countDocuments();
-    const totalPages = Math.ceil(totalPosts / perPage);
+    // ✅ Fix: sirf is thirdsubCatId ke products count karo
+    const totalPosts = await ProductModel.countDocuments({ thirdsubCatId: request.params.id });
+    const totalPages = Math.ceil(totalPosts / perPage) || 1;
 
-    if (page > totalPages) {
-      return response.status(404).json({
-        message: "Page not found",
-        success: false,
-        error: true,
-      });
-    }
-
-    const products = await ProductModel.find({
-      thirdsubCatId: request.params.id,
-    })
+    const products = await ProductModel.find({ thirdsubCatId: request.params.id })
       .populate("category")
       .skip((page - 1) * perPage)
       .limit(perPage)
       .exec();
-
-    if (!products) {
-      response.status(500).json({
-        error: true,
-        success: false,
-      });
-    }
 
     return response.status(200).json({
       error: false,
       success: true,
       products: products,
       totalPages: totalPages,
+      totalProducts: totalPosts,
       page: page,
     });
   } catch (error) {
@@ -1630,8 +1582,8 @@ export async function filters(request, response) {
     andConditions.push({
       $or: [
         { productType: { $in: productTypes } },
-        { thirdSubCatName: { $in: productTypes } },
-        { subCatName: { $in: productTypes } },
+        { thirdsubCat: { $in: productTypes } },
+        { subCat: { $in: productTypes } },
         { catName: { $in: productTypes } },
       ],
     });
@@ -1645,8 +1597,8 @@ export async function filters(request, response) {
         { description: queryRegex },
         { brand: queryRegex },
         { catName: queryRegex },
-        { subCatName: queryRegex },
-        { thirdSubCatName: queryRegex },
+        { subCat: queryRegex },
+        { thirdsubCat: queryRegex },
       ],
     });
   }
@@ -1697,7 +1649,7 @@ export async function filters(request, response) {
   }
 
   const sortConfig = {
-    bestSeller: { sale: -1, createdAt: -1, _id: -1 },
+    bestSeller: { sale: -1, rating: -1, createdAt: -1, _id: -1 },
     latest: { createdAt: -1, _id: -1 },
     popular: { rating: -1, sale: -1, _id: -1 },
     featured: { isFeatured: -1, sale: -1, _id: -1 },
@@ -1717,15 +1669,16 @@ export async function filters(request, response) {
 
     const total = await ProductModel.countDocuments(filters);
 
-    const filterOptionsProducts = await ProductModel.find(filters)
-      .select("brand size productType thirdSubCatName subCatName catName productWeight productRam colorOptions.name")
+    const filterOptionsProducts = await ProductModel.find({})
+      .select("brand size productType thirdsubCat subCat catName productWeight productRam colorOptions.name")
       .lean();
+
 
     const filterOptions = {
       brands: [...new Set(filterOptionsProducts.map((item) => item?.brand?.trim()).filter(Boolean))],
       sizes: [...new Set(filterOptionsProducts.flatMap((item) => item?.size || []).filter(Boolean))],
       productTypes: [...new Set(filterOptionsProducts
-        .map((item) => item?.productType || item?.thirdSubCatName || item?.subCatName || item?.catName)
+        .map((item) => item?.productType || item?.thirdsubCat || item?.subCat || item?.catName)
         .filter(Boolean))],
       weights: [...new Set(filterOptionsProducts.flatMap((item) => item?.productWeight || []).filter(Boolean))],
       ramOptions: [...new Set(filterOptionsProducts.flatMap((item) => item?.productRam || []).filter(Boolean))],
@@ -1817,8 +1770,8 @@ export async function searchProductController(request, response) {
         if (productTypes?.length) {
           const itemType =
             item?.productType ||
-            item?.thirdSubCatName ||
-            item?.subCatName ||
+            item?.thirdsubCat ||
+            item?.subCat ||
             item?.catName;
           if (!productTypes.includes(itemType)) return false;
         }
@@ -2068,18 +2021,20 @@ export async function searchProductController(request, response) {
 
       const total = scoredProducts.length;
       const start = (requestedPage - 1) * requestedLimit;
-      const paginatedProducts = scoredProducts.slice(
-        start,
-        start + requestedLimit,
-      );
+      const paginatedProducts = scoredProducts.slice(start, start + requestedLimit);
 
-       const filterOptions = {
-        brands: [...new Set(scoredProducts.map((item) => item?.brand?.trim()).filter(Boolean))],
-        sizes: [...new Set(scoredProducts.flatMap((item) => item?.size || []).filter(Boolean))],
-        productTypes: [...new Set(scoredProducts.map((item) => item?.productType || item?.thirdSubCatName || item?.subCatName || item?.catName).filter(Boolean))],
-        weights: [...new Set(scoredProducts.flatMap((item) => item?.productWeight || []).filter(Boolean))],
-        ramOptions: [...new Set(scoredProducts.flatMap((item) => item?.productRam || []).filter(Boolean))],
-        colors: [...new Set(scoredProducts.flatMap((item) => (item?.colorOptions || []).map((colorItem) => colorItem?.name)).filter(Boolean))],
+      // ✅ Fix: poore DB se filterOptions
+      const allProductsForOptions = await ProductModel.find({})
+        .select("brand size productType thirdsubCat subCat catName productWeight productRam colorOptions.name")
+        .lean();
+
+      const filterOptions = {
+        brands: [...new Set(allProductsForOptions.map((item) => item?.brand?.trim()).filter(Boolean))],
+        sizes: [...new Set(allProductsForOptions.flatMap((item) => item?.size || []).filter(Boolean))],
+        productTypes: [...new Set(allProductsForOptions.map((item) => item?.productType || item?.thirdsubCat || item?.subCat || item?.catName).filter(Boolean))],
+        weights: [...new Set(allProductsForOptions.flatMap((item) => item?.productWeight || []).filter(Boolean))],
+        ramOptions: [...new Set(allProductsForOptions.flatMap((item) => item?.productRam || []).filter(Boolean))],
+        colors: [...new Set(allProductsForOptions.flatMap((item) => (item?.colorOptions || []).map((c) => c?.name)).filter(Boolean))],
       };
 
       return response.status(200).json({
@@ -2091,16 +2046,9 @@ export async function searchProductController(request, response) {
         totalPages: Math.max(1, Math.ceil(total / requestedLimit)),
         originalQuery: query,
         correctedQuery: fallbackCorrection,
-        suggestions: buildSearchSuggestions(
-          scoredProducts,
-          query,
-          fallbackCorrection,
-        ),
+        suggestions: buildSearchSuggestions(scoredProducts, query, fallbackCorrection),
         suggestionProducts: buildSuggestionProducts(scoredProducts),
-        aiInsights: buildAiSearchInsights(
-          paginatedProducts,
-          fallbackCorrection,
-        ),
+        aiInsights: buildAiSearchInsights(paginatedProducts, fallbackCorrection),
         filterOptions,
       });
     }
@@ -2113,13 +2061,19 @@ export async function searchProductController(request, response) {
       start + requestedLimit,
     );
 
+    // ✅ Fix: filterOptions poore DB se fetch karo — scored/filtered products se nahi
+    // Isse filter apply hone ke baad bhi sidebar ke options stable rahenge
+    const allProductsForOptions = await ProductModel.find({})
+      .select("brand size productType thirdsubCat subCat catName productWeight productRam colorOptions.name")
+      .lean();
+
     const filterOptions = {
-      brands: [...new Set(scoredProducts.map((item) => item?.brand?.trim()).filter(Boolean))],
-      sizes: [...new Set(scoredProducts.flatMap((item) => item?.size || []).filter(Boolean))],
-      productTypes: [...new Set(scoredProducts.map((item) => item?.productType || item?.thirdSubCatName || item?.subCatName || item?.catName).filter(Boolean))],
-      weights: [...new Set(scoredProducts.flatMap((item) => item?.productWeight || []).filter(Boolean))],
-      ramOptions: [...new Set(scoredProducts.flatMap((item) => item?.productRam || []).filter(Boolean))],
-      colors: [...new Set(scoredProducts.flatMap((item) => (item?.colorOptions || []).map((colorItem) => colorItem?.name)).filter(Boolean))],
+      brands: [...new Set(allProductsForOptions.map((item) => item?.brand?.trim()).filter(Boolean))],
+      sizes: [...new Set(allProductsForOptions.flatMap((item) => item?.size || []).filter(Boolean))],
+      productTypes: [...new Set(allProductsForOptions.map((item) => item?.productType || item?.thirdsubCat || item?.subCat || item?.catName).filter(Boolean))],
+      weights: [...new Set(allProductsForOptions.flatMap((item) => item?.productWeight || []).filter(Boolean))],
+      ramOptions: [...new Set(allProductsForOptions.flatMap((item) => item?.productRam || []).filter(Boolean))],
+      colors: [...new Set(allProductsForOptions.flatMap((item) => (item?.colorOptions || []).map((c) => c?.name)).filter(Boolean))],
     };
 
     return response.status(200).json({
@@ -2131,11 +2085,7 @@ export async function searchProductController(request, response) {
       totalPages: Math.max(1, Math.ceil(total / requestedLimit)),
       originalQuery: query,
       correctedQuery,
-      suggestions: buildSearchSuggestions(
-        scoredProducts,
-        query,
-        correctedQuery,
-      ),
+      suggestions: buildSearchSuggestions(scoredProducts, query, correctedQuery),
       suggestionProducts: buildSuggestionProducts(scoredProducts),
       aiInsights: buildAiSearchInsights(paginatedProducts, correctedQuery),
       filterOptions,

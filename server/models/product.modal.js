@@ -96,31 +96,15 @@ const productSchema = mongoose.Schema(
     ],
     colorOptions: [
       {
-        name: {
-          type: String,
-          default: "",
-        },
-        code: {
-          type: String,
-          default: "",
-        },
-        images: [
-          {
-            type: String,
-          },
-        ],
+        name: { type: String, default: "" },
+        code: { type: String, default: "" },
+        images: [{ type: String }],
       },
     ],
     specifications: [
       {
-        key: {
-          type: String,
-          default: "",
-        },
-        value: {
-          type: String,
-          default: "",
-        },
+        key: { type: String, default: "" },
+        value: { type: String, default: "" },
       },
     ],
     bannerimages: [
@@ -137,10 +121,26 @@ const productSchema = mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // ✅ SELLER fields added
+    sellerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Seller",
+      default: null, // null = admin product
+    },
+    sellerName: {
+      type: String,
+      default: "",
+    },
+    // Admin review status for seller products
+    adminApproved: {
+      type: Boolean,
+      default: true, // Admin products auto-approved
+    },
   },
   {
     timestamps: true,
-  },
+  }
 );
 
 const ProductModel = mongoose.model("Product", productSchema);

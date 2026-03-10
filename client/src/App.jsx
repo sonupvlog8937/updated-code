@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { IoArrowBack } from "react-icons/io5";
 import "./App.css";
 import "./responsive.css";
 import Header from "./components/Header";
@@ -39,19 +40,99 @@ import {
   setWindowWidth,
 } from "./store/appSlice";
 
+/* ─────────────────────────────────────────
+   GLOBAL LOADER
+   Cinematic top-bar + centered logo pulse
+───────────────────────────────────────── */
 const GlobalLoader = () => {
   const isLoading = useSelector((state) => state.app.globalLoading);
 
-  if (!isLoading) return null;
-
   return (
-    <div className="global-loader-overlay" role="status" aria-live="polite" aria-label="Loading">
-      <div className="global-loader-spinner" />
-      <p>Loading...</p>
-    </div>
+    <>
+      {/* Injected styles – no extra CSS file needed */}
+      
+
+      {/* Top progress bar – always rendered, only animates when loading */}
+      {isLoading && (
+        <div className="gl-bar-wrap" aria-hidden="true">
+          <div className="gl-bar-inner" />
+        </div>
+      )}
+
+      {/* Full overlay */}
+      {isLoading && (
+        <div
+          className="gl-overlay"
+          role="status"
+          aria-live="polite"
+          aria-label="Loading page"
+        >
+          <div className="gl-dots" aria-hidden="true">
+            {[0,1,2,3].map(i => <span key={i} className="gl-dot" />)}
+          </div>
+          <span className="gl-label">Loading</span>
+        </div>
+      )}
+    </>
   );
 };
 
+/* ─────────────────────────────────────────
+   GLOBAL BACK BUTTON
+───────────────────────────────────────── */
+const GlobalBackButton = () => {
+  const navigate  = useNavigate();
+  const location  = useLocation();
+
+  const handleGoBack = (e) => {
+    /* Ripple effect */
+    const btn  = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const x    = e.clientX - rect.left;
+    const y    = e.clientY - rect.top;
+    const size = Math.max(rect.width, rect.height);
+    const ripple = document.createElement("span");
+    ripple.className = "gb-ripple";
+    Object.assign(ripple.style, {
+      width:  `${size}px`,
+      height: `${size}px`,
+      left:   `${x - size / 2}px`,
+      top:    `${y - size / 2}px`,
+    });
+    btn.appendChild(ripple);
+    ripple.addEventListener("animationend", () => ripple.remove());
+
+    window.history.length > 1 ? navigate(-1) : navigate("/");
+  };
+
+  if (location.pathname === "/") return null;
+
+  return (
+    <>
+      {/* ambient glow */}
+      <div className="gb-glow" aria-hidden="true" />
+
+      <button
+        className="gb-btn"
+        onClick={handleGoBack}
+        aria-label="Go back to previous page"
+        type="button"
+      >
+        <span className="gb-inner">
+          <span className="gb-icon-wrap" aria-hidden="true">
+            <IoArrowBack size={14} color="#fff" />
+          </span>
+          <span className="gb-label">Back</span>
+        </span>
+      </button>
+    </>
+  );
+};
+
+
+/* ─────────────────────────────────────────
+   APP CONTENT
+───────────────────────────────────────── */
 const AppContent = () => {
   const dispatch = useDispatch();
   const location = useLocation();
@@ -68,6 +149,7 @@ const AppContent = () => {
   return (
     <>
       <GlobalLoader />
+      <GlobalBackButton />
       <Header />
       <Routes>
         <Route path="/" exact={true} element={<Home />} />
@@ -95,9 +177,12 @@ const AppContent = () => {
   );
 };
 
+/* ─────────────────────────────────────────
+   ROOT APP
+───────────────────────────────────────── */
 function App() {
   const dispatch = useDispatch();
-  const isLogin = useSelector((state) => state.app.isLogin);
+  const isLogin  = useSelector((state) => state.app.isLogin);
 
   useEffect(() => {
     localStorage.removeItem("userEmail");
@@ -127,22 +212,33 @@ function App() {
     };
   }, [dispatch]);
 
-
-
-
   return (
     <>
       <BrowserRouter>
         <AppContent />
       </BrowserRouter>
 
-
-
-
-
-      <Toaster />
-
-
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3200,
+          style: {
+            fontFamily: "'Outfit', sans-serif",
+            fontSize: "13px",
+            fontWeight: 500,
+            letterSpacing: "0.01em",
+            borderRadius: "12px",
+            border: "1px solid rgba(0,0,0,0.08)",
+            boxShadow:
+              "0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)",
+            padding: "12px 16px",
+            color: "#111",
+            background: "#fff",
+          },
+          success: { iconTheme: { primary: "#16a34a", secondary: "#fff" } },
+          error:   { iconTheme: { primary: "#dc2626", secondary: "#fff" } },
+        }}
+      />
     </>
   );
 }

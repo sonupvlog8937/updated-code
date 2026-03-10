@@ -99,9 +99,9 @@ const Checkout = () => {
       products: checkoutItems,
       payment_status: "COMPLETE",
       delivery_address: selectedAddress,
-      ouponCode,
+      couponCode,
       discountAmount,
-      totalAmount,
+      totalAmt: totalAmount,
       date: new Date().toLocaleString("en-US", {
         month: "short",
         day: "2-digit",
@@ -256,9 +256,8 @@ const Checkout = () => {
 
 
       postData(`/api/order/create`, payLoad).then((res) => {
-        context.alertBox("success", res?.message);
-
         if (res?.error === false) {
+          context.alertBox("success", res?.message);
           if (!isBuyNowCheckout) {
             deleteData(`/api/cart/emptyCart/${user?._id}`).then(() => {
               context?.getCartItems();
@@ -272,12 +271,13 @@ const Checkout = () => {
             setIsloading(false);
             context.setGlobalLoading(false);
           }
+          history("/order/success");
         } else {
           context.alertBox("error", res?.message);
           setIsloading(false);
           context.setGlobalLoading(false);
+          history("/order/failed");
         }
-        history("/order/success");
       });
     } else {
       context.alertBox("error", "Please add address");
