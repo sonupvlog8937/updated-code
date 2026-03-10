@@ -1,46 +1,64 @@
 import { Resend } from 'resend';
-import logger from '../config/Logger.js';
+import logger from './Logger.js';
+import { sendEmail as sendEmailViaSmtp } from './emailService.js';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-/**
- * Email bhejne ka main function — Resend API use karta hai
- * (SMTP ki jagah HTTP API — Render/Railway pe perfectly kaam karta hai)
- *
- * @param {Object}          options
- * @param {string|string[]} options.sendTo   - recipient email(s)
- * @param {string}          options.subject  - email subject
- * @param {string}          [options.text]   - plain text fallback
- * @param {string}          options.html     - HTML body
- * @returns {Promise<boolean>}
- */
-const sendEmailFun = async ({ sendTo, subject, text = '', html }) => {
-    try {
-        if (!sendTo) {
-            logger.error('sendEmailFun: sendTo is missing');
-            return false;
-        }
+const normalizeRecipients = (sendTo, to) => {
+  const input = sendTo || to;
+  if (!input) return [];
+  if (Array.isArray(input)) return input.filter(Boolean);
+  if (typeof input === 'string') return [input.trim()].filter(Boolean);
+  return [];
+};
 
-        const { data, error } = await resend.emails.send({
-            from: `${process.env.STORE_NAME || 'Zeedaddy'} <noreply@zeedaddy.in>`,
-            to: Array.isArray(sendTo) ? sendTo : [sendTo],
-            subject,
-            text,
-            html,
-        });
+const sendWithResend = async ({ recipients, subject, text, html }) => {
+  if (!resend) return { ok: false, reason: 'RESEND_DISABLED' };
 
-        if (error) {
-            logger.error('Resend email error', { error, sendTo, subject });
-            return false;
-        }
+  const { data, error } = await resend.emails.send({
+    from: process.env.EMAIL_FROM || `${process.env.STORE_NAME || 'Zeedaddy'} <noreply@zeedaddy.in>`,
+    to: recipients,
+    subject,
+    text,
+    html,
+  });
 
-        logger.info(`Email sent → ${sendTo} | ID: ${data?.id}`);
-        return true;
+  if (error) {
+    logger.error('Resend email error', { error, recipients, subject });
+    return { ok: false, reason: 'RESEND_ERROR' };
+  }
 
-    } catch (err) {
-        logger.error('sendEmailFun exception', { error: err.message, sendTo });
-        return false;
+  logger.info(`Email sent via Resend → ${recipients.join(',')} | ID: ${data?.id}`);
+  return { ok: true };
+};
+
+const sendWithSmtpFallback = async ({ recipients, subject, text, html }) => {
+  const result = await sendEmailViaSmtp(recipients, subject, text, html);
+  if (!result?.success) {
+    logger.error('SMTP fallback email failed', { recipients, subject, error: result?.error });
+    return false;
+  }
+
+  logger.info(`Email sent via SMTP fallback → ${recipients.join(',')} | ID: ${result.messageId}`);
+  return true;
+};
+const sendEmailFun = async ({ sendTo, to, subject, text = '', html }) => {
+  try {
+    const recipients = normalizeRecipients(sendTo, to);
+
+    if (!recipients.length) {
+      logger.error('sendEmailFun: No recipients defined', { sendTo, to, subject });
+      return false;
     }
+
+    const resendResult = await sendWithResend({ recipients, subject, text, html });
+    if (resendResult.ok) return true;
+
+    return await sendWithSmtpFallback({ recipients, subject, text, html });
+  } catch (err) {
+    logger.error('sendEmailFun exception', { error: err.message, sendTo, to, subject });
+    return false;
+  }
 };
 
 export default sendEmailFun;

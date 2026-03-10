@@ -2,6 +2,33 @@ import SellerModel from "../models/Seller.model.js";
 import UserModel from "../models/user.model.js";
 import ProductModel from "../models/product.modal.js";
 
+const normalizeArrayField = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const buildSellerProductPayload = (body = {}, seller) => ({
+  ...body,
+  images: Array.isArray(body.images) ? body.images : [],
+  bannerimages: Array.isArray(body.bannerimages) ? body.bannerimages : body.images || [],
+  productRam: normalizeArrayField(body.productRam),
+  size: normalizeArrayField(body.size),
+  productWeight: normalizeArrayField(body.productWeight),
+  rating: Number(body.rating || 0),
+  discount: Number(body.discount || 0),
+  sale: Number(body.sale || 0),
+  sellerId: seller._id,
+  sellerName: seller.storeName,
+  adminApproved: true,
+});
+
 // ─────────────────────────────────────────────
 // SELLER REGISTRATION
 // ─────────────────────────────────────────────
@@ -178,18 +205,14 @@ export const createSellerProduct = async (request, response) => {
   try {
     const seller = request.seller;
 
-    const product = await ProductModel.create({
-      ...request.body,
-      sellerId: seller._id,
-      sellerName: seller.storeName,
-      adminApproved: false, // Needs admin approval
-    });
+    const payload = buildSellerProductPayload(request.body, seller);
+    const product = await ProductModel.create(payload);
 
     // Increment seller product count
     await SellerModel.findByIdAndUpdate(seller._id, { $inc: { totalProducts: 1 } });
 
     return response.status(201).json({
-      message: "Product submitted for admin review.",
+      message: "Product created and published successfully.",
       data: product,
       error: false,
       success: true,
@@ -210,13 +233,13 @@ export const updateSellerProduct = async (request, response) => {
       return response.status(404).json({ message: "Product not found or unauthorized", error: true, success: false });
     }
 
-    const updated = await ProductModel.findByIdAndUpdate(
-      id,
-      { ...request.body, adminApproved: false }, // Re-review after edit
-      { new: true }
-    );
+    const payload = buildSellerProductPayload(request.body, seller);
+    const updated = await ProductModel.findByIdAndUpdate(id, payload, {
+      new: true,
+      runValidators: true,
+    });
 
-    return response.status(200).json({ message: "Product updated. Sent for re-review.", data: updated, error: false, success: true });
+     return response.status(200).json({ message: "Product updated successfully.", data: updated, error: false, success: true });
   } catch (error) {
     return response.status(500).json({ message: error.message, error: true, success: false });
   }

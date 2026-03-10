@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/Authcontext';
+import useAuth from '../context/Useauth';
 import {
   MdDashboard, MdInventory2, MdShoppingBag, MdAccountBalanceWallet,
   MdStorefront, MdSettings, MdLogout, MdMenu, MdClose, MdNotifications,

@@ -30,7 +30,7 @@ userRouter.post("/forgot-password/change-password", changePasswordController);
 userRouter.post("/refresh-token", refreshToken);
 
 // ─── Auth required ────────────────────────────────────────────────────────────
-userRouter.get("/logout", auth, logoutController);
+userRouter.get("/logout", logoutController);
 userRouter.get("/user-details", auth, userDetails);
 userRouter.put("/:id", auth, updateUserDetails);
 

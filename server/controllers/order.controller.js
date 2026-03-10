@@ -166,7 +166,7 @@ export const createOrderController = async (request, response) => {
         const { enrichedProducts, involvedSellers } = await enrichProductsWithSellerData(request.body.products || []);
 
         let order = new OrderModel({
-            userId: request.body.userId,
+            userId: request.userId || request.body.userId,
             products: enrichedProducts,
             paymentId: request.body.paymentId,
             payment_status: request.body.payment_status,
@@ -184,7 +184,7 @@ export const createOrderController = async (request, response) => {
         void updateSellerEarnings(enrichedProducts);
 
         // ✅ Notify customer
-        void queueOrderConfirmationEmail(request.body.userId, order);
+        void queueOrderConfirmationEmail(request.userId || request.body.userId, order);
 
         // ✅ Notify all involved sellers
         void notifyAllSellers(involvedSellers, enrichedProducts, order);
@@ -402,7 +402,7 @@ export const captureOrderPaypalController = async (request, response) => {
         const { enrichedProducts, involvedSellers } = await enrichProductsWithSellerData(request.body.products || []);
 
         const order = new OrderModel({
-            userId: request.body.userId,
+            userId: request.userId || request.body.userId,
             products: enrichedProducts,
             paymentId: request.body.paymentId,
             payment_status: request.body.payment_status,
@@ -415,7 +415,7 @@ export const captureOrderPaypalController = async (request, response) => {
         await order.save();
         await updateProductsInventory(request.body.products);
         void updateSellerEarnings(enrichedProducts);
-        void queueOrderConfirmationEmail(request.body.userId, order);
+        void queueOrderConfirmationEmail(request.userId || request.body.userId, order);
         void notifyAllSellers(involvedSellers, enrichedProducts, order);
 
         return response.status(200).json({ success: true, error: false, order, message: "Order Placed" });

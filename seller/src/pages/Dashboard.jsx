@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/Authcontext';
+import useAuth from '../context/Useauth';
 import { getSellerEarningsAPI, getSellerOrdersAPI, getSellerProductsAPI } from '../services/api';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { MdTrendingUp, MdShoppingBag, MdInventory2, MdAccountBalanceWallet,

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getSellerEarningsAPI, requestPayoutAPI, getPayoutHistoryAPI } from '../services/api';
-import { useAuth } from '../context/Authcontext';
+import useAuth from '../context/Useauth';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { MdAccountBalanceWallet, MdTrendingUp, MdArrowUpward, MdHistory, MdInfo } from 'react-icons/md';

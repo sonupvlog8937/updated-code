@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { getSellerProfileAPI, updateSellerProfileAPI } from '../services/api';
-import { useAuth } from '../context/Authcontext';
+import useAuth from '../context/Useauth';
 import toast from 'react-hot-toast';
 import { MdStorefront, MdSave, MdContentCopy, MdOpenInNew } from 'react-icons/md';
 
