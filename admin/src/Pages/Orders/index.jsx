@@ -446,7 +446,8 @@ const Orders = () => {
   const [selectedProduct,  setSelectedProduct]    = useState(null);
 
   const context = useContext(MyContext);
-
+const isSellerView = context?.userData?.role === "SELLER";
+  const ordersListEndpoint = isSellerView ? "/api/order/seller/orders" : "/api/order/order-list";
   /* toggle expand */
   const toggleOrder = (id) => setOpenOrderId((prev) => (prev === id ? null : id));
 
@@ -462,18 +463,18 @@ const Orders = () => {
   /* delete */
   const deleteOrder = (id) => {
     if (context?.userData?.role !== "ADMIN") {
-      context.alertBox("error", "Only admin can delete data");
+      context.alertBox("error", "Delete is allowed only for admin");
       return;
     }
     deleteData(`/api/order/deleteOrder/${id}`).then(() => {
-      fetchDataFromApi(`/api/order/order-list?page=${pageOrder}&limit=5`).then((res) => {
+      fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=5`).then((res) => {
         if (res?.error === false) {
           setOrdersData(res?.data);
           context?.setProgress(100);
           context.alertBox("success", "Order deleted successfully!");
         }
       });
-      fetchDataFromApi(`/api/order/order-list`).then((res) => {
+      fetchDataFromApi(`${ordersListEndpoint}`).then((res) => {
         if (res?.error === false) setTotalOrdersData(res);
       });
     });
@@ -482,10 +483,10 @@ const Orders = () => {
   /* fetch on page / status change */
   useEffect(() => {
     context?.setProgress(50);
-    fetchDataFromApi(`/api/order/order-list?page=${pageOrder}&limit=5`).then((res) => {
+    fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=5`).then((res) => {
       if (res?.error === false) { setOrdersData(res?.data); setOrders(res); context?.setProgress(100); }
     });
-    fetchDataFromApi(`/api/order/order-list`).then((res) => {
+    fetchDataFromApi(`${ordersListEndpoint}`).then((res) => {
       if (res?.error === false) setTotalOrdersData(res);
     });
   }, [orderStatus, pageOrder]);
@@ -502,7 +503,7 @@ const Orders = () => {
       );
       setOrdersData(filtered);
     } else {
-      fetchDataFromApi(`/api/order/order-list?page=${pageOrder}&limit=5`).then((res) => {
+      fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=5`).then((res) => {
         if (res?.error === false) { setOrders(res); setOrdersData(res?.data); }
       });
     }
@@ -529,8 +530,8 @@ const Orders = () => {
         {/* ── Top bar ── */}
         <div className="ao-topbar">
           <div className="ao-topbar-left">
-            <h2 className="ao-topbar-title">Orders</h2>
-            <p className="ao-topbar-sub">Manage and track all customer orders</p>
+           <h2 className="ao-topbar-title">{isSellerView ? "Store Orders" : "Orders"}</h2>
+            <p className="ao-topbar-sub">{isSellerView ? "Track orders for your own products" : "Manage and track all customer orders"}</p>
           </div>
           <div className="ao-search-wrap">
             <SearchBox

@@ -29,6 +29,22 @@ const updateProductsInventory = async (products = []) => {
     }
 };
 
+const attachSellerToProducts = async (products = []) => {
+    if (!Array.isArray(products) || products.length === 0) {
+        return [];
+    }
+
+    const productIds = products.map((item) => item?.productId).filter(Boolean);
+    const dbProducts = await ProductModel.find({ _id: { $in: productIds } }).select("_id seller").lean();
+    const sellerMap = new Map(dbProducts.map((item) => [String(item._id), item?.seller ? String(item.seller) : null]));
+
+    return products.map((item) => ({
+        ...item,
+        sellerId: sellerMap.get(String(item.productId)) || null,
+    }));
+};
+
+
 const queueOrderConfirmationEmail = async (userId, order) => {
     try {
         const user = await UserModel.findById(userId).select("name email").lean();
@@ -59,9 +75,11 @@ const queueOrderConfirmationEmail = async (userId, order) => {
 export const createOrderController = async (request, response) => {
     try {
 
+        const productsWithSeller = await attachSellerToProducts(request.body.products);
+
         let order = new OrderModel({
             userId: request.body.userId,
-            products: request.body.products,
+            products: productsWithSeller,
             paymentId: request.body.paymentId,
             payment_status: request.body.payment_status,
             delivery_address: request.body.delivery_address,
@@ -78,7 +96,7 @@ export const createOrderController = async (request, response) => {
 
         order = await order.save();
 
-        await updateProductsInventory(request.body.products);
+        await updateProductsInventory(productsWithSeller);
 
         void queueOrderConfirmationEmail(request.body.userId, order);
 
@@ -244,9 +262,11 @@ export const captureOrderPaypalController = async (request, response) => {
         const req = new paypal.orders.OrdersCaptureRequest(paymentId);
         req.requestBody({});
 
+        const productsWithSeller = await attachSellerToProducts(request.body.products);
+
         const orderInfo = {
             userId: request.body.userId,
-            products: request.body.products,
+            products: productsWithSeller,
             paymentId: request.body.paymentId,
             payment_status: request.body.payment_status,
             delivery_address: request.body.delivery_address,
@@ -257,7 +277,7 @@ export const captureOrderPaypalController = async (request, response) => {
         const order = new OrderModel(orderInfo);
         await order.save();
 
-        await updateProductsInventory(request.body.products);
+        await updateProductsInventory(productsWithSeller);
 
             void queueOrderConfirmationEmail(request.body.userId, order);
 
@@ -314,6 +334,36 @@ export const updateOrderStatusController = async (request, response) => {
 
 
 
+export async function getSellerOrdersController(request, response) {
+    try {
+        const { page = 1, limit = 10 } = request.query;
+        const skip = (Number(page) - 1) * Number(limit);
+
+        const orders = await OrderModel.find({ "products.sellerId": request.userId })
+            .sort({ createdAt: -1 })
+            .populate('delivery_address userId products.sellerId')
+            .skip(skip)
+            .limit(Number(limit));
+
+        const total = await OrderModel.countDocuments({ "products.sellerId": request.userId });
+
+        return response.status(200).json({
+            message: "seller order list",
+            data: orders,
+            error: false,
+            success: true,
+            total,
+            page: Number(page),
+            totalPages: Math.ceil(total / Number(limit))
+        });
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false,
+        });
+    }
+}
 
 
 

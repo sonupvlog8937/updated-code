@@ -27,6 +27,7 @@ const allowedOrigins = [
   "https://www.zeedaddy.in",  // production (www zeedaddy)
   "https://zeedaddy.in",      // production (non-www zeedaddy)
   "http://localhost:5173",    // local dev
+  "http://localhost:5174",
 ];
 
 app.use(cors({

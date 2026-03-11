@@ -51,12 +51,12 @@ const Dashboard = () => {
   const [ordersCount, setOrdersCount] = useState(null);
 
   const context = useContext(MyContext);
-
+  const isSellerPanel = context?.userData?.role === "SELLER";
 
     useEffect(() => {
       context?.setProgress(30);
         getProducts(page, rowsPerPage);
-    }, [])
+   }, [isSellerPanel])
 
 
   const isShowOrderdProduct = (index) => {
@@ -70,7 +70,7 @@ const Dashboard = () => {
 
   useEffect(() => {
 
-
+if (isSellerPanel) return;
     fetchDataFromApi(`/api/order/order-list?page=${pageOrder}&limit=5`).then((res) => {
       if (res?.error === false) {
         setOrdersData(res?.data)
@@ -86,11 +86,11 @@ const Dashboard = () => {
         setOrdersCount(res?.count)
       }
     })
-  }, [pageOrder])
+}, [pageOrder, isSellerPanel])
 
 
   useEffect(() => {
-
+     if (isSellerPanel) return;
     // Filter orders based on search query
     if (orderSearchQuery !== "") {
       const filteredOrders = totalOrdersData?.data?.filter((order) =>
@@ -108,11 +108,12 @@ const Dashboard = () => {
         }
       })
     }
-  }, [orderSearchQuery])
+  }, [orderSearchQuery, isSellerPanel])
 
 
 
   useEffect(() => {
+    if (isSellerPanel) return;
     getTotalSalesByYear();
 
     fetchDataFromApi("/api/user/getAllUsers").then((res) => {
@@ -178,6 +179,25 @@ const Dashboard = () => {
     });
   }
 
+  if (isSellerPanel) {
+    return (
+      <>
+        <div className="w-full py-4 lg:py-1 px-5 border bg-[#f1faff] border-[rgba(0,0,0,0.1)] flex items-center gap-8 mb-5 justify-between rounded-md">
+          <div className="info">
+            <h1 className="text-[26px] lg:text-[35px] font-bold leading-8 lg:leading-10 mb-3">
+              Seller Workspace
+              <br />
+              <span className="text-primary">{context?.userData?.name}</span>
+            </h1>
+            <p>Manage your own products and track orders for your store.</p>
+          </div>
+          <img src="/shop-illustration.webp" className="w-[250px] hidden lg:block" />
+        </div>
+
+        <Products />
+      </>
+    );
+  }
 
 
   return (

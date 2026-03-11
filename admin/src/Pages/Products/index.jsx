@@ -297,14 +297,14 @@ export const Products = () => {
 
 
     const deleteProduct = (id) => {
-        if (context?.userData?.role === "ADMIN") {
+        if (["ADMIN", "SELLER"].includes(context?.userData?.role)) {
             deleteData(`/api/product/${id}`).then((res) => {
                 getProducts();
                 context.alertBox("success", "Product deleted");
 
             })
         } else {
-            context.alertBox("error", "Only admin can delete data");
+            context.alertBox("error", "Only admin or seller can delete product");
         }
     }
 

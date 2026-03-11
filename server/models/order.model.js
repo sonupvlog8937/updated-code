@@ -52,6 +52,11 @@ const orderSchema = new mongoose.Schema(
         subTotal: {
           type: Number,
         },
+        sellerId: {
+          type: mongoose.Schema.ObjectId,
+          ref: "User",
+          default: null,
+        },
       },
     ],
     paymentId: {

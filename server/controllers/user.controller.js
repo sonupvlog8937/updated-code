@@ -346,6 +346,105 @@ export async function loginUserController(request, response) {
     }
 }
 
+export async function createSellerByAdminController(request, response) {
+    try {
+        const { name, email, password, mobile } = request.body;
+
+        if (!name || !email || !password) {
+            return response.status(400).json({
+                message: "Please provide name, email and password",
+                error: true,
+                success: false,
+            });
+        }
+
+        const existingUser = await UserModel.findOne({ email });
+        if (existingUser) {
+            return response.status(400).json({
+                message: "User already registered with this email",
+                error: true,
+                success: false,
+            });
+        }
+
+        const salt = await bcryptjs.genSalt(10);
+        const hashPassword = await bcryptjs.hash(password, salt);
+
+        const seller = await UserModel.create({
+            name,
+            email,
+            mobile: mobile || null,
+            password: hashPassword,
+            role: "SELLER",
+            verify_email: true,
+            status: "Active",
+        });
+
+        return response.status(200).json({
+            message: "Seller created successfully",
+            error: false,
+            success: true,
+            seller,
+        });
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false,
+        });
+    }
+}
+
+export async function updateUserAccessByAdminController(request, response) {
+    try {
+        const { userId, status, role } = request.body;
+
+        if (!userId) {
+            return response.status(400).json({
+                message: "userId is required",
+                error: true,
+                success: false,
+            });
+        }
+
+        const payload = {};
+        if (status) payload.status = status;
+        if (role) payload.role = role;
+
+        if (!Object.keys(payload).length) {
+            return response.status(400).json({
+                message: "status or role is required",
+                error: true,
+                success: false,
+            });
+        }
+
+        const updatedUser = await UserModel.findByIdAndUpdate(userId, payload, { new: true });
+
+        if (!updatedUser) {
+            return response.status(404).json({
+                message: "User not found",
+                error: true,
+                success: false,
+            });
+        }
+
+        return response.status(200).json({
+            message: "User access updated successfully",
+            error: false,
+            success: true,
+            user: updatedUser,
+        });
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false,
+        });
+    }
+}
+
+
 
 // ─── Logout Controller ────────────────────────────────────────────────────────
 export async function logoutController(request, response) {

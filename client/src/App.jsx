@@ -8,7 +8,7 @@ import Footer from "./components/Footer";
 import Home from "./Pages/Home";
 import ProductListing from "./Pages/ProductListing";
 import { ProductDetails } from "./Pages/ProductDetails";
-
+import StorePage from "./Pages/Store";
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
 import CartPage from "./Pages/Cart";
@@ -171,6 +171,7 @@ const AppContent = () => {
         <Route path={"/blog"} exact={true} element={<Blog />} />
         <Route path={"/blog/:id"} exact={true} element={<BlogDetails />} />
         <Route path={"/categories"} exact={true} element={<CategoriesPage />} />
+        <Route path="/store/:sellerId" exact={true} element={<StorePage />} />
       </Routes>
       <Footer />
     </>
