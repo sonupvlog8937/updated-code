@@ -818,9 +818,23 @@ export async function getProductsBySellerPublic(request, response) {
     const minPrice = Number(request.query.minPrice || 0);
     const maxPrice = Number(request.query.maxPrice || 0);
     const catId = request.query.catId;
+    const search = String(request.query.search || "").trim();
 
     const query = { seller: sellerId };
     if (catId) query.catId = catId;
+    if (search) {
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const searchRegex = new RegExp(escapedSearch, "i");
+      query.$or = [
+        { name: searchRegex },
+        { brand: searchRegex },
+        { description: searchRegex },
+        { catName: searchRegex },
+        { subCat: searchRegex },
+        { thirdsubCat: searchRegex },
+      ];
+    }
+
     if (minPrice > 0 || maxPrice > 0) {
       query.price = {};
       if (minPrice > 0) query.price.$gte = minPrice;
@@ -840,14 +854,33 @@ export async function getProductsBySellerPublic(request, response) {
 
     const sortOption = sortMap[sortBy] || sortMap.latest;
 
-    const [products, total] = await Promise.all([
+    const [products, total, categoryFacets] = await Promise.all([
       ProductModel.find(query)
         .populate("seller", "name email role status storeProfile")
         .sort(sortOption)
         .skip((page - 1) * limit)
         .limit(limit),
       ProductModel.countDocuments(query),
+      ProductModel.aggregate([
+        { $match: { seller: sellerId } },
+        {
+          $group: {
+            _id: "$catId",
+            name: { $first: "$catName" },
+            total: { $sum: 1 },
+          },
+        },
+        { $sort: { total: -1 } },
+      ]),
     ]);
+
+    const categories = (categoryFacets || [])
+      .filter((item) => item?._id)
+      .map((item) => ({
+        _id: String(item._id),
+        name: item.name || "Uncategorized",
+        total: item.total || 0,
+      }));
 
     return response.status(200).json({
       error: false,
@@ -858,6 +891,7 @@ export async function getProductsBySellerPublic(request, response) {
       limit,
       totalPages: Math.ceil(total / limit),
       hasMore: page * limit < total,
+      categories,
     });
   } catch (error) {
     return response.status(500).json({

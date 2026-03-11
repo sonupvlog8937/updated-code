@@ -26,6 +26,7 @@ const app = express();
 const allowedOrigins = [
   "https://www.zeedaddy.in",  // production (www zeedaddy)
   "https://zeedaddy.in",      // production (non-www zeedaddy)
+  "https://decemberadmin-2grx.vercel.app", // admin panel
   "http://localhost:5173",    // local dev
   "http://localhost:5174",
 ];

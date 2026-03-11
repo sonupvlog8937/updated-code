@@ -9,7 +9,8 @@ import { createContext, useState } from "react";
 import Login from "./Pages/Login";
 import SignUp from "./Pages/SignUp";
 import Products from "./Pages/Products";
-
+import StoreProfile from "./Pages/StoreProfile";
+import WalletPage from "./Pages/Wallet";
 import HomeSliderBanners from "./Pages/HomeSliderBanners";
 import CategoryList from "./Pages/Categegory";
 import SubCategoryList from "./Pages/Categegory/subCatList";
@@ -467,6 +468,40 @@ function App() {
                 style={{ width: isSidebarOpen === false ? "100%" : '80%' }}
               >
                 <BannerList2 />
+              </div>
+            </div>
+          </section>
+        </>
+      ),
+    },
+    {
+      path: "/seller/store-profile",
+      exact: true,
+      element: (
+        <>
+          <section className="main">
+            <Header />
+            <div className="contentMain flex">
+              <div className={`overflow-hidden sidebarWrapper ${isSidebarOpen === true ? windowWidth < 992 ? `w-[${sidebarWidth / 1.5}%]` : `w-[20%]` : "w-[0px] opacity-0 invisible"} transition-all`}><Sidebar /></div>
+              <div className={`contentRight overflow-hidden py-4 px-5 ${isSidebarOpen === true && windowWidth < 992 && 'opacity-0'}  transition-all`} style={{ width: isSidebarOpen === false ? "100%" : '80%' }}>
+                <StoreProfile />
+              </div>
+            </div>
+          </section>
+        </>
+      ),
+    },
+    {
+      path: "/wallet/transactions",
+      exact: true,
+      element: (
+        <>
+          <section className="main">
+            <Header />
+            <div className="contentMain flex">
+              <div className={`overflow-hidden sidebarWrapper ${isSidebarOpen === true ? windowWidth < 992 ? `w-[${sidebarWidth / 1.5}%]` : `w-[20%]` : "w-[0px] opacity-0 invisible"} transition-all`}><Sidebar /></div>
+              <div className={`contentRight overflow-hidden py-4 px-5 ${isSidebarOpen === true && windowWidth < 992 && 'opacity-0'}  transition-all`} style={{ width: isSidebarOpen === false ? "100%" : '80%' }}>
+                <WalletPage />
               </div>
             </div>
           </section>

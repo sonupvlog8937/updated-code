@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
 import { RiProductHuntLine } from "react-icons/ri";
 import { TbCategory } from "react-icons/tb";
-import { IoBagCheckOutline, IoStorefrontOutline } from "react-icons/io5";
+import { IoBagCheckOutline, IoStorefrontOutline, IoWalletOutline } from "react-icons/io5";
 import { IoMdLogOut } from "react-icons/io";
 import { FiUsers } from "react-icons/fi";
 import { MyContext } from "../../App";
@@ -81,7 +81,22 @@ const Sidebar = () => {
               </Button>
             </Link>
           </li>
-
+          
+           <li>
+            <Link to="/product/addRams" onClick={closeSidebar}>
+              <Button className={menuBtnClass}><span>+ RAM</span></Button>
+            </Link>
+          </li>
+          <li>
+            <Link to="/product/addWeight" onClick={closeSidebar}>
+              <Button className={menuBtnClass}><span>+ Weight</span></Button>
+            </Link>
+          </li>
+          <li>
+            <Link to="/product/addSize" onClick={closeSidebar}>
+              <Button className={menuBtnClass}><span>+ Size</span></Button>
+            </Link>
+          </li>
 
           <li>
             <Link to="/orders" onClick={closeSidebar}>
@@ -109,16 +124,46 @@ const Sidebar = () => {
                     <TbCategory className="text-[18px]" /> <span>Categories</span>
                   </Button>
                 </Link>
+                 </li>
+                          <li>
+                <Link to="/subCategory/list" onClick={closeSidebar}>
+                  <Button className={menuBtnClass}><TbCategory className="text-[18px]" /> <span>Sub Categories</span></Button>
+                </Link>
+              </li>
+              <li>
+                <Link to="/bannerV1/list" onClick={closeSidebar}>
+                  <Button className={menuBtnClass}><span>Banners V1</span></Button>
+                </Link>
+              </li>
+              <li>
+                <Link to="/bannerlist2/List" onClick={closeSidebar}>
+                  <Button className={menuBtnClass}><span>More Banners</span></Button>
+                </Link>
               </li>
             </>
           )}
 
           {isSeller && (
+            <>
+              <li>
+                <Link to="/seller/store-profile" onClick={closeSidebar}>
+                  <Button className={menuBtnClass}><IoStorefrontOutline className="text-[18px]" /> <span>Store Profile</span></Button>
+                </Link>
+              </li>
+              <li>
+                <Link to="/wallet/transactions" onClick={closeSidebar}>
+                  <Button className={menuBtnClass}><IoWalletOutline className="text-[18px]" /> <span>Wallet & Transactions</span></Button>
+                </Link>
+              </li>
+            </>
+          )}
+
+          {isAdmin && (
             <li>
-              <Button className={menuBtnClass} disabled>
-                <IoStorefrontOutline className="text-[18px]" /> <span>Seller workspace active</span>
-              </Button>
-             </li>
+               <Link to="/wallet/transactions" onClick={closeSidebar}>
+                <Button className={menuBtnClass}><IoWalletOutline className="text-[18px]" /> <span>Wallet Requests</span></Button>
+              </Link>
+            </li>
           )}
 
           <li>

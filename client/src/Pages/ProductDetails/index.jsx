@@ -21,6 +21,7 @@ export const ProductDetails = () => {
   const [hasMoreRelatedProducts, setHasMoreRelatedProducts] = useState(false);
   const [isRelatedProductsLoading, setIsRelatedProductsLoading] = useState(false);
   const [sellerProductsCount, setSellerProductsCount] = useState(0);
+  const [sellerProductsPreview, setSellerProductsPreview] = useState([]);
 
   const { id } = useParams();
   const reviewSec = useRef();
@@ -66,6 +67,7 @@ export const ProductDetails = () => {
           fetchDataFromApi(`/api/product/store/${res.product.seller._id}`).then((storeRes) => {
             if (storeRes?.success) {
               setSellerProductsCount(storeRes?.total || 0);
+              setSellerProductsPreview((storeRes?.products || []).filter((item) => item?._id !== id).slice(0, 4));
             }
           });
         } else {
@@ -192,6 +194,22 @@ export const ProductDetails = () => {
                   )}
                 </div>
               </div>
+
+              {sellerProductsPreview?.length > 0 && (
+                <div className="container" style={{ marginTop: "14px" }}>
+                  <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                      <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>More from this seller</h3>
+                      {productData?.seller?._id && <Link to={`/store/${productData.seller._id}`} className="pd-breadcrumb-link">See all</Link>}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {sellerProductsPreview.map((item) => (
+                        <ProductItem key={item?._id} item={item} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
 
               {/* ── Product Details & Specs + Why Buy ── */}
