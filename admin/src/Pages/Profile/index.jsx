@@ -42,6 +42,10 @@ const Profile = () => {
     const history = useNavigate();
 
     const [selectedValue, setSelectedValue] = useState('H No 222 Street No 6 Adarsh Mohalla');
+    const [storeProfile, setStoreProfile] = useState({
+        storeName: '', description: '', image: '', location: '', contactNo: '', moreInfo: ''
+    });
+    const [savingStoreProfile, setSavingStoreProfile] = useState(false);
 
     const handleChange = (event) => {
         setSelectedValue(event.target.value);
@@ -247,6 +251,30 @@ const Profile = () => {
         }
     }
 
+    useEffect(() => {
+        if (context?.userData?.role === "SELLER") {
+            fetchDataFromApi('/api/user/seller/store-profile').then((res) => {
+                if (res?.success && res?.seller?.storeProfile) {
+                    setStoreProfile((prev) => ({ ...prev, ...res.seller.storeProfile }));
+                }
+            });
+        }
+    }, [context?.userData?.role]);
+
+    const submitStoreProfile = (e) => {
+        e.preventDefault();
+        setSavingStoreProfile(true);
+        editData('/api/user/seller/store-profile', storeProfile).then((res) => {
+            if (res?.data?.success) {
+                context.alertBox('success', res?.data?.message || 'Store profile updated');
+            } else {
+                context.alertBox('error', res?.data?.message || 'Unable to update store profile');
+            }
+            setSavingStoreProfile(false);
+        }).catch(() => setSavingStoreProfile(false));
+    }
+
+
 
     return (
         <>
@@ -362,6 +390,21 @@ const Profile = () => {
 
 
             </div>
+
+             {context?.userData?.role === "SELLER" && (
+                <div className="card my-2 pt-3 w-[100%] sm:w-[100%] lg:w-[65%] shadow-md sm:rounded-lg bg-white px-5 pb-5">
+                    <h2 className="text-[18px] font-[600] mb-4">Store Information</h2>
+                    <form onSubmit={submitStoreProfile} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <input className='w-full h-[40px] border rounded-sm p-3 text-sm' placeholder='Store Name' value={storeProfile.storeName} onChange={(e)=>setStoreProfile({...storeProfile,storeName:e.target.value})} />
+                        <input className='w-full h-[40px] border rounded-sm p-3 text-sm' placeholder='Contact No' value={storeProfile.contactNo} onChange={(e)=>setStoreProfile({...storeProfile,contactNo:e.target.value})} />
+                        <input className='w-full h-[40px] border rounded-sm p-3 text-sm' placeholder='Store Image URL' value={storeProfile.image} onChange={(e)=>setStoreProfile({...storeProfile,image:e.target.value})} />
+                        <input className='w-full h-[40px] border rounded-sm p-3 text-sm' placeholder='Store Location' value={storeProfile.location} onChange={(e)=>setStoreProfile({...storeProfile,location:e.target.value})} />
+                        <textarea className='w-full sm:col-span-2 border rounded-sm p-3 text-sm min-h-[80px]' placeholder='Store Description' value={storeProfile.description} onChange={(e)=>setStoreProfile({...storeProfile,description:e.target.value})} />
+                        <textarea className='w-full sm:col-span-2 border rounded-sm p-3 text-sm min-h-[70px]' placeholder='More Information' value={storeProfile.moreInfo} onChange={(e)=>setStoreProfile({...storeProfile,moreInfo:e.target.value})} />
+                        <Button type='submit' className='btn-blue btn-lg sm:col-span-2'>{savingStoreProfile ? <CircularProgress color='inherit' size={20} /> : 'Save Store Profile'}</Button>
+                    </form>
+                </div>
+            )}
 
 
             <Collapse isOpened={isChangePasswordFormShow}>

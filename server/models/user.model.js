@@ -69,7 +69,41 @@ const userSchema = mongoose.Schema({
     signUpWithGoogle:{
         type:Boolean,
         default:false
-    }
+    },
+    storeProfile: {
+        storeName: { type: String, default: "" },
+        description: { type: String, default: "" },
+        image: { type: String, default: "" },
+        location: { type: String, default: "" },
+        contactNo: { type: String, default: "" },
+        moreInfo: { type: String, default: "" }
+    },
+    wallet: {
+        availableBalance: { type: Number, default: 0 },
+        pendingCommission: { type: Number, default: 0 },
+        totalCommissionPaid: { type: Number, default: 0 },
+        totalDeposited: { type: Number, default: 0 },
+        totalWithdrawn: { type: Number, default: 0 }
+    },
+    walletTransactions: [
+        {
+            type: {
+                type: String,
+                enum: ["COMMISSION", "DEPOSIT", "WITHDRAW"],
+                required: true
+            },
+            amount: { type: Number, required: true },
+            status: {
+                type: String,
+                enum: ["PENDING", "APPROVED", "REJECTED"],
+                default: "PENDING"
+            },
+            note: { type: String, default: "" },
+            createdBy: { type: mongoose.Schema.ObjectId, ref: 'User', default: null },
+            approvedBy: { type: mongoose.Schema.ObjectId, ref: 'User', default: null },
+            createdAt: { type: Date, default: Date.now }
+        }
+    ]
 },
     { timestamps: true }
 )

@@ -398,7 +398,7 @@ export async function getAllProducts(request, response) {
     const total = await ProductModel.countDocuments();
 
     const products = await ProductModel.find()
-    .populate("seller", "name email role status")
+    .populate("seller", "name email role status storeProfile")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
@@ -437,7 +437,7 @@ export async function getAllProductsByCatId(request, response) {
 
     const products = await ProductModel.find({ catId: request.params.id })
       .populate("category")
-       .populate("seller", "name email role status")
+       .populate("seller", "name email role status storeProfile")
       .skip((page - 1) * perPage)
       .limit(perPage)
       .exec();
@@ -480,7 +480,7 @@ export async function getAllProductsByCatName(request, response) {
       catName: request.query.catName,
     })
       .populate("category")
-      .populate("seller", "name email role status")
+      .populate("seller", "name email role status storeProfile")
       .skip((page - 1) * perPage)
       .limit(perPage)
       .exec();
@@ -521,7 +521,7 @@ export async function getAllProductsBySubCatId(request, response) {
 
     const products = await ProductModel.find({ subCatId: request.params.id })
       .populate("category")
-      .populate("seller", "name email role status")
+      .populate("seller", "name email role status storeProfile")
       .skip((page - 1) * perPage)
       .limit(perPage)
       .exec();
@@ -564,7 +564,7 @@ export async function getAllProductsBySubCatName(request, response) {
       subCat: request.query.subCat,
     })
       .populate("category")
-      .populate("seller", "name email role status")
+      .populate("seller", "name email role status storeProfile")
       .skip((page - 1) * perPage)
       .limit(perPage)
       .exec();
@@ -604,7 +604,7 @@ export async function getAllProductsByThirdLavelCatId(request, response) {
 
     const products = await ProductModel.find({ thirdsubCatId: request.params.id })
       .populate("category")
-       .populate("seller", "name email role status")
+       .populate("seller", "name email role status storeProfile")
       .skip((page - 1) * perPage)
       .limit(perPage)
       .exec();
@@ -810,17 +810,54 @@ export async function getAllProductsByRating(request, response) {
 
 export async function getProductsBySellerPublic(request, response) {
   try {
-    const sellerId = request.params.sellerId;
 
-    const products = await ProductModel.find({ seller: sellerId })
-      .populate("seller", "name email role status")
-      .sort({ createdAt: -1 });
+    const sellerId = request.params.sellerId;
+    const page = Math.max(parseInt(request.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(request.query.limit) || 12, 1), 60);
+    const sortBy = request.query.sortBy || "latest";
+    const minPrice = Number(request.query.minPrice || 0);
+    const maxPrice = Number(request.query.maxPrice || 0);
+    const catId = request.query.catId;
+
+    const query = { seller: sellerId };
+    if (catId) query.catId = catId;
+    if (minPrice > 0 || maxPrice > 0) {
+      query.price = {};
+      if (minPrice > 0) query.price.$gte = minPrice;
+      if (maxPrice > 0) query.price.$lte = maxPrice;
+    }
+
+    const sortMap = {
+      latest: { createdAt: -1 },
+      oldest: { createdAt: 1 },
+      priceLowToHigh: { price: 1 },
+      priceHighToLow: { price: -1 },
+      popularity: { sale: -1, createdAt: -1 },
+      rating: { rating: -1, createdAt: -1 },
+      nameAZ: { name: 1 },
+      nameZA: { name: -1 },
+    };
+
+    const sortOption = sortMap[sortBy] || sortMap.latest;
+
+    const [products, total] = await Promise.all([
+      ProductModel.find(query)
+        .populate("seller", "name email role status storeProfile")
+        .sort(sortOption)
+        .skip((page - 1) * limit)
+        .limit(limit),
+      ProductModel.countDocuments(query),
+    ]);
 
     return response.status(200).json({
       error: false,
       success: true,
       products,
-      total: products.length,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      hasMore: page * limit < total,
     });
   } catch (error) {
     return response.status(500).json({
@@ -835,7 +872,7 @@ export async function getSellerProducts(request, response) {
   try {
     const products = await ProductModel.find({ seller: request.userId })
       .sort({ createdAt: -1 })
-      .populate("seller", "name email role status");
+      .populate("seller", "name email role status storeProfile");
 
     return response.status(200).json({
       error: false,

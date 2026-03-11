@@ -57,10 +57,12 @@ const Sidebar = () => {
           </Link>
         </div>
 
-        <div className="px-2 py-2 mb-2 bg-[#f6f8fc] rounded-md border border-[#e5e7eb]">
+        <Link to='/profile'>
+          <div className="px-2 py-2 mb-2 bg-[#f6f8fc] rounded-md border border-[#e5e7eb]">
           <p className="text-[11px] uppercase tracking-wide text-gray-500">Signed in as</p>
           <p className="text-[13px] font-[700] text-[#1e293b]">{isAdmin ? "Admin Panel" : isSeller ? "Seller Panel" : "Control Panel"}</p>
         </div>
+          </Link>
 
         <ul className="mt-2 overflow-y-scroll max-h-[78vh]">
           <li>

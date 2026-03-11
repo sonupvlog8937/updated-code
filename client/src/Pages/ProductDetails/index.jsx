@@ -174,7 +174,7 @@ export const ProductDetails = () => {
                   <div>
                     <p style={{ fontSize: 12, color: "#64748b", marginBottom: 2 }}>Sold by</p>
                     <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
-                      {productData?.seller?.name || "Marketplace Seller"}
+                      {productData?.seller?.storeProfile?.storeName || productData?.seller?.name || "Marketplace Seller"}
                     </p>
                     <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
                       {sellerProductsCount} products in this store

@@ -866,6 +866,145 @@ export async function getAllReviews(request, response) {
     }
 }
 
+export async function upsertSellerStoreProfile(request, response) {
+    try {
+        if (request.currentUser?.role !== "SELLER") {
+            return response.status(403).json({ error: true, success: false, message: "Only seller can update store profile" });
+        }
+
+        const payload = {
+            "storeProfile.storeName": request.body.storeName || "",
+            "storeProfile.description": request.body.description || "",
+            "storeProfile.image": request.body.image || "",
+            "storeProfile.location": request.body.location || "",
+            "storeProfile.contactNo": request.body.contactNo || "",
+            "storeProfile.moreInfo": request.body.moreInfo || "",
+        };
+
+        const user = await UserModel.findByIdAndUpdate(request.userId, { $set: payload }, { new: true })
+            .select("name email role storeProfile");
+
+        return response.status(200).json({ error: false, success: true, message: "Store profile updated", user });
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
+    }
+}
+
+
+export async function getSellerStoreProfile(request, response) {
+    try {
+        const sellerId = request.params.sellerId || request.userId;
+        const seller = await UserModel.findById(sellerId).select("name role storeProfile status");
+
+        if (!seller || seller.role !== "SELLER") {
+            return response.status(404).json({ error: true, success: false, message: "Seller not found" });
+        }
+
+        return response.status(200).json({ error: false, success: true, seller });
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
+    }
+}
+
+export async function getCommissionOverview(request, response) {
+    try {
+        const userId = request.userId;
+        const user = await UserModel.findById(userId).select("role wallet walletTransactions");
+        if (!user) {
+            return response.status(404).json({ error: true, success: false, message: "User not found" });
+        }
+
+        const transactions = (user.walletTransactions || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        return response.status(200).json({
+            error: false,
+            success: true,
+            role: user.role,
+            wallet: user.wallet,
+            commissionRate: 10,
+            transactions
+        });
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
+    }
+}
+
+export async function createWalletRequest(request, response) {
+    try {
+        const { type, amount, note } = request.body;
+        if (!["DEPOSIT", "WITHDRAW"].includes(type)) {
+            return response.status(400).json({ error: true, success: false, message: "Invalid request type" });
+        }
+
+        const parsedAmount = Number(amount || 0);
+        if (parsedAmount <= 0) {
+            return response.status(400).json({ error: true, success: false, message: "Amount must be greater than 0" });
+        }
+
+        const user = await UserModel.findById(request.userId);
+        if (!user) {
+            return response.status(404).json({ error: true, success: false, message: "User not found" });
+        }
+
+        user.walletTransactions.push({
+            type,
+            amount: parsedAmount,
+            note: note || "",
+            status: "PENDING",
+            createdBy: request.userId,
+        });
+
+        await user.save();
+
+        return response.status(200).json({ error: false, success: true, message: `${type} request submitted` });
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
+    }
+}
+
+export async function approveWalletRequest(request, response) {
+    try {
+        const { sellerId, transactionId, status } = request.body;
+        if (!["APPROVED", "REJECTED"].includes(status)) {
+            return response.status(400).json({ error: true, success: false, message: "Invalid status" });
+        }
+
+        const seller = await UserModel.findById(sellerId);
+        if (!seller || seller.role !== "SELLER") {
+            return response.status(404).json({ error: true, success: false, message: "Seller not found" });
+        }
+
+        const trx = seller.walletTransactions.id(transactionId);
+        if (!trx) {
+            return response.status(404).json({ error: true, success: false, message: "Transaction not found" });
+        }
+        if (trx.status !== "PENDING") {
+            return response.status(400).json({ error: true, success: false, message: "Transaction already processed" });
+        }
+
+        trx.status = status;
+        trx.approvedBy = request.userId;
+
+        if (status === "APPROVED") {
+            if (trx.type === "DEPOSIT") {
+                seller.wallet.availableBalance += trx.amount;
+                seller.wallet.totalDeposited += trx.amount;
+            }
+            if (trx.type === "WITHDRAW") {
+                if ((seller.wallet.availableBalance || 0) < trx.amount) {
+                    return response.status(400).json({ error: true, success: false, message: "Insufficient balance" });
+                }
+                seller.wallet.availableBalance -= trx.amount;
+                seller.wallet.totalWithdrawn += trx.amount;
+            }
+        }
+
+        await seller.save();
+
+        return response.status(200).json({ error: false, success: true, message: `Request ${status.toLowerCase()}` });
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
+    }
+}
 
 // ─── Users CRUD ───────────────────────────────────────────────────────────────
 export async function getAllUsers(request, response) {

@@ -72,6 +72,35 @@ const queueOrderConfirmationEmail = async (userId, order) => {
     }
 };
 
+const applySellerCommission = async (products = []) => {
+    const commissionBySeller = new Map();
+
+    for (const item of products) {
+        const sellerId = item?.sellerId ? String(item.sellerId) : null;
+        if (!sellerId) continue;
+        const subTotal = Number(item?.subTotal || (Number(item?.price || 0) * Number(item?.quantity || 1)));
+        const commission = Number((subTotal * 0.10).toFixed(2));
+        commissionBySeller.set(sellerId, (commissionBySeller.get(sellerId) || 0) + commission);
+    }
+
+    for (const [sellerId, commissionAmount] of commissionBySeller.entries()) {
+        await UserModel.findByIdAndUpdate(sellerId, {
+            $inc: {
+                "wallet.pendingCommission": commissionAmount,
+                "wallet.totalCommissionPaid": commissionAmount,
+            },
+            $push: {
+                walletTransactions: {
+                    type: "COMMISSION",
+                    amount: commissionAmount,
+                    status: "APPROVED",
+                    note: "10% commission charged for completed order",
+                },
+            },
+        });
+    }
+};
+
 export const createOrderController = async (request, response) => {
     try {
 
@@ -97,6 +126,7 @@ export const createOrderController = async (request, response) => {
         order = await order.save();
 
         await updateProductsInventory(productsWithSeller);
+        await applySellerCommission(productsWithSeller);
 
         void queueOrderConfirmationEmail(request.body.userId, order);
 
@@ -278,6 +308,7 @@ export const captureOrderPaypalController = async (request, response) => {
         await order.save();
 
         await updateProductsInventory(productsWithSeller);
+        await applySellerCommission(productsWithSeller);
 
             void queueOrderConfirmationEmail(request.body.userId, order);
 

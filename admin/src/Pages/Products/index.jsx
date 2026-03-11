@@ -95,7 +95,8 @@ export const Products = () => {
     useEffect(() => {
         // Filter orders based on search query
         if (searchQuery !== "") {
-            const filteredOrders = productTotalData?.totalProducts?.filter((product) =>
+            const sourceProducts = productTotalData?.totalProducts || productTotalData?.products || [];
+            const filteredOrders = sourceProducts?.filter((product) =>
                 product._id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 product?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 product?.catName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -177,7 +178,8 @@ export const Products = () => {
     const getProducts = async (page, limit) => {
         
         setIsloading(true)
-        fetchDataFromApi(`/api/product/getAllProducts?page=${page + 1}&limit=${limit}`).then((res) => {
+         const endpoint = context?.userData?.role === "SELLER" ? `/api/product/seller/products?page=${page + 1}&limit=${limit}` : `/api/product/getAllProducts?page=${page + 1}&limit=${limit}`;
+        fetchDataFromApi(endpoint).then((res) => {
             setProductData(res)
 
             setProductTotalData(res)
