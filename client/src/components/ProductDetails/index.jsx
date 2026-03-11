@@ -15,7 +15,7 @@ import { FaWhatsapp, FaFacebookF, FaTelegramPlane } from "react-icons/fa";
 import { RiInstagramFill } from "react-icons/ri";
 import { BsTwitterX } from "react-icons/bs";
 import { IoShareSocialOutline } from "react-icons/io5";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 
 export const ProductDetailsComponent = (props) => {
@@ -38,10 +38,6 @@ export const ProductDetailsComponent = (props) => {
 
   const context = useAppContext();
   const navigate = useNavigate();
-
-  const sellerStore = props?.item?.sellerId && props?.item?.sellerId?.storeSlug
-    ? props?.item?.sellerId
-    : null;
 
   const handleSelecteQty = (qty) => {
     setQuantity(qty);
@@ -615,54 +611,6 @@ export const ProductDetailsComponent = (props) => {
             {props?.item?.description}
           </p>
         </div>
-
-        {sellerStore && (
-          <div className="pdc-section" style={{
-            marginTop: "10px",
-            border: "1px solid rgba(0,0,0,0.08)",
-            borderRadius: "12px",
-            padding: "14px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "12px",
-            flexWrap: "wrap",
-            background: "#fff"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <img
-                src={sellerStore?.storeLogo || "/placeholder.png"}
-                alt={sellerStore?.storeName}
-                style={{ width: 42, height: 42, borderRadius: "50%", objectFit: "cover", background: "#f3f4f6" }}
-              />
-              <div>
-                <p style={{ margin: 0, fontSize: "11px", color: "rgba(0,0,0,0.45)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                  Sold by
-                </p>
-                <p style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#111" }}>{sellerStore?.storeName}</p>
-                <p style={{ margin: 0, fontSize: "12px", color: "rgba(0,0,0,0.55)" }}>
-                  {sellerStore?.totalOrders || 0}+ orders fulfilled
-                </p>
-              </div>
-            </div>
-
-            <Link
-              to={`/store/${sellerStore?.storeSlug}`}
-              style={{
-                textDecoration: "none",
-                padding: "8px 14px",
-                borderRadius: "8px",
-                border: "1px solid #111",
-                color: "#111",
-                fontSize: "13px",
-                fontWeight: 700,
-              }}
-            >
-              Visit Store
-            </Link>
-          </div>
-        )}
-
 
         <div className="pdc-section" style={S.divider} />
 

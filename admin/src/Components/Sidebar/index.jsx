@@ -277,19 +277,6 @@ const Sidebar = () => {
             </Collapse>
           </li>
 
-           <li>
-            <Link to="/sellers"
-              onClick={() => {
-                context?.windowWidth < 992 && context?.setisSidebarOpen(false)
-                setSubmenuIndex(null)
-              }}
-            >
-              <Button className="w-full !capitalize !justify-start flex gap-3 text-[14px] !text-[rgba(0,0,0,0.8)] !font-[500] items-center !py-2 hover:!bg-[#f1f1f1]">
-                <FiUsers className="text-[18px]" /> <span>Sellers</span>
-              </Button>
-            </Link>
-          </li>
-
 
 
           <li>

@@ -1,193 +1,87 @@
 import OrderModel from "../models/order.model.js";
 import ProductModel from '../models/product.modal.js';
 import UserModel from '../models/user.model.js';
-import SellerModel from '../models/Seller.model.js';
 import paypal from "@paypal/checkout-server-sdk";
 import OrderConfirmationEmail from "../utils/orderEmailTemplate.js";
 import sendEmailFun from "../config/sendEmail.js";
 
-
-// ─────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────
-
 const updateProductsInventory = async (products = []) => {
-    if (!Array.isArray(products) || products.length === 0) return;
+    if (!Array.isArray(products) || products.length === 0) {
+        return;
+    }
+
     const operations = products
         .filter((item) => item?.productId && Number(item?.quantity) > 0)
         .map((item) => ({
             updateOne: {
                 filter: { _id: item.productId },
-                update: { $inc: { countInStock: -Number(item.quantity), sale: Number(item.quantity) } }
+                update: {
+                    $inc: {
+                        countInStock: -Number(item.quantity),
+                        sale: Number(item.quantity)
+                    }
+                }
             }
         }));
-    if (operations.length > 0) await ProductModel.bulkWrite(operations);
+
+    if (operations.length > 0) {
+        await ProductModel.bulkWrite(operations);
+    }
 };
 
 const queueOrderConfirmationEmail = async (userId, order) => {
     try {
         const user = await UserModel.findById(userId).select("name email").lean();
-        if (!user?.email) return;
+        if (!user?.email) {
+            console.warn("Order email skipped — no email found for userId:", userId);
+            return;
+        }
+
         const storeName = process.env.STORE_NAME || 'Zeedaddy';
+
         const sent = await sendEmailFun({
             sendTo: user.email,
             subject: `✅ Order Confirmed – #${order?._id?.toString().slice(-8).toUpperCase()} | ${storeName}`,
-            text: `Hi ${user.name}, your order has been placed! Order ID: ${order?._id}. Total: ₹${order?.totalAmt}`,
+            text: `Hi ${user.name}, your order has been placed successfully! Order ID: ${order?._id}. Total: ₹${order?.totalAmt}`,
             html: OrderConfirmationEmail(user.name, order)
         });
-        if (!sent) console.error("❌ Order confirmation email failed", { userId, orderId: order?._id });
-        else console.log(`📧 Order confirmation email sent to ${user.email}`);
+
+        if (!sent) {
+            console.error("❌ Order confirmation email failed", { userId, orderId: order?._id });
+        } else {
+            console.log(`📧 Order confirmation email sent to ${user.email}`);
+        }
     } catch (error) {
         console.error("Order confirmation email error:", error.message);
     }
 };
 
-// ✅ NEW: Send email notification to seller when their product is ordered
-const notifySellerEmail = async (sellerId, order, sellerProducts) => {
-    try {
-        const seller = await SellerModel.findById(sellerId).populate('userId', 'name email').lean();
-        if (!seller?.userId?.email) return;
-
-        const sellerTotal = sellerProducts.reduce((sum, p) => sum + (p.subTotal || 0), 0);
-
-        await sendEmailFun({
-            sendTo: seller.userId.email,
-            subject: `🛍️ New Order Received – #${order._id.toString().slice(-8).toUpperCase()} | ${seller.storeName}`,
-            text: `Hi ${seller.storeName}, you have received a new order! Order ID: ${order._id}. Your items total: ₹${sellerTotal}`,
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2 style="color: #2563eb;">🎉 New Order Received!</h2>
-                    <p>Hi <strong>${seller.storeName}</strong>,</p>
-                    <p>You have received a new order. Here are the details:</p>
-                    <p><strong>Order ID:</strong> #${order._id.toString().slice(-8).toUpperCase()}</p>
-                    <table style="width:100%; border-collapse:collapse; margin:16px 0;">
-                        <thead>
-                            <tr style="background:#f3f4f6;">
-                                <th style="padding:8px; text-align:left; border:1px solid #e5e7eb;">Product</th>
-                                <th style="padding:8px; text-align:center; border:1px solid #e5e7eb;">Qty</th>
-                                <th style="padding:8px; text-align:right; border:1px solid #e5e7eb;">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${sellerProducts.map(p => `
-                                <tr>
-                                    <td style="padding:8px; border:1px solid #e5e7eb;">${p.productTitle}</td>
-                                    <td style="padding:8px; text-align:center; border:1px solid #e5e7eb;">${p.quantity}</td>
-                                    <td style="padding:8px; text-align:right; border:1px solid #e5e7eb;">₹${p.subTotal}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                    <p style="font-size:18px;"><strong>Your Earning: ₹${sellerProducts.reduce((s, p) => s + (p.sellerEarning || 0), 0).toFixed(2)}</strong></p>
-                    <p style="color:#6b7280;">Login to your seller dashboard to manage this order.</p>
-                </div>
-            `
-        });
-        console.log(`📧 Seller notification sent to ${seller.userId.email}`);
-    } catch (error) {
-        console.error("Seller notification email error:", error.message);
-    }
-};
-
-// ✅ NEW: Enrich products with seller info + calculate earnings
-const enrichProductsWithSellerData = async (products = []) => {
-    const enriched = [];
-    const involvedSellerIds = new Set();
-
-    for (const item of products) {
-        const product = await ProductModel.findById(item.productId).select('sellerId sellerName').lean();
-
-        let sellerEarning = 0;
-        let sellerId = null;
-        let sellerName = "";
-
-        if (product?.sellerId) {
-            const seller = await SellerModel.findById(product.sellerId).select('commission storeName').lean();
-            if (seller) {
-                sellerId = product.sellerId;
-                sellerName = seller.storeName;
-                const commission = seller.commission || 10;
-                // Seller gets (100 - commission)% of their product subtotal
-                sellerEarning = parseFloat(((item.subTotal || 0) * (100 - commission) / 100).toFixed(2));
-                involvedSellerIds.add(product.sellerId.toString());
-            }
-        }
-
-        enriched.push({
-            ...item,
-            sellerId,
-            sellerName,
-            sellerEarning,
-        });
-    }
-
-    return { enrichedProducts: enriched, involvedSellers: [...involvedSellerIds] };
-};
-
-// ✅ NEW: Update seller earnings after order placed
-const updateSellerEarnings = async (enrichedProducts) => {
-    // Group by seller
-    const sellerMap = {};
-    for (const item of enrichedProducts) {
-        if (!item.sellerId) continue;
-        const sid = item.sellerId.toString();
-        if (!sellerMap[sid]) sellerMap[sid] = 0;
-        sellerMap[sid] += item.sellerEarning;
-    }
-
-    // Bulk update seller earnings
-    const updates = Object.entries(sellerMap).map(([sellerId, earning]) =>
-        SellerModel.findByIdAndUpdate(sellerId, {
-            $inc: {
-                totalEarnings: earning,
-                pendingPayout: earning,
-                totalOrders: 1,
-            }
-        })
-    );
-    await Promise.all(updates);
-};
-
-// ✅ NEW: Notify all involved sellers
-const notifyAllSellers = async (involvedSellers, enrichedProducts, order) => {
-    for (const sellerId of involvedSellers) {
-        const sellerProducts = enrichedProducts.filter(p => p.sellerId?.toString() === sellerId.toString());
-        void notifySellerEmail(sellerId, order, sellerProducts);
-    }
-};
-
-// ─────────────────────────────────────────────
-// ORDER CONTROLLERS
-// ─────────────────────────────────────────────
-
 export const createOrderController = async (request, response) => {
     try {
-        // ✅ Enrich products with seller data
-        const { enrichedProducts, involvedSellers } = await enrichProductsWithSellerData(request.body.products || []);
 
         let order = new OrderModel({
-            userId: request.userId || request.body.userId,
-            products: enrichedProducts,
+            userId: request.body.userId,
+            products: request.body.products,
             paymentId: request.body.paymentId,
             payment_status: request.body.payment_status,
             delivery_address: request.body.delivery_address,
             totalAmt: request.body.totalAmt,
-            date: request.body.date,
-            involvedSellers,
+            date: request.body.date
         });
+
+        if (!order) {
+            response.status(500).json({
+                error: true,
+                success: false
+            })
+        }
 
         order = await order.save();
 
         await updateProductsInventory(request.body.products);
 
-        // ✅ Update seller earnings
-        void updateSellerEarnings(enrichedProducts);
+        void queueOrderConfirmationEmail(request.body.userId, order);
 
-        // ✅ Notify customer
-        void queueOrderConfirmationEmail(request.userId || request.body.userId, order);
-
-        // ✅ Notify all involved sellers
-        void notifyAllSellers(involvedSellers, enrichedProducts, order);
 
         return response.status(200).json({
             error: false,
@@ -195,285 +89,620 @@ export const createOrderController = async (request, response) => {
             message: "Order Placed",
             order: order
         });
-    } catch (error) {
-        return response.status(500).json({ message: error.message || error, error: true, success: false });
-    }
-};
 
-// ADMIN - Get ALL orders
+
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        })
+    }
+}
+
+
 export async function getOrderDetailsController(request, response) {
     try {
-        const { page = 1, limit = 10 } = request.query;
-        const orderlist = await OrderModel.find()
-            .sort({ createdAt: -1 })
-            .populate('delivery_address userId')
-            .skip((page - 1) * limit)
-            .limit(parseInt(limit));
+        const userId = request.userId // order id
 
-        const total = await OrderModel.countDocuments();
+        const { page, limit } = request.query;
+
+        const orderlist = await OrderModel.find().sort({ createdAt: -1 }).populate('delivery_address userId').skip((page - 1) * limit).limit(parseInt(limit));
+
+        const total = await OrderModel.countDocuments(orderlist);
 
         return response.json({
             message: "order list",
             data: orderlist,
             error: false,
             success: true,
-            total,
+            total: total,
             page: parseInt(page),
             totalPages: Math.ceil(total / limit)
-        });
+        })
     } catch (error) {
-        return response.status(500).json({ message: error.message || error, error: true, success: false });
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        })
     }
 }
 
-// CUSTOMER - Get my orders
 export async function getUserOrderDetailsController(request, response) {
     try {
-        const userId = request.userId;
-        const { page = 1, limit = 10 } = request.query;
+        const userId = request.userId // order id
 
-        const orderlist = await OrderModel.find({ userId })
-            .sort({ createdAt: -1 })
-            .populate('delivery_address userId')
-            .skip((page - 1) * limit)
-            .limit(parseInt(limit));
+        const { page, limit } = request.query;
 
-        const total = await OrderModel.countDocuments({ userId });
+        const orderlist = await OrderModel.find({ userId: userId }).sort({ createdAt: -1 }).populate('delivery_address userId').skip((page - 1) * limit).limit(parseInt(limit));
+
+        const orderTotal = await OrderModel.find({ userId: userId }).sort({ createdAt: -1 }).populate('delivery_address userId');
+
+        const total = await orderTotal?.length;
 
         return response.json({
             message: "order list",
             data: orderlist,
             error: false,
             success: true,
-            total,
+            total: total,
             page: parseInt(page),
             totalPages: Math.ceil(total / limit)
-        });
+        })
     } catch (error) {
-        return response.status(500).json({ message: error.message || error, error: true, success: false });
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        })
     }
 }
 
-// ✅ NEW: SELLER - Get only MY orders (orders where my products were bought)
-export async function getSellerOrdersController(request, response) {
-    try {
-        const sellerId = request.seller._id;
-        const { page = 1, limit = 10, status } = request.query;
-
-        // Filter orders where this seller is involved
-        const filter = { involvedSellers: sellerId };
-
-        const orders = await OrderModel.find(filter)
-            .sort({ createdAt: -1 })
-            .populate('delivery_address userId', 'name email mobile address_details')
-            .skip((page - 1) * limit)
-            .limit(parseInt(limit))
-            .lean();
-
-        // Return only this seller's products in each order
-        const sellerOrders = orders.map(order => ({
-            ...order,
-            products: order.products.filter(p => p.sellerId?.toString() === sellerId.toString()),
-            myEarning: order.products
-                .filter(p => p.sellerId?.toString() === sellerId.toString())
-                .reduce((sum, p) => sum + (p.sellerEarning || 0), 0),
-        }));
-
-        const total = await OrderModel.countDocuments(filter);
-
-        return response.json({
-            message: "seller orders",
-            data: sellerOrders,
-            error: false,
-            success: true,
-            total,
-            page: parseInt(page),
-            totalPages: Math.ceil(total / limit)
-        });
-    } catch (error) {
-        return response.status(500).json({ message: error.message || error, error: true, success: false });
-    }
-}
-
-// ✅ NEW: SELLER - Update item status of their own products
-export async function updateSellerItemStatusController(request, response) {
-    try {
-        const sellerId = request.seller._id;
-        const { orderId, productId } = request.params;
-        const { status } = request.body;
-
-        const validStatuses = ["confirm", "processing", "shipped", "delivered", "cancelled"];
-        if (!validStatuses.includes(status)) {
-            return response.status(400).json({ message: "Invalid status", error: true, success: false });
-        }
-
-        const order = await OrderModel.findById(orderId);
-        if (!order) {
-            return response.status(404).json({ message: "Order not found", error: true, success: false });
-        }
-
-        // Find and update only this seller's product item
-        const productIndex = order.products.findIndex(
-            p => p.productId === productId && p.sellerId?.toString() === sellerId.toString()
-        );
-
-        if (productIndex === -1) {
-            return response.status(403).json({ message: "Product not found or unauthorized", error: true, success: false });
-        }
-
-        order.products[productIndex].item_status = status;
-        await order.save();
-
-        return response.status(200).json({
-            message: "Item status updated",
-            error: false,
-            success: true,
-        });
-    } catch (error) {
-        return response.status(500).json({ message: error.message || error, error: true, success: false });
-    }
-}
-
-// ADMIN - Update overall order status
-export async function updateOrderStatusController(request, response) {
-    try {
-        const { order_status } = request.body;
-        const order = await OrderModel.findByIdAndUpdate(
-            request.params.id,
-            { order_status },
-            { new: true }
-        );
-
-        return response.status(200).json({
-            message: "Order status updated",
-            data: order,
-            error: false,
-            success: true
-        });
-    } catch (error) {
-        return response.status(500).json({ message: error.message || error, error: true, success: false });
-    }
-}
 
 export async function getTotalOrdersCountController(request, response) {
     try {
         const ordersCount = await OrderModel.countDocuments();
-        return response.status(200).json({ error: false, success: true, count: ordersCount });
+        return response.status(200).json({
+            error: false,
+            success: true,
+            count: ordersCount
+        })
+
     } catch (error) {
-        return response.status(500).json({ message: error.message || error, error: true, success: false });
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        })
     }
 }
 
-// ─────────────────────────────────────────────
-// PAYPAL
-// ─────────────────────────────────────────────
+
 
 function getPayPalClient() {
+
     const environment =
         process.env.PAYPAL_MODE === "live"
-            ? new paypal.core.LiveEnvironment(process.env.PAYPAL_CLIENT_ID_LIVE, process.env.PAYPAL_SECRET_LIVE)
-            : new paypal.core.SandboxEnvironment(process.env.PAYPAL_CLIENT_ID_TEST, process.env.PAYPAL_SECRET_TEST);
+            ? new paypal.core.LiveEnvironment(
+                process.env.PAYPAL_CLIENT_ID_LIVE,
+                process.env.PAYPAL_SECRET_LIVE
+            )
+            : new paypal.core.SandboxEnvironment(
+                process.env.PAYPAL_CLIENT_ID_TEST,
+                process.env.PAYPAL_SECRET_TEST
+            );
+
     return new paypal.core.PayPalHttpClient(environment);
+
+
 }
+
 
 export const createOrderPaypalController = async (request, response) => {
     try {
+
         const req = new paypal.orders.OrdersCreateRequest();
         req.prefer("return=representation");
+
         req.requestBody({
             intent: "CAPTURE",
-            purchase_units: [{ amount: { currency_code: 'USD', value: request.query.totalAmount } }]
+            purchase_units: [{
+                amount: {
+                    currency_code: 'USD',
+                    value: request.query.totalAmount
+                }
+            }]
         });
-        const client = getPayPalClient();
-        const order = await client.execute(req);
-        response.json({ id: order.result.id });
+
+
+        try {
+            const client = getPayPalClient();
+            const order = await client.execute(req);
+            response.json({ id: order.result.id });
+        } catch (error) {
+            console.error(error);
+            response.status(500).send("Error creating PayPal order");
+        }
+
     } catch (error) {
-        return response.status(500).json({ message: error.message || error, error: true, success: false });
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        })
     }
-};
+}
+
+
+
 
 export const captureOrderPaypalController = async (request, response) => {
     try {
         const { paymentId } = request.body;
+
         const req = new paypal.orders.OrdersCaptureRequest(paymentId);
         req.requestBody({});
 
-        // ✅ Enrich products with seller data
-        const { enrichedProducts, involvedSellers } = await enrichProductsWithSellerData(request.body.products || []);
-
-        const order = new OrderModel({
-            userId: request.userId || request.body.userId,
-            products: enrichedProducts,
+        const orderInfo = {
+            userId: request.body.userId,
+            products: request.body.products,
             paymentId: request.body.paymentId,
             payment_status: request.body.payment_status,
             delivery_address: request.body.delivery_address,
             totalAmt: request.body.totalAmount,
-            date: request.body.date,
-            involvedSellers,
-        });
+            date: request.body.date
+        }
 
+        const order = new OrderModel(orderInfo);
         await order.save();
+
         await updateProductsInventory(request.body.products);
-        void updateSellerEarnings(enrichedProducts);
-        void queueOrderConfirmationEmail(request.userId || request.body.userId, order);
-        void notifyAllSellers(involvedSellers, enrichedProducts, order);
 
-        return response.status(200).json({ success: true, error: false, order, message: "Order Placed" });
+            void queueOrderConfirmationEmail(request.body.userId, order);
+
+
+        return response.status(200).json(
+            {
+                success: true,
+                error: false,
+                order: order,
+                message: "Order Placed"
+            }
+        );
+
     } catch (error) {
-        return response.status(500).json({ message: error.message || error, error: true, success: false });
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        })
     }
-};
+}
 
-// ─────────────────────────────────────────────
-// STATS (kept from original)
-// ─────────────────────────────────────────────
+
+
+export const updateOrderStatusController = async (request, response) => {
+    try {
+        const { id, order_status } = request.body;
+
+        const updateOrder = await OrderModel.updateOne(
+            {
+                _id: id,
+            },
+            {
+                order_status: order_status,
+            },
+            { new: true }
+        )
+
+        return response.json({
+            message: "Update order status",
+            success: true,
+            error: false,
+            data: updateOrder
+        })
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        })
+    }
+
+}
+
+
+
+
+
 
 export const totalSalesController = async (request, response) => {
     try {
-        const ordersList = await OrderModel.find({ payment_status: "paid" });
-        let totalSales = 0;
-        let monthlySales = ['JAN','FEB','MAR','APRIL','MAY','JUNE','JULY','AUG','SEP','OCT','NOV','DEC'].map(name => ({ name, TotalSales: 0 }));
+        const currentYear = new Date().getFullYear();
 
-        for (const order of ordersList) {
-            totalSales += order.totalAmt;
-            const month = new Date(order.createdAt).getMonth(); // 0-indexed
-            monthlySales[month].TotalSales += order.totalAmt;
+        const ordersList = await OrderModel.find();
+
+        let totalSales = 0;
+        let monthlySales = [
+            {
+                name: 'JAN',
+                TotalSales: 0
+            },
+            {
+                name: 'FEB',
+                TotalSales: 0
+            },
+            {
+                name: 'MAR',
+                TotalSales: 0
+            },
+            {
+                name: 'APRIL',
+                TotalSales: 0
+            },
+            {
+                name: 'MAY',
+                TotalSales: 0
+            },
+            {
+                name: 'JUNE',
+                TotalSales: 0
+            },
+            {
+                name: 'JULY',
+                TotalSales: 0
+            },
+            {
+                name: 'AUG',
+                TotalSales: 0
+            },
+            {
+                name: 'SEP',
+                TotalSales: 0
+            },
+            {
+                name: 'OCT',
+                TotalSales: 0
+            },
+            {
+                name: 'NOV',
+                TotalSales: 0
+            },
+            {
+                name: 'DEC',
+                TotalSales: 0
+            },
+        ]
+
+
+        for (let i = 0; i < ordersList.length; i++) {
+            totalSales = totalSales + parseInt(ordersList[i].totalAmt);
+            const str = JSON.stringify(ordersList[i]?.createdAt);
+            const year = str.substr(1, 4);
+            const monthStr = str.substr(6, 8);
+            const month = parseInt(monthStr.substr(0, 2));
+
+            if (currentYear == year) {
+
+                if (month === 1) {
+                    monthlySales[0] = {
+                        name: 'JAN',
+                        TotalSales: monthlySales[0].TotalSales = parseInt(monthlySales[0].TotalSales) + parseInt(ordersList[i].totalAmt)
+                    }
+                }
+
+                if (month === 2) {
+
+                    monthlySales[1] = {
+                        name: 'FEB',
+                        TotalSales: monthlySales[1].TotalSales = parseInt(monthlySales[1].TotalSales) + parseInt(ordersList[i].totalAmt)
+                    }
+                }
+
+                if (month === 3) {
+                    monthlySales[2] = {
+                        name: 'MAR',
+                        TotalSales: monthlySales[2].TotalSales = parseInt(monthlySales[2].TotalSales) + parseInt(ordersList[i].totalAmt)
+                    }
+                }
+
+                if (month === 4) {
+                    monthlySales[3] = {
+                        name: 'APRIL',
+                        TotalSales: monthlySales[3].TotalSales = parseInt(monthlySales[3].TotalSales) + parseInt(ordersList[i].totalAmt)
+                    }
+                }
+
+                if (month === 5) {
+                    monthlySales[4] = {
+                        name: 'MAY',
+                        TotalSales: monthlySales[4].TotalSales = parseInt(monthlySales[4].TotalSales) + parseInt(ordersList[i].totalAmt)
+                    }
+                }
+
+                if (month === 6) {
+                    monthlySales[5] = {
+                        name: 'JUNE',
+                        TotalSales: monthlySales[5].TotalSales = parseInt(monthlySales[5].TotalSales) + parseInt(ordersList[i].totalAmt)
+                    }
+                }
+
+                if (month === 7) {
+                    monthlySales[6] = {
+                        name: 'JULY',
+                        TotalSales: monthlySales[6].TotalSales = parseInt(monthlySales[6].TotalSales) + parseInt(ordersList[i].totalAmt)
+                    }
+                }
+
+                if (month === 8) {
+                    monthlySales[7] = {
+                        name: 'AUG',
+                        TotalSales: monthlySales[7].TotalSales = parseInt(monthlySales[7].TotalSales) + parseInt(ordersList[i].totalAmt)
+                    }
+                }
+
+                if (month === 9) {
+                    monthlySales[8] = {
+                        name: 'SEP',
+                        TotalSales: monthlySales[8].TotalSales = parseInt(monthlySales[8].TotalSales) + parseInt(ordersList[i].totalAmt)
+                    }
+                }
+
+                if (month === 10) {
+                    monthlySales[9] = {
+                        name: 'OCT',
+                        TotalSales: monthlySales[9].TotalSales = parseInt(monthlySales[9].TotalSales) + parseInt(ordersList[i].totalAmt)
+                    }
+                }
+
+                if (month === 11) {
+                    monthlySales[10] = {
+                        name: 'NOV',
+                        TotalSales: monthlySales[10].TotalSales = parseInt(monthlySales[10].TotalSales) + parseInt(ordersList[i].totalAmt)
+                    }
+                }
+
+                if (month === 12) {
+                    monthlySales[11] = {
+                        name: 'DEC',
+                        TotalSales: monthlySales[11].TotalSales = parseInt(monthlySales[11].TotalSales) + parseInt(ordersList[i].totalAmt)
+                    }
+                }
+
+            }
+
+
         }
 
-        return response.status(200).json({ totalSales, monthlySales, error: false, success: true });
+
+        return response.status(200).json({
+            totalSales: totalSales,
+            monthlySales: monthlySales,
+            error: false,
+            success: true
+        })
+
     } catch (error) {
-        return response.status(500).json({ message: error.message || error, error: true, success: false });
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        })
     }
-};
+}
+
+
+
+
 
 export const totalUsersController = async (request, response) => {
     try {
         const users = await UserModel.aggregate([
-            { $group: { _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } }, count: { $sum: 1 } } },
-            { $sort: { "_id.year": 1, "_id.month": 1 } },
+            {
+                $group: {
+                    _id: {
+                        year: { $year: "$createdAt" },
+                        month: { $month: "$createdAt" }
+                    },
+                    count: { $sum: 1 },
+                },
+            },
+            {
+                $sort: { "_id.year": 1, "_id.month": 1 },
+            },
         ]);
 
-        let monthlyUsers = ['JAN','FEB','MAR','APRIL','MAY','JUNE','JULY','AUG','SEP','OCT','NOV','DEC'].map(name => ({ name, TotalUsers: 0 }));
 
-        for (const u of users) {
-            const idx = u._id.month - 1;
-            monthlyUsers[idx].TotalUsers = u.count;
+
+        let monthlyUsers = [
+            {
+                name: 'JAN',
+                TotalUsers: 0
+            },
+            {
+                name: 'FEB',
+                TotalUsers: 0
+            },
+            {
+                name: 'MAR',
+                TotalUsers: 0
+            },
+            {
+                name: 'APRIL',
+                TotalUsers: 0
+            },
+            {
+                name: 'MAY',
+                TotalUsers: 0
+            },
+            {
+                name: 'JUNE',
+                TotalUsers: 0
+            },
+            {
+                name: 'JULY',
+                TotalUsers: 0
+            },
+            {
+                name: 'AUG',
+                TotalUsers: 0
+            },
+            {
+                name: 'SEP',
+                TotalUsers: 0
+            },
+            {
+                name: 'OCT',
+                TotalUsers: 0
+            },
+            {
+                name: 'NOV',
+                TotalUsers: 0
+            },
+            {
+                name: 'DEC',
+                TotalUsers: 0
+            },
+        ]
+
+
+
+
+        for (let i = 0; i < users.length; i++) {
+
+            if (users[i]?._id?.month === 1) {
+                monthlyUsers[0] = {
+                    name: 'JAN',
+                    TotalUsers: users[i].count
+                }
+            }
+
+            if (users[i]?._id?.month === 2) {
+                monthlyUsers[1] = {
+                    name: 'FEB',
+                    TotalUsers: users[i].count
+                }
+            }
+
+            if (users[i]?._id?.month === 3) {
+                monthlyUsers[2] = {
+                    name: 'MAR',
+                    TotalUsers: users[i].count
+                }
+            }
+
+            if (users[i]?._id?.month === 4) {
+                monthlyUsers[3] = {
+                    name: 'APRIL',
+                    TotalUsers: users[i].count
+                }
+            }
+
+            if (users[i]?._id?.month === 5) {
+                monthlyUsers[4] = {
+                    name: 'MAY',
+                    TotalUsers: users[i].count
+                }
+            }
+
+            if (users[i]?._id?.month === 6) {
+                monthlyUsers[5] = {
+                    name: 'JUNE',
+                    TotalUsers: users[i].count
+                }
+            }
+
+            if (users[i]?._id?.month === 7) {
+                monthlyUsers[6] = {
+                    name: 'JULY',
+                    TotalUsers: users[i].count
+                }
+            }
+
+            if (users[i]?._id?.month === 8) {
+                monthlyUsers[7] = {
+                    name: 'AUG',
+                    TotalUsers: users[i].count
+                }
+            }
+
+            if (users[i]?._id?.month === 9) {
+                monthlyUsers[8] = {
+                    name: 'SEP',
+                    TotalUsers: users[i].count
+                }
+            }
+
+            if (users[i]?._id?.month === 10) {
+                monthlyUsers[9] = {
+                    name: 'OCT',
+                    TotalUsers: users[i].count
+                }
+            }
+
+            if (users[i]?._id?.month === 11) {
+                monthlyUsers[10] = {
+                    name: 'NOV',
+                    TotalUsers: users[i].count
+                }
+            }
+
+            if (users[i]?._id?.month === 12) {
+                monthlyUsers[11] = {
+                    name: 'DEC',
+                    TotalUsers: users[i].count
+                }
+            }
+
         }
 
-        return response.status(200).json({ TotalUsers: monthlyUsers, error: false, success: true });
+
+
+        return response.status(200).json({
+            TotalUsers: monthlyUsers,
+            error: false,
+            success: true
+        })
+
     } catch (error) {
-        return response.status(500).json({ message: error.message || error, error: true, success: false });
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        })
     }
-};
+}
+
+
 
 export async function deleteOrder(request, response) {
     const order = await OrderModel.findById(request.params.id);
+
+    console.log(request.params.id)
+
     if (!order) {
-        return response.status(404).json({ message: "Order Not found", error: true, success: false });
+        return response.status(404).json({
+            message: "Order Not found",
+            error: true,
+            success: false
+        })
     }
+
+
     const deletedOrder = await OrderModel.findByIdAndDelete(request.params.id);
+
     if (!deletedOrder) {
-        return response.status(404).json({ message: "Order not deleted!", success: false, error: true });
+        response.status(404).json({
+            message: "Order not deleted!",
+            success: false,
+            error: true
+        });
     }
-    return response.status(200).json({ success: true, error: false, message: "Order Deleted!" });
+
+    return response.status(200).json({
+        success: true,
+        error: false,
+        message: "Order Deleted!",
+    });
 }

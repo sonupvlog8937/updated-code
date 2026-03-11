@@ -8,7 +8,7 @@ import Footer from "./components/Footer";
 import Home from "./Pages/Home";
 import ProductListing from "./Pages/ProductListing";
 import { ProductDetails } from "./Pages/ProductDetails";
-import StorePage from "./Pages/Store";
+
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
 import CartPage from "./Pages/Cart";
@@ -158,7 +158,6 @@ const AppContent = () => {
         <Route path="/login" exact={true} element={<Login />} />
         <Route path="/register" exact={true} element={<Register />} />
         <Route path="/cart" exact={true} element={<CartPage />} />
-        <Route path="/store/:storeSlug" exact={true} element={<StorePage />} />
         <Route path="/verify" exact={true} element={<Verify />} />
         <Route path="/forgot-password" exact={true} element={<ForgotPassword />} />
         <Route path="/checkout" exact={true} element={<Checkout />} />

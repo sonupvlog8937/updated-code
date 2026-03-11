@@ -61,17 +61,10 @@ const userSchema = mongoose.Schema({
     otpExpires:{
         type:Date
     },
-    // ✅ SELLER role added
     role: {
         type: String,
-        enum: ['ADMIN', "USER", "SELLER"],
+        enum: ['ADMIN', "USER"],
         default: "USER"
-    },
-    // ✅ Seller profile reference
-    sellerProfile: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Seller',
-        default: null
     },
     signUpWithGoogle:{
         type:Boolean,

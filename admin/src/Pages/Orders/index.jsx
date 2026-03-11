@@ -337,7 +337,7 @@ const STATUS_COLORS = {
 const getStatusStyle = (s = "") => STATUS_COLORS[s.toLowerCase()] || { bg: "#f0f0f7", color: "#374151", dot: "#9ca3af" };
 
 /* ═══════════════════════════════════════════════════════
-   PRODUCT DETAIL MODAL
+   PRODUCT DETAIL MODAL sonu
 ═══════════════════════════════════════════════════════ */
 const ProductModal = ({ item, onClose }) => {
   // close on Escape key

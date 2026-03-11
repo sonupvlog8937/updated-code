@@ -17,11 +17,6 @@ cloudinary.config({
     secure: true,
 });
 
-const getCookieOptions = () => {
-    const isProduction = process.env.NODE_ENV === "production";
-    return { httpOnly: true, secure: isProduction, sameSite: isProduction ? "None" : "Lax" };
-};
-
 
 // ─── Register Controller ──────────────────────────────────────────────────────
 export async function registerUserController(request, response) {
@@ -149,7 +144,7 @@ export async function verifyEmailController(request, response) {
 
             await UserModel.findByIdAndUpdate(user._id, { last_login_date: new Date() });
 
-            const cookiesOption = getCookieOptions();
+            const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
             response.cookie('accessToken', accesstoken, cookiesOption);
             response.cookie('refreshToken', refreshToken, cookiesOption);
 
@@ -258,7 +253,7 @@ export async function authWithGoogle(request, response) {
             const refreshToken = await generatedRefreshToken(user._id);
             await UserModel.findByIdAndUpdate(user._id, { last_login_date: new Date() });
 
-            const cookiesOption = getCookieOptions();
+            const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
             response.cookie('accessToken', accesstoken, cookiesOption);
             response.cookie('refreshToken', refreshToken, cookiesOption);
 
@@ -273,7 +268,7 @@ export async function authWithGoogle(request, response) {
             const refreshToken = await generatedRefreshToken(existingUser._id);
             await UserModel.findByIdAndUpdate(existingUser._id, { last_login_date: new Date() });
 
-            const cookiesOption = getCookieOptions();
+            const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
             response.cookie('accessToken', accesstoken, cookiesOption);
             response.cookie('refreshToken', refreshToken, cookiesOption);
 
@@ -297,14 +292,6 @@ export async function authWithGoogle(request, response) {
 export async function loginUserController(request, response) {
     try {
         const { email, password } = request.body;
-
-         if (!email || !password) {
-            return response.status(400).json({
-                message: "Email and password are required",
-                error: true, success: false
-            });
-        }
-
 
         const user = await UserModel.findOne({ email });
 
@@ -341,21 +328,14 @@ export async function loginUserController(request, response) {
         const refreshToken = await generatedRefreshToken(user._id);
         await UserModel.findByIdAndUpdate(user._id, { last_login_date: new Date() });
 
-        const cookiesOption = getCookieOptions();
+        const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
         response.cookie('accessToken', accesstoken, cookiesOption);
         response.cookie('refreshToken', refreshToken, cookiesOption);
 
         return response.json({
             message: "Login successfully",
             error: false, success: true,
-            data: { accesstoken, refreshToken },
-            user: {
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                status: user.status
-            }
+            data: { accesstoken, refreshToken }
         });
 
     } catch (error) {
@@ -372,23 +352,11 @@ export async function logoutController(request, response) {
     try {
         const userid = request.userId;
 
-        const cookiesOption = getCookieOptions();
+        const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
         response.clearCookie("accessToken", cookiesOption);
         response.clearCookie("refreshToken", cookiesOption);
 
-        const token = request?.cookies?.accessToken || request?.headers?.authorization?.split(" ")[1];
-        let userIdFromToken = request.userId;
-
-        if (!userIdFromToken && token) {
-            try {
-                const decoded = jwt.verify(token, process.env.SECRET_KEY_ACCESS_TOKEN);
-                userIdFromToken = decoded?.id;
-            } catch (e) {}
-        }
-
-        if (userIdFromToken) {
-            await UserModel.findByIdAndUpdate(userIdFromToken, { refresh_token: "" });
-        }
+        await UserModel.findByIdAndUpdate(userid, { refresh_token: "" });
 
         return response.json({
             message: "Logout successfully",
@@ -623,10 +591,10 @@ export async function refreshToken(request, response) {
             });
         }
 
-        const userId       = verifyToken?.id;
+        const userId       = verifyToken?._id;
         const newAccessToken = await generatedAccessToken(userId);
 
-        const cookiesOption = getCookieOptions();
+        const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
         response.cookie('accessToken', newAccessToken, cookiesOption);
 
         return response.json({

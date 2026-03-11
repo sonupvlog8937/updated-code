@@ -984,13 +984,9 @@ export async function deleteMultipleProduct(request, response) {
 //get single product
 export async function getProduct(request, response) {
   try {
-    const product = await ProductModel.findById(request.params.id)
-      .populate("category")
-      .populate({
-        path: "sellerId",
-        select: "storeName storeSlug storeLogo rating totalOrders status",
-      });
-
+    const product = await ProductModel.findById(request.params.id).populate(
+      "category",
+    );
 
     if (!product) {
       return response.status(404).json({
