@@ -9,6 +9,7 @@ import generatedRefreshToken from '../utils/generatedRefreshToken.js';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import ReviewModel from '../models/reviews.model.js';
+import ProductModel from '../models/product.modal.js';
 
 cloudinary.config({
     cloud_name: process.env.cloudinary_Config_Cloud_Name,
@@ -858,8 +859,65 @@ export async function getReviews(request, response) {
 
 export async function getAllReviews(request, response) {
     try {
-        const reviews = await ReviewModel.find();
-        return response.status(200).json({ error: false, success: true, reviews });
+        const page = Math.max(parseInt(request.query.page || '1', 10), 1);
+        const limit = Math.max(parseInt(request.query.limit || '10', 10), 1);
+        const skip = (page - 1) * limit;
+
+        let reviewFilter = {};
+        let productMeta = [];
+
+        if (request.currentUser?.role === 'SELLER') {
+            productMeta = await ProductModel.find({ seller: request.userId })
+                .select('_id name images')
+                .lean();
+
+            const sellerProductIds = productMeta.map((product) => String(product._id));
+
+            if (sellerProductIds.length === 0) {
+                return response.status(200).json({
+                    error: false,
+                    success: true,
+                    reviews: [],
+                    pagination: { page, limit, total: 0, totalPages: 0 }
+                });
+            }
+
+            reviewFilter = { productId: { $in: sellerProductIds } };
+        }
+
+        const total = await ReviewModel.countDocuments(reviewFilter);
+        const reviews = await ReviewModel.find(reviewFilter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+        const reviewProductIds = [...new Set(reviews.map((item) => item.productId).filter(Boolean))];
+        if (request.currentUser?.role !== 'SELLER' && reviewProductIds.length > 0) {
+            productMeta = await ProductModel.find({ _id: { $in: reviewProductIds } })
+                .select('_id name images seller')
+                .lean();
+        }
+
+        const productMap = new Map(productMeta.map((item) => [String(item._id), item]));
+        const reviewsWithProduct = reviews.map((item) => ({
+            ...item,
+            productName: productMap.get(item.productId)?.name || 'Product',
+            productImage: productMap.get(item.productId)?.images?.[0] || ''
+        }));
+
+        return response.status(200).json({
+            error: false,
+            success: true,
+            reviews: reviewsWithProduct,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+
 
     } catch (error) {
         return response.status(500).json({ message: "Something is wrong", error: true, success: false });

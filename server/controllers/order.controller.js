@@ -787,3 +787,61 @@ export async function deleteOrder(request, response) {
         message: "Order Deleted!",
     });
 }
+
+// ─── Seller Dashboard Stats ────────────────────────────────────────────────────
+export async function getSellerDashboardStats(request, response) {
+    try {
+        const sellerId = request.userId; // string — same as products.sellerId in DB
+
+        // 1. Total products by this seller
+        const totalProducts = await ProductModel.countDocuments({ seller: sellerId });
+
+        // 2. Count orders by status — same match as getSellerOrdersController
+        const allOrders = await OrderModel.find(
+            { "products.sellerId": sellerId },
+            { order_status: 1, totalAmt: 1 }  // only fetch needed fields
+        ).lean();
+
+        let totalOrders     = allOrders.length;
+        let pendingOrders   = 0;
+        let confirmedOrders = 0;
+        let shippedOrders   = 0;
+        let deliveredOrders = 0;
+        let cancelledOrders = 0;
+        let totalEarning    = 0;
+        let pendingEarning  = 0;
+
+        for (const order of allOrders) {
+            const status = (order.order_status || "").toLowerCase();
+            const amt    = Number(order.totalAmt || 0);
+
+            if (status === "pending")   pendingOrders++;
+            if (status === "confirmed") confirmedOrders++;
+            if (status === "shipped")   shippedOrders++;
+            if (status === "delivered") { deliveredOrders++; totalEarning += amt; }
+            if (status === "cancelled") cancelledOrders++;
+            if (status === "confirmed" || status === "shipped") pendingEarning += amt;
+        }
+
+        return response.status(200).json({
+            error: false,
+            success: true,
+            totalProducts,
+            totalOrders,
+            pendingOrders,
+            confirmedOrders,
+            shippedOrders,
+            deliveredOrders,
+            cancelledOrders,
+            totalEarning,
+            pendingEarning,
+        });
+
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false,
+        });
+    }
+}

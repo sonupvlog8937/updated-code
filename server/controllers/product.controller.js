@@ -1,3 +1,4 @@
+import ReviewModel from "../models/reviews.model.js";
 import ProductModel from "../models/product.modal.js";
 import ProductRAMSModel from "../models/productRAMS.js";
 import ProductWEIGHTModel from "../models/productWEIGHT.js";
@@ -5,6 +6,7 @@ import ProductSIZEModel from "../models/productSIZE.js";
 
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
+import mongoose from "mongoose";
 
 const normalizeKeywords = (keywords) => {
   if (Array.isArray(keywords)) {
@@ -2238,5 +2240,254 @@ export async function searchProductController(request, response) {
       error: true,
       success: false,
     });
+  }
+}
+
+// ─── Seller Dashboard Stats ───────────────────────────────────────────────────
+// GET /api/product/seller/dashboard-stats
+// Requires auth middleware — request.userId must be the seller's _id
+export async function getSellerDashboardStats(request, response) {
+  try {
+    const sellerIdRaw = request.userId;
+
+    let sellerId;
+    try {
+      sellerId = new mongoose.Types.ObjectId(sellerIdRaw);
+    } catch {
+      return response.status(400).json({ error: true, success: false, message: "Invalid seller ID" });
+    }
+
+    // 1. Total products this seller has listed
+    const totalProducts = await ProductModel.countDocuments({ seller: sellerId });
+
+    // 2. Dynamically import OrderModel to avoid circular deps
+    //    Adjust path to match your project's order model location
+    let OrderModel;
+    try {
+      const mod = await import("../models/order.model.js");
+      OrderModel = mod.default;
+    } catch {
+      // Fallback: try alternate common path
+      try {
+        const mod = await import("../models/orders.model.js");
+        OrderModel = mod.default;
+      } catch {
+        // Order model not found — return products only
+        return response.status(200).json({
+          error: false,
+          success: true,
+          totalProducts,
+          totalOrders: 0,
+          confirmedOrders: 0,
+          deliveredOrders: 0,
+          pendingOrders: 0,
+          shippedOrders: 0,
+          cancelledOrders: 0,
+          totalEarning: 0,
+          pendingEarning: 0,
+          _note: "Order model not found — only product count available",
+        });
+      }
+    }
+
+    // 3. Get all orders that contain at least one product from this seller
+    //    Supports two common order schemas:
+    //      a) order.products[].seller  (product-level seller ref)
+    //      b) order.sellerId           (order-level seller ref)
+    const [orderAgg] = await OrderModel.aggregate([
+      {
+        $match: {
+          $or: [
+            { "products.seller": sellerId },
+            { sellerId: sellerId },
+          ],
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalOrders:     { $sum: 1 },
+          confirmedOrders: { $sum: { $cond: [{ $eq: [{ $toLower: "$order_status" }, "confirmed"] }, 1, 0] } },
+          deliveredOrders: { $sum: { $cond: [{ $eq: [{ $toLower: "$order_status" }, "delivered"] }, 1, 0] } },
+          pendingOrders:   { $sum: { $cond: [{ $eq: [{ $toLower: "$order_status" }, "pending"]   }, 1, 0] } },
+          shippedOrders:   { $sum: { $cond: [{ $eq: [{ $toLower: "$order_status" }, "shipped"]   }, 1, 0] } },
+          cancelledOrders: { $sum: { $cond: [{ $eq: [{ $toLower: "$order_status" }, "cancelled"] }, 1, 0] } },
+          // Total earning = sum of totalAmt for delivered orders
+          totalEarning:    {
+            $sum: {
+              $cond: [
+                { $eq: [{ $toLower: "$order_status" }, "delivered"] },
+                { $ifNull: ["$totalAmt", 0] },
+                0,
+              ],
+            },
+          },
+          // Pending earning = sum of totalAmt for confirmed + shipped (not yet delivered)
+          pendingEarning: {
+            $sum: {
+              $cond: [
+                { $in: [{ $toLower: "$order_status" }, ["confirmed", "shipped"]] },
+                { $ifNull: ["$totalAmt", 0] },
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    return response.status(200).json({
+      error: false,
+      success: true,
+      totalProducts,
+      totalOrders:     orderAgg?.totalOrders     || 0,
+      confirmedOrders: orderAgg?.confirmedOrders || 0,
+      deliveredOrders: orderAgg?.deliveredOrders || 0,
+      pendingOrders:   orderAgg?.pendingOrders   || 0,
+      shippedOrders:   orderAgg?.shippedOrders   || 0,
+      cancelledOrders: orderAgg?.cancelledOrders || 0,
+      totalEarning:    orderAgg?.totalEarning    || 0,
+      pendingEarning:  orderAgg?.pendingEarning  || 0,
+    });
+
+  } catch (error) {
+    return response.status(500).json({
+      message: error.message || error,
+      error: true,
+      success: false,
+    });
+  }
+}
+// ═══════════════════════════════════════════════════════════════════════════════
+// REVIEW CONTROLLERS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// POST /api/product/reviews/add  — Add a new review
+export async function addReview(request, response) {
+  try {
+    const { image, userName, review, rating, productId } = request.body;
+    const userId = request.userId; // auth middleware se aayega
+
+    if (!review || !review.trim()) {
+      return response.status(400).json({ error: true, message: "Review text is required" });
+    }
+    if (!productId) {
+      return response.status(400).json({ error: true, message: "productId is required" });
+    }
+    if (!userId) {
+      return response.status(400).json({ error: true, message: "userId is required" });
+    }
+
+    const ratingNum = Number(rating);
+    if (isNaN(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+      return response.status(400).json({ error: true, message: "Rating must be 1–5" });
+    }
+
+    // One review per user per product
+    const existing = await ReviewModel.findOne({ userId, productId });
+    if (existing) {
+      return response.status(409).json({ error: true, message: "You have already reviewed this product" });
+    }
+
+    const newReview = await ReviewModel.create({
+      image:     image     || "",
+      userName:  userName  || "Anonymous",
+      review:    review.trim(),
+      rating:    String(ratingNum),
+      userId,
+      productId,
+    });
+
+    // Update product's average rating
+    const allReviews = await ReviewModel.find({ productId });
+    const avgRating  = allReviews.reduce((s, r) => s + (Number(r.rating) || 0), 0) / allReviews.length;
+    await ProductModel.findByIdAndUpdate(productId, { rating: parseFloat(avgRating.toFixed(1)) });
+
+    return response.status(201).json({
+      error:   false,
+      success: true,
+      message: "Review added successfully",
+      review:  newReview,
+    });
+  } catch (error) {
+    return response.status(500).json({ error: true, message: error.message || error });
+  }
+}
+
+// GET /api/product/reviews/:productId  — Get paginated reviews for a product
+export async function getProductReviews(request, response) {
+  try {
+    const { productId } = request.params;
+    const page  = Math.max(1, parseInt(request.query.page)  || 1);
+    const limit = Math.min(20, parseInt(request.query.limit) || 5);
+    const sort  = request.query.sort || "NEWEST";
+
+    if (!productId) {
+      return response.status(400).json({ error: true, message: "productId is required" });
+    }
+
+    const sortMap = {
+      NEWEST:  { createdAt: -1 },
+      OLDEST:  { createdAt:  1 },
+      HIGHEST: { rating:    -1 },
+      LOWEST:  { rating:     1 },
+    };
+    const sortObj = sortMap[sort] || sortMap.NEWEST;
+
+    const total   = await ReviewModel.countDocuments({ productId });
+    const reviews = await ReviewModel.find({ productId })
+      .sort(sortObj)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+
+    // Stats — always full product, not just current page
+    const allReviews = await ReviewModel.find({ productId }).lean();
+    const breakdown  = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
+    let ratingSum = 0;
+    allReviews.forEach((r) => {
+      const n = String(Math.round(Number(r.rating) || 0));
+      if (breakdown[n] !== undefined) breakdown[n]++;
+      ratingSum += Number(r.rating) || 0;
+    });
+    const avgRating = total > 0 ? (ratingSum / total).toFixed(1) : "0.0";
+
+    return response.status(200).json({
+      error:      false,
+      success:    true,
+      reviews,
+      total,
+      avgRating,
+      breakdown,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      hasMore:    page * limit < total,
+    });
+  } catch (error) {
+    return response.status(500).json({ error: true, message: error.message || error });
+  }
+}
+
+// DELETE /api/product/reviews/:id  — Delete a review (admin only)
+export async function deleteReview(request, response) {
+  try {
+    const deleted = await ReviewModel.findByIdAndDelete(request.params.id);
+    if (!deleted) {
+      return response.status(404).json({ error: true, message: "Review not found" });
+    }
+
+    // Recalculate product rating after deletion
+    const allReviews = await ReviewModel.find({ productId: deleted.productId });
+    const avgRating  = allReviews.length
+      ? allReviews.reduce((s, r) => s + (Number(r.rating) || 0), 0) / allReviews.length
+      : 0;
+    await ProductModel.findByIdAndUpdate(deleted.productId, {
+      rating: parseFloat(avgRating.toFixed(1)),
+    });
+
+    return response.status(200).json({ error: false, success: true, message: "Review deleted" });
+  } catch (error) {
+    return response.status(500).json({ error: true, message: error.message || error });
   }
 }

@@ -25,9 +25,8 @@ const StorePage = () => {
     params.set("page", page);
     params.set("limit", 12);
     params.set("sortBy", sortBy);
-    const [search, setSearch] = useState("");
-  const [activeSearch, setActiveSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
+     if (activeSearch) params.set("search", activeSearch);
+    if (selectedCategory) params.set("catId", selectedCategory);
     if (minPrice) params.set("minPrice", minPrice);
     if (maxPrice) params.set("maxPrice", maxPrice);
     return params.toString();

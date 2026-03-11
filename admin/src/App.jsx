@@ -19,7 +19,9 @@ import Orders from "./Pages/Orders";
 import ForgotPassword from "./Pages/ForgotPassword";
 import VerifyAccount from "./Pages/VerifyAccount";
 import ChangePassword from "./Pages/ChangePassword";
-
+import Reviewpage from "./Pages/ReviewsPage";
+import ManageLogo from "./Pages/ManageLogo";
+import AddBlog from "./Pages/Blog/addBlog";
 import toast, { Toaster } from 'react-hot-toast';
 import { fetchDataFromApi } from "./utils/api";
 import { useEffect } from "react";
@@ -31,8 +33,9 @@ import AddSize from "./Pages/Products/addSize";
 import BannerV1List from "./Pages/Banners/bannerV1List";
 import { BannerList2 } from "./Pages/Banners/bannerList2";
 import { BlogList } from "./Pages/Blog";
-import ManageLogo from "./Pages/ManageLogo";
 import LoadingBar from "react-top-loading-bar";
+// import ReviewsPage from "./Pages/Reviews";
+import BannersHub from "./Pages/BannersHub";
 
 const MyContext = createContext();
 function App() {
@@ -292,6 +295,98 @@ function App() {
                 style={{ width: isSidebarOpen === false ? "100%" : '80%' }}
               >
                 <Orders />
+              </div>
+            </div>
+          </section>
+        </>
+      ),
+    },
+     {
+      path: "/reviews",
+      exact: true,
+      element: (
+        <>
+          <section className="main">
+            <Header />
+            <div className="contentMain flex">
+              <div
+                className={`overflow-hidden sidebarWrapper ${isSidebarOpen === true ? windowWidth < 992 ? `w-[${sidebarWidth / 1.5}%]` : `w-[20%]` : "w-[0px] opacity-0 invisible"
+                  } transition-all`}
+              >
+                <Sidebar />
+              </div>
+              <div
+                className={`contentRight overflow-hidden py-4 px-5 ${isSidebarOpen === true && windowWidth < 992 && 'opacity-0'}  transition-all`}
+                style={{ width: isSidebarOpen === false ? "100%" : '80%' }}
+              >
+                <Reviewpage />
+              </div>
+            </div>
+          </section>
+        </>
+      ),
+    },
+     {
+      path: "/banners/management",
+      exact: true,
+      element: (
+        <>
+          <section className="main">
+            <Header />
+            <div className="contentMain flex">
+              <div className={`overflow-hidden sidebarWrapper ${isSidebarOpen === true ? windowWidth < 992 ? `w-[${sidebarWidth / 1.5}%]` : `w-[20%]` : "w-[0px] opacity-0 invisible"} transition-all`}><Sidebar /></div>
+              <div className={`contentRight overflow-hidden py-4 px-5 ${isSidebarOpen === true && windowWidth < 992 && 'opacity-0'}  transition-all`} style={{ width: isSidebarOpen === false ? "100%" : '80%' }}>
+                <BannersHub />
+              </div>
+            </div>
+          </section>
+        </>
+      ),
+    },
+    {
+      path: "/blog/list",
+      exact: true,
+      element: (
+        <>
+          <section className="main">
+            <Header />
+            <div className="contentMain flex">
+              <div
+                className={`overflow-hidden sidebarWrapper ${isSidebarOpen === true ? windowWidth < 992 ? `w-[${sidebarWidth / 1.5}%]` : `w-[20%]` : "w-[0px] opacity-0 invisible"
+                  } transition-all`}
+              >
+                <Sidebar />
+              </div>
+              <div
+                className={`contentRight overflow-hidden py-4 px-5 ${isSidebarOpen === true && windowWidth < 992 && 'opacity-0'}  transition-all`}
+                style={{ width: isSidebarOpen === false ? "100%" : '80%' }}
+              >
+                <AddBlog />
+              </div>
+            </div>
+          </section>
+        </>
+      ),
+    },
+    {
+      path: "/manageLogo",
+      exact: true,
+      element: (
+        <>
+          <section className="main">
+            <Header />
+            <div className="contentMain flex">
+              <div
+                className={`overflow-hidden sidebarWrapper ${isSidebarOpen === true ? windowWidth < 992 ? `w-[${sidebarWidth / 1.5}%]` : `w-[20%]` : "w-[0px] opacity-0 invisible"
+                  } transition-all`}
+              >
+                <Sidebar />
+              </div>
+              <div
+                className={`contentRight overflow-hidden py-4 px-5 ${isSidebarOpen === true && windowWidth < 992 && 'opacity-0'}  transition-all`}
+                style={{ width: isSidebarOpen === false ? "100%" : '80%' }}
+              >
+                <ManageLogo />
               </div>
             </div>
           </section>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ProductZoom } from "../../components/ProductZoom";
 import { ProductDetailsComponent } from "../../components/ProductDetails";
 import ProductItem from "../../components/ProductItem";
@@ -24,13 +24,14 @@ export const ProductDetails = () => {
   const [sellerProductsPreview, setSellerProductsPreview] = useState([]);
 
   const { id } = useParams();
+  const navigate = useNavigate();
   const reviewSec = useRef();
 
   useEffect(() => {
     fetchDataFromApi(`/api/user/getReviews?productId=${id}`).then((res) => {
       if (res?.error === false) setReviewsCount(res.reviews.length);
     });
-  }, [reviewsCount]);
+  }, [id]);
 
   const loadRelatedProducts = async (subCatId, pageToLoad, shouldAppend = false) => {
     if (!subCatId) return;
@@ -56,26 +57,36 @@ export const ProductDetails = () => {
     setRelatedProductData([]);
     setRelatedProductsPage(1);
     setHasMoreRelatedProducts(false);
+    // Reset seller state on product change
+    setSellerProductsCount(0);
+    setSellerProductsPreview([]);
 
     fetchDataFromApi(`/api/product/${id}`).then(async (res) => {
       if (res?.error === false) {
-        setProductData(res?.product);
-        setActiveImages(res?.product?.images || []);
+        const product = res?.product;
+        setProductData(product);
+        setActiveImages(product?.images || []);
         setVisibleSpecifications(5);
 
-         if (res?.product?.seller?._id) {
-          fetchDataFromApi(`/api/product/store/${res.product.seller._id}`).then((storeRes) => {
-            if (storeRes?.success) {
+        // FIX: Use seller._id properly and accept both response shapes
+        const sellerId = product?.seller?._id || product?.seller;
+        if (sellerId) {
+          fetchDataFromApi(`/api/product/store/${sellerId}?limit=5&page=1`).then((storeRes) => {
+            if (storeRes?.error === false || storeRes?.success === true) {
               setSellerProductsCount(storeRes?.total || 0);
-              setSellerProductsPreview((storeRes?.products || []).filter((item) => item?._id !== id).slice(0, 4));
+              setSellerProductsPreview(
+                (storeRes?.products || [])
+                  .filter((item) => String(item?._id) !== String(id))
+                  .slice(0, 4)
+              );
             }
           });
-        } else {
-          setSellerProductsCount(0);
         }
 
-        await loadRelatedProducts(res?.product?.subCatId, 1, false);
+        await loadRelatedProducts(product?.subCatId, 1, false);
         setTimeout(() => setIsLoading(false), 700);
+      } else {
+        setIsLoading(false);
       }
     });
 
@@ -86,6 +97,9 @@ export const ProductDetails = () => {
     window.scrollTo({ top: reviewSec?.current?.offsetTop - 170, behavior: "smooth" });
     setActiveTab(1);
   };
+
+  // Seller ID for navigation — handles both populated and non-populated
+  const sellerId = productData?.seller?._id || productData?.seller;
 
   const breadcrumbItems = [
     productData?.catName && productData?.catId
@@ -101,9 +115,6 @@ export const ProductDetails = () => {
 
   return (
     <>
-      {/* Inject styles once */}
-      
-
       <div className="pd-root">
 
         {/* ── Breadcrumb ── */}
@@ -133,20 +144,12 @@ export const ProductDetails = () => {
               {/* ── Hero: Image + Details ── */}
               <div className="container">
                 <div className="pd-hero">
-
-                  {/* Full-width on mobile image */}
                   <div className="pd-image-wrapper">
-                    
                     <ProductZoom
                       images={activeImages?.length !== 0 ? activeImages : productData?.images}
                     />
-                    
                   </div>
-                  
-
-                  {/* Details column */}
                   <div className="pd-content-col">
-                    
                     <ProductDetailsComponent
                       item={productData}
                       reviewsCount={reviewsCount}
@@ -159,6 +162,7 @@ export const ProductDetails = () => {
                 </div>
               </div>
 
+              {/* ── Seller Store Card ── */}
               <div className="container" style={{ marginTop: "14px" }}>
                 <div
                   style={{
@@ -176,31 +180,61 @@ export const ProductDetails = () => {
                   <div>
                     <p style={{ fontSize: 12, color: "#64748b", marginBottom: 2 }}>Sold by</p>
                     <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
-                      {productData?.seller?.storeProfile?.storeName || productData?.seller?.name || "Marketplace Seller"}
+                      {productData?.seller?.storeProfile?.storeName ||
+                        productData?.seller?.name ||
+                        "Marketplace Seller"}
                     </p>
                     <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                      {sellerProductsCount} products in this store
+                      {sellerProductsCount > 0
+                        ? `${sellerProductsCount} products in this store`
+                        : "Visit seller's store"}
                     </p>
                   </div>
 
-                  {productData?.seller?._id && (
-                    <Link
-                      to={`/store/${productData.seller._id}`}
+                  {/* FIX: Use navigate() so click actually goes to store page */}
+                  {sellerId && (
+                    <button
+                      onClick={() => navigate(`/store/${sellerId}`)}
                       className="pd-load-more-btn"
-                      style={{ textDecoration: "none", display: "inline-flex", width: "auto", padding: "10px 16px" }}
+                      style={{ cursor: "pointer", border: "none", display: "inline-flex", width: "auto", padding: "10px 16px" }}
                     >
-                      Visit Seller Store
-                    </Link>
+                      Visit Seller Store →
+                    </button>
                   )}
                 </div>
               </div>
 
+              {/* ── More From This Seller ── */}
               {sellerProductsPreview?.length > 0 && (
                 <div className="container" style={{ marginTop: "14px" }}>
-                  <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "16px" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                      <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>More from this seller</h3>
-                      {productData?.seller?._id && <Link to={`/store/${productData.seller._id}`} className="pd-breadcrumb-link">See all</Link>}
+                  <div
+                    style={{
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 14,
+                      padding: "16px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 12,
+                      }}
+                    >
+                      <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                        More from this seller
+                      </h3>
+                      {sellerId && (
+                        <span
+                          onClick={() => navigate(`/store/${sellerId}`)}
+                          className="pd-breadcrumb-link"
+                          style={{ cursor: "pointer" }}
+                        >
+                          See all →
+                        </span>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {sellerProductsPreview.map((item) => (
@@ -211,17 +245,9 @@ export const ProductDetails = () => {
                 </div>
               )}
 
-
-              {/* ── Product Details & Specs + Why Buy ── */}
+              {/* ── Product Specifications ── */}
               <div className="container pd-section">
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr",
-                    gap: "20px",
-                  }}
-                >
-                  {/* Specs */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "20px" }}>
                   <div
                     style={{
                       background: "var(--surface)",
@@ -267,7 +293,6 @@ export const ProductDetails = () => {
                     )}
                   </div>
 
-                  {/* Why buy */}
                   <div className="pd-why-card">
                     <p className="pd-why-title">Why buy from us?</p>
                     <ul className="pd-why-list">
@@ -319,7 +344,7 @@ export const ProductDetails = () => {
                           {isRelatedProductsLoading ? (
                             <>
                               <CircularProgress size={14} style={{ color: "#fff" }} />
-                              Loading…
+                              &nbsp;Loading…
                             </>
                           ) : (
                             "Load More"
