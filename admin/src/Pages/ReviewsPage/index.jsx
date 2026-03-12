@@ -1,5 +1,5 @@
-import React, { useContext, useEffect, useState } from "react";
-import { Avatar, Card, CardContent, Chip, MenuItem, Pagination, Select, Skeleton } from "@mui/material";
+import { useContext, useEffect, useState } from "react";
+import { Avatar, Card, CardContent, Chip, Divider, MenuItem, Pagination, Select, Skeleton } from "@mui/material";
 import Rating from "@mui/material/Rating";
 import { MyContext } from "../../App";
 import { fetchDataFromApi } from "../../utils/api";
@@ -47,6 +47,10 @@ const ReviewsPage = () => {
               ? "Only reviews related to your products are shown here."
               : "Centralized review management for all products."}
           </p>
+          <div className="mt-2 flex items-center gap-2">
+            <Chip size="small" label={`Total Reviews: ${pagination?.total || 0}`} className="!bg-indigo-50 !text-indigo-700 !font-[500]" />
+            <Chip size="small" label={`Page ${page} of ${Math.max(pagination?.totalPages || 1, 1)}`} className="!bg-slate-100 !text-slate-700" />
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -85,7 +89,7 @@ const ReviewsPage = () => {
               {reviews.map((item) => (
                 <div
                   key={item?._id}
-                  className="border border-slate-200 rounded-lg p-3 md:p-4 bg-white flex flex-col md:flex-row md:items-start gap-3"
+                 className="border border-slate-200 rounded-lg p-3 md:p-4 bg-white flex flex-col md:flex-row md:items-start gap-3 hover:shadow-sm transition-shadow"
                 >
                   <Avatar src={item?.image || ""} alt={item?.userName || "User"} />
                   <div className="flex-1">
@@ -100,7 +104,12 @@ const ReviewsPage = () => {
                     <div className="mt-2">
                       <Rating readOnly size="small" value={Number(item?.rating || 0)} />
                     </div>
-                    <p className="text-[14px] text-slate-700 mt-2">{item?.review}</p>
+                   <p className="text-[14px] text-slate-700 mt-2 leading-6">{item?.review}</p>
+                    <Divider className="!my-3" />
+                    <div className="flex items-center gap-2">
+                      <Avatar variant="rounded" src={item?.productImage || ""} alt={item?.productName || "Product"} sx={{ width: 32, height: 32 }} />
+                      <span className="text-[12px] text-slate-600">{item?.productName || "Product"}</span>
+                    </div>
                   </div>
                 </div>
               ))}

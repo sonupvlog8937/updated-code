@@ -848,9 +848,33 @@ export async function addReview(request, response) {
 export async function getReviews(request, response) {
     try {
         const productId = request.query.productId;
-        const reviews   = await ReviewModel.find({ productId });
+        const page = Math.max(parseInt(request.query.page || '1', 10), 1);
+        const limit = Math.max(parseInt(request.query.limit || '10', 10), 1);
+        const skip = (page - 1) * limit;
 
-        return response.status(200).json({ error: false, success: true, reviews });
+        if (!productId) {
+            return response.status(400).json({ error: true, success: false, message: 'productId is required' });
+        }
+
+        const filter = { productId };
+        const total = await ReviewModel.countDocuments(filter);
+        const reviews = await ReviewModel.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+        return response.status(200).json({
+            error: false,
+            success: true,
+            reviews,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
 
     } catch (error) {
         return response.status(500).json({ message: "Something is wrong", error: true, success: false });
