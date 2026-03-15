@@ -71,12 +71,23 @@ const userSchema = mongoose.Schema({
         default:false
     },
     storeProfile: {
-        storeName: { type: String, default: "" },
-        description: { type: String, default: "" },
-        image: { type: String, default: "" },
-        location: { type: String, default: "" },
-        contactNo: { type: String, default: "" },
-        moreInfo: { type: String, default: "" }
+        storeName:    { type: String, default: "" },
+        description:  { type: String, default: "" },
+        image:        { type: String, default: "" },
+        location:     { type: String, default: "" },
+        contactNo:    { type: String, default: "" },
+        moreInfo:     { type: String, default: "" },
+        category:     { type: String, default: "" },
+        returnPolicy: { type: String, default: "" },
+        shippingTime: { type: String, default: "" },
+        openHours:    { type: String, default: "" },
+        supportEmail: { type: String, default: "" },
+    },
+    bankDetails: {
+        accountHolderName: { type: String, default: "" },
+        bankName: { type: String, default: "" },
+        accountNumber: { type: String, default: "" },
+        ifscCode: { type: String, default: "" }
     },
     wallet: {
         availableBalance: { type: Number, default: 0 },

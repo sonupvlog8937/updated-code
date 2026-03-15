@@ -1,816 +1,443 @@
-import React, { useContext, useEffect, useState } from 'react'
+import React, { useContext, useEffect, useState } from 'react';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Rating from '@mui/material/Rating';
 import UploadBox from '../../Components/UploadBox';
-import { LazyLoadImage } from 'react-lazy-load-image-component';
-import 'react-lazy-load-image-component/src/effects/blur.css';
-import { IoMdClose } from "react-icons/io";
-import { Button } from '@mui/material';
-import { FaCloudUploadAlt } from "react-icons/fa";
+import { IoMdClose } from 'react-icons/io';
+import { Button, Switch, Tooltip, Chip } from '@mui/material';
+import { FaCloudUploadAlt } from 'react-icons/fa';
+import { MdImage, MdInfo, MdLocalOffer, MdCategory, MdSell } from 'react-icons/md';
+import { TbColorFilter, TbListDetails } from 'react-icons/tb';
 import { MyContext } from '../../App';
 import { deleteImages, fetchDataFromApi, postData } from '../../utils/api';
 import { useNavigate } from 'react-router-dom';
 import CircularProgress from '@mui/material/CircularProgress';
-import Switch from '@mui/material/Switch';
 
-const label = { inputProps: { 'aria-label': 'Switch demo' } };
+const switchLabel = { inputProps: { 'aria-label': 'Switch demo' } };
 
+/* ─── Reusable styled components ─── */
+const inp = {
+    width: '100%', height: 40, border: '1px solid #d1d5db', borderRadius: 8,
+    padding: '0 12px', fontSize: 13, color: '#111827', outline: 'none',
+    background: '#fff', boxSizing: 'border-box', fontFamily: 'inherit',
+};
+const inpFocus = { borderColor: '#6366f1' };
+const lbl = { display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5, letterSpacing: '0.02em' };
+const sectionCard = {
+    background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12,
+    overflow: 'hidden', marginBottom: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+};
+const sectionHead = (color) => ({
+    padding: '13px 18px', borderBottom: '1px solid #f3f4f6',
+    display: 'flex', alignItems: 'center', gap: 10,
+    background: '#fafafa',
+});
+const sectionIcon = (bg, color) => ({
+    width: 30, height: 30, borderRadius: 8, background: bg,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', color, fontSize: 15, flexShrink: 0,
+});
+const sectionBody = { padding: '18px 18px 20px' };
+const g2 = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 };
+const g3 = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 };
+
+const SectionCard = ({ icon, iconBg, iconColor, title, subtitle, children }) => (
+    <div style={sectionCard}>
+        <div style={sectionHead()}>
+            <div style={sectionIcon(iconBg, iconColor)}>{icon}</div>
+            <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: 0 }}>{title}</div>
+                {subtitle && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 1 }}>{subtitle}</div>}
+            </div>
+        </div>
+        <div style={sectionBody}>{children}</div>
+    </div>
+);
+
+const Field = ({ label: lbText, children, span }) => (
+    <div style={span ? { gridColumn: '1 / -1' } : {}}>
+        <label style={lbl}>{lbText}</label>
+        {children}
+    </div>
+);
 
 const AddProduct = () => {
-
     const [formFields, setFormFields] = useState({
-        name: "",
-        description: "",
-        images: [],
-        brand: "",
-        keywords: "",
-        price: "",
-        oldPrice: "",
-        category: "",
-        catName: "",
-        catId: "",
-        subCatId: "",
-        subCat: "",
-        thirdsubCat: "",
-        thirdsubCatId: "",
-        countInStock: "",
-        rating: "",
-        isFeatured: false,
-        discount: "",
-        sale: 0,
-        productRam: [],
-        size: [],
-        productWeight: [],
+        name: '', description: '', images: [], brand: '', keywords: '',
+        price: '', oldPrice: '', category: '', catName: '', catId: '',
+        subCatId: '', subCat: '', thirdsubCat: '', thirdsubCatId: '',
+        countInStock: '', rating: '', isFeatured: false, discount: '', sale: 0,
+        productRam: [], size: [], productWeight: [],
         colorOptions: [{ name: '', code: '', images: '' }],
         specifications: [{ key: '', value: '' }],
-        bannerTitleName: '',
-        bannerimages: [],
-        isDisplayOnHomeBanner: false
+        bannerTitleName: '', bannerimages: [], isDisplayOnHomeBanner: false,
+    });
 
-    })
-
-
-    const [productCat, setProductCat] = React.useState('');
-    const [productSubCat, setProductSubCat] = React.useState('');
-    const [productFeatured, setProductFeatured] = React.useState('');
-    const [productRams, setProductRams] = React.useState([]);
-    const [productRamsData, setProductRamsData] = React.useState([]);
-    const [productWeight, setProductWeight] = React.useState([]);
-    const [productWeightData, setProductWeightData] = React.useState([]);
-    const [productSize, setProductSize] = React.useState([]);
-    const [productSizeData, setProductSizeData] = React.useState([]);
+    const [productCat, setProductCat] = useState('');
+    const [productSubCat, setProductSubCat] = useState('');
+    const [productFeatured, setProductFeatured] = useState('');
+    const [productRams, setProductRams] = useState([]);
+    const [productRamsData, setProductRamsData] = useState([]);
+    const [productWeight, setProductWeight] = useState([]);
+    const [productWeightData, setProductWeightData] = useState([]);
+    const [productSize, setProductSize] = useState([]);
+    const [productSizeData, setProductSizeData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
-
     const [productThirdLavelCat, setProductThirdLavelCat] = useState('');
-
     const [previews, setPreviews] = useState([]);
     const [bannerPreviews, setBannerPreviews] = useState([]);
-
     const [checkedSwitch, setCheckedSwitch] = useState(false);
 
-
     const history = useNavigate();
-
     const context = useContext(MyContext);
     const selectedCategory = context?.catData?.find((cat) => cat?._id === productCat);
     const availableSubCategories = selectedCategory?.children || [];
-    const selectedSubCategory = availableSubCategories?.find((subCat) => subCat?._id === productSubCat);
+    const selectedSubCategory = availableSubCategories?.find((sc) => sc?._id === productSubCat);
     const availableThirdLevelCategories = selectedSubCategory?.children || [];
 
-
     useEffect(() => {
-        fetchDataFromApi("/api/product/productRAMS/get").then((res) => {
-            if (res?.error === false) {
-                setProductRamsData(res?.data);
-            }
-        })
+        fetchDataFromApi('/api/product/productRAMS/get').then((res) => { if (res?.error === false) setProductRamsData(res?.data); });
+        fetchDataFromApi('/api/product/productWeight/get').then((res) => { if (res?.error === false) setProductWeightData(res?.data); });
+        fetchDataFromApi('/api/product/productSize/get').then((res) => { if (res?.error === false) setProductSizeData(res?.data); });
+    }, []);
 
-        fetchDataFromApi("/api/product/productWeight/get").then((res) => {
-            if (res?.error === false) {
-                setProductWeightData(res?.data);
-            }
-        })
-
-        fetchDataFromApi("/api/product/productSize/get").then((res) => {
-            if (res?.error === false) {
-                setProductSizeData(res?.data);
-            }
-        })
-    }, [])
-
-
-    const handleChangeProductCat = (event) => {
-        const selectedCatId = event.target.value;
-        const selectedCat = context?.catData?.find((cat) => cat?._id === selectedCatId);
-setProductCat(selectedCatId);
-        setProductSubCat('');
-        setProductThirdLavelCat('');
-
-    formFields.catId = selectedCatId;
-        formFields.category = selectedCatId;
-        formFields.catName = selectedCat?.name || "";
-        formFields.subCatId = "";
-        formFields.subCat = "";
-        formFields.thirdsubCatId = "";
-        formFields.thirdsubCat = "";
-
-    
-    }
-const handleChangeProductSubCat = (event) => {
-        const selectedSubCatId = event.target.value;
-        const selectedSubCat = availableSubCategories?.find((subCat) => subCat?._id === selectedSubCatId);
-
-        setProductSubCat(selectedSubCatId);
-        setProductThirdLavelCat('');
-        formFields.subCatId = selectedSubCatId;
-        formFields.subCat = selectedSubCat?.name || "";
-        formFields.thirdsubCatId = "";
-        formFields.thirdsubCat = "";
+    const handleChangeProductCat = (e) => {
+        const id = e.target.value;
+        const cat = context?.catData?.find((c) => c?._id === id);
+        setProductCat(id); setProductSubCat(''); setProductThirdLavelCat('');
+        formFields.catId = id; formFields.category = id; formFields.catName = cat?.name || '';
+        formFields.subCatId = ''; formFields.subCat = ''; formFields.thirdsubCatId = ''; formFields.thirdsubCat = '';
     };
-    const handleChangeProductThirdLavelCat = (event) => {
-         const selectedThirdCatId = event.target.value;
-        const selectedThirdCat = availableThirdLevelCategories?.find((thirdLavelCat) => thirdLavelCat?._id === selectedThirdCatId);
-
-    setProductThirdLavelCat(selectedThirdCatId);
-        formFields.thirdsubCatId = selectedThirdCatId;
-        formFields.thirdsubCat = selectedThirdCat?.name || "";
-}
-
-
-    const handleChangeProductFeatured = (event) => {
-        setProductFeatured(event.target.value);
-        formFields.isFeatured = event.target.value
+    const handleChangeProductSubCat = (e) => {
+        const id = e.target.value;
+        const sc = availableSubCategories?.find((s) => s?._id === id);
+        setProductSubCat(id); setProductThirdLavelCat('');
+        formFields.subCatId = id; formFields.subCat = sc?.name || '';
+        formFields.thirdsubCatId = ''; formFields.thirdsubCat = '';
     };
-
-    const handleChangeProductRams = (event) => {
-        const {
-            target: { value },
-        } = event;
-        setProductRams(
-            // On autofill we get a stringified value.
-            typeof value === "string" ? value.split(",") : value
-        );
-
-        formFields.productRam = value;
-
+    const handleChangeProductThirdLavelCat = (e) => {
+        const id = e.target.value;
+        const tc = availableThirdLevelCategories?.find((t) => t?._id === id);
+        setProductThirdLavelCat(id);
+        formFields.thirdsubCatId = id; formFields.thirdsubCat = tc?.name || '';
     };
+    const handleChangeProductFeatured = (e) => { setProductFeatured(e.target.value); formFields.isFeatured = e.target.value; };
+    const handleChangeProductRams = (e) => { const v = e.target.value; setProductRams(typeof v === 'string' ? v.split(',') : v); formFields.productRam = v; };
+    const handleChangeProductWeight = (e) => { const v = e.target.value; setProductWeight(typeof v === 'string' ? v.split(',') : v); formFields.productWeight = v; };
+    const handleChangeProductSize = (e) => { const v = e.target.value; setProductSize(typeof v === 'string' ? v.split(',') : v); formFields.size = v; };
+    const onChangeInput = (e) => { const { name, value } = e.target; setFormFields((p) => ({ ...p, [name]: value })); };
+    const onChangeRating = (e) => { setFormFields((p) => ({ ...p, rating: e.target.value })); };
+    const handleChangeSwitch = (e) => { setCheckedSwitch(e.target.checked); formFields.isDisplayOnHomeBanner = e.target.checked; };
 
-    const handleChangeProductWeight = (event) => {
-
-        const {
-            target: { value },
-        } = event;
-        setProductWeight(
-            // On autofill we get a stringified value.
-            typeof value === "string" ? value.split(",") : value
-        );
-
-        formFields.productWeight = value;
+    const handleColorOptionChange = (i, field, value) => {
+        const arr = [...formFields.colorOptions]; arr[i] = { ...arr[i], [field]: value };
+        setFormFields((p) => ({ ...p, colorOptions: arr }));
     };
+    const addColorOption = () => setFormFields((p) => ({ ...p, colorOptions: [...p.colorOptions, { name: '', code: '', images: '' }] }));
+    const removeColorOption = (i) => setFormFields((p) => ({ ...p, colorOptions: p.colorOptions.filter((_, idx) => idx !== i) }));
 
-    const handleChangeProductSize = (event) => {
-
-        const {
-            target: { value },
-        } = event;
-        setProductSize(
-            // On autofill we get a stringified value.
-            typeof value === "string" ? value.split(",") : value
-        );
-
-        formFields.size = value;
+    const handleSpecificationChange = (i, field, value) => {
+        const arr = [...formFields.specifications]; arr[i] = { ...arr[i], [field]: value };
+        setFormFields((p) => ({ ...p, specifications: arr }));
     };
+    const addSpecification = () => setFormFields((p) => ({ ...p, specifications: [...p.specifications, { key: '', value: '' }] }));
+    const removeSpecification = (i) => setFormFields((p) => ({ ...p, specifications: p.specifications.filter((_, idx) => idx !== i) }));
 
-
-    const onChangeInput = (e) => {
-        const { name, value } = e.target;
-        setFormFields(() => {
-            return {
-                ...formFields,
-                [name]: value
-            }
-        })
-    }
-
-    const onChangeRating = (e) => {
-        setFormFields((formFields) => (
-            {
-                ...formFields,
-                rating: e.target.value
-            }
-        ))
-    }
-
-    const handleColorOptionChange = (index, field, value) => {
-        const updatedColors = [...formFields.colorOptions];
-        updatedColors[index] = { ...updatedColors[index], [field]: value };
-        setFormFields((prev) => ({
-            ...prev,
-            colorOptions: updatedColors
-        }));
-    }
-
-    const addColorOption = () => {
-        setFormFields((prev) => ({
-            ...prev,
-            colorOptions: [...prev.colorOptions, { name: '', code: '', images: '' }]
-        }));
-    }
-
-    const removeColorOption = (index) => {
-        setFormFields((prev) => ({
-            ...prev,
-            colorOptions: prev.colorOptions.filter((_, idx) => idx !== index)
-        }));
-    }
-
-    const handleSpecificationChange = (index, field, value) => {
-        const updatedSpecs = [...formFields.specifications];
-        updatedSpecs[index] = { ...updatedSpecs[index], [field]: value };
-        setFormFields((prev) => ({
-            ...prev,
-            specifications: updatedSpecs
-        }));
-    }
-
-    const addSpecification = () => {
-        setFormFields((prev) => ({
-            ...prev,
-            specifications: [...prev.specifications, { key: '', value: '' }]
-        }));
-    }
-
-    const removeSpecification = (index) => {
-        setFormFields((prev) => ({
-            ...prev,
-            specifications: prev.specifications.filter((_, idx) => idx !== index)
-        }));
-    }
-
-    const setPreviewsFun = (previewsArr) => {
-        const imgArr = previews;
-        for (let i = 0; i < previewsArr.length; i++) {
-            imgArr.push(previewsArr[i])
-        }
-
-        setPreviews([])
-        setTimeout(() => {
-            setPreviews(imgArr)
-            formFields.images = imgArr
-        }, 10);
-    }
-
-
-    const setBannerImagesFun = (previewsArr) => {
-        const imgArr = bannerPreviews;
-        for (let i = 0; i < previewsArr.length; i++) {
-            imgArr.push(previewsArr[i])
-        }
-
-        setBannerPreviews([])
-        setTimeout(() => {
-            setBannerPreviews(imgArr)
-            formFields.bannerimages = imgArr
-        }, 10);
-    }
-
-
-
+    const setPreviewsFun = (arr) => {
+        const combined = [...previews, ...arr];
+        setPreviews([]); setTimeout(() => { setPreviews(combined); formFields.images = combined; }, 10);
+    };
+    const setBannerImagesFun = (arr) => {
+        const combined = [...bannerPreviews, ...arr];
+        setBannerPreviews([]); setTimeout(() => { setBannerPreviews(combined); formFields.bannerimages = combined; }, 10);
+    };
     const removeImg = (image, index) => {
-        var imageArr = [];
-        imageArr = previews;
-        deleteImages(`/api/category/deteleImage?img=${image}`).then((res) => {
-            imageArr.splice(index, 1);
-
-            setPreviews([]);
-            setTimeout(() => {
-                setPreviews(imageArr);
-                formFields.images = imageArr
-            }, 100);
-
-        })
-    }
-
-
+        deleteImages(`/api/category/deteleImage?img=${image}`).then(() => {
+            const arr = previews.filter((_, i) => i !== index);
+            setPreviews([]); setTimeout(() => { setPreviews(arr); formFields.images = arr; }, 100);
+        });
+    };
     const removeBannerImg = (image, index) => {
-        var imageArr = [];
-        imageArr = bannerPreviews;
-        deleteImages(`/api/category/deteleImage?img=${image}`).then((res) => {
-            imageArr.splice(index, 1);
-
-            setBannerPreviews([]);
-            setTimeout(() => {
-                setBannerPreviews(imageArr);
-                formFields.bannerimages = imageArr
-            }, 100);
-
-        })
-    }
-
-
-    const handleChangeSwitch = (event) => {
-        setCheckedSwitch(event.target.checked);
-        formFields.isDisplayOnHomeBanner = event.target.checked;
-    }
-
+        deleteImages(`/api/category/deteleImage?img=${image}`).then(() => {
+            const arr = bannerPreviews.filter((_, i) => i !== index);
+            setBannerPreviews([]); setTimeout(() => { setBannerPreviews(arr); formFields.bannerimages = arr; }, 100);
+        });
+    };
 
     const handleSubmitg = (e) => {
-        e.preventDefault(0);
-
-        console.log(formFields)
-        if (formFields.name === "") {
-            context.alertBox("error", "Please enter product name");
-            return false;
-        }
-
-        if (formFields.description === "") {
-            context.alertBox("error", "Please enter product description");
-            return false;
-        }
-
-
-
-        if (formFields?.catId === "") {
-            context.alertBox("error", "Please select product category");
-            return false;
-        }
-
-
-
-        if (formFields?.price === "") {
-            context.alertBox("error", "Please enter product price");
-            return false;
-        }
-
-
-        if (formFields?.oldPrice === "") {
-            context.alertBox("error", "Please enter product old Price");
-            return false;
-        }
-
-
-        if (formFields?.countInStock === "") {
-            context.alertBox("error", "Please enter  product stock");
-            return false;
-        }
-
-
-        if (formFields?.brand === "") {
-            context.alertBox("error", "Please enter product brand");
-            return false;
-        }
-
-
-        if (formFields?.discount === "") {
-            context.alertBox("error", "Please enter product discount");
-            return false;
-        }
-
-
-
-
-        if (formFields?.rating === "") {
-            context.alertBox("error", "Please enter  product rating");
-            return false;
-        }
-
-
-        if (previews?.length === 0) {
-            context.alertBox("error", "Please select product images");
-            return false;
-        }
+        e.preventDefault();
+        const checks = [
+            [!formFields.name, 'Please enter product name'],
+            [!formFields.description, 'Please enter product description'],
+            [!formFields.catId, 'Please select product category'],
+            [!formFields.price, 'Please enter product price'],
+            [!formFields.oldPrice, 'Please enter product old price'],
+            [!formFields.countInStock, 'Please enter product stock'],
+            [!formFields.brand, 'Please enter product brand'],
+            [!formFields.discount, 'Please enter product discount'],
+            [!formFields.rating, 'Please enter product rating'],
+            [previews.length === 0, 'Please add product images'],
+        ];
+        for (const [cond, msg] of checks) { if (cond) { context.alertBox('error', msg); return false; } }
 
         const payload = {
             ...formFields,
-            colorOptions: (formFields.colorOptions || []).map((item) => ({
-                ...item,
-                images: item.images ? item.images.split(",").map((img) => img.trim()).filter(Boolean) : []
-            })).filter((item) => item.name),
+            colorOptions: (formFields.colorOptions || [])
+                .map((item) => ({ ...item, images: item.images ? item.images.split(',').map((s) => s.trim()).filter(Boolean) : [] }))
+                .filter((item) => item.name),
             specifications: (formFields.specifications || []).filter((item) => item.key && item.value),
-            keywords: formFields.keywords
-                ? formFields.keywords.split(',').map((item) => item.trim()).filter(Boolean)
-                : []
+            keywords: formFields.keywords ? formFields.keywords.split(',').map((s) => s.trim()).filter(Boolean) : [],
         };
-
         setIsLoading(true);
-
-        postData("/api/product/create", payload).then((res) => {
-
+        postData('/api/product/create', payload).then((res) => {
             if (res?.error === false) {
-                context.alertBox("success", res?.message);
-                setTimeout(() => {
-                    setIsLoading(false);
-                    context.setIsOpenFullScreenPanel({
-                        open: false,
-                    })
-                    history("/products");
-                }, 1000);
-            } else {
-                setIsLoading(false);
-                context.alertBox("error", res?.message);
-            }
-        })
-    }
+                context.alertBox('success', res?.message);
+                setTimeout(() => { setIsLoading(false); context.setIsOpenFullScreenPanel({ open: false }); history('/products'); }, 1000);
+            } else { setIsLoading(false); context.alertBox('error', res?.message); }
+        });
+    };
+
+    const selectSx = { width: '100%', fontSize: 13, background: '#fff', borderRadius: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } };
 
     return (
-        <section className='p-5 bg-gray-50'>
-            <form className='form py-1 p-1 md:p-8 md:py-1' onSubmit={handleSubmitg}>
-                <div className='scroll max-h-[72vh] overflow-y-scroll pr-4'>
+        <section style={{ padding: '20px 20px', background: '#f8fafc', minHeight: '100vh' }}>
+            <div style={{ marginBottom: 20 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: 0 }}>Add New Product</h2>
+                <p style={{ fontSize: 13, color: '#6b7280', margin: '4px 0 0' }}>Fill in the details below to publish a new product</p>
+            </div>
 
-                    <div className='grid grid-cols-1 mb-3'>
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Name</h3>
-                            <input type="text" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="name" value={formFields.name} onChange={onChangeInput} />
+            <form onSubmit={handleSubmitg}>
+                <div style={{ maxHeight: '72vh', overflowY: 'auto', paddingRight: 4 }}>
+
+                    {/* ── Basic Info ── */}
+                    <SectionCard icon={<MdInfo size={15} />} iconBg="#ede9fe" iconColor="#7c3aed" title="Basic Information" subtitle="Product name, description and keywords">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <Field label="Product Name *">
+                                <input style={inp} type="text" name="name" value={formFields.name} onChange={onChangeInput} placeholder="e.g. iPhone 15 Pro Max 256GB" />
+                            </Field>
+                            <Field label="Product Description *">
+                                <textarea style={{ ...inp, height: 120, padding: '10px 12px', resize: 'vertical' }} name="description" value={formFields.description} onChange={onChangeInput} placeholder="Detailed product description…" />
+                            </Field>
+                            <Field label="Search Keywords (comma separated)">
+                                <input style={inp} type="text" name="keywords" value={formFields.keywords} onChange={onChangeInput} placeholder="e.g. tshirt, cotton, summer wear" />
+                            </Field>
                         </div>
-                    </div>
+                    </SectionCard>
 
-                    <div className='grid grid-cols-1 mb-3'>
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Description</h3>
-                            <textarea type="text" className='w-full h-[140px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="description" value={formFields.description} onChange={onChangeInput} />
-                        </div>
-                    </div>
-
-                    <div className='grid grid-cols-1 mb-3'>
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Search Keywords (comma separated)</h3>
-                            <input type="text" placeholder='example: tshirt, cotton, summer wear' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="keywords" value={formFields.keywords} onChange={onChangeInput} />
-                        </div>
-                    </div>
-
-                    <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 mb-3 gap-4'>
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Category</h3>
-
-                            {
-                                context?.catData?.length !== 0 &&
-                                <Select
-                                    labelId="demo-simple-select-label"
-                                    id="productCatDrop"
-                                    size="small"
-                                    className='w-full'
-                                    value={productCat}
-                                    label="Category"
-                                    onChange={handleChangeProductCat}
-                                >
-                                    {
-                                        context?.catData?.map((cat, index) => {
-                                            return (
-                                                <MenuItem value={cat?._id} key={cat?._id || index}>{cat?.name}</MenuItem>
-                                            )
-                                        })
-                                    }
-
+                    {/* ── Category ── */}
+                    <SectionCard icon={<MdCategory size={15} />} iconBg="#e0f2fe" iconColor="#0369a1" title="Category" subtitle="Assign product to categories">
+                        <div style={g3}>
+                            <Field label="Category *">
+                                <Select size="small" sx={selectSx} value={productCat} onChange={handleChangeProductCat} displayEmpty>
+                                    <MenuItem value="" disabled>Select category</MenuItem>
+                                    {context?.catData?.map((cat) => <MenuItem key={cat._id} value={cat._id}>{cat.name}</MenuItem>)}
                                 </Select>
-                            }
-
-
-                        </div>
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Sub Category</h3>
-
-                            {
-                                context?.catData?.length !== 0 &&
-                                <Select
-                                    labelId="demo-simple-select-label"
-                                    id="productCatDrop"
-                                    size="small"
-                                    className='w-full'
-                                    value={productSubCat}
-                                    label="Sub Category"
-                                    onChange={handleChangeProductSubCat}
-                                >
-                                    {
-                                     availableSubCategories?.map((subCat, index_) => {
-                                            return (
-                                                 <MenuItem value={subCat?._id} key={subCat?._id || index_}>
-                                                    {subCat?.name}
-                                                </MenuItem>
-
-                                            )
-                                        })
-                                    }
-
+                            </Field>
+                            <Field label="Sub Category">
+                                <Select size="small" sx={selectSx} value={productSubCat} onChange={handleChangeProductSubCat} displayEmpty disabled={!productCat}>
+                                    <MenuItem value="">Select sub category</MenuItem>
+                                    {availableSubCategories.map((sc) => <MenuItem key={sc._id} value={sc._id}>{sc.name}</MenuItem>)}
                                 </Select>
-                            }
-
-
-
-                        </div>
-
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Third Lavel Category</h3>
-
-                            {
-                                context?.catData?.length !== 0 &&
-                                <Select
-                                    labelId="demo-simple-select-label"
-                                    id="productCatDrop"
-                                    size="small"
-                                    className='w-full'
-                                    value={productThirdLavelCat}
-                                    label="Sub Category"
-                                    onChange={handleChangeProductThirdLavelCat}
-                                >
-                                    {
-                                        availableThirdLevelCategories?.map((thirdLavelCat, index) => {
-                                            return (
-                                                <MenuItem value={thirdLavelCat?._id} key={thirdLavelCat?._id || index}>
-                                                    {thirdLavelCat?.name}
-                                                </MenuItem>
-
-                                            )
-                                        })
-                                    }
-
+                            </Field>
+                            <Field label="Third Level Category">
+                                <Select size="small" sx={selectSx} value={productThirdLavelCat} onChange={handleChangeProductThirdLavelCat} displayEmpty disabled={!productSubCat}>
+                                    <MenuItem value="">Select third level</MenuItem>
+                                    {availableThirdLevelCategories.map((tc) => <MenuItem key={tc._id} value={tc._id}>{tc.name}</MenuItem>)}
                                 </Select>
-                            }
-
-
-
+                            </Field>
                         </div>
+                    </SectionCard>
 
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Price</h3>
-                            <input type="number" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="price" value={formFields.price} onChange={onChangeInput} />
-                        </div>
-
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1  text-black'>Product Old Price</h3>
-                            <input type="number" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="oldPrice" value={formFields.oldPrice} onChange={onChangeInput} />
-                        </div>
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Is Featured?</h3>
-                            <Select
-                                labelId="demo-simple-select-label"
-                                id="productCatDrop"
-                                size="small"
-                                className='w-full'
-                                value={productFeatured}
-                                label="Category"
-                                onChange={handleChangeProductFeatured}
-                            >
-                                <MenuItem value={true}>True</MenuItem>
-                                <MenuItem value={false}>False</MenuItem>
-                            </Select>
-                        </div>
-
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Stock</h3>
-                            <input type="number" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="countInStock" value={formFields.countInStock} onChange={onChangeInput} />
-                        </div>
-
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Brand</h3>
-                            <input type="text" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="brand" value={formFields.brand} onChange={onChangeInput} />
-                        </div>
-
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Discount</h3>
-                            <input type="number" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="discount" value={formFields.discount} onChange={onChangeInput} />
-                        </div>
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Sale</h3>
-                            <input type="number" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="sale" value={formFields.sale} onChange={onChangeInput} />
-                        </div>
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product RAMS</h3>
-                            {
-                                productRamsData?.length !== 0 &&
-                                <Select
-                                    multiple
-                                    labelId="demo-simple-select-label"
-                                    id="productCatDrop"
-                                    size="small"
-                                    className='w-full'
-                                    value={productRams}
-                                    label="Category"
-                                    onChange={handleChangeProductRams}
-                                >
-                                    {
-                                        productRamsData?.map((item, index) => {
-                                            return <MenuItem key={index} value={item?.name}>{item.name}</MenuItem>
-                                        })
-                                    }
-
-
+                    {/* ── Pricing & Inventory ── */}
+                    <SectionCard icon={<MdLocalOffer size={15} />} iconBg="#f0fdf4" iconColor="#15803d" title="Pricing & Inventory" subtitle="Set prices, stock and discount">
+                        <div style={g3}>
+                            <Field label="Price (Original) *"><input style={inp} type="number" name="price" value={formFields.price} onChange={onChangeInput} placeholder="0.00" /></Field>
+                            <Field label="Sale Price *"><input style={inp} type="number" name="oldPrice" value={formFields.oldPrice} onChange={onChangeInput} placeholder="0.00" /></Field>
+                            <Field label="Discount % *"><input style={inp} type="number" name="discount" value={formFields.discount} onChange={onChangeInput} placeholder="0" /></Field>
+                            <Field label="Stock Count *"><input style={inp} type="number" name="countInStock" value={formFields.countInStock} onChange={onChangeInput} placeholder="0" /></Field>
+                            <Field label="Sales Count"><input style={inp} type="number" name="sale" value={formFields.sale} onChange={onChangeInput} placeholder="0" /></Field>
+                            <Field label="Brand *"><input style={inp} type="text" name="brand" value={formFields.brand} onChange={onChangeInput} placeholder="e.g. Apple" /></Field>
+                            <Field label="Is Featured?">
+                                <Select size="small" sx={selectSx} value={productFeatured} onChange={handleChangeProductFeatured} displayEmpty>
+                                    <MenuItem value="">Select</MenuItem>
+                                    <MenuItem value={true}>Yes — Featured</MenuItem>
+                                    <MenuItem value={false}>No</MenuItem>
                                 </Select>
-                            }
-
+                            </Field>
                         </div>
+                    </SectionCard>
 
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Weight</h3>
-                            {
-                                productWeightData?.length !== 0 &&
-                                <Select
-                                    multiple
-                                    labelId="demo-simple-select-label"
-                                    id="productCatDrop"
-                                    size="small"
-                                    className='w-full'
-                                    value={productWeight}
-                                    label="Category"
-                                    onChange={handleChangeProductWeight}
-                                >
-
-                                    {
-                                        productWeightData?.map((item, index) => {
-                                            return <MenuItem key={index} value={item?.name}>{item?.name}</MenuItem>
-                                        })
-                                    }
-
-                                </Select>
-                            }
+                    {/* ── Variants ── */}
+                    <SectionCard icon={<MdSell size={15} />} iconBg="#fef3c7" iconColor="#92400e" title="Product Variants" subtitle="RAM, size, weight options">
+                        <div style={g3}>
+                            {productRamsData?.length > 0 && (
+                                <Field label="RAM Options">
+                                    <Select multiple size="small" sx={selectSx} value={productRams} onChange={handleChangeProductRams}
+                                        renderValue={(selected) => (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                {selected.map((v) => <Chip key={v} label={v} size="small" style={{ height: 20, fontSize: 11 }} />)}
+                                            </div>
+                                        )}>
+                                        {productRamsData.map((item, i) => <MenuItem key={i} value={item.name}>{item.name}</MenuItem>)}
+                                    </Select>
+                                </Field>
+                            )}
+                            {productWeightData?.length > 0 && (
+                                <Field label="Weight Options">
+                                    <Select multiple size="small" sx={selectSx} value={productWeight} onChange={handleChangeProductWeight}
+                                        renderValue={(selected) => (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                {selected.map((v) => <Chip key={v} label={v} size="small" style={{ height: 20, fontSize: 11 }} />)}
+                                            </div>
+                                        )}>
+                                        {productWeightData.map((item, i) => <MenuItem key={i} value={item.name}>{item.name}</MenuItem>)}
+                                    </Select>
+                                </Field>
+                            )}
+                            {productSizeData?.length > 0 && (
+                                <Field label="Size Options">
+                                    <Select multiple size="small" sx={selectSx} value={productSize} onChange={handleChangeProductSize}
+                                        renderValue={(selected) => (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                {selected.map((v) => <Chip key={v} label={v} size="small" style={{ height: 20, fontSize: 11 }} />)}
+                                            </div>
+                                        )}>
+                                        {productSizeData.map((item, i) => <MenuItem key={i} value={item.name}>{item.name}</MenuItem>)}
+                                    </Select>
+                                </Field>
+                            )}
+                            <Field label="Product Rating *">
+                                <div style={{ paddingTop: 6 }}><Rating name="rating" defaultValue={1} onChange={onChangeRating} /></div>
+                            </Field>
                         </div>
+                    </SectionCard>
 
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Size</h3>
-                            {
-                                productSizeData?.length !== 0 &&
-                                <Select
-                                    multiple
-                                    labelId="demo-simple-select-label"
-                                    id="productCatDrop"
-                                    size="small"
-                                    className='w-full'
-                                    value={productSize}
-                                    label="Category"
-                                    onChange={handleChangeProductSize}
-                                >
-
-                                    {
-                                        productSizeData?.map((item, index) => {
-                                            return <MenuItem key={index} value={item?.name}>{item?.name}</MenuItem>
-                                        })
-                                    }
-                                </Select>
-                            }
-                        </div>
-
-
-
-
-                    </div>
-
-
-
-
-                    <div className='grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 lg:grid-cols-4 mb-3 gap-4'>
-
-
-                        <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1  text-black'>Product Rating </h3>
-                            <Rating name="half-rating" defaultValue={1} onChange={onChangeRating} />
-                        </div>
-
-
-                    </div>
-
- <div className='col w-full p-5 px-0'>
-                        <div className='flex items-center justify-between mb-3'>
-                            <h3 className="font-[700] text-[18px]">Colour Options</h3>
-                            <Button type="button" onClick={addColorOption}>Add Colour</Button>
-                        </div>
-
-                        <div className='grid grid-cols-1 gap-3'>
-                            {formFields?.colorOptions?.map((colorItem, index) => (
-                                <div key={index} className='grid grid-cols-1 md:grid-cols-4 gap-3 bg-gray-100 p-3 rounded-sm'>
-                                    <input type="text" placeholder='Colour Name (Red)' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] rounded-sm p-3 text-sm' value={colorItem.name} onChange={(e) => handleColorOptionChange(index, 'name', e.target.value)} />
-                                    <input type="text" placeholder='Colour Code (#ff0000)' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] rounded-sm p-3 text-sm' value={colorItem.code} onChange={(e) => handleColorOptionChange(index, 'code', e.target.value)} />
-                                    <input type="text" placeholder='Image URLs (comma separated)' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] rounded-sm p-3 text-sm md:col-span-2' value={colorItem.images} onChange={(e) => handleColorOptionChange(index, 'images', e.target.value)} />
-                                    <div className='md:col-span-4'>
-                                        <Button type="button" color="error" onClick={() => removeColorOption(index)} disabled={formFields?.colorOptions?.length === 1}>Remove</Button>
+                    {/* ── Colour Options ── */}
+                    <SectionCard icon={<TbColorFilter size={15} />} iconBg="#fdf4ff" iconColor="#a21caf" title="Colour Options" subtitle="Add colour variants with images">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {formFields.colorOptions.map((colorItem, index) => (
+                                <div key={index} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr auto', gap: 10, background: '#f9fafb', padding: '12px', borderRadius: 10, border: '1px solid #e5e7eb' }}>
+                                    <div>
+                                        <label style={lbl}>Colour Name</label>
+                                        <input style={inp} placeholder="Red" value={colorItem.name} onChange={(e) => handleColorOptionChange(index, 'name', e.target.value)} />
+                                    </div>
+                                    <div>
+                                        <label style={lbl}>Colour Code</label>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <input type="color" value={colorItem.code || '#000000'} onChange={(e) => handleColorOptionChange(index, 'code', e.target.value)}
+                                                style={{ width: 36, height: 36, borderRadius: 6, border: '1px solid #d1d5db', cursor: 'pointer', padding: 2 }} />
+                                            <input style={{ ...inp, flex: 1 }} placeholder="#ff0000" value={colorItem.code} onChange={(e) => handleColorOptionChange(index, 'code', e.target.value)} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style={lbl}>Image URLs (comma separated)</label>
+                                        <input style={inp} placeholder="https://…, https://…" value={colorItem.images} onChange={(e) => handleColorOptionChange(index, 'images', e.target.value)} />
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                                        <button type="button" onClick={() => removeColorOption(index)}
+                                            disabled={formFields.colorOptions.length === 1}
+                                            style={{ width: 34, height: 34, borderRadius: 8, background: '#fee2e2', border: 'none', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: formFields.colorOptions.length === 1 ? 0.4 : 1 }}>
+                                            <IoMdClose size={16} />
+                                        </button>
                                     </div>
                                 </div>
                             ))}
+                            <button type="button" onClick={addColorOption}
+                                style={{ alignSelf: 'flex-start', background: '#fdf4ff', color: '#a21caf', border: '1px dashed #d946ef', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                                + Add Colour
+                            </button>
                         </div>
-                    </div>
+                    </SectionCard>
 
-                    <div className='col w-full p-5 px-0'>
-                        <div className='flex items-center justify-between mb-3'>
-                            <h3 className="font-[700] text-[18px]">Specifications</h3>
-                            <Button type="button" onClick={addSpecification}>Add Specification</Button>
-                        </div>
-
-                        <div className='grid grid-cols-1 gap-3'>
-                            {formFields?.specifications?.map((specItem, index) => (
-                                <div key={index} className='grid grid-cols-1 md:grid-cols-3 gap-3 bg-gray-100 p-3 rounded-sm'>
-                                    <input type="text" placeholder='Key (Display)' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] rounded-sm p-3 text-sm' value={specItem.key} onChange={(e) => handleSpecificationChange(index, 'key', e.target.value)} />
-                                    <input type="text" placeholder='Value (6.7 inch)' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] rounded-sm p-3 text-sm' value={specItem.value} onChange={(e) => handleSpecificationChange(index, 'value', e.target.value)} />
-                                    <Button type="button" color="error" onClick={() => removeSpecification(index)} disabled={formFields?.specifications?.length === 1}>Remove</Button>
+                    {/* ── Specifications ── */}
+                    <SectionCard icon={<TbListDetails size={15} />} iconBg="#f0fdf4" iconColor="#15803d" title="Specifications" subtitle="Technical specs like display size, battery etc.">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {formFields.specifications.map((specItem, index) => (
+                                <div key={index} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10, background: '#f9fafb', padding: '12px', borderRadius: 10, border: '1px solid #e5e7eb' }}>
+                                    <div>
+                                        <label style={lbl}>Spec Key</label>
+                                        <input style={inp} placeholder="Display Size" value={specItem.key} onChange={(e) => handleSpecificationChange(index, 'key', e.target.value)} />
+                                    </div>
+                                    <div>
+                                        <label style={lbl}>Spec Value</label>
+                                        <input style={inp} placeholder="6.7 inch OLED" value={specItem.value} onChange={(e) => handleSpecificationChange(index, 'value', e.target.value)} />
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                                        <button type="button" onClick={() => removeSpecification(index)}
+                                            disabled={formFields.specifications.length === 1}
+                                            style={{ width: 34, height: 34, borderRadius: 8, background: '#fee2e2', border: 'none', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: formFields.specifications.length === 1 ? 0.4 : 1 }}>
+                                            <IoMdClose size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
+                            <button type="button" onClick={addSpecification}
+                                style={{ alignSelf: 'flex-start', background: '#f0fdf4', color: '#15803d', border: '1px dashed #86efac', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                                + Add Specification
+                            </button>
                         </div>
-                    </div>
+                    </SectionCard>
 
-
-                    <div className='col w-full p-5 px-0'>
-                        <h3 className="font-[700] text-[18px] mb-3">Media & Images</h3>
-
-                        <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-                            {
-                                previews?.length !== 0 && previews?.map((image, index) => {
-                                    return (
-                                        <div className="uploadBoxWrapper relative" key={index}>
-
-                                            <span className='absolute w-[20px] h-[20px] rounded-full  overflow-hidden bg-red-700 -top-[5px] -right-[5px] flex items-center justify-center z-50 cursor-pointer' onClick={() => removeImg(image, index)}><IoMdClose className='text-white text-[17px]' /></span>
-
-
-                                            <div className='uploadBox p-0 rounded-md overflow-hidden border border-dashed border-[rgba(0,0,0,0.3)] h-[150px] w-[100%] bg-gray-100 cursor-pointer hover:bg-gray-200 flex items-center justify-center flex-col relative'>
-
-                                                <img src={image} className='w-100' />
-                                            </div>
-                                        </div>
-                                    )
-                                })
-                            }
-
-
+                    {/* ── Product Images ── */}
+                    <SectionCard icon={<MdImage size={15} />} iconBg="#fff7ed" iconColor="#c2410c" title="Product Images *" subtitle="Upload high-quality product photos">
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12 }}>
+                            {previews.map((image, index) => (
+                                <div key={index} style={{ position: 'relative' }}>
+                                    <span onClick={() => removeImg(image, index)} style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
+                                        <IoMdClose style={{ color: '#fff', fontSize: 13 }} />
+                                    </span>
+                                    <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid #e5e7eb', height: 120, background: '#f9fafb' }}>
+                                        <img src={image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    </div>
+                                </div>
+                            ))}
                             <UploadBox multiple={true} name="images" url="/api/product/uploadImages" setPreviewsFun={setPreviewsFun} />
                         </div>
+                    </SectionCard>
 
-                    </div>
-
-
-
-
-
-
-                    <div className='col w-full p-5 px-0'>
-
-                        <div className='bg-gray-100 p-4 w-full'>
-                            <div className="flex items-center gap-8">
-                                <h3 className="font-[700] text-[18px] mb-3">Banner Images</h3>
-                                <Switch {...label} onChange={handleChangeSwitch} checked={checkedSwitch} />
+                    {/* ── Banner Images ── */}
+                    <SectionCard icon={<MdImage size={15} />} iconBg="#eff6ff" iconColor="#2563eb" title="Banner Images" subtitle="Home banner display (optional)">
+                        <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: '14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                                <div>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Display on Home Banner</div>
+                                    <div style={{ fontSize: 12, color: '#6b7280' }}>Show this product on the home page banner slider</div>
+                                </div>
+                                <Switch {...switchLabel} onChange={handleChangeSwitch} checked={checkedSwitch} sx={{ marginLeft: 'auto' }} />
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
 
-                                {
-                                    bannerPreviews?.length !== 0 && bannerPreviews?.map((image, index) => {
-                                        return (
-                                            <div className="uploadBoxWrapper relative" key={index}>
-
-                                                <span className='absolute w-[20px] h-[20px] rounded-full  overflow-hidden bg-red-700 -top-[5px] -right-[5px] flex items-center justify-center z-50 cursor-pointer' onClick={() => removeBannerImg(image, index)}><IoMdClose className='text-white text-[17px]' /></span>
-
-
-                                                <div className='uploadBox p-0 rounded-md overflow-hidden border border-dashed border-[rgba(0,0,0,0.3)] h-[150px] w-[100%] bg-gray-100 cursor-pointer hover:bg-gray-200 flex items-center justify-center flex-col relative'>
-
-                                                    <img src={image} className='w-100' />
-                                                </div>
-                                            </div>
-                                        )
-                                    })
-                                }
-
-
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12, marginBottom: 16 }}>
+                                {bannerPreviews.map((image, index) => (
+                                    <div key={index} style={{ position: 'relative' }}>
+                                        <span onClick={() => removeBannerImg(image, index)} style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
+                                            <IoMdClose style={{ color: '#fff', fontSize: 13 }} />
+                                        </span>
+                                        <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid #e5e7eb', height: 120, background: '#f9fafb' }}>
+                                            <img src={image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        </div>
+                                    </div>
+                                ))}
                                 <UploadBox multiple={true} name="bannerimages" url="/api/product/uploadBannerImages" setPreviewsFun={setBannerImagesFun} />
                             </div>
 
-
-                            <br />
-
-                            <h3 className="font-[700] text-[18px] mb-3">Banner Title</h3>
-                            <input type="text" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="bannerTitleName" value={formFields.bannerTitleName} onChange={onChangeInput} />
+                            <label style={lbl}>Banner Title</label>
+                            <input style={inp} type="text" name="bannerTitleName" value={formFields.bannerTitleName} onChange={onChangeInput} placeholder="e.g. New Arrivals — Summer Collection" />
                         </div>
-
-
-
-                    </div>
+                    </SectionCard>
 
                 </div>
 
-
-
-                <hr />
-                <br />
-                <Button type="submit" className="btn-blue btn-lg w-full flex gap-2">
-
-                    {
-                        isLoading === true ? <CircularProgress color="inherit" />
-                            :
-                            <>
-                                <FaCloudUploadAlt className='text-[25px] text-white' />
-                                Publish and View
-                            </>
-                    }
-                </Button>
-
+                {/* ── Submit ── */}
+                <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
+                    <button type="submit" disabled={isLoading}
+                        style={{ width: '100%', background: '#111827', color: '#fff', border: 'none', borderRadius: 10, padding: '13px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: isLoading ? 0.7 : 1 }}>
+                        {isLoading
+                            ? <><CircularProgress size={18} color="inherit" /> Publishing…</>
+                            : <><FaCloudUploadAlt size={18} /> Publish Product</>}
+                    </button>
+                </div>
             </form>
         </section>
-    )
-}
+    );
+};
 
 export default AddProduct;

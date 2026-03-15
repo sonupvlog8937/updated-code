@@ -312,6 +312,198 @@ const STYLES = `
 /* ── Pagination ── */
 .ao-page-footer { display: flex; justify-content: center; padding: 18px 24px 20px; }
 
+
+/* ── Receipt button ── */
+.ao-receipt-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #f0f7ff; color: #2563eb; border: 1px solid #bfdbfe;
+  font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 7px;
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+  transition: all 0.15s; white-space: nowrap;
+}
+.ao-receipt-btn:hover { background: #dbeafe; border-color: #93c5fd; }
+
+/* ═══════════════════════════════════
+   RECEIPT MODAL
+═══════════════════════════════════ */
+.ao-rcpt-overlay {
+  position: fixed; inset: 0; z-index: 9998;
+  background: rgba(4,6,15,0.65);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  animation: overlayIn 0.2s ease both;
+}
+.ao-rcpt-sheet {
+  background: #fff;
+  border-radius: 20px;
+  width: 100%; max-width: 640px; max-height: 92vh;
+  overflow-y: auto; overflow-x: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.28), 0 0 0 1px rgba(255,255,255,0.05);
+  animation: modalIn 0.3s cubic-bezier(0.34,1.4,0.64,1) both;
+  position: relative;
+}
+
+/* header gradient */
+.ao-rcpt-head {
+  background: linear-gradient(135deg, #0c0c14 0%, #1e1b4b 60%, #312e81 100%);
+  padding: 28px 28px 22px;
+  position: relative; overflow: hidden;
+}
+.ao-rcpt-head::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at top right, rgba(99,102,241,0.3) 0%, transparent 60%);
+}
+.ao-rcpt-head-top {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  position: relative; z-index: 1;
+}
+.ao-rcpt-brand { display: flex; align-items: center; gap: 10px; }
+.ao-rcpt-brand-icon {
+  width: 40px; height: 40px; background: rgba(255,255,255,0.12);
+  border-radius: 10px; border: 1px solid rgba(255,255,255,0.18);
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
+}
+.ao-rcpt-brand-name { font-family:'Sora',sans-serif; font-size:15px; font-weight:800; color:#fff; letter-spacing:-0.02em; }
+.ao-rcpt-brand-sub  { font-size:10px; color:rgba(255,255,255,0.5); margin-top:1px; }
+.ao-rcpt-close-btn {
+  width:32px; height:32px; border-radius:50%;
+  background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15);
+  cursor:pointer; color:#fff; font-size:15px;
+  display:flex; align-items:center; justify-content:center;
+  transition:background .15s; flex-shrink:0;
+}
+.ao-rcpt-close-btn:hover { background:rgba(255,255,255,0.22); }
+
+.ao-rcpt-head-mid {
+  margin-top: 22px; position: relative; z-index: 1;
+}
+.ao-rcpt-title { font-family:'Sora',sans-serif; font-size:22px; font-weight:800; color:#fff; letter-spacing:-0.03em; margin:0 0 6px; }
+.ao-rcpt-meta-row { display:flex; flex-wrap:wrap; gap:10px; margin-top:6px; }
+.ao-rcpt-meta-chip {
+  display:inline-flex; align-items:center; gap:5px;
+  background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15);
+  border-radius:99px; padding:4px 10px; font-size:11px; color:rgba(255,255,255,0.8); font-weight:600;
+}
+.ao-rcpt-status-chip {
+  display:inline-flex; align-items:center; gap:5px;
+  border-radius:99px; padding:4px 12px; font-size:11px; font-weight:700;
+}
+
+/* tear edge */
+.ao-rcpt-tear {
+  width:100%; height:14px; background:#fff; position:relative; overflow:hidden;
+}
+.ao-rcpt-tear::before {
+  content:''; position:absolute; top:-14px; left:0; right:0; height:28px;
+  background: radial-gradient(circle at 50% 0%, #fff 10px, transparent 10px);
+  background-size: 28px 28px; background-repeat: repeat-x;
+}
+
+/* body */
+.ao-rcpt-body { padding: 20px 28px 28px; }
+
+/* section labels */
+.ao-rcpt-sec-lbl {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+  color: #9ca3af; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+}
+.ao-rcpt-sec-lbl::after { content:''; flex:1; height:1px; background:#f0f0f7; }
+
+/* customer + address cards */
+.ao-rcpt-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+@media(max-width:500px){ .ao-rcpt-2col { grid-template-columns:1fr; } }
+
+.ao-rcpt-info-card {
+  background: #f8fafc; border: 1px solid #e8e8f2; border-radius: 12px; padding: 14px 16px;
+}
+.ao-rcpt-info-title {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 5px;
+}
+.ao-rcpt-info-name { font-size: 14px; font-weight: 700; color: #0c0c14; margin-bottom: 3px; }
+.ao-rcpt-info-line { font-size: 12px; color: #4b5563; margin-bottom: 2px; line-height: 1.5; }
+.ao-rcpt-info-muted { font-size: 11px; color: #9ca3af; }
+
+/* products table */
+.ao-rcpt-prod-table { width:100%; border-collapse:collapse; margin-bottom:0; }
+.ao-rcpt-prod-table th {
+  padding: 8px 10px; font-size:10px; font-weight:700; letter-spacing:0.08em;
+  text-transform:uppercase; color:#9ca3af; border-bottom:2px solid #f0f0f7;
+  text-align:left;
+}
+.ao-rcpt-prod-table th:last-child { text-align:right; }
+.ao-rcpt-prod-table td { padding:11px 10px; border-bottom:1px solid #f7f7fb; vertical-align:middle; }
+.ao-rcpt-prod-table tr:last-child td { border-bottom:none; }
+.ao-rcpt-prod-table tr:hover td { background:#fafafd; }
+
+.ao-rcpt-prod-img {
+  width:42px; height:42px; border-radius:8px; object-fit:cover; border:1px solid #e8e8f2; flex-shrink:0;
+}
+.ao-rcpt-prod-noimg {
+  width:42px; height:42px; border-radius:8px; background:#f0f0f7;
+  display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;
+}
+.ao-rcpt-prod-name { font-size:13px; font-weight:600; color:#111; margin-bottom:3px; }
+.ao-rcpt-prod-attr { font-size:10px; color:#9ca3af; }
+.ao-rcpt-prod-amt  { font-family:'Sora',sans-serif; font-size:13px; font-weight:800; color:#0c0c14; text-align:right; white-space:nowrap; }
+.ao-rcpt-prod-unit { font-size:10px; color:#9ca3af; text-align:right; white-space:nowrap; }
+
+/* totals */
+.ao-rcpt-totals {
+  background:#f8fafc; border:1px solid #e8e8f2; border-radius:12px; padding:14px 16px; margin-top:14px;
+}
+.ao-rcpt-total-row { display:flex; justify-content:space-between; align-items:center; padding:4px 0; font-size:13px; }
+.ao-rcpt-total-row.sub { color:#6b7280; }
+.ao-rcpt-total-row.grand { border-top:2px solid #e8e8f2; margin-top:8px; padding-top:10px; }
+.ao-rcpt-total-row.grand .ao-rcpt-total-lbl { font-family:'Sora',sans-serif; font-size:14px; font-weight:800; color:#0c0c14; }
+.ao-rcpt-total-row.grand .ao-rcpt-total-val { font-family:'Sora',sans-serif; font-size:18px; font-weight:800; color:#0c0c14; }
+
+/* payment info */
+.ao-rcpt-pay-row {
+  display:flex; align-items:center; gap:8px; padding:12px 14px;
+  background:#f8fafc; border:1px solid #e8e8f2; border-radius:10px; margin-top:14px;
+}
+.ao-rcpt-pay-icon { font-size:18px; }
+.ao-rcpt-pay-label { font-size:12px; font-weight:600; color:#374151; }
+.ao-rcpt-pay-sub   { font-size:10px; color:#9ca3af; }
+
+/* footer */
+.ao-rcpt-footer {
+  display:flex; gap:8px; padding:16px 28px 24px; border-top:1px solid #f0f0f7; flex-wrap:wrap;
+}
+.ao-rcpt-btn-print {
+  flex:1; min-width:120px; height:44px; border-radius:12px;
+  background:linear-gradient(135deg,#2563eb,#1d4ed8); color:#fff;
+  border:none; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; gap:7px;
+  transition:all .18s; box-shadow:0 4px 14px rgba(37,99,235,.3);
+}
+.ao-rcpt-btn-print:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(37,99,235,.4); }
+.ao-rcpt-btn-close {
+  height:44px; padding:0 20px; border-radius:12px;
+  background:#f0f0f7; color:#374151; border:none; cursor:pointer;
+  font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; transition:all .15s;
+}
+.ao-rcpt-btn-close:hover { background:#e4e4ef; }
+
+/* ── PRINT STYLES ── */
+@media print {
+  body * { visibility: hidden !important; }
+  .ao-rcpt-printable, .ao-rcpt-printable * { visibility: visible !important; }
+  .ao-rcpt-printable {
+    position: fixed !important; inset: 0 !important; z-index: 99999 !important;
+    background: #fff !important; padding: 24px !important;
+    max-height: none !important; overflow: visible !important;
+    border-radius: 0 !important; box-shadow: none !important;
+  }
+  .ao-rcpt-footer { display: none !important; }
+  .ao-rcpt-close-btn { display: none !important; }
+  .ao-rcpt-head { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .ao-rcpt-tear { display:none; }
+}
+
 /* ── Status select override ── */
 .ao-status-sel .MuiOutlinedInput-root { border-radius: 8px !important; font-size: 12px !important; font-family: 'DM Sans', sans-serif !important; font-weight: 600 !important; }
 .ao-status-sel .MuiSelect-select { padding: 6px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
@@ -432,6 +624,237 @@ const ProductModal = ({ item, onClose }) => {
   );
 };
 
+
+/* ═══════════════════════════════════════════════════════
+   RECEIPT MODAL
+═══════════════════════════════════════════════════════ */
+const ReceiptModal = ({ order, onClose }) => {
+  const printRef = React.useRef();
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
+  if (!order) return null;
+
+  const addr      = order?.delivery_address || {};
+  const user      = order?.userId || {};
+  const products  = order?.products || [];
+  const isCOD     = !order?.paymentId;
+  const sc        = getStatusStyle(order?.order_status);
+
+  // Subtotal = sum of (price × qty)
+  const subtotal  = products.reduce((s, p) => s + (p.price || 0) * (p.quantity || 1), 0);
+  const total     = order?.totalAmt || subtotal;
+  const shipping  = Math.max(0, total - subtotal);
+
+  const orderId   = order._id?.slice(-10).toUpperCase();
+  const orderDate = order?.createdAt
+    ? new Date(order.createdAt).toLocaleDateString("en-IN", { day:"numeric", month:"long", year:"numeric", hour:"2-digit", minute:"2-digit" })
+    : "—";
+
+  const handlePrint = () => {
+    const el = printRef.current;
+    if (!el) return;
+    el.classList.add("ao-rcpt-printable");
+    window.print();
+    el.classList.remove("ao-rcpt-printable");
+  };
+
+  return (
+    <div className="ao-rcpt-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="ao-rcpt-sheet" ref={printRef} role="dialog" aria-modal="true">
+
+        {/* ── HEADER ── */}
+        <div className="ao-rcpt-head">
+          <div className="ao-rcpt-head-top">
+            <div className="ao-rcpt-brand">
+              <div className="ao-rcpt-brand-icon">🛍️</div>
+              <div>
+                <div className="ao-rcpt-brand-name">Zeedaddy</div>
+                <div className="ao-rcpt-brand-sub">Order Receipt</div>
+              </div>
+            </div>
+            <button className="ao-rcpt-close-btn" onClick={onClose}>✕</button>
+          </div>
+
+          <div className="ao-rcpt-head-mid">
+            <p className="ao-rcpt-title">Order #{orderId}</p>
+            <div className="ao-rcpt-meta-row">
+              <span className="ao-rcpt-meta-chip">📅 {orderDate}</span>
+              <span className="ao-rcpt-meta-chip">📦 {products.length} item{products.length !== 1 ? "s" : ""}</span>
+              <span
+                className="ao-rcpt-status-chip"
+                style={{ background: sc.bg, color: sc.color }}
+              >
+                <span style={{ width:6, height:6, borderRadius:"50%", background:sc.dot, display:"inline-block" }}></span>
+                {(order?.order_status || "pending").toUpperCase()}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* tear edge */}
+        <div className="ao-rcpt-tear" />
+
+        {/* ── BODY ── */}
+        <div className="ao-rcpt-body">
+
+          {/* Customer + Address */}
+          <div className="ao-rcpt-2col">
+
+            {/* Customer */}
+            <div className="ao-rcpt-info-card">
+              <div className="ao-rcpt-info-title">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                Customer
+              </div>
+              <div className="ao-rcpt-info-name">{user?.name || "—"}</div>
+              {user?.email && <div className="ao-rcpt-info-line">✉ {user.email}</div>}
+              {addr?.mobile && <div className="ao-rcpt-info-line">📞 {addr.mobile}</div>}
+              {user?.createdAt && (
+                <div className="ao-rcpt-info-muted">
+                  Member since {new Date(user.createdAt).getFullYear()}
+                </div>
+              )}
+            </div>
+
+            {/* Delivery Address */}
+            <div className="ao-rcpt-info-card">
+              <div className="ao-rcpt-info-title">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                Delivery Address
+              </div>
+              {addr?.addressType && (
+                <div style={{ display:"inline-block", fontSize:9, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.07em", background:"#ede9fe", color:"#5b21b6", padding:"2px 7px", borderRadius:4, marginBottom:6 }}>
+                  {addr.addressType}
+                </div>
+              )}
+              {addr?.address   && <div className="ao-rcpt-info-line">{addr.address}</div>}
+              {addr?.landmark  && <div className="ao-rcpt-info-line">{addr.landmark}</div>}
+              <div className="ao-rcpt-info-line">
+                {[addr.city, addr.state].filter(Boolean).join(", ")}
+                {addr.pincode && ` – ${addr.pincode}`}
+              </div>
+              {addr?.country && <div className="ao-rcpt-info-muted">{addr.country}</div>}
+            </div>
+          </div>
+
+          {/* Products */}
+          <div className="ao-rcpt-sec-lbl">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            Order Items
+          </div>
+
+          <div style={{ border:"1px solid #e8e8f2", borderRadius:12, overflow:"hidden" }}>
+            <table className="ao-rcpt-prod-table">
+              <thead style={{ background:"#f8fafc" }}>
+                <tr>
+                  <th style={{ paddingLeft:14 }}>Product</th>
+                  <th style={{ textAlign:"center", width:60 }}>Qty</th>
+                  <th style={{ textAlign:"right", paddingRight:14 }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.map((item, i) => {
+                  const attrs = [item.color, item.size, item.weight, item.ram].filter(Boolean).join(" · ");
+                  return (
+                    <tr key={i}>
+                      <td style={{ paddingLeft:14 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                          {item.image
+                            ? <img src={item.image} alt={item.productTitle} className="ao-rcpt-prod-img" />
+                            : <div className="ao-rcpt-prod-noimg">🖼️</div>
+                          }
+                          <div>
+                            <div className="ao-rcpt-prod-name">{item.productTitle || "—"}</div>
+                            {attrs && <div className="ao-rcpt-prod-attr">{attrs}</div>}
+                            <div className="ao-rcpt-prod-attr" style={{ marginTop:2 }}>{fmt(item.price)} / unit</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ textAlign:"center", fontWeight:700, fontSize:13 }}>×{item.quantity || 1}</td>
+                      <td style={{ paddingRight:14 }}>
+                        <div className="ao-rcpt-prod-amt">{fmt((item.price || 0) * (item.quantity || 1))}</div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Totals */}
+          <div className="ao-rcpt-totals">
+            <div className="ao-rcpt-total-row sub">
+              <span style={{ fontWeight:500 }}>Subtotal</span>
+              <span style={{ fontWeight:600 }}>{fmt(subtotal)}</span>
+            </div>
+            {shipping > 0 && (
+              <div className="ao-rcpt-total-row sub">
+                <span style={{ fontWeight:500 }}>Shipping & Handling</span>
+                <span style={{ fontWeight:600 }}>{fmt(shipping)}</span>
+              </div>
+            )}
+            {shipping === 0 && (
+              <div className="ao-rcpt-total-row sub">
+                <span style={{ fontWeight:500 }}>Shipping</span>
+                <span style={{ fontWeight:600, color:"#16a34a" }}>FREE</span>
+              </div>
+            )}
+            <div className="ao-rcpt-total-row grand">
+              <span className="ao-rcpt-total-lbl">Grand Total</span>
+              <span className="ao-rcpt-total-val">{fmt(total)}</span>
+            </div>
+          </div>
+
+          {/* Payment Info */}
+          <div className="ao-rcpt-pay-row">
+            <div className="ao-rcpt-pay-icon">{isCOD ? "💵" : "💳"}</div>
+            <div style={{ flex:1 }}>
+              <div className="ao-rcpt-pay-label">{isCOD ? "Cash on Delivery" : "Online Payment"}</div>
+              {!isCOD && order?.paymentId && (
+                <div className="ao-rcpt-pay-sub">Txn ID: {order.paymentId}</div>
+              )}
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:11, fontWeight:700, color: isCOD ? "#92400e" : "#065f46", background: isCOD ? "#fef3c7" : "#d1fae5", padding:"3px 9px", borderRadius:6 }}>
+                {isCOD ? "PAY ON DELIVERY" : "PAID"}
+              </div>
+            </div>
+          </div>
+
+          {/* Thank you note */}
+          <div style={{ textAlign:"center", padding:"22px 0 4px" }}>
+            <div style={{ fontSize:20, marginBottom:6 }}>🎉</div>
+            <p style={{ fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:700, color:"#0c0c14", margin:"0 0 3px" }}>
+              Thank you for your order!
+            </p>
+            <p style={{ fontSize:11, color:"#9ca3af", margin:0 }}>
+              Keep this receipt for your records. For support, contact us with Order ID #{orderId}.
+            </p>
+          </div>
+        </div>
+
+        {/* ── FOOTER ── */}
+        <div className="ao-rcpt-footer">
+          <button className="ao-rcpt-btn-print" onClick={handlePrint}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+              <rect x="6" y="14" width="12" height="8"/>
+            </svg>
+            Print Receipt
+          </button>
+          <button className="ao-rcpt-btn-close" onClick={onClose}>Close</button>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
 /* ═══════════════════════════════════════════════════════
    MAIN ORDERS COMPONENT
 ═══════════════════════════════════════════════════════ */
@@ -444,6 +867,7 @@ const Orders = () => {
   const [searchQuery,      setSearchQuery]        = useState("");
   const [totalOrdersData,  setTotalOrdersData]    = useState({});
   const [selectedProduct,  setSelectedProduct]    = useState(null);
+  const [receiptOrder,     setReceiptOrder]       = useState(null);
 
   const context = useContext(MyContext);
 const isSellerView = context?.userData?.role === "SELLER";
@@ -523,6 +947,11 @@ const isSellerView = context?.userData?.role === "SELLER";
       {/* Product detail modal */}
       {selectedProduct && (
         <ProductModal item={selectedProduct} onClose={() => setSelectedProduct(null)} />
+      )}
+
+      {/* Receipt modal */}
+      {receiptOrder && (
+        <ReceiptModal order={receiptOrder} onClose={() => setReceiptOrder(null)} />
       )}
 
       <div className="ao-page">
@@ -682,11 +1111,19 @@ const isSellerView = context?.userData?.role === "SELLER";
                           📅 {fmtDate(order?.createdAt)}
                         </td>
 
-                        {/* Delete */}
+                        {/* Delete + Receipt */}
                         <td>
-                          <button className="ao-del" onClick={() => deleteOrder(order._id)}>
-                            🗑 Delete
-                          </button>
+                          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                            <button
+                              className="ao-receipt-btn"
+                              onClick={() => setReceiptOrder(order)}
+                            >
+                              🧾 Receipt
+                            </button>
+                            <button className="ao-del" onClick={() => deleteOrder(order._id)}>
+                              🗑 Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
 

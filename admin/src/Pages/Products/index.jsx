@@ -1,295 +1,173 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { Button, useTheme } from "@mui/material";
-import { IoMdAdd } from "react-icons/io";
+import {
+    Button, Checkbox, CircularProgress, MenuItem, Select,
+    Table, TableBody, TableCell, TableContainer, TableHead,
+    TablePagination, TableRow, Chip, Tooltip, IconButton,
+    Skeleton, Dialog, DialogTitle, DialogContent, DialogActions, Fade,
+} from '@mui/material';
+import { IoMdAdd } from 'react-icons/io';
+import { AiOutlineEdit } from 'react-icons/ai';
+import { FaRegEye, FaBoxOpen } from 'react-icons/fa6';
+import { GoTrash } from 'react-icons/go';
+import { MdDeleteOutline, MdFilterList, MdWarning, MdRefresh } from 'react-icons/md';
+import { TbPackage } from 'react-icons/tb';
 import Rating from '@mui/material/Rating';
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TablePagination from "@mui/material/TablePagination";
-import TableRow from "@mui/material/TableRow";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import Checkbox from "@mui/material/Checkbox";
-import { Link } from "react-router-dom";
-import Progress from "../../Components/ProgressBar";
-import { AiOutlineEdit } from "react-icons/ai";
-import { FaRegEye } from "react-icons/fa6";
-import { GoTrash } from "react-icons/go";
+import { Link } from 'react-router-dom';
 import SearchBox from '../../Components/SearchBox';
 import { MyContext } from '../../App';
 import { fetchDataFromApi, deleteData, deleteMultipleData } from '../../utils/api';
-import { LazyLoadImage } from "react-lazy-load-image-component";
-import "react-lazy-load-image-component/src/effects/blur.css";
-import CircularProgress from '@mui/material/CircularProgress';
+import { LazyLoadImage } from 'react-lazy-load-image-component';
+import 'react-lazy-load-image-component/src/effects/blur.css';
+import Lightbox from 'yet-another-react-lightbox';
+import 'yet-another-react-lightbox/styles.css';
 
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-
-
-const label = { inputProps: { "aria-label": "Checkbox demo" } };
+const label = { inputProps: { 'aria-label': 'Checkbox demo' } };
 
 const columns = [
-    { id: "product", label: "PRODUCT", minWidth: 150 },
-    { id: "category", label: "CATEGORY", minWidth: 100 },
-    {
-        id: "subcategory",
-        label: "SUB CATEGORY",
-        minWidth: 150,
-    },
-    {
-        id: "price",
-        label: "PRICE",
-        minWidth: 130,
-    },
-    {
-        id: "sales",
-        label: "SALES",
-        minWidth: 100,
-    },
-    {
-        id: "stock",
-        label: "STOCK",
-        minWidth: 100,
-    },
-    {
-        id: "rating",
-        label: "RATING",
-        minWidth: 100,
-    },
-    {
-        id: "action",
-        label: "ACTION",
-        minWidth: 120,
-    },
+    { id: 'product', label: 'PRODUCT', minWidth: 220 },
+    { id: 'category', label: 'CATEGORY', minWidth: 110 },
+    { id: 'subcategory', label: 'SUB CATEGORY', minWidth: 130 },
+    { id: 'price', label: 'PRICE', minWidth: 120 },
+    { id: 'sales', label: 'SALES', minWidth: 80 },
+    { id: 'stock', label: 'STOCK', minWidth: 90 },
+    { id: 'rating', label: 'RATING', minWidth: 110 },
+    { id: 'action', label: 'ACTION', minWidth: 110 },
 ];
+
+/* ─── small reusable stat card ─── */
+const StatCard = ({ label: lbl, value, color, bg, icon }) => (
+    <div style={{
+        background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12,
+        padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+    }}>
+        <div style={{
+            width: 40, height: 40, borderRadius: 10, background: bg,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color, fontSize: 18, flexShrink: 0,
+        }}>{icon}</div>
+        <div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#111827', lineHeight: 1 }}>
+                {value ?? <Skeleton width={36} height={24} />}
+            </div>
+            <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 500, marginTop: 2 }}>{lbl}</div>
+        </div>
+    </div>
+);
 
 export const Products = () => {
     const [productCat, setProductCat] = React.useState('');
     const [page, setPage] = React.useState(0);
     const [rowsPerPage, setRowsPerPage] = React.useState(50);
-
     const [productData, setProductData] = useState([]);
     const [productTotalData, setProductTotalData] = useState([]);
-
     const [productSubCat, setProductSubCat] = React.useState('');
     const [productThirdLavelCat, setProductThirdLavelCat] = useState('');
     const [sortedIds, setSortedIds] = useState([]);
-    const [isLoading, setIsloading] = useState(false);
-
+    const [isLoading, setIsLoading] = useState(false);
     const [pageOrder, setPageOrder] = useState(1);
-    const [searchQuery, setSearchQuery] = useState("");
-
+    const [searchQuery, setSearchQuery] = useState('');
     const [photos, setPhotos] = useState([]);
     const [open, setOpen] = useState(false);
+    const [lightboxIdx, setLightboxIdx] = useState(0);
+    const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, name: '', multiple: false });
+    const [filtersOpen, setFiltersOpen] = useState(false);
 
     const context = useContext(MyContext);
 
-    useEffect(() => {
-        getProducts(page, rowsPerPage);
-    }, [context?.isOpenFullScreenPanel, page, rowsPerPage])
-
-
+    useEffect(() => { getProducts(page, rowsPerPage); }, [context?.isOpenFullScreenPanel, page, rowsPerPage]);
 
     useEffect(() => {
-        // Filter orders based on search query
-        if (searchQuery !== "") {
-            const sourceProducts = productTotalData?.totalProducts || productTotalData?.products || [];
-            const filteredOrders = sourceProducts?.filter((product) =>
-                product._id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                product?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                product?.catName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                product?.subCat?.includes(searchQuery)
+        if (searchQuery !== '') {
+            const src = productTotalData?.totalProducts || productTotalData?.products || [];
+            const filtered = src.filter((p) =>
+                p._id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                p?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                p?.catName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                p?.subCat?.includes(searchQuery)
             );
             setProductData({
-                error: false,
-                success: true,
-                products: filteredOrders,
-                total: filteredOrders?.length,
-                page: parseInt(page),
-                totalPages: Math.ceil(filteredOrders?.length / rowsPerPage),
-                totalCount: productData?.totalCount
+                error: false, success: true, products: filtered,
+                total: filtered.length, page: parseInt(page),
+                totalPages: Math.ceil(filtered.length / rowsPerPage),
+                totalCount: productData?.totalCount,
             });
-
         } else {
             getProducts(page, rowsPerPage);
         }
+    }, [searchQuery]);
 
-    }, [searchQuery])
-
-
-    // Handler to toggle all checkboxes
     const handleSelectAll = (e) => {
         const isChecked = e.target.checked;
-
-        // Update all items' checked status
-        const updatedItems = productData?.products?.map((item) => ({
-            ...item,
-            checked: isChecked,
-        }));
-        setProductData({
-            error: false,
-            success: true,
-            products: updatedItems,
-            total: updatedItems?.length,
-            page: parseInt(page),
-            totalPages: Math.ceil(updatedItems?.length / rowsPerPage),
-            totalCount: productData?.totalCount
-        });
-
-        // Update the sorted IDs state
-        if (isChecked) {
-            const ids = updatedItems.map((item) => item._id).sort((a, b) => a - b);
-            setSortedIds(ids);
-        } else {
-            setSortedIds([]);
-        }
+        const updatedItems = productData?.products?.map((item) => ({ ...item, checked: isChecked }));
+        setProductData({ ...productData, products: updatedItems });
+        setSortedIds(isChecked ? updatedItems.map((i) => i._id) : []);
     };
 
-
-    // Handler to toggle individual checkboxes
-    const handleCheckboxChange = (e, id, index) => {
-
+    const handleCheckboxChange = (e, id) => {
         const updatedItems = productData?.products?.map((item) =>
             item._id === id ? { ...item, checked: !item.checked } : item
         );
-        setProductData({
-            error: false,
-            success: true,
-            products: updatedItems,
-            total: updatedItems?.length,
-            page: parseInt(page),
-            totalPages: Math.ceil(updatedItems?.length / rowsPerPage),
-            totalCount: productData?.totalCount
-        });
-
-
-
-        // Update the sorted IDs state
-        const selectedIds = updatedItems
-            .filter((item) => item.checked)
-            .map((item) => item._id)
-            .sort((a, b) => a - b);
-        setSortedIds(selectedIds);
+        setProductData({ ...productData, products: updatedItems });
+        setSortedIds(updatedItems.filter((i) => i.checked).map((i) => i._id));
     };
 
-
-    const getProducts = async (page, limit) => {
-        
-        setIsloading(true)
-         const endpoint = context?.userData?.role === "SELLER" ? `/api/product/seller/products?page=${page + 1}&limit=${limit}` : `/api/product/getAllProducts?page=${page + 1}&limit=${limit}`;
+    const getProducts = async (pg, limit) => {
+        setIsLoading(true);
+        const endpoint = context?.userData?.role === 'SELLER'
+            ? `/api/product/seller/products?page=${pg + 1}&limit=${limit}`
+            : `/api/product/getAllProducts?page=${pg + 1}&limit=${limit}`;
         fetchDataFromApi(endpoint).then((res) => {
-            setProductData(res)
-
-            setProductTotalData(res)
-            setIsloading(false)
-
-            let arr = [];
-
-            for (let i = 0; i < res?.products?.length; i++) {
-                arr.push({
-                    src: res?.products[i]?.images[0]
-                })
-            }
-
-            setPhotos(arr);
-
-        })
-    }
+            setProductData(res);
+            setProductTotalData(res);
+            setIsLoading(false);
+            setPhotos((res?.products || []).map((p) => ({ src: p.images?.[0] })));
+        });
+    };
 
     const handleChangeProductCat = (event) => {
-        if (event.target.value !== null) {
-            setProductCat(event.target.value);
-            setProductSubCat('');
-            setProductThirdLavelCat('');
-            setIsloading(true)
-            fetchDataFromApi(`/api/product/getAllProductsByCatId/${event.target.value}`).then((res) => {
-                if (res?.error === false) {
-                    setProductData({
-                        error: false,
-                        success: true,
-                        products: res?.products,
-                        total: res?.products?.length,
-                        page: parseInt(page),
-                        totalPages: Math.ceil(res?.products?.length / rowsPerPage),
-                        totalCount: res?.products?.length
-                    });
-
-                    setTimeout(() => {
-                        setIsloading(false)
-                    }, 300);
-                }
-            })
-        } else {
-            getProducts(0, 50);
-            setProductSubCat('');
-            setProductCat(event.target.value);
-            setProductThirdLavelCat('');
-        }
-
+        const val = event.target.value;
+        setProductCat(val);
+        setProductSubCat('');
+        setProductThirdLavelCat('');
+        if (!val) { getProducts(0, rowsPerPage); return; }
+        setIsLoading(true);
+        fetchDataFromApi(`/api/product/getAllProductsByCatId/${val}`).then((res) => {
+            if (res?.error === false) {
+                setProductData({ error: false, success: true, products: res?.products, totalPages: Math.ceil(res?.products?.length / rowsPerPage), totalCount: res?.products?.length });
+                setIsLoading(false);
+            }
+        });
     };
 
-
     const handleChangeProductSubCat = (event) => {
-        if (event.target.value !== null) {
-            setProductSubCat(event.target.value);
-            setProductCat('');
-            setProductThirdLavelCat('');
-            setIsloading(true)
-            fetchDataFromApi(`/api/product/getAllProductsBySubCatId/${event.target.value}`).then((res) => {
-                if (res?.error === false) {
-                    setProductData({
-                        error: false,
-                        success: true,
-                        products: res?.products,
-                        total: res?.products?.length,
-                        page: parseInt(page),
-                        totalPages: Math.ceil(res?.products?.length / rowsPerPage),
-                        totalCount: res?.products?.length
-                    });
-                    setTimeout(() => {
-                        setIsloading(false)
-                    }, 500);
-                }
-            })
-        } else {
-            setProductSubCat(event.target.value);
-            getProducts(0, 50);
-            setProductCat('');
-            setProductThirdLavelCat('');
-        }
+        const val = event.target.value;
+        setProductSubCat(val);
+        setProductCat('');
+        setProductThirdLavelCat('');
+        if (!val) { getProducts(0, rowsPerPage); return; }
+        setIsLoading(true);
+        fetchDataFromApi(`/api/product/getAllProductsBySubCatId/${val}`).then((res) => {
+            if (res?.error === false) {
+                setProductData({ error: false, success: true, products: res?.products, totalPages: Math.ceil(res?.products?.length / rowsPerPage) });
+                setIsLoading(false);
+            }
+        });
     };
 
     const handleChangeProductThirdLavelCat = (event) => {
-        if (event.target.value !== null) {
-            setProductThirdLavelCat(event.target.value);
-            setProductCat('');
-            setProductSubCat('');
-            setIsloading(true)
-            fetchDataFromApi(`/api/product/getAllProductsByThirdLavelCat/${event.target.value}`).then((res) => {
-                console.log(res)
-                if (res?.error === false) {
-                    setProductData({
-                        error: false,
-                        success: true,
-                        products: res?.products,
-                        total: res?.products?.length,
-                        page: parseInt(page),
-                        totalPages: Math.ceil(res?.products?.length / rowsPerPage),
-                        totalCount: res?.products?.length
-                    });
-                    setTimeout(() => {
-                        setIsloading(false)
-                    }, 300);
-                }
-            })
-        } else {
-            setProductThirdLavelCat(event.target.value);
-            getProducts(0, 50);
-            setProductCat('');
-            setProductSubCat('');
-        }
+        const val = event.target.value;
+        setProductThirdLavelCat(val);
+        setProductCat('');
+        setProductSubCat('');
+        if (!val) { getProducts(0, rowsPerPage); return; }
+        setIsLoading(true);
+        fetchDataFromApi(`/api/product/getAllProductsByThirdLavelCat/${val}`).then((res) => {
+            if (res?.error === false) {
+                setProductData({ error: false, success: true, products: res?.products, totalPages: Math.ceil(res?.products?.length / rowsPerPage) });
+                setIsLoading(false);
+            }
+        });
     };
 
     const handleChangeRowsPerPage = (event) => {
@@ -297,361 +175,317 @@ export const Products = () => {
         setPage(0);
     };
 
-
-    const deleteProduct = (id) => {
-        if (["ADMIN", "SELLER"].includes(context?.userData?.role)) {
-            deleteData(`/api/product/${id}`).then((res) => {
-                getProducts();
-                context.alertBox("success", "Product deleted");
-
-            })
-        } else {
-            context.alertBox("error", "Only admin or seller can delete product");
-        }
-    }
-
-
-    const deleteMultipleProduct = () => {
-
-        if (sortedIds.length === 0) {
-            context.alertBox('error', 'Please select items to delete.');
-            return;
-        }
-
-
-        try {
-            deleteMultipleData(`/api/product/deleteMultiple`, {
-                data: { ids: sortedIds },
-            }).then((res) => {
-                getProducts();
-                context.alertBox("success", "Product deleted");
-                setSortedIds([]);
-
-            })
-
-        } catch (error) {
-            context.alertBox('error', 'Error deleting items.');
-        }
-
-
-    }
-
-
-
     const handleChangePage = (event, newPage) => {
-        getProducts(page, rowsPerPage);
         setPage(newPage);
+        getProducts(newPage, rowsPerPage);
+    };
+
+    const confirmDelete = (id, name, multiple = false) => setDeleteDialog({ open: true, id, name, multiple });
+
+    const handleConfirmedDelete = () => {
+        if (deleteDialog.multiple) {
+            deleteMultipleData('/api/product/deleteMultiple', { data: { ids: sortedIds } }).then(() => {
+                context.alertBox('success', `${sortedIds.length} products deleted`);
+                setSortedIds([]);
+                getProducts(page, rowsPerPage);
+            });
+        } else {
+            if (!['ADMIN', 'SELLER'].includes(context?.userData?.role)) {
+                context.alertBox('error', 'Only admin or seller can delete product');
+                return;
+            }
+            deleteData(`/api/product/${deleteDialog.id}`).then(() => {
+                context.alertBox('success', 'Product deleted');
+                getProducts(page, rowsPerPage);
+            });
+        }
+        setDeleteDialog({ open: false, id: null, name: '', multiple: false });
+    };
+
+    // Stats
+    const allProds = productTotalData?.products || [];
+    const totalCount = productData?.totalCount || (productData?.totalPages * rowsPerPage) || 0;
+    const outOfStock = allProds.filter((p) => p.countInStock === 0).length;
+    const featuredCount = allProds.filter((p) => p.isFeatured).length;
+
+    const stockColor = (stock) => {
+        if (stock === 0) return { color: '#991b1b', bg: '#fee2e2', label: 'Out' };
+        if (stock < 10) return { color: '#92400e', bg: '#fef3c7', label: stock };
+        return { color: '#15803d', bg: '#dcfce7', label: stock };
     };
 
     return (
         <>
-
-            <div className="flex items-center justify-between px-2 py-0 mt-3">
-                <h2 className="text-[18px] font-[600]">
-                    Products{" "}
-                    <span className="font-[400] text-[14px]"></span>
-                </h2>
-
-                <div className="col w-[75%] ml-auto flex items-center justify-end gap-3">
-                    {
-                        sortedIds?.length !== 0 && <Button variant="contained" className="btn-sm" size="small" color="error"
-                            onClick={deleteMultipleProduct}>Delete</Button>
-                    }
-
-
-                    <Button className="btn-blue !text-white btn-sm"
-                        onClick={() => context.setIsOpenFullScreenPanel({
-                            open: true,
-                            model: 'Add Product'
-                        })}>Add Product</Button>
+            {/* ── Page Header ── */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
+                <div>
+                    <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827', margin: 0 }}>Products</h1>
+                    <p style={{ fontSize: 13, color: '#6b7280', margin: '4px 0 0' }}>
+                        Manage your product catalogue
+                    </p>
                 </div>
-
-
+                <div style={{ display: 'flex', gap: 10 }}>
+                    <Tooltip title="Refresh"><IconButton size="small" onClick={() => getProducts(page, rowsPerPage)}
+                        style={{ border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', color: '#374151' }}>
+                        <MdRefresh size={18} />
+                    </IconButton></Tooltip>
+                    <Button variant="contained" startIcon={<IoMdAdd size={16} />}
+                        onClick={() => context.setIsOpenFullScreenPanel({ open: true, model: 'Add Product' })}
+                        style={{ background: '#111827', borderRadius: 8, textTransform: 'none', fontWeight: 600, fontSize: 13, boxShadow: 'none' }}>
+                        Add Product
+                    </Button>
+                </div>
             </div>
 
+            {/* ── Stats ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 20 }}>
+                <StatCard lbl="Total Products" value={totalCount || '--'} color="#7c3aed" bg="#ede9fe" icon={<TbPackage />} label="Total Products" />
+                <StatCard lbl="Out of Stock" value={outOfStock || 0} color="#dc2626" bg="#fee2e2" icon={<FaBoxOpen />} label="Out of Stock" />
+                <StatCard lbl="Featured" value={featuredCount || 0} color="#0369a1" bg="#e0f2fe" icon={<IoMdAdd />} label="Featured" />
+            </div>
 
-            <div className="card my-4 pt-5 shadow-md sm:rounded-lg bg-white">
+            {/* ── Main Card ── */}
+            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2  md:grid-cols-2 lg:grid-cols-4 w-full px-5 justify-beetween gap-4">
-                    <div className="col">
-                        <h4 className="font-[600] text-[13px] mb-2">Category By</h4>
-                        {
-                            context?.catData?.length !== 0 &&
-                            <Select
-                                style={{ zoom: '80%' }}
-                                labelId="demo-simple-select-label"
-                                id="productCatDrop"
-                                size="small"
-                                className='w-full'
-                                value={productCat}
-                                label="Category"
-                                onChange={handleChangeProductCat}
-                            >
-                                <MenuItem value={null}>None</MenuItem>
-                                {
-                                    context?.catData?.map((cat, index) => {
-                                        return (
-                                            <MenuItem value={cat?._id}>{cat?.name}</MenuItem>
-                                        )
-                                    })
-                                }
+                {/* Filter Bar */}
+                <div style={{ padding: '12px 18px', borderBottom: '1px solid #f3f4f6', background: '#fafafa', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <button onClick={() => setFiltersOpen((p) => !p)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, background: filtersOpen ? '#111827' : '#fff', color: filtersOpen ? '#fff' : '#374151', border: '1px solid #d1d5db', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                        <MdFilterList size={16} /> Filters {(productCat || productSubCat || productThirdLavelCat) ? '●' : ''}
+                    </button>
 
-                            </Select>
-                        }
+                    {sortedIds.length > 0 && (
+                        <Fade in>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Chip label={`${sortedIds.length} selected`} size="small"
+                                    style={{ background: '#ede9fe', color: '#7c3aed', fontWeight: 600, fontSize: 12 }} />
+                                <Button variant="outlined" color="error" size="small"
+                                    startIcon={<MdDeleteOutline size={15} />}
+                                    onClick={() => confirmDelete(null, null, true)}
+                                    style={{ textTransform: 'none', fontWeight: 600, fontSize: 12, borderRadius: 7 }}>
+                                    Delete Selected
+                                </Button>
+                            </div>
+                        </Fade>
+                    )}
+
+                    <div style={{ marginLeft: 'auto' }}>
+                        <SearchBox searchQuery={searchQuery} setSearchQuery={setSearchQuery} setPageOrder={setPageOrder} />
                     </div>
-
-
-                    <div className="col">
-                        <h4 className="font-[600] text-[13px] mb-2">Sub Category By</h4>
-                        {
-                            context?.catData?.length !== 0 &&
-                            <Select
-                                style={{ zoom: '80%' }}
-                                labelId="demo-simple-select-label"
-                                id="productCatDrop"
-                                size="small"
-                                className='w-full'
-                                value={productSubCat}
-                                label="Sub Category"
-                                onChange={handleChangeProductSubCat}
-                            >
-                                <MenuItem value={null}>None</MenuItem>
-                                {
-                                    context?.catData?.map((cat, index) => {
-                                        return (
-                                            cat?.children?.length !== 0 && cat?.children?.map((subCat, index_) => {
-                                                return (
-                                                    <MenuItem value={subCat?._id}>
-                                                        {subCat?.name}</MenuItem>
-                                                )
-                                            })
-
-                                        )
-                                    })
-                                }
-
-                            </Select>
-                        }
-                    </div>
-
-
-                    <div className="col">
-                        <h4 className="font-[600] text-[13px] mb-2">Third Level Sub Category By</h4>
-                        {
-                            context?.catData?.length !== 0 &&
-                            <Select
-                                style={{ zoom: '80%' }}
-                                labelId="demo-simple-select-label"
-                                id="productCatDrop"
-                                size="small"
-                                className='w-full'
-                                value={productThirdLavelCat}
-                                label="Sub Category"
-                                onChange={handleChangeProductThirdLavelCat}
-                            >
-                                <MenuItem value={null}>None</MenuItem>
-                                {
-                                    context?.catData?.map((cat) => {
-                                        return (
-                                            cat?.children?.length !== 0 && cat?.children?.map((subCat) => {
-                                                return (
-                                                    subCat?.children?.length !== 0 && subCat?.children?.map((thirdLavelCat, index) => {
-                                                        return <MenuItem value={thirdLavelCat?._id} key={index}
-                                                        >{thirdLavelCat?.name}</MenuItem>
-                                                    })
-
-                                                )
-                                            })
-
-                                        )
-                                    })
-                                }
-
-                            </Select>
-                        }
-
-                    </div>
-
-
-                    <div className="col w-full ml-auto flex items-center">
-                        <div style={{ alignSelf: 'end' }} className="w-full">
-                            <SearchBox
-                                searchQuery={searchQuery}
-                                setSearchQuery={setSearchQuery}
-                                setPageOrder={setPageOrder}
-                            />
-                        </div>
-                    </div>
-
                 </div>
 
-                <br />
-                <TableContainer sx={{ maxHeight: 440 }}>
-                    <Table stickyHeader aria-label="sticky table">
+                {/* Collapsible Filters */}
+                {filtersOpen && (
+                    <div style={{ padding: '14px 18px', borderBottom: '1px solid #f3f4f6', background: '#f9fafb', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+                        {[
+                            { label: 'Category', value: productCat, onChange: handleChangeProductCat, items: context?.catData?.map((c) => ({ id: c._id, name: c.name })) },
+                            { label: 'Sub Category', value: productSubCat, onChange: handleChangeProductSubCat, items: context?.catData?.flatMap((c) => c.children || []).map((c) => ({ id: c._id, name: c.name })) },
+                            { label: 'Third Level', value: productThirdLavelCat, onChange: handleChangeProductThirdLavelCat, items: context?.catData?.flatMap((c) => (c.children || []).flatMap((sc) => sc.children || [])).map((c) => ({ id: c._id, name: c.name })) },
+                        ].map((f) => (
+                            <div key={f.label}>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 5, letterSpacing: '0.05em' }}>{f.label.toUpperCase()}</label>
+                                <Select size="small" value={f.value} onChange={f.onChange} displayEmpty
+                                    sx={{ width: '100%', fontSize: 13, background: '#fff', borderRadius: 2 }}>
+                                    <MenuItem value=''>All</MenuItem>
+                                    {f.items?.map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
+                                </Select>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Table */}
+                <TableContainer sx={{ maxHeight: 520 }}>
+                    <Table stickyHeader size="small" aria-label="products table">
                         <TableHead>
                             <TableRow>
-                                <TableCell>
-                                    <Checkbox {...label} size="small"
-                                        onChange={handleSelectAll}
-                                        checked={productData?.products?.length > 0 ? productData?.products?.every((item) => item.checked) : false}
-                                    />
+                                <TableCell padding="checkbox" sx={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb', pl: 2 }}>
+                                    <Checkbox {...label} size="small" onChange={handleSelectAll}
+                                        checked={productData?.products?.length > 0 ? productData?.products?.every((i) => i.checked) : false}
+                                        indeterminate={sortedIds.length > 0 && sortedIds.length < (productData?.products?.length || 0)} />
                                 </TableCell>
-                                {columns.map((column) => (
-                                    <TableCell
-                                        key={column.id}
-                                        align={column.align}
-                                        style={{ minWidth: column.minWidth }}
-                                    >
-                                        {column.label}
+                                {columns.map((col) => (
+                                    <TableCell key={col.id} sx={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb', fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: '0.06em', minWidth: col.minWidth, py: 1.5 }}>
+                                        {col.label}
                                     </TableCell>
                                 ))}
                             </TableRow>
                         </TableHead>
                         <TableBody>
-
-                            {
-                                isLoading === false ? productData?.products?.length !== 0 && productData?.products?.map((product, index) => {
+                            {isLoading ? (
+                                Array.from({ length: 8 }).map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell padding="checkbox" sx={{ pl: 2 }}><Skeleton variant="rectangular" width={16} height={16} sx={{ borderRadius: 1 }} /></TableCell>
+                                        {columns.map((col) => <TableCell key={col.id}><Skeleton variant="text" width="80%" height={20} /></TableCell>)}
+                                    </TableRow>
+                                ))
+                            ) : productData?.products?.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={9}>
+                                        <div style={{ textAlign: 'center', padding: '56px 0', color: '#9ca3af' }}>
+                                            <TbPackage size={40} style={{ opacity: 0.25, marginBottom: 12 }} />
+                                            <div style={{ fontSize: 14, fontWeight: 600 }}>No products found</div>
+                                            <div style={{ fontSize: 12, marginTop: 4 }}>Try adjusting the filters or search query</div>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                productData?.products?.map((product, index) => {
+                                    const sc = stockColor(product.countInStock);
                                     return (
-                                        <TableRow key={index} className={product.checked === true ? '!bg-[#1976d21f]' : ''}>
-                                            <TableCell style={{ minWidth: columns.minWidth }}>
-                                                <Checkbox {...label} size="small" checked={product.checked === true ? true : false}
-                                                    onChange={(e) => handleCheckboxChange(e, product._id, index)}
-                                                />
+                                        <TableRow key={product._id || index} hover
+                                            sx={{
+                                                background: product.checked ? '#f5f3ff !important' : 'inherit',
+                                                borderLeft: product.checked ? '3px solid #7c3aed' : '3px solid transparent',
+                                                transition: 'background 0.15s',
+                                            }}>
+                                            <TableCell padding="checkbox" sx={{ pl: 2 }}>
+                                                <Checkbox {...label} size="small" checked={!!product.checked}
+                                                    onChange={(e) => handleCheckboxChange(e, product._id)} />
                                             </TableCell>
-                                            <TableCell style={{ minWidth: columns.minWidth }}>
-                                                <div className="flex items-center gap-4 w-[300px]" title={product?.name}>
-                                                    <div className="img w-[65px] h-[65px] rounded-md overflow-hidden group cursor-pointer" onClick={() => setOpen(true)}>
-                                                        <LazyLoadImage
-                                                            alt={"image"}
-                                                            effect="blur"
-                                                            src={product?.images[0]}
-                                                            className="w-full group-hover:scale-105 transition-all"
-                                                        />
+
+                                            {/* Product */}
+                                            <TableCell>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                    <div style={{ width: 52, height: 52, borderRadius: 8, overflow: 'hidden', flexShrink: 0, border: '1px solid #e5e7eb', cursor: 'pointer', background: '#f9fafb' }}
+                                                        onClick={() => { setLightboxIdx(index); setOpen(true); }}>
+                                                        <LazyLoadImage alt="product" effect="blur" src={product?.images?.[0]}
+                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     </div>
-                                                    <div className="info w-[75%]">
-                                                        <h3 className="font-[600] text-[12px] leading-4 hover:text-primary">
-                                                            <Link to={`/product/${product?._id}`}>
-                                                                {product?.name?.substr(0, 50) + '...'}
-                                                            </Link>
-                                                        </h3>
-                                                        <span className="text-[12px]">{product?.brand}</span>
+                                                    <div style={{ maxWidth: 180 }}>
+                                                        <Link to={`/product/${product._id}`}>
+                                                            <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                                                                {product?.name}
+                                                            </div>
+                                                        </Link>
+                                                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{product?.brand}</div>
+                                                        {product?.isFeatured && (
+                                                            <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#92400e', padding: '2px 7px', borderRadius: 10, display: 'inline-block', marginTop: 3 }}>
+                                                                ★ Featured
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </TableCell>
 
-                                            <TableCell style={{ minWidth: columns.minWidth }}>
-                                                {product?.catName}
-                                            </TableCell>
+                                            {/* Category */}
+                                            <TableCell><span style={{ fontSize: 12, color: '#374151' }}>{product?.catName}</span></TableCell>
 
-                                            <TableCell style={{ minWidth: columns.minWidth }}>
-                                                {product?.subCat}
-                                            </TableCell>
+                                            {/* SubCat */}
+                                            <TableCell><span style={{ fontSize: 12, color: '#374151' }}>{product?.subCat || '—'}</span></TableCell>
 
-                                            <TableCell style={{ minWidth: columns.minWidth }}>
-                                                <div className="flex gap-1 flex-col">
-                                                    <span className="oldPrice line-through leading-3 text-gray-500 text-[14px] font-[500]">
-                                                        {product?.price?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
-                                                    </span>
-                                                    <span className="price text-primary text-[14px]  font-[600]">
+                                            {/* Price */}
+                                            <TableCell>
+                                                <div>
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
                                                         {product?.oldPrice?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
-                                                    </span>
+                                                    </div>
+                                                    <div style={{ fontSize: 11, color: '#9ca3af', textDecoration: 'line-through' }}>
+                                                        {product?.price?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
+                                                    </div>
+                                                    {product?.discount > 0 && (
+                                                        <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: 10 }}>
+                                                            -{product.discount}%
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </TableCell>
 
-                                            <TableCell style={{ minWidth: columns.minWidth }}>
-                                                <p className="text-[14px] w-[70px]">
-                                                    <span className="font-[600]">{product?.sale}</span> sale
-                                                </p>
-
-
+                                            {/* Sales */}
+                                            <TableCell>
+                                                <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{product?.sale}</span>
                                             </TableCell>
 
-
-                                            <TableCell style={{ minWidth: columns.minWidth }}>
-                                                <p className="text-[14px] w-[70px]">
-                                                    <span className="font-[600] text-primary">{product?.countInStock}</span>
-                                                </p>
-
-
+                                            {/* Stock */}
+                                            <TableCell>
+                                                <span style={{ fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, padding: '3px 9px', borderRadius: 20, display: 'inline-block' }}>
+                                                    {sc.label === 'Out' ? 'Out of stock' : sc.label}
+                                                </span>
                                             </TableCell>
 
-
-                                            <TableCell style={{ minWidth: columns.minWidth }}>
-                                                <p className="text-[14px] w-[100px]">
-                                                    <Rating name="half-rating" size="small" defaultValue={product?.rating} readOnly />
-                                                </p>
-
-
+                                            {/* Rating */}
+                                            <TableCell>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                    <Rating value={product?.rating} readOnly size="small" precision={0.5} />
+                                                    <span style={{ fontSize: 11, color: '#6b7280' }}>{product?.rating?.toFixed(1)}</span>
+                                                </div>
                                             </TableCell>
 
-                                            <TableCell style={{ minWidth: columns.minWidth }}>
-                                                <div className="flex items-center gap-1">
-                                                    <Button className="!w-[35px] !h-[35px] bg-[#f1f1f1] !border !border-[rgba(0,0,0,0.4)] !rounded-full hover:!bg-[#f1f1f1] !min-w-[35px]"
-                                                        onClick={() => context.setIsOpenFullScreenPanel({
-                                                            open: true,
-                                                            model: 'Edit Product',
-                                                            id: product?._id
-                                                        })}
-                                                    >
-                                                        <AiOutlineEdit className="text-[rgba(0,0,0,0.7)] text-[20px] " />
-                                                    </Button>
-
-                                                    <Link to={`/product/${product?._id}`}>
-                                                        <Button className="!w-[35px] !h-[35px] bg-[#f1f1f1] !border !border-[rgba(0,0,0,0.4)] !rounded-full hover:!bg-[#f1f1f1] !min-w-[35px]">
-                                                            <FaRegEye className="text-[rgba(0,0,0,0.7)] text-[18px] " />
-                                                        </Button>
-                                                    </Link>
-
-                                                    <Button className="!w-[35px] !h-[35px] bg-[#f1f1f1] !border !border-[rgba(0,0,0,0.4)] !rounded-full hover:!bg-[#f1f1f1] !min-w-[35px]" onClick={() => deleteProduct(product?._id)}>
-                                                        <GoTrash className="text-[rgba(0,0,0,0.7)] text-[18px] " />
-                                                    </Button>
+                                            {/* Actions */}
+                                            <TableCell>
+                                                <div style={{ display: 'flex', gap: 4 }}>
+                                                    <Tooltip title="Edit" arrow>
+                                                        <IconButton size="small"
+                                                            onClick={() => context.setIsOpenFullScreenPanel({ open: true, model: 'Edit Product', id: product._id })}
+                                                            sx={{ background: '#f3f4f6', borderRadius: 1.5, width: 30, height: 30, '&:hover': { background: '#e5e7eb' } }}>
+                                                            <AiOutlineEdit size={15} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                    <Tooltip title="View" arrow>
+                                                        <Link to={`/product/${product._id}`}>
+                                                            <IconButton size="small"
+                                                                sx={{ background: '#eff6ff', color: '#2563eb', borderRadius: 1.5, width: 30, height: 30, '&:hover': { background: '#dbeafe' } }}>
+                                                                <FaRegEye size={13} />
+                                                            </IconButton>
+                                                        </Link>
+                                                    </Tooltip>
+                                                    <Tooltip title="Delete" arrow>
+                                                        <IconButton size="small"
+                                                            onClick={() => confirmDelete(product._id, product.name)}
+                                                            sx={{ background: '#fee2e2', color: '#ef4444', borderRadius: 1.5, width: 30, height: 30, '&:hover': { background: '#fecaca' } }}>
+                                                            <GoTrash size={13} />
+                                                        </IconButton>
+                                                    </Tooltip>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
-                                    )
+                                    );
                                 })
-
-
-                                    :
-
-                                    <>
-                                        <TableRow>
-                                            <TableCell colspan={8}>
-                                                <div className="flex items-center justify-center w-full min-h-[400px]">
-                                                    <CircularProgress color="inherit" />
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-
-                                    </>
-                            }
-
-
-
+                            )}
                         </TableBody>
                     </Table>
                 </TableContainer>
+
                 <TablePagination
                     rowsPerPageOptions={[50, 100, 150, 200]}
                     component="div"
-                    count={productData?.totalPages * rowsPerPage}
+                    count={(productData?.totalPages || 0) * rowsPerPage}
                     rowsPerPage={rowsPerPage}
                     page={page}
                     onPageChange={handleChangePage}
                     onRowsPerPageChange={handleChangeRowsPerPage}
+                    sx={{ borderTop: '1px solid #f3f4f6' }}
                 />
             </div>
 
+            {/* ── Delete Dialog ── */}
+            <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ ...deleteDialog, open: false })}
+                maxWidth="xs" fullWidth PaperProps={{ style: { borderRadius: 14 } }}>
+                <DialogTitle sx={{ fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 32, height: 32, borderRadius: '50%', background: '#fee2e2', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626', flexShrink: 0 }}>
+                        <MdWarning size={17} />
+                    </span>
+                    Confirm Delete
+                </DialogTitle>
+                <DialogContent>
+                    <p style={{ fontSize: 14, color: '#374151', margin: 0 }}>
+                        {deleteDialog.multiple
+                            ? `Delete ${sortedIds.length} selected products? This cannot be undone.`
+                            : `Delete "${deleteDialog.name}"? This cannot be undone.`}
+                    </p>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+                    <Button variant="outlined" onClick={() => setDeleteDialog({ ...deleteDialog, open: false })}
+                        sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}>Cancel</Button>
+                    <Button variant="contained" color="error" onClick={handleConfirmedDelete}
+                        sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600, boxShadow: 'none' }}>Delete</Button>
+                </DialogActions>
+            </Dialog>
 
-            <Lightbox
-                open={open}
-                close={() => setOpen(false)}
-                slides={photos}
-            />
-
-
+            {/* ── Lightbox ── */}
+            <Lightbox open={open} close={() => setOpen(false)} slides={photos} index={lightboxIdx} />
         </>
-    )
-}
+    );
+};
 
 export default Products;

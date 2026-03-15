@@ -950,23 +950,41 @@ export async function getAllReviews(request, response) {
 
 export async function upsertSellerStoreProfile(request, response) {
     try {
-        if (request.currentUser?.role !== "SELLER") {
-            return response.status(403).json({ error: true, success: false, message: "Only seller can update store profile" });
-        }
+        const {
+            storeName, description, image, location, contactNo, moreInfo, category,
+            returnPolicy, shippingTime, openHours, supportEmail,
+            accountHolderName, bankName, accountNumber, ifscCode
+        } = request.body;
 
         const payload = {
-            "storeProfile.storeName": request.body.storeName || "",
-            "storeProfile.description": request.body.description || "",
-            "storeProfile.image": request.body.image || "",
-            "storeProfile.location": request.body.location || "",
-            "storeProfile.contactNo": request.body.contactNo || "",
-            "storeProfile.moreInfo": request.body.moreInfo || "",
+            "storeProfile.storeName":    storeName    || "",
+            "storeProfile.description":  description  || "",
+            "storeProfile.image":        image        || "",
+            "storeProfile.location":     location     || "",
+            "storeProfile.contactNo":    contactNo    || "",
+            "storeProfile.moreInfo":     moreInfo     || "",
+            "storeProfile.category":     category     || "",
+            "storeProfile.returnPolicy": returnPolicy || "",
+            "storeProfile.shippingTime": shippingTime || "",
+            "storeProfile.openHours":    openHours    || "",
+            "storeProfile.supportEmail": supportEmail || "",
+            "bankDetails.accountHolderName": accountHolderName || "",
+            "bankDetails.bankName":          bankName          || "",
+            "bankDetails.accountNumber":     accountNumber     || "",
+            "bankDetails.ifscCode":          ifscCode          || "",
         };
 
-        const user = await UserModel.findByIdAndUpdate(request.userId, { $set: payload }, { new: true })
-            .select("name email role storeProfile");
+        const user = await UserModel.findByIdAndUpdate(
+            request.userId,
+            { $set: payload },
+            { new: true }
+        ).select("name email role storeProfile bankDetails");
 
-        return response.status(200).json({ error: false, success: true, message: "Store profile updated", user });
+        if (!user) {
+            return response.status(404).json({ error: true, success: false, message: "User not found" });
+        }
+
+        return response.status(200).json({ error: false, success: true, message: "Store profile updated successfully", user });
     } catch (error) {
         return response.status(500).json({ message: error.message || error, error: true, success: false });
     }
@@ -976,7 +994,7 @@ export async function upsertSellerStoreProfile(request, response) {
 export async function getSellerStoreProfile(request, response) {
     try {
         const sellerId = request.params.sellerId || request.userId;
-        const seller = await UserModel.findById(sellerId).select("name role storeProfile status");
+        const seller = await UserModel.findById(sellerId).select("name email role storeProfile bankDetails status");
 
         if (!seller || seller.role !== "SELLER") {
             return response.status(404).json({ error: true, success: false, message: "Seller not found" });
@@ -1137,5 +1155,99 @@ export async function deleteMultiple(request, response) {
 
     } catch (error) {
         return response.status(500).json({ message: error.message || error, error: true, success: false });
+    }
+}
+
+// Add this in user.controller.js
+
+export async function registerSellerController(request, response) {
+    try {
+        const { 
+            name, email, password, mobile, 
+            storeName, storeLocation, storeContact, storeDescription,
+            accountHolderName, bankName, accountNumber, ifscCode 
+        } = request.body;
+
+        if (!name || !email || !password || !storeName) {
+            return response.status(400).json({
+                message: "Please provide essential basic and store details.",
+                error: true,
+                success: false
+            });
+        }
+
+        const existingUser = await UserModel.findOne({ email });
+        if (existingUser) {
+            if (existingUser.verify_email === false) {
+                // Resend OTP logic (same as normal user)
+                const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+                existingUser.otp = newOtp;
+                existingUser.otpExpires = Date.now() + 10 * 60 * 1000;
+                await existingUser.save();
+
+                sendEmailFun({
+                    sendTo: email,
+                    subject: `Verify your Seller Account – ${process.env.STORE_NAME || 'Zeedaddy'}`,
+                    text: `Your OTP is: ${newOtp}. It expires in 10 minutes.`,
+                    html: VerificationEmail(existingUser.name, newOtp)
+                }).catch((err) => console.error('Verification email error:', err));
+
+                return response.status(200).json({
+                    success: true, error: false,
+                    message: "OTP resent! Please check your email to verify your seller account.",
+                });
+            }
+            return response.status(400).json({
+                message: "Email already registered.",
+                error: true, success: false
+            });
+        }
+
+        const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const salt = await bcryptjs.genSalt(10);
+        const hashPassword = await bcryptjs.hash(password, salt);
+
+        const seller = new UserModel({
+            email,
+            password: hashPassword,
+            name,
+            mobile,
+            role: 'USER', // Hardcode role for this specific route
+            otp: verifyCode,
+            otpExpires: Date.now() + 10 * 60 * 1000,
+            verify_email: false,
+            storeProfile: {
+                storeName: storeName || "",
+                location: storeLocation || "",
+                contactNo: storeContact || mobile || "",
+                description: storeDescription || ""
+            },
+            bankDetails: {
+                accountHolderName: accountHolderName || "",
+                bankName: bankName || "",
+                accountNumber: accountNumber || "",
+                ifscCode: ifscCode || ""
+            }
+        });
+
+        await seller.save();
+
+        sendEmailFun({
+            sendTo: email,
+            subject: `Verify your Seller Account – ${process.env.STORE_NAME || 'Zeedaddy'}`,
+            text: `Your OTP is: ${verifyCode}. It expires in 10 minutes.`,
+            html: VerificationEmail(name, verifyCode)
+        }).catch((err) => console.error('Verification email error:', err));
+
+        return response.status(200).json({
+            success: true, error: false,
+            message: "Seller registered successfully! Please verify your email.",
+        });
+
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true, success: false
+        });
     }
 }

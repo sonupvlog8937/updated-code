@@ -4,7 +4,7 @@ import HomeCatSlider from "../../components/HomeCatSlider";
 import { LiaShippingFastSolid } from "react-icons/lia";
 import AdsBannerSlider from "../../components/AdsBannerSlider";
 import AdsBannerSliderV2 from "../../components/AdsBannerSliderV2";
-
+import "./style.css"
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import ProductsSlider from "../../components/ProductsSlider";
@@ -27,229 +27,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { HiOutlineShieldCheck } from "react-icons/hi";
 import { FiRefreshCcw } from "react-icons/fi";
 import { IoHeadsetOutline } from "react-icons/io5";
-import { FaBolt, FaGift, FaRegCopy, FaStar, FaArrowRight, FaTruck, FaLock } from "react-icons/fa";
+import { FaBolt, FaGift, FaRegCopy, FaStar, FaArrowRight, FaTruck, FaLock, FaFire, FaTag, FaPercent } from "react-icons/fa";
 import { IoSearchOutline } from "react-icons/io5";
 import { RiSparklingLine } from "react-icons/ri";
 
-/* ─── Inline CSS Animations ──────────────────────────────────────────────── */
-const inlineStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
-
-  :root {
-    --red: #E8362A;
-    --red-dark: #c22c21;
-    --dark: #0a0a0f;
-    --dark2: #13131a;
-    --surface: #1a1a24;
-    --surface2: #22222e;
-    --text-muted: #8b8b9e;
-    --border: rgba(255,255,255,0.07);
-    --gold: #f5c842;
-  }
-
-  .home-root * { font-family: 'DM Sans', sans-serif; }
-  .home-root h1, .home-root h2, .home-root h3 { font-family: 'Syne', sans-serif; }
-
-  /* ── Ticker ── */
-  @keyframes ticker-scroll {
-    0%   { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
-  }
-  .ticker-track { animation: ticker-scroll 18s linear infinite; }
-  .ticker-track:hover { animation-play-state: paused; }
-
-  /* ── Fade up on mount ── */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(28px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .anim-fadeup { animation: fadeUp 0.65s cubic-bezier(.22,.61,.36,1) both; }
-  .anim-delay-1 { animation-delay: 0.1s; }
-  .anim-delay-2 { animation-delay: 0.22s; }
-  .anim-delay-3 { animation-delay: 0.34s; }
-  .anim-delay-4 { animation-delay: 0.46s; }
-  .anim-delay-5 { animation-delay: 0.58s; }
-
-  /* ── Shimmer badge ── */
-  @keyframes shimmer {
-    0%   { background-position: -200% center; }
-    100% { background-position: 200% center; }
-  }
-  .shimmer-badge {
-    background: linear-gradient(90deg, rgba(255,255,255,0.08) 25%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.08) 75%);
-    background-size: 200% auto;
-    animation: shimmer 3s linear infinite;
-  }
-
-  /* ── Pulse ring on icon ── */
-  @keyframes pulseRing {
-    0%   { box-shadow: 0 0 0 0 rgba(232,54,42,0.55); }
-    70%  { box-shadow: 0 0 0 14px rgba(232,54,42,0); }
-    100% { box-shadow: 0 0 0 0 rgba(232,54,42,0); }
-  }
-  .pulse-ring { animation: pulseRing 2.2s ease-out infinite; }
-
-  /* ── Counter flip ── */
-  @keyframes countFlip {
-    0%   { transform: rotateX(0deg); }
-    50%  { transform: rotateX(-90deg); }
-    100% { transform: rotateX(0deg); }
-  }
-  .count-flip { animation: countFlip 0.45s ease; }
-
-  /* ── Hero image slide in ── */
-  @keyframes slideInRight {
-    from { opacity: 0; transform: translateX(40px) scale(0.97); }
-    to   { opacity: 1; transform: translateX(0) scale(1); }
-  }
-  .anim-slide-right { animation: slideInRight 0.7s cubic-bezier(.22,.61,.36,1) both; }
-
-  /* ── Floating dots background ── */
-  @keyframes floatDot {
-    0%, 100% { transform: translateY(0px); }
-    50%       { transform: translateY(-12px); }
-  }
-  .float-dot-1 { animation: floatDot 4s ease-in-out infinite; }
-  .float-dot-2 { animation: floatDot 5.5s ease-in-out infinite 0.8s; }
-  .float-dot-3 { animation: floatDot 3.8s ease-in-out infinite 1.6s; }
-
-  /* ── Hero gradient mesh background ── */
-  .hero-mesh {
-    background:
-      radial-gradient(ellipse 55% 45% at 70% 60%, rgba(232,54,42,0.18) 0%, transparent 70%),
-      radial-gradient(ellipse 40% 35% at 20% 30%, rgba(99,60,255,0.12) 0%, transparent 65%),
-      #0a0a0f;
-  }
-
-  /* ── Swiper dots (custom) ── */
-  .hero-swiper .swiper-pagination-bullet {
-    width: 8px; height: 8px;
-    background: rgba(255,255,255,0.35);
-    opacity: 1;
-    transition: all 0.3s;
-  }
-  .hero-swiper .swiper-pagination-bullet-active {
-    width: 28px;
-    border-radius: 4px;
-    background: #E8362A;
-  }
-
-  /* ── Benefit card hover ── */
-  .benefit-card {
-    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-  }
-  .benefit-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 16px 40px rgba(0,0,0,0.12);
-    border-color: rgba(232,54,42,0.3) !important;
-  }
-
-  /* ── Section heading underline ── */
-  .section-title::after {
-    content: '';
-    display: block;
-    width: 42px;
-    height: 3px;
-    background: #E8362A;
-    border-radius: 2px;
-    margin-top: 7px;
-  }
-
-  /* ── FAQ accordion ── */
-  .faq-answer {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.35s cubic-bezier(.22,.61,.36,1), opacity 0.3s;
-    opacity: 0;
-  }
-  .faq-answer.open {
-    max-height: 120px;
-    opacity: 1;
-  }
-
-  /* ── Shipping banner parallax-ish hover ── */
-  .shipping-banner-img {
-    transition: transform 6s ease;
-  }
-  .shipping-banner:hover .shipping-banner-img {
-    transform: scale(1.06);
-  }
-
-  /* ── Timer digit ── */
-  .timer-digit {
-    background: white;
-    color: #E8362A;
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    perspective: 200px;
-  }
-
-  /* ── Review card hover ── */
-  .review-card {
-    transition: transform 0.22s ease, box-shadow 0.22s ease;
-  }
-  .review-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 32px rgba(0,0,0,0.1);
-  }
-
-  /* ── Login popup animation ── */
-  @keyframes popupIn {
-    from { opacity: 0; transform: scale(0.94) translateY(16px); }
-    to   { opacity: 1; transform: scale(1) translateY(0); }
-  }
-  .popup-card { animation: popupIn 0.35s cubic-bezier(.22,.61,.36,1) both; }
-
-  /* ── Gradient text ── */
-  .gradient-text {
-    background: linear-gradient(135deg, #fff 30%, #ff9e9e 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  /* ── Noise overlay ── */
-  .noise::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none;
-    border-radius: inherit;
-  }
-
-  /* ── Newsletter input focus ── */
-  .newsletter-input:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(232,54,42,0.45);
-  }
-
-  /* ── Shop now CTA hover ── */
-  .cta-primary {
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  .cta-primary::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: rgba(255,255,255,0.15);
-    transform: translateX(-100%);
-    transition: transform 0.35s ease;
-  }
-  .cta-primary:hover::before { transform: translateX(0); }
-  .cta-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(232,54,42,0.4); }
-
-  .cta-secondary {
-    transition: background 0.2s ease, transform 0.2s ease;
-  }
-  .cta-secondary:hover {
-    background: rgba(255,255,255,0.12) !important;
-    transform: translateY(-1px);
-  }
-`;
+/* ─── Inline CSS ──────────────────────────────────────────────────────────── */
 
 const Home = () => {
   const [value, setValue] = useState(0);
@@ -269,6 +51,7 @@ const Home = () => {
   const [activeFaq, setActiveFaq] = useState(0);
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
   const [activeSlide, setActiveSlide] = useState(0);
+  const [activePromo, setActivePromo] = useState(0);
 
   const context = useAppContext();
   const navigate = useNavigate();
@@ -281,11 +64,25 @@ const Home = () => {
   ];
 
   const sliderHeadlines = [
-    { tag: "New Arrivals", title: "Premium products,", titleAccent: "better prices.", sub: "Handpicked collections — fast delivery, easy returns, trusted quality." },
-    { tag: "Top Deals", title: "Upto 60% off on", titleAccent: "top categories.", sub: "Limited time offers across electronics, fashion, home & more." },
-    { tag: "Flash Sale", title: "Today only —", titleAccent: "don't miss out.", sub: "Shop before midnight and save big on our bestsellers." },
+    { tag: "✨ New Arrivals", title: "Premium products,", titleAccent: "better prices.", sub: "Handpicked collections — fast delivery, easy returns, trusted quality." },
+    { tag: "🔥 Top Deals", title: "Upto 60% off on", titleAccent: "top categories.", sub: "Limited time offers across electronics, fashion, home & more." },
+    { tag: "⚡ Flash Sale", title: "Today only —", titleAccent: "don't miss out.", sub: "Shop before midnight and save big on our bestsellers." },
   ];
 
+  // Promo banners data
+  const promoBanners = [
+    { label: "ELECTRONICS", title: "Latest Gadgets", subtitle: "Up to 50% Off", bg: "linear-gradient(135deg, #FF6B2B 0%, #FF9A5C 100%)", icon: "💻" },
+    { label: "FASHION", title: "New Season Styles", subtitle: "Min 40% Savings", bg: "linear-gradient(135deg, #F97316 0%, #FB923C 100%)", icon: "👗" },
+    { label: "HOME & KITCHEN", title: "Smart Home Deals", subtitle: "Starting ₹199", bg: "linear-gradient(135deg, #EA580C 0%, #FB923C 100%)", icon: "🏠" },
+  ];
+
+  // Auto-rotate promo banner
+  useEffect(() => {
+    const interval = setInterval(() => setActivePromo(p => (p + 1) % promoBanners.length), 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Countdown timer
   useEffect(() => {
     const nextMidnight = new Date();
     nextMidnight.setHours(23, 59, 59, 999);
@@ -300,6 +97,17 @@ const Home = () => {
       });
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Scroll reveal
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) entry.target.classList.add('visible');
+      });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.scroll-reveal').forEach(el => observer.observe(el));
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -328,7 +136,7 @@ const Home = () => {
 
   useEffect(() => {
     if (context?.isLogin === false) {
-      const popupTimer = setTimeout(() => setShowLoginPopup(true), 800);
+      const popupTimer = setTimeout(() => setShowLoginPopup(true), 900);
       return () => clearTimeout(popupTimer);
     }
     setShowLoginPopup(false);
@@ -373,24 +181,32 @@ const Home = () => {
   const flashSaleProducts = useMemo(() => featuredProducts.slice(0, 6), [featuredProducts]);
 
   const quickBenefits = [
-    { title: "Same Day Dispatch", desc: "Before 4PM orders are dispatched same day.", icon: <FaBolt />, color: "#f97316", bg: "rgba(249,115,22,0.1)" },
-    { title: "Rewards Club", desc: "Earn coins on every order and redeem on next checkout.", icon: <FaGift />, color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
-    { title: "4.8/5 Rated", desc: "Trusted by thousands of happy customers.", icon: <FaStar />, color: "#eab308", bg: "rgba(234,179,8,0.1)" },
+    { title: "Same Day Dispatch", desc: "Before 4PM orders dispatched same day.", icon: <FaBolt />, color: "#FF6B2B", bg: "rgba(255,107,43,0.1)" },
+    { title: "Rewards Club", desc: "Earn coins on every order & redeem on next checkout.", icon: <FaGift />, color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
+    { title: "4.8/5 Rated", desc: "Trusted by thousands of happy customers.", icon: <FaStar />, color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
   ];
 
   const faqs = [
-    { q: "How fast is shipping?", a: "Metro cities: 1-2 days, others: 3-5 days with live tracking." },
-    { q: "Do you offer cash on delivery?", a: "Yes, COD is available on most pin codes with a small handling fee." },
-    { q: "Can I return a product?", a: "Yes, easy 7-day return on eligible products from My Orders page." },
+    { q: "How fast is shipping?", a: "Metro cities: 1-2 days, others: 3-5 days with live tracking via SMS & email." },
+    { q: "Do you offer cash on delivery?", a: "Yes, COD is available on most pin codes with a nominal handling fee." },
+    { q: "Can I return a product?", a: "Yes, easy 7-day returns on eligible products. Start from My Orders page." },
+    { q: "Are my payments secure?", a: "100%. We use industry-standard SSL encryption and trusted payment gateways." },
+  ];
+
+  const stats = [
+    { val: "10K+", label: "Happy Customers" },
+    { val: "5K+", label: "Products Listed" },
+    { val: "4.8★", label: "Average Rating" },
+    { val: "99%", label: "Order Accuracy" },
   ];
 
   const copyCouponCode = async () => {
     try {
       await navigator.clipboard.writeText("SAVE20");
-      setCouponMessage("✓ Coupon copied: SAVE20");
+      setCouponMessage("✓ Copied: SAVE20");
       setTimeout(() => setCouponMessage(""), 2500);
     } catch {
-      setCouponMessage("Unable to copy right now.");
+      setCouponMessage("Copy manually: SAVE20");
     }
   };
 
@@ -400,46 +216,45 @@ const Home = () => {
       setNewsletterMessage("Please enter a valid email address.");
       return;
     }
-    setNewsletterMessage("🎉 You're in! Check your inbox for exclusive deals.");
+    setNewsletterMessage("🎉 You're subscribed! Check your inbox for exclusive deals.");
     setNewsletterEmail("");
   };
 
   const timerLabels = ["HRS", "MIN", "SEC"];
 
   return (
-    <div className="home-root">
-      <style>{inlineStyles}</style>
+    <div className="home-root" style={{ background: "#ffffff" }}>
 
-      {/* ─── Login Popup ───────────────────────────────────────────────────── */}
+      {/* ─── Login Popup ─────────────────────────────────────────────────── */}
       {showLoginPopup && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center px-4" style={{ background: "rgba(10,10,15,0.72)", backdropFilter: "blur(6px)" }}>
-          <div className="popup-card w-full max-w-[440px] rounded-2xl overflow-hidden" style={{ background: "#fff", boxShadow: "0 32px 80px rgba(0,0,0,0.35)" }}>
-            <div className="relative noise overflow-hidden p-7" style={{ background: "linear-gradient(135deg, #0a0a0f 0%, #1a1a24 60%, #2a1a28 100%)" }}>
-              {/* Decorative dots */}
-              <div className="float-dot-1 absolute top-4 right-8 w-16 h-16 rounded-full opacity-20" style={{ background: "radial-gradient(circle, #E8362A, transparent)" }} />
-              <div className="float-dot-2 absolute bottom-3 right-20 w-8 h-8 rounded-full opacity-15" style={{ background: "radial-gradient(circle, #6b3cf0, transparent)" }} />
-              <span className="inline-block text-[10px] uppercase tracking-[0.18em] px-3 py-1 rounded-full mb-4 shimmer-badge" style={{ color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.12)" }}>Welcome back</span>
-              <h3 className="text-[26px] font-[800] text-white leading-tight mb-2" style={{ fontFamily: "'Syne', sans-serif" }}>Exclusive access<br />awaits you</h3>
-              <p className="text-[14px] mb-0" style={{ color: "rgba(255,255,255,0.55)" }}>Login for faster checkout, wishlist sync, premium offers & smart order tracking.</p>
+        <div className="fixed inset-0 z-[250] flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}>
+          <div className="popup-card w-full max-w-[420px] rounded-2xl overflow-hidden shadow-2xl">
+            {/* Top gradient section */}
+            <div className="relative overflow-hidden p-7" style={{ background: "linear-gradient(135deg, #FF6B2B 0%, #FF9A5C 100%)" }}>
+              <div className="float-1 absolute top-3 right-6 w-20 h-20 rounded-full opacity-20" style={{ background: "rgba(255,255,255,0.4)" }} />
+              <div className="float-2 absolute bottom-2 right-16 w-10 h-10 rounded-full opacity-15" style={{ background: "rgba(255,255,255,0.3)" }} />
+              <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full opacity-10" style={{ background: "white" }} />
+              <span className="inline-block text-[11px] uppercase tracking-[0.18em] px-3 py-1 rounded-full mb-4 text-white font-[600]" style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)" }}>Welcome</span>
+              <h3 className="text-[26px] font-[800] text-white leading-tight mb-2" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Exclusive access<br/>awaits you ✨</h3>
+              <p className="text-[14px] mb-0" style={{ color: "rgba(255,255,255,0.85)" }}>Login for faster checkout, wishlist sync, premium offers & smart order tracking.</p>
             </div>
-            <div className="p-6">
+            {/* Bottom white section */}
+            <div className="p-6 bg-white">
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <button
-                  className="h-[46px] rounded-xl font-[600] text-[14px] text-white transition-all cta-primary"
-                  style={{ background: "#0a0a0f" }}
+                  className="h-[46px] rounded-xl font-[700] text-[14px] text-white transition-all cta-orange"
                   onClick={() => { setShowLoginPopup(false); navigate('/login'); }}
                 >
                   Login Now
                 </button>
                 <button
-                  className="h-[46px] rounded-xl font-[600] text-[14px] transition-all"
-                  style={{ border: "1.5px solid #0a0a0f", color: "#0a0a0f", background: "white" }}
+                  className="h-[46px] rounded-xl font-[700] text-[14px] transition-all cta-outline"
                   onClick={() => { setShowLoginPopup(false); navigate('/register'); }}
                 >
-                  Create Account
+                  Register
                 </button>
               </div>
-              <button className="w-full text-[13px] transition-colors" style={{ color: "#9ca3af" }} onClick={() => setShowLoginPopup(false)}>
+              <button className="w-full text-[13px] py-1 transition-colors text-gray-400 hover:text-gray-600" onClick={() => setShowLoginPopup(false)}>
                 Maybe later
               </button>
             </div>
@@ -447,73 +262,82 @@ const Home = () => {
         </div>
       )}
 
-      {/* ─── Top Announcement Ticker ───────────────────────────────────────── */}
-      <div className="overflow-hidden py-2.5" style={{ background: "#E8362A" }}>
+      {/* ─── Announcement Ticker ─────────────────────────────────────────── */}
+      <div className="overflow-hidden py-2.5" style={{ background: "linear-gradient(90deg, #FF6B2B 0%, #FF8C55 50%, #FF6B2B 100%)" }}>
         <div className="ticker-track flex gap-0 whitespace-nowrap" style={{ width: "max-content" }}>
           {[...Array(6)].map((_, i) => (
             <span key={i} className="flex items-center gap-8 px-8 text-white text-[12px] font-[500] tracking-wide">
-              <span>🎁 Use code <strong>SAVE20</strong> for 20% off</span>
-              <span className="opacity-50">•</span>
+              <span>🎁 Use code <strong className="font-[700]">SAVE20</strong> for 20% off</span>
+              <span className="opacity-40 text-[16px]">•</span>
               <span>🚀 Free delivery on orders above ₹200</span>
-              <span className="opacity-50">•</span>
-              <span>⭐ 4.8/5 rated by 10,000+ customers</span>
-              <span className="opacity-50">•</span>
+              <span className="opacity-40 text-[16px]">•</span>
+              <span>⭐ 4.8/5 rated by 10,000+ happy customers</span>
+              <span className="opacity-40 text-[16px]">•</span>
+              <span>🔄 Easy 7-day returns on all products</span>
+              <span className="opacity-40 text-[16px]">•</span>
             </span>
           ))}
         </div>
       </div>
 
-      {/* ─── HERO BANNER ───────────────────────────────────────────────────── */}
-      <section className="hero-mesh relative overflow-hidden noise" style={{ minHeight: "500px" }}>
-        {/* Abstract floating orbs */}
-        <div className="float-dot-1 absolute top-12 left-[8%] w-56 h-56 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(232,54,42,0.12), transparent)", filter: "blur(32px)" }} />
-        <div className="float-dot-2 absolute bottom-8 left-[30%] w-40 h-40 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(107,60,240,0.1), transparent)", filter: "blur(24px)" }} />
-        <div className="float-dot-3 absolute top-6 right-[10%] w-32 h-32 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(255,200,80,0.07), transparent)", filter: "blur(20px)" }} />
+      {/* ─── HERO BANNER ─────────────────────────────────────────────────── */}
+      <section className="hero-bg relative overflow-hidden" style={{ minHeight: "520px" }}>
+        {/* Decorative elements */}
+        <div className="float-1 absolute top-10 left-[5%] w-64 h-64 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(255,107,43,0.1), transparent)", filter: "blur(40px)" }} />
+        <div className="float-2 absolute bottom-5 left-[25%] w-48 h-48 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(255,180,80,0.08), transparent)", filter: "blur(30px)" }} />
+        {/* Decorative circle top-right */}
+        <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full opacity-5 spin-slow" style={{ border: "40px solid #FF6B2B" }} />
+        <div className="absolute top-1/2 right-[5%] w-6 h-6 rounded-full opacity-30" style={{ background: "#FF6B2B", transform: "translateY(-50%)" }} />
+        <div className="absolute bottom-16 left-[8%] w-4 h-4 rounded-full opacity-20" style={{ background: "#FF8C55" }} />
 
         <div className="container relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center py-10 lg:py-14">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center py-10 lg:py-14">
 
-            {/* Left: Text content */}
-            <div className="lg:col-span-5 text-white">
-              <span className="anim-fadeup anim-delay-1 inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full mb-5 shimmer-badge" style={{ border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.75)" }}>
-                <RiSparklingLine className="text-[#f5c842]" />
+            {/* Left: Text */}
+            <div className="lg:col-span-5">
+              <span className="anim-fadeup anim-delay-1 inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full mb-5 font-[600]"
+                style={{ background: "rgba(255,107,43,0.1)", color: "#FF6B2B", border: "1.5px solid rgba(255,107,43,0.2)" }}>
+                <RiSparklingLine />
                 {sliderHeadlines[activeSlide]?.tag}
               </span>
 
-              <h1 className="anim-fadeup anim-delay-2 text-[30px] sm:text-[38px] lg:text-[48px] font-[800] leading-[1.1] mb-4" style={{ fontFamily: "'Syne', sans-serif" }}>
-                <span style={{ color: "rgba(255,255,255,0.92)" }}>{sliderHeadlines[activeSlide]?.title}</span>
+              <h1 className="anim-fadeup anim-delay-2 text-[30px] sm:text-[38px] lg:text-[50px] font-[800] leading-[1.1] mb-4 text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                {sliderHeadlines[activeSlide]?.title}
                 <br />
-                <span className="gradient-text">{sliderHeadlines[activeSlide]?.titleAccent}</span>
+                <span className="shimmer-text">{sliderHeadlines[activeSlide]?.titleAccent}</span>
               </h1>
 
-              <p className="anim-fadeup anim-delay-3 text-[15px] leading-relaxed mb-7" style={{ color: "rgba(255,255,255,0.5)" }}>
+              <p className="anim-fadeup anim-delay-3 text-[15px] leading-relaxed mb-7" style={{ color: "#6B7280" }}>
                 {sliderHeadlines[activeSlide]?.sub}
               </p>
 
               <div className="anim-fadeup anim-delay-4 flex flex-wrap gap-3">
                 <Link to="/products">
-                  <button className="cta-primary inline-flex items-center gap-2 h-[46px] px-6 rounded-xl font-[600] text-[14px] text-white"
-                    style={{ background: "#E8362A" }}>
+                  <button className="cta-orange inline-flex items-center gap-2 h-[48px] px-7 rounded-xl font-[700] text-[14px] text-white"
+                    style={{ boxShadow: "0 8px 24px rgba(255,107,43,0.35)" }}>
                     Shop Now <FaArrowRight className="text-[12px]" />
                   </button>
                 </Link>
-                <Link to="/categories">
-                  <button className="cta-secondary inline-flex items-center h-[46px] px-6 rounded-xl font-[600] text-[14px] text-white"
-                    style={{ border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.06)" }}>
-                    View Categories
+                <Link to="https://zeedaddy-tenminutes.vercel.app">
+                  <button className="inline-flex items-center h-[48px] px-7 rounded-xl font-[700] text-[14px] transition-all duration-200"
+                    style={{ border: "2px solid #E9ECEF", color: "#374151", background: "white" }}
+                    onMouseEnter={e => { e.target.style.borderColor = "#FF6B2B"; e.target.style.color = "#FF6B2B"; }}
+                    onMouseLeave={e => { e.target.style.borderColor = "#E9ECEF"; e.target.style.color = "#374151"; }}
+                  >
+                    10-Minutes Delivery
                   </button>
                 </Link>
               </div>
 
-              {/* Trust mini-badges */}
-              <div className="anim-fadeup anim-delay-5 flex flex-wrap gap-4 mt-8">
+              {/* Trust badges */}
+              <div className="anim-fadeup anim-delay-5 flex flex-wrap gap-5 mt-8 pt-6" style={{ borderTop: "1.5px solid #F1F3F5" }}>
                 {[
                   { icon: <FaTruck />, label: "Free Shipping" },
                   { icon: <FaLock />, label: "Secure Pay" },
                   { icon: <FiRefreshCcw />, label: "Easy Returns" },
                 ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-1.5 text-[12px]" style={{ color: "rgba(255,255,255,0.45)" }}>
-                    <span style={{ color: "rgba(255,255,255,0.3)" }}>{item.icon}</span>
+                  <div key={i} className="flex items-center gap-2 text-[13px] font-[500]" style={{ color: "#6B7280" }}>
+                    <span style={{ color: "#FF6B2B" }}>{item.icon}</span>
                     {item.label}
                   </div>
                 ))}
@@ -529,20 +353,19 @@ const Home = () => {
                 autoplay={{ delay: 3500, disableOnInteraction: false }}
                 pagination={{ clickable: true }}
                 className="hero-swiper"
-                style={{ borderRadius: "18px", overflow: "hidden" }}
+                style={{ borderRadius: "20px", overflow: "hidden", boxShadow: "0 20px 60px rgba(255,107,43,0.15)" }}
                 onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
               >
                 {sliderImages.map((image, index) => (
                   <SwiperSlide key={index}>
-                    <div className="relative overflow-hidden" style={{ borderRadius: "18px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div className="relative overflow-hidden" style={{ borderRadius: "20px" }}>
                       <img
                         src={image}
                         alt={`Banner ${index + 1}`}
                         className="w-full object-cover"
-                        style={{ height: "clamp(200px, 38vw, 420px)", display: "block" }}
+                        style={{ height: "clamp(200px, 38vw, 430px)", display: "block" }}
                       />
-                      {/* Subtle vignette */}
-                      <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(10,10,15,0.35) 0%, transparent 50%)", borderRadius: "18px" }} />
+                      <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.15) 0%, transparent 40%)", borderRadius: "20px" }} />
                     </div>
                   </SwiperSlide>
                 ))}
@@ -552,23 +375,37 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── Trust / Benefit Cards ─────────────────────────────────────────── */}
-      <section className="bg-white py-6">
+      {/* ─── Stats Bar ───────────────────────────────────────────────────── */}
+      <section style={{ background: "linear-gradient(135deg, #FF6B2B 0%, #FF8C55 100%)" }}>
+        <div className="container">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-0 py-4">
+            {stats.map((stat, i) => (
+              <div key={i} className="stat-item flex flex-col items-center py-3 text-white" style={{ borderRight: i < 3 ? "1px solid rgba(255,255,255,0.2)" : "none" }}>
+                <span className="text-[24px] font-[800]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{stat.val}</span>
+                <span className="text-[12px] font-[500] opacity-80 mt-0.5">{stat.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Trust / Benefit Cards ───────────────────────────────────────── */}
+      <section className="bg-white py-7">
         <div className="container">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              { icon: <FaTruck className="text-[18px]" />, color: "#E8362A", bg: "rgba(232,54,42,0.08)", title: "Daily Deals", sub: "Upto 60% off curated offers" },
+              { icon: <FaTruck className="text-[18px]" />, color: "#FF6B2B", bg: "rgba(255,107,43,0.08)", title: "Daily Deals", sub: "Upto 60% off curated offers" },
               { icon: <HiOutlineShieldCheck className="text-[20px]" />, color: "#10b981", bg: "rgba(16,185,129,0.08)", title: "Secure Payments", sub: "Encrypted & trusted gateways" },
               { icon: <FiRefreshCcw className="text-[18px]" />, color: "#3b82f6", bg: "rgba(59,130,246,0.08)", title: "Easy Returns", sub: "Simple 7-day return policy" },
               { icon: <IoHeadsetOutline className="text-[20px]" />, color: "#8b5cf6", bg: "rgba(139,92,246,0.08)", title: "24/7 Support", sub: "Always here to help you" },
             ].map((card, i) => (
-              <div key={i} className="benefit-card rounded-xl p-4 flex gap-3 items-start" style={{ border: "1.5px solid #f1f5f9", background: "#fafbfc" }}>
-                <div className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center mt-0.5" style={{ background: card.bg, color: card.color }}>
+              <div key={i} className="benefit-card rounded-2xl p-4 flex gap-3 items-start bg-white" style={{ border: "1.5px solid #F1F3F5", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center mt-0.5" style={{ background: card.bg, color: card.color }}>
                   {card.icon}
                 </div>
                 <div>
-                  <p className="text-[14px] font-[600] text-slate-800 mb-0.5" style={{ fontFamily: "'Syne', sans-serif" }}>{card.title}</p>
-                  <p className="text-[12px] text-slate-500 mb-0 leading-snug">{card.sub}</p>
+                  <p className="text-[14px] font-[700] text-gray-800 mb-0.5" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{card.title}</p>
+                  <p className="text-[12px] text-gray-500 mb-0 leading-snug">{card.sub}</p>
                 </div>
               </div>
             ))}
@@ -576,21 +413,46 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── Category Slider ───────────────────────────────────────────────── */}
-      {context?.catData?.length !== 0 && <HomeCatSlider data={context?.catData} />}
-
-      {/* ─── Quick Benefits ────────────────────────────────────────────────── */}
-      <section className="bg-white pb-4 pt-2">
+      {/* ─── Promo Banners Strip ──────────────────────────────────────────── */}
+      <section className="pb-5 pt-1 bg-white">
         <div className="container">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {promoBanners.map((promo, i) => (
+              <Link to="/products" key={i}>
+                <div className="promo-banner-card relative overflow-hidden rounded-2xl p-6 cursor-pointer"
+                  style={{ background: promo.bg, minHeight: "130px", boxShadow: "0 8px 24px rgba(255,107,43,0.2)" }}>
+                  {/* Decorative circle */}
+                  <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full opacity-20" style={{ background: "white" }} />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[42px] opacity-25">{promo.icon}</div>
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-white/80 font-[600] mb-2 block">{promo.label}</span>
+                  <h3 className="text-[18px] font-[800] text-white mb-1" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{promo.title}</h3>
+                  <p className="text-[13px] text-white/90 font-[600] mb-0">{promo.subtitle}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Category Slider ─────────────────────────────────────────────── */}
+      {context?.catData?.length !== 0 && (
+        <div style={{ background: "#FAFAFA", borderTop: "1.5px solid #F1F3F5", borderBottom: "1.5px solid #F1F3F5" }}>
+          <HomeCatSlider data={context?.catData} />
+        </div>
+      )}
+
+      {/* ─── Quick Benefits ──────────────────────────────────────────────── */}
+      <section className="bg-white py-5">
+        <div className="container">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {quickBenefits.map((benefit, index) => (
-              <div key={index} className="benefit-card rounded-xl p-4 flex items-center gap-4" style={{ border: "1.5px solid #f1f5f9", background: "#fafbfc" }}>
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[18px] flex-shrink-0" style={{ background: benefit.bg, color: benefit.color }}>
+              <div key={index} className="benefit-card rounded-2xl p-5 flex items-center gap-4 bg-white" style={{ border: "1.5px solid #F1F3F5", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-[20px] flex-shrink-0" style={{ background: benefit.bg, color: benefit.color }}>
                   {benefit.icon}
                 </div>
                 <div>
-                  <h4 className="text-[14px] font-[700] text-slate-800 mb-0.5" style={{ fontFamily: "'Syne', sans-serif" }}>{benefit.title}</h4>
-                  <p className="text-[12px] text-slate-500 mb-0 leading-snug">{benefit.desc}</p>
+                  <h4 className="text-[14px] font-[700] text-gray-800 mb-1" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{benefit.title}</h4>
+                  <p className="text-[12px] text-gray-500 mb-0 leading-snug">{benefit.desc}</p>
                 </div>
               </div>
             ))}
@@ -598,70 +460,57 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── Popular Products ──────────────────────────────────────────────── */}
+      {/* ─── Popular Products ────────────────────────────────────────────── */}
       <section className="bg-white py-6">
         <div className="container">
-          <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
-            {/* Left: Title + Subtitle */}
+          <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
             <div className="flex-shrink-0">
-              <h2 className="section-title text-[20px] font-[700] text-slate-900 mb-1" style={{ fontFamily: "'Syne', sans-serif" }}>Popular Products</h2>
-
+              <h2 className="section-heading text-[22px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Popular Products</h2>
             </div>
             <Link to="/products" className="flex-shrink-0">
-                <button
-                  className="group flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-[600] transition-all duration-200 hover:scale-[1.02]"
-                  style={{
-                    background: "linear-gradient(135deg, #E8362A 0%, #ff5c4d 100%)",
-                    color: "white",
-                    boxShadow: "0 4px 14px rgba(232,54,42,0.3)",
-                    fontFamily: "'Syne', sans-serif",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  View All
-                  <span
-                    className="inline-flex items-center justify-center w-5 h-5 rounded-full transition-transform duration-200 group-hover:translate-x-0.5"
-                    style={{ background: "rgba(255,255,255,0.2)" }}
-                  >
-                    <MdArrowRightAlt size={15} />
-                  </span>
-                </button>
-              </Link>
+              <button className="cta-orange group flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-[700] text-white transition-all duration-200">
+                View All
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full transition-transform duration-200 group-hover:translate-x-0.5" style={{ background: "rgba(255,255,255,0.2)" }}>
+                  <MdArrowRightAlt size={15} />
+                </span>
+              </button>
+            </Link>
 
-            {/* Right: Tabs + View All */}
-            <div className="flex items-center gap-3 flex-wrap lg:flex-nowrap w-full lg:w-auto">
-              <div className="flex-1 lg:flex-none overflow-hidden">
-                <Tabs value={value} onChange={handleChange} variant="scrollable" scrollButtons="auto" aria-label="category tabs"
-                  sx={{ '& .MuiTab-root': { fontSize: '13px', fontWeight: 500, textTransform: 'none', minWidth: 'auto', padding: '6px 14px' }, '& .Mui-selected': { color: '#E8362A !important' }, '& .MuiTabs-indicator': { backgroundColor: '#E8362A' } }}>
-                  {context?.catData?.length !== 0 && context?.catData?.map((cat, index) => (
-                    <Tab label={cat?.name} key={index} onClick={() => filterByCatId(cat?._id)} />
-                  ))}
-                </Tabs>
-              </div>              
+            {/* Tabs */}
+            <div className="w-full">
+              <Tabs value={value} onChange={handleChange} variant="scrollable" scrollButtons="auto" aria-label="category tabs"
+                sx={{
+                  '& .MuiTab-root': { fontSize: '13px', fontWeight: 500, textTransform: 'none', minWidth: 'auto', padding: '6px 14px' },
+                  '& .Mui-selected': { color: '#FF6B2B !important', fontWeight: '700 !important' },
+                  '& .MuiTabs-indicator': { backgroundColor: '#FF6B2B' }
+                }}>
+                {context?.catData?.map((cat, index) => (
+                  <Tab key={index} label={cat?.name} onClick={() => filterByCatId(cat?._id)} />
+                ))}
+              </Tabs>
             </div>
           </div>
-          <div className="min-h-[300px]">
-            {popularProductsData?.length === 0 ? <ProductLoading /> : <ProductsSlider items={6} data={popularProductsData} />}
-          </div>
+          {popularProductsData?.length === 0 ? <ProductLoading /> : <ProductsSlider items={6} data={popularProductsData} />}
         </div>
       </section>
 
-      {/* ─── Flash Sale Banner ─────────────────────────────────────────────── */}
-      <section className="py-3 bg-white">
+      {/* ─── Flash Sale Banner ───────────────────────────────────────────── */}
+      <section className="py-4 bg-white">
         <div className="container">
-          <div className="relative overflow-hidden rounded-2xl noise p-5 lg:p-6 flex flex-col lg:flex-row justify-between gap-4 lg:items-center"
-            style={{ background: "linear-gradient(135deg, #c2180d 0%, #E8362A 45%, #ff6b35 100%)" }}>
-            {/* Background decoration */}
+          <div className="relative overflow-hidden rounded-2xl px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 flex-wrap"
+            style={{ background: "linear-gradient(135deg, #FF6B2B 0%, #FF8C55 50%, #FFB347 100%)", boxShadow: "0 12px 40px rgba(255,107,43,0.3)" }}>
+            {/* Decorative shapes */}
             <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-10 pointer-events-none" style={{ background: "white", transform: "translate(30%, -30%)" }} />
             <div className="absolute bottom-0 left-1/3 w-32 h-32 rounded-full opacity-10 pointer-events-none" style={{ background: "white", transform: "translateY(40%)" }} />
+            <div className="dot-pattern absolute inset-0 opacity-30 pointer-events-none rounded-2xl" />
 
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-1">
-                <FaBolt className="text-yellow-300 text-[14px]" />
-                <span className="text-[11px] uppercase tracking-[0.18em] text-white/70 font-[500]">Limited time</span>
+                <FaBolt className="text-yellow-200 text-[14px]" />
+                <span className="text-[11px] uppercase tracking-[0.18em] text-white/80 font-[600]">Limited time</span>
               </div>
-              <h3 className="text-[22px] font-[800] text-white mb-0.5" style={{ fontFamily: "'Syne', sans-serif" }}>Flash Sale ends tonight</h3>
-              <p className="text-[13px] text-white/70 mb-0">Hurry up — prices reset at midnight!</p>
+              <h3 className="text-[24px] font-[800] text-white mb-0.5" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Flash Sale ends tonight 🔥</h3>
+              <p className="text-[13px] text-white/80 mb-0">Hurry up — prices reset at midnight!</p>
             </div>
 
             <div className="relative z-10 flex items-center gap-3">
@@ -671,12 +520,12 @@ const Home = () => {
                 { val: timeLeft.seconds, label: timerLabels[2] },
               ].map((t, idx) => (
                 <React.Fragment key={idx}>
-                  {idx !== 0 && <span className="text-white/40 text-[20px] font-light mb-3">:</span>}
+                  {idx !== 0 && <span className="text-white/50 text-[20px] font-light mb-3">:</span>}
                   <div className="flex flex-col items-center gap-1">
-                    <div className="timer-digit w-14 h-14 rounded-xl flex items-center justify-center text-[22px]" style={{ boxShadow: "0 4px 16px rgba(0,0,0,0.2)" }}>
+                    <div className="timer-digit w-14 h-14 rounded-xl flex items-center justify-center text-[22px]" style={{ boxShadow: "0 4px 16px rgba(0,0,0,0.15)" }}>
                       {String(t.val).padStart(2, "0")}
                     </div>
-                    <span className="text-[9px] uppercase tracking-widest text-white/55">{t.label}</span>
+                    <span className="text-[9px] uppercase tracking-widest text-white/70">{t.label}</span>
                   </div>
                 </React.Fragment>
               ))}
@@ -685,18 +534,19 @@ const Home = () => {
             <div className="relative z-10">
               <button
                 onClick={copyCouponCode}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl font-[700] text-[14px] transition-all hover:scale-105"
-                style={{ background: "white", color: "#E8362A", boxShadow: "0 4px 16px rgba(0,0,0,0.2)" }}>
+                className="flex items-center gap-2 px-5 py-3 rounded-xl font-[700] text-[14px] transition-all hover:scale-105 active:scale-95"
+                style={{ background: "white", color: "#FF6B2B", boxShadow: "0 4px 14px rgba(0,0,0,0.15)" }}>
                 Copy SAVE20 <FaRegCopy />
               </button>
-              {couponMessage && <p className="text-[12px] text-white/80 mt-1.5 mb-0">{couponMessage}</p>}
+              {couponMessage && <p className="text-[12px] text-white/90 mt-1.5 mb-0 font-[600]">{couponMessage}</p>}
             </div>
           </div>
-          {flashSaleProducts?.length !== 0 && <div className="mt-4"><ProductsSlider items={6} data={flashSaleProducts} /></div>}
+
+          {flashSaleProducts?.length !== 0 && <div className="mt-5"><ProductsSlider items={6} data={flashSaleProducts} /></div>}
         </div>
       </section>
 
-      {/* ─── Product Banner V2 + Side Banners ─────────────────────────────── */}
+      {/* ─── Product Banner V2 + Side Banners ───────────────────────────── */}
       <section className="py-4 pt-0 bg-white">
         <div className="container flex flex-col lg:flex-row gap-5">
           <div className="w-full lg:w-[70%]">
@@ -713,7 +563,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── Shipping Banner ───────────────────────────────────────────────── */}
+      {/* ─── Shipping Banner ─────────────────────────────────────────────── */}
       <section className="py-4 pt-0 bg-white">
         <div className="container">
           <div className="shipping-banner relative overflow-hidden rounded-2xl" style={{ minHeight: "280px" }}>
@@ -722,31 +572,34 @@ const Home = () => {
               alt="Fast delivery"
               className="shipping-banner-img absolute inset-0 w-full h-full object-cover scale-[1.02]"
             />
-            <div className="absolute inset-0" style={{ background: "linear-gradient(100deg, rgba(10,10,15,0.88) 0%, rgba(10,10,15,0.6) 55%, rgba(10,10,15,0.2) 100%)" }} />
+            {/* Orange-tinted overlay */}
+            <div className="absolute inset-0" style={{ background: "linear-gradient(100deg, rgba(20,10,5,0.88) 0%, rgba(20,10,5,0.6) 55%, rgba(20,10,5,0.18) 100%)" }} />
+            {/* Orange glow bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-1 opacity-60" style={{ background: "linear-gradient(90deg, #FF6B2B, transparent)" }} />
 
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 px-7 md:px-14 py-10 text-white">
               <div className="flex items-start gap-5 max-w-[560px]">
-                <div className="pulse-ring flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#E8362A" }}>
+                <div className="pulse-ring flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#FF6B2B" }}>
                   <LiaShippingFastSolid className="text-[28px]" />
                 </div>
                 <div>
                   <span className="text-[11px] uppercase tracking-[0.18em] text-white/50 mb-2 block">Delivery promise</span>
-                  <h2 className="text-[24px] md:text-[34px] font-[800] leading-tight mb-3" style={{ fontFamily: "'Syne', sans-serif" }}>
+                  <h2 className="text-[24px] md:text-[36px] font-[800] leading-tight mb-3" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                     Free & Fast<br />Shipping
                   </h2>
-                  <p className="text-[14px] md:text-[15px] leading-relaxed mb-0" style={{ color: "rgba(255,255,255,0.55)" }}>
+                  <p className="text-[14px] md:text-[15px] leading-relaxed mb-0" style={{ color: "rgba(255,255,255,0.6)" }}>
                     First order & all orders above ₹200 — safe packaging, fast dispatch & trusted delivery partners.
                   </p>
                 </div>
               </div>
 
               <div className="flex flex-col items-center md:items-end gap-4 flex-shrink-0">
-                <div>
+                <div className="text-center md:text-right">
                   <span className="block text-[11px] uppercase tracking-widest text-white/40 mb-1">starting from</span>
-                  <p className="text-[36px] md:text-[50px] font-[900] leading-none mb-0" style={{ fontFamily: "'Syne', sans-serif", color: "#E8362A" }}>₹200*</p>
+                  <p className="text-[38px] md:text-[52px] font-[900] leading-none mb-0" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "#FF8C55" }}>₹200*</p>
                 </div>
                 <Link to="/products">
-                  <button className="cta-primary h-[44px] px-7 rounded-xl font-[600] text-[14px] text-white" style={{ background: "#E8362A" }}>
+                  <button className="cta-orange h-[46px] px-8 rounded-xl font-[700] text-[14px] text-white">
                     Shop Now
                   </button>
                 </Link>
@@ -758,13 +611,15 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── Latest Products ───────────────────────────────────────────────── */}
-      <section className="py-4 pt-0 bg-white">
+      {/* ─── Latest Products ─────────────────────────────────────────────── */}
+      <section className="py-5 pt-0 bg-white">
         <div className="container">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="section-title text-[20px] font-[700] text-slate-900" style={{ fontFamily: "'Syne', sans-serif" }}>Latest Products</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="section-heading text-[22px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Latest Products</h2>
             <Link to="/products">
-              <button className="flex items-center gap-1.5 text-[13px] font-[500] px-4 py-2 rounded-lg transition-all hover:bg-slate-100" style={{ color: "#E8362A", border: "1.5px solid #f1f5f9" }}>
+              <button className="flex items-center gap-1.5 text-[13px] font-[600] px-4 py-2.5 rounded-xl transition-all" style={{ color: "#FF6B2B", border: "1.5px solid rgba(255,107,43,0.2)", background: "rgba(255,107,43,0.04)" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,107,43,0.08)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,107,43,0.04)"; }}>
                 View All <MdArrowRightAlt size={18} />
               </button>
             </Link>
@@ -773,51 +628,38 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── Featured Products ─────────────────────────────────────────────── */}
-      <section className="py-2 pb-4 bg-white">
+      {/* ─── Featured Products ───────────────────────────────────────────── */}
+      <section className="py-2 pb-5 bg-white">
         <div className="container">
           <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
-          <div className="flex-shrink-0">
-              <h2 className="section-title text-[20px] font-[700] text-slate-900 mb-1" style={{ fontFamily: "'Syne', sans-serif" }}>Featured Products</h2>
-
+            <div className="flex-shrink-0">
+              <h2 className="section-heading text-[22px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Featured Products</h2>
             </div>
-          <Link to="/products" className="flex-shrink-0">
-                <button
-                  className="group flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-[600] transition-all duration-200 hover:scale-[1.02]"
-                  style={{
-                    background: "linear-gradient(135deg, #E8362A 0%, #ff5c4d 100%)",
-                    color: "white",
-                    boxShadow: "0 4px 14px rgba(232,54,42,0.3)",
-                    fontFamily: "'Syne', sans-serif",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  View All
-                  <span
-                    className="inline-flex items-center justify-center w-5 h-5 rounded-full transition-transform duration-200 group-hover:translate-x-0.5"
-                    style={{ background: "rgba(255,255,255,0.2)" }}
-                  >
-                    <MdArrowRightAlt size={15} />
-                  </span>
-                </button>
-              </Link>
-              </div>
+            <Link to="/products" className="flex-shrink-0">
+              <button className="cta-orange group flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-[700] text-white transition-all duration-200">
+                View All
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full group-hover:translate-x-0.5 transition-transform" style={{ background: "rgba(255,255,255,0.2)" }}>
+                  <MdArrowRightAlt size={15} />
+                </span>
+              </button>
+            </Link>
+          </div>
           {featuredProducts?.length === 0 ? <ProductLoading /> : <ProductsSlider items={6} data={featuredProducts} />}
-          {bannerList2Data?.length !== 0 && <div className="mt-4"><AdsBannerSlider items={4} data={bannerList2Data} /></div>}
+          {bannerList2Data?.length !== 0 && <div className="mt-5"><AdsBannerSlider items={4} data={bannerList2Data} /></div>}
         </div>
       </section>
 
-      {/* ─── Random Category Products ──────────────────────────────────────── */}
+      {/* ─── Random Category Products ────────────────────────────────────── */}
       {randomCatProducts?.length !== 0 && randomCatProducts?.map((productRow, index) => {
         if (productRow?.catName !== undefined && productRow?.data?.length !== 0)
           return (
             <section className="py-3 pt-0 bg-white" key={index}>
               <div className="container">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="section-title text-[20px] font-[700] text-slate-900" style={{ fontFamily: "'Syne', sans-serif" }}>{productRow?.catName}</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="section-heading text-[20px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{productRow?.catName}</h2>
                   {productRow?.data?.length > 6 && (
                     <Link to={`products?catId=${productRow?.data[0]?.catId}`}>
-                      <button className="flex items-center gap-1.5 text-[13px] font-[500] px-4 py-2 rounded-lg transition-all hover:bg-slate-100" style={{ color: "#E8362A", border: "1.5px solid #f1f5f9" }}>
+                      <button className="flex items-center gap-1.5 text-[13px] font-[600] px-4 py-2 rounded-xl transition-all" style={{ color: "#FF6B2B", border: "1.5px solid rgba(255,107,43,0.2)", background: "rgba(255,107,43,0.04)" }}>
                         View All <MdArrowRightAlt size={18} />
                       </button>
                     </Link>
@@ -830,29 +672,32 @@ const Home = () => {
         return null;
       })}
 
-      {/* ─── Reviews ───────────────────────────────────────────────────────── */}
-      <section className="py-4 bg-white">
+      {/* ─── Reviews ─────────────────────────────────────────────────────── */}
+      <section className="py-6 bg-white scroll-reveal">
         <div className="container">
-          <div className="rounded-2xl p-5 lg:p-7" style={{ background: "#fafbfc", border: "1.5px solid #f1f5f9" }}>
-            <div className="flex items-center gap-3 mb-5">
-              <h3 className="section-title text-[20px] font-[700] text-slate-900 mb-0" style={{ fontFamily: "'Syne', sans-serif" }}>Top Customer Reviews</h3>
+          <div className="rounded-2xl p-6 lg:p-8" style={{ background: "linear-gradient(135deg, #FFF8F4 0%, #FFF4EE 100%)", border: "1.5px solid rgba(255,107,43,0.12)" }}>
+            <div className="flex items-center gap-3 mb-6">
+              <h3 className="section-heading text-[22px] font-[800] text-gray-900 mb-0" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>What Our Customers Say</h3>
             </div>
-            <div className="grid md:grid-cols-3 gap-3">
+            <div className="grid md:grid-cols-3 gap-4">
               {[
-                { text: "Amazing quality and super fast delivery. Will order again!", author: "Priya S.", avatar: "P" },
-                { text: "Packaging was premium and product exactly as shown. No surprises!", author: "Rahul M.", avatar: "R" },
-                { text: "Customer support resolved my issue in under 10 minutes. 5 stars!", author: "Anita K.", avatar: "A" },
+                { text: "Amazing quality and super fast delivery. Will definitely order again!", author: "Priya S.", location: "Mumbai", avatar: "P", rating: 5 },
+                { text: "Packaging was premium and product exactly as shown. No surprises at all!", author: "Rahul M.", location: "Delhi", avatar: "R", rating: 5 },
+                { text: "Customer support resolved my issue in under 10 minutes. Absolutely 5 stars!", author: "Anita K.", location: "Bangalore", avatar: "A", rating: 5 },
               ].map((review, index) => (
-                <div key={index} className="review-card bg-white rounded-xl p-5" style={{ border: "1.5px solid #f1f5f9" }}>
+                <div key={index} className="review-card bg-white rounded-2xl p-5" style={{ border: "1.5px solid rgba(255,107,43,0.1)", boxShadow: "0 4px 16px rgba(255,107,43,0.06)" }}>
                   <div className="flex gap-0.5 mb-3">
-                    {[...Array(5)].map((_, i) => <FaStar key={i} className="text-[12px]" style={{ color: "#f59e0b" }} />)}
+                    {[...Array(review.rating)].map((_, i) => <FaStar key={i} className="text-[13px]" style={{ color: "#f59e0b" }} />)}
                   </div>
-                  <p className="text-[14px] text-slate-700 leading-relaxed mb-4">"{review.text}"</p>
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-[700] text-white flex-shrink-0" style={{ background: "#E8362A" }}>
+                  <p className="text-[14px] text-gray-700 leading-relaxed mb-4">"{review.text}"</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-[800] text-white flex-shrink-0" style={{ background: "linear-gradient(135deg, #FF6B2B, #FF9A5C)" }}>
                       {review.avatar}
                     </div>
-                    <span className="text-[13px] font-[600] text-slate-700">{review.author}</span>
+                    <div>
+                      <span className="text-[13px] font-[700] text-gray-800 block">{review.author}</span>
+                      <span className="text-[11px] text-gray-400">{review.location}</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -861,85 +706,94 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── Newsletter ────────────────────────────────────────────────────── */}
-      <section className="py-3 bg-white">
+      {/* ─── Newsletter ──────────────────────────────────────────────────── */}
+      <section className="py-4 bg-white">
         <div className="container">
-          <div className="relative overflow-hidden rounded-2xl noise p-6 lg:p-8" style={{ background: "linear-gradient(135deg, #0a0a0f 0%, #1a1a24 100%)" }}>
-            <div className="float-dot-1 absolute top-0 right-0 w-48 h-48 rounded-full opacity-10 pointer-events-none" style={{ background: "radial-gradient(circle, #E8362A, transparent)", filter: "blur(30px)" }} />
-            <div className="float-dot-3 absolute bottom-0 left-0 w-32 h-32 rounded-full opacity-10 pointer-events-none" style={{ background: "radial-gradient(circle, #6b3cf0, transparent)", filter: "blur(24px)" }} />
-            <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
+          <div className="relative overflow-hidden rounded-2xl p-6 lg:p-10" style={{ background: "linear-gradient(135deg, #FF6B2B 0%, #FF9A5C 60%, #FFB347 100%)", boxShadow: "0 16px 48px rgba(255,107,43,0.3)" }}>
+            {/* Decorative */}
+            <div className="float-1 absolute top-0 right-10 w-56 h-56 rounded-full opacity-15 pointer-events-none" style={{ background: "white", filter: "blur(30px)" }} />
+            <div className="float-3 absolute bottom-0 left-20 w-36 h-36 rounded-full opacity-10 pointer-events-none" style={{ background: "white", filter: "blur(20px)" }} />
+            <div className="dot-pattern absolute inset-0 opacity-20 pointer-events-none rounded-2xl" />
+
+            <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
               <div>
-                <span className="text-[10px] uppercase tracking-[0.2em] mb-2 block" style={{ color: "#E8362A" }}>Stay updated</span>
-                <h3 className="text-[22px] font-[800] text-white mb-1" style={{ fontFamily: "'Syne', sans-serif" }}>Exclusive deals, just for you</h3>
-                <p className="text-[13px] mb-0" style={{ color: "rgba(255,255,255,0.45)" }}>Join our newsletter and never miss a flash sale or drop.</p>
+                <span className="inline-block text-[10px] uppercase tracking-[0.22em] mb-3 px-3 py-1 rounded-full text-white font-[600]" style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)" }}>Stay updated</span>
+                <h3 className="text-[24px] lg:text-[28px] font-[800] text-white mb-1.5" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Exclusive deals, just for you 🎁</h3>
+                <p className="text-[14px] mb-0" style={{ color: "rgba(255,255,255,0.85)" }}>Join our newsletter and never miss a flash sale or drop.</p>
               </div>
-              <div className="w-full lg:w-[420px]">
+              <div className="w-full lg:w-[440px]">
                 <form onSubmit={subscribeNewsletter} className="flex gap-2">
                   <input
                     type="email"
                     value={newsletterEmail}
                     onChange={(e) => setNewsletterEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="newsletter-input flex-1 rounded-xl px-4 py-3 text-[14px] text-slate-800"
-                    style={{ background: "rgba(255,255,255,0.08)", border: "1.5px solid rgba(255,255,255,0.1)", color: "white", outline: "none" }}
+                    placeholder="Enter your email address"
+                    className="newsletter-input flex-1 rounded-xl px-4 py-3 text-[14px] text-gray-800 bg-white"
+                    style={{ border: "2px solid rgba(255,255,255,0.5)", outline: "none", transition: "all 0.2s" }}
                   />
-                  <button type="submit" className="cta-primary px-5 py-3 rounded-xl font-[600] text-[14px] text-white flex-shrink-0" style={{ background: "#E8362A" }}>
+                  <button type="submit" className="px-5 py-3 rounded-xl font-[700] text-[14px] flex-shrink-0 transition-all hover:scale-105"
+                    style={{ background: "white", color: "#FF6B2B", boxShadow: "0 4px 14px rgba(0,0,0,0.15)" }}>
                     Subscribe
                   </button>
                 </form>
-                {newsletterMessage && <p className="text-[12px] mt-2 mb-0" style={{ color: "#34d399" }}>{newsletterMessage}</p>}
+                {newsletterMessage && <p className="text-[12px] mt-2 mb-0 text-white font-[600]">{newsletterMessage}</p>}
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─── FAQ ───────────────────────────────────────────────────────────── */}
-      <section className="py-4 bg-white">
+      {/* ─── FAQ ─────────────────────────────────────────────────────────── */}
+      <section className="py-6 bg-white">
         <div className="container">
-          <h3 className="section-title text-[20px] font-[700] text-slate-900 mb-5" style={{ fontFamily: "'Syne', sans-serif" }}>Frequently Asked Questions</h3>
-          <div className="space-y-2.5">
-            {faqs.map((item, index) => (
-              <div key={index} className="rounded-xl overflow-hidden transition-all"
-                style={{ border: `1.5px solid ${activeFaq === index ? "rgba(232,54,42,0.25)" : "#f1f5f9"}`, background: activeFaq === index ? "rgba(232,54,42,0.02)" : "#fafbfc" }}>
-                <button
-                  onClick={() => setActiveFaq(activeFaq === index ? -1 : index)}
-                  className="w-full text-left font-[600] text-[14px] text-slate-800 flex justify-between items-center px-5 py-4"
-                  style={{ fontFamily: "'Syne', sans-serif" }}
-                >
-                  {item.q}
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[18px] font-light transition-all"
-                    style={{ background: activeFaq === index ? "#E8362A" : "#f1f5f9", color: activeFaq === index ? "white" : "#64748b", transform: activeFaq === index ? "rotate(45deg)" : "rotate(0)" }}>
-                    +
-                  </span>
-                </button>
-                <div className={`faq-answer ${activeFaq === index ? "open" : ""}`}>
-                  <p className="text-[13px] text-slate-500 px-5 pb-4 mb-0">{item.a}</p>
+          <div className="max-w-3xl mx-auto">
+            <div className="text-center mb-7">
+              <h3 className="text-[24px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Frequently Asked Questions</h3>
+              <p className="text-[14px] text-gray-500 mt-1">Everything you need to know about shopping with us.</p>
+            </div>
+            <div className="space-y-3">
+              {faqs.map((item, index) => (
+                <div key={index} className="rounded-2xl overflow-hidden transition-all"
+                  style={{ border: `1.5px solid ${activeFaq === index ? "rgba(255,107,43,0.3)" : "#F1F3F5"}`, background: activeFaq === index ? "rgba(255,107,43,0.02)" : "#FAFAFA", boxShadow: activeFaq === index ? "0 4px 20px rgba(255,107,43,0.08)" : "none" }}>
+                  <button
+                    onClick={() => setActiveFaq(activeFaq === index ? -1 : index)}
+                    className="w-full text-left font-[700] text-[14px] text-gray-800 flex justify-between items-center px-5 py-4 transition-all"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  >
+                    {item.q}
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[18px] font-[400] transition-all"
+                      style={{ background: activeFaq === index ? "#FF6B2B" : "#F1F3F5", color: activeFaq === index ? "white" : "#9CA3AF", transform: activeFaq === index ? "rotate(45deg)" : "rotate(0)" }}>
+                      +
+                    </span>
+                  </button>
+                  <div className={`faq-answer ${activeFaq === index ? "open" : ""}`}>
+                    <p className="text-[14px] text-gray-500 px-5 pb-5 mb-0 leading-relaxed">{item.a}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ─── Blog ──────────────────────────────────────────────────────────── */}
+      {/* ─── Blog ────────────────────────────────────────────────────────── */}
       {blogData?.length !== 0 && (
-        <section className="py-5 pb-10 bg-white blogSection">
+        <section className="py-6 pb-10 bg-white blogSection" style={{ borderTop: "1.5px solid #F1F3F5" }}>
           <div className="container">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="section-title text-[20px] font-[700] text-slate-900" style={{ fontFamily: "'Syne', sans-serif" }}>From The Blog</h2>
+              <h2 className="section-heading text-[22px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>From The Blog</h2>
             </div>
             <Swiper
               slidesPerView={4}
-              spaceBetween={24}
+              spaceBetween={20}
               navigation={context?.windowWidth < 992 ? false : true}
               modules={[Navigation, FreeMode]}
               freeMode={true}
               breakpoints={{
                 250: { slidesPerView: 1, spaceBetween: 12 },
                 500: { slidesPerView: 2, spaceBetween: 16 },
-                700: { slidesPerView: 3, spaceBetween: 20 },
-                1100: { slidesPerView: 4, spaceBetween: 24 },
+                700: { slidesPerView: 3, spaceBetween: 18 },
+                1100: { slidesPerView: 4, spaceBetween: 20 },
               }}
               className="blogSlider"
             >

@@ -39,8 +39,8 @@ const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Syne:wght@700;800&display=swap');
 
   .cpanel-scroll::-webkit-scrollbar { width: 3px; }
-  .cpanel-scroll::-webkit-scrollbar-track { background: transparent; }
-  .cpanel-scroll::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.4); border-radius: 10px; }
+  .cpanel-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+  .cpanel-scroll::-webkit-scrollbar-thumb { background: rgba(249,115,22,0.35); border-radius: 10px; }
 
   @keyframes cpSlideIn  { from { opacity:0; transform:translateX(-16px); } to { opacity:1; transform:translateX(0); } }
   @keyframes cpFadeUp   { from { opacity:0; transform:translateY(7px);   } to { opacity:1; transform:translateY(0); } }
@@ -48,55 +48,55 @@ const GLOBAL_CSS = `
   @keyframes cpPulse    { 0%,100%{transform:scale(1);opacity:.7;} 50%{transform:scale(1.55);opacity:1;} }
   @keyframes cpShimmer  { 0%{background-position:-400px 0;} 100%{background-position:400px 0;} }
   @keyframes cpRipple   { 0%{transform:scale(0);opacity:.45;} 100%{transform:scale(3);opacity:0;} }
-  @keyframes cpFlash    { 0%{background:rgba(99,102,241,0.18);} 100%{background:transparent;} }
+  @keyframes cpFlash    { 0%{background:rgba(249,115,22,0.1);} 100%{background:transparent;} }
 
   /* ── top-level row ── */
   .cp-cat-row { animation: cpFadeUp 0.26s ease both; position:relative; overflow:hidden; }
   .cp-cat-inner { border-radius:10px; margin:0 8px; transition:background 0.2s; cursor:pointer; }
-  .cp-cat-inner:hover { background: rgba(99,102,241,0.07) !important; }
-  .cp-cat-inner:hover .cp-cat-label { color:#818cf8 !important; }
-  .cp-cat-inner:hover .cp-cat-iconbox { background:rgba(99,102,241,0.18)!important; border-color:rgba(99,102,241,0.4)!important; }
-  .cp-cat-inner:hover .cp-cat-chevron { color:#818cf8 !important; }
+  .cp-cat-inner:hover { background: rgba(249,115,22,0.07) !important; }
+  .cp-cat-inner:hover .cp-cat-label { color:#ea580c !important; }
+  .cp-cat-inner:hover .cp-cat-iconbox { background:rgba(249,115,22,0.12)!important; border-color:rgba(249,115,22,0.35)!important; }
+  .cp-cat-inner:hover .cp-cat-chevron { color:#f97316 !important; }
   .cp-cat-inner:active { animation: cpFlash 0.3s ease forwards; }
-  .cp-cat-inner.is-expanded { background: rgba(99,102,241,0.07) !important; }
-  .cp-cat-inner.is-expanded .cp-cat-label { color:#a5b4fc !important; font-weight:600 !important; }
-  .cp-cat-inner.is-expanded .cp-cat-iconbox { background:rgba(99,102,241,0.2)!important; border-color:rgba(165,180,252,0.45)!important; }
+  .cp-cat-inner.is-expanded { background: rgba(249,115,22,0.06) !important; }
+  .cp-cat-inner.is-expanded .cp-cat-label { color:#ea580c !important; font-weight:600 !important; }
+  .cp-cat-inner.is-expanded .cp-cat-iconbox { background:rgba(249,115,22,0.14)!important; border-color:rgba(249,115,22,0.4)!important; }
 
   /* ── sub row ── */
   .cp-sub-row { border-radius:8px; margin:1px 8px; transition:background 0.18s; cursor:pointer; }
-  .cp-sub-row:hover { background: rgba(99,102,241,0.08) !important; }
-  .cp-sub-row:hover .cp-sub-label { color:#a5b4fc !important; }
-  .cp-sub-row:active { background: rgba(99,102,241,0.16) !important; }
+  .cp-sub-row:hover { background: rgba(249,115,22,0.07) !important; }
+  .cp-sub-row:hover .cp-sub-label { color:#ea580c !important; }
+  .cp-sub-row:active { background: rgba(249,115,22,0.12) !important; }
 
   /* ── sub-sub row ── */
   .cp-subsub-row { border-radius:7px; margin:1px 8px; transition:background 0.18s; }
-  .cp-subsub-row:hover { background: rgba(165,180,252,0.07) !important; }
-  .cp-subsub-row:hover .cp-subsub-label { color:#c7d2fe !important; }
-  .cp-subsub-row:active { background: rgba(99,102,241,0.13) !important; }
+  .cp-subsub-row:hover { background: rgba(249,115,22,0.05) !important; }
+  .cp-subsub-row:hover .cp-subsub-label { color:#c2410c !important; }
+  .cp-subsub-row:active { background: rgba(249,115,22,0.1) !important; }
 
   /* ── search ── */
   .cp-search:focus {
-    border-color: rgba(99,102,241,0.55) !important;
-    background: rgba(99,102,241,0.06) !important;
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.1) !important;
+    border-color: rgba(249,115,22,0.5) !important;
+    background: #fff !important;
+    box-shadow: 0 0 0 3px rgba(249,115,22,0.1) !important;
   }
 
   /* ── close btn ── */
-  .cp-close:hover { background:rgba(99,102,241,0.15)!important; border-color:rgba(99,102,241,0.45)!important; color:#a5b4fc!important; }
+  .cp-close:hover { background:rgba(249,115,22,0.08)!important; border-color:rgba(249,115,22,0.4)!important; color:#ea580c!important; }
 
   /* ── ripple ── */
-  .cp-ripple { position:absolute; border-radius:50%; background:rgba(99,102,241,0.22); pointer-events:none; animation:cpRipple 0.5s ease-out forwards; transform-origin:center; }
+  .cp-ripple { position:absolute; border-radius:50%; background:rgba(249,115,22,0.18); pointer-events:none; animation:cpRipple 0.5s ease-out forwards; transform-origin:center; }
 
   /* ── skeleton ── */
-  .cp-skel { background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 50%,rgba(255,255,255,0.04) 75%); background-size:400px 100%; animation:cpShimmer 1.4s infinite linear; border-radius:6px; }
+  .cp-skel { background:linear-gradient(90deg,rgba(0,0,0,0.05) 25%,rgba(0,0,0,0.09) 50%,rgba(0,0,0,0.05) 75%); background-size:400px 100%; animation:cpShimmer 1.4s infinite linear; border-radius:6px; }
 
   /* ── search result row ── */
   .cp-result-row { border-radius:9px; margin:2px 8px; transition:background 0.18s; }
-  .cp-result-row:hover { background:rgba(99,102,241,0.08)!important; }
-  .cp-result-row:hover .cp-result-label { color:#a5b4fc !important; }
-  .cp-result-row:active { background:rgba(99,102,241,0.16)!important; }
+  .cp-result-row:hover { background:rgba(249,115,22,0.07)!important; }
+  .cp-result-row:hover .cp-result-label { color:#ea580c !important; }
+  .cp-result-row:active { background:rgba(249,115,22,0.12)!important; }
 
-  .cp-viewall:hover { color:#a5b4fc !important; }
+  .cp-viewall:hover { color:#ea580c !important; }
 
   /* ── auth button ── */
   .cp-auth-btn {
@@ -105,16 +105,71 @@ const GLOBAL_CSS = `
   }
   .cp-auth-btn::before {
     content:''; position:absolute; inset:0;
-    background: rgba(255,255,255,0.04);
+    background: rgba(0,0,0,0.03);
     opacity:0; transition: opacity 0.2s;
     border-radius: inherit;
   }
   .cp-auth-btn:hover::before { opacity:1; }
-  .cp-auth-btn.logout:hover { border-color: rgba(239,68,68,0.5) !important; color: #fca5a5 !important; box-shadow: 0 0 14px rgba(239,68,68,0.15) !important; }
-  .cp-auth-btn.login:hover  { border-color: rgba(99,102,241,0.7) !important; color: #a5b4fc !important; box-shadow: 0 0 14px rgba(99,102,241,0.2) !important; background: rgba(99,102,241,0.08) !important; }
+  .cp-auth-btn.logout:hover { border-color: rgba(239,68,68,0.45) !important; color: #dc2626 !important; box-shadow: 0 0 14px rgba(239,68,68,0.1) !important; background: rgba(239,68,68,0.06) !important; }
+  .cp-auth-btn.login:hover  { border-color: rgba(249,115,22,0.6) !important; color: #ea580c !important; box-shadow: 0 0 14px rgba(249,115,22,0.15) !important; background: rgba(249,115,22,0.07) !important; }
 
   @keyframes cpAuthIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
   .cp-auth-section { animation: cpAuthIn 0.3s ease 0.15s both; }
+
+  /* ── Become a Seller button ── */
+  @keyframes cpSellerGlow {
+    0%,100% { box-shadow: 0 0 0 0 rgba(249,115,22,0); }
+    50% { box-shadow: 0 0 10px 3px rgba(249,115,22,0.35); }
+  }
+  @keyframes cpSellerIn {
+    from { opacity:0; transform:scale(0.88) translateX(-6px); }
+    to   { opacity:1; transform:scale(1) translateX(0); }
+  }
+  @keyframes cpSellerShine {
+    0%   { left:-60%; opacity:0; }
+    20%  { opacity:0.55; }
+    100% { left:120%; opacity:0; }
+  }
+  @keyframes cpArrowBounce {
+    0%,100% { transform:translateX(0); }
+    50%     { transform:translateX(3px); }
+  }
+
+  .cp-seller-btn {
+    position: relative;
+    overflow: hidden;
+    animation: cpSellerIn 0.38s cubic-bezier(0.34,1.56,0.64,1) 0.12s both;
+    transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1),
+                box-shadow 0.22s ease,
+                background 0.2s ease,
+                border-color 0.2s ease;
+  }
+  .cp-seller-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -60%;
+    width: 40%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .cp-seller-btn:hover {
+    transform: scale(1.06);
+    box-shadow: 0 4px 18px rgba(249,115,22,0.45), 0 1px 6px rgba(249,115,22,0.2);
+    background: linear-gradient(135deg, #f97316, #fb923c) !important;
+    border-color: #f97316 !important;
+    animation: cpSellerGlow 1.8s ease infinite;
+  }
+  .cp-seller-btn:hover::before {
+    animation: cpSellerShine 0.55s ease forwards;
+  }
+  .cp-seller-btn:hover .cp-seller-arrow {
+    animation: cpArrowBounce 0.5s ease infinite;
+  }
+  .cp-seller-btn:active {
+    transform: scale(0.96);
+    box-shadow: 0 2px 8px rgba(249,115,22,0.3);
+  }
 `;
 
 function injectStyles(id, css) {
@@ -225,14 +280,14 @@ const SubSubRow = ({ item, parentId, grandParentId, onNavigate, delay = 0 }) => 
         flexShrink: 0,
       }} />
       <span className="cp-subsub-label" style={{
-        fontSize: 12, color: "#5a6a85",
+        fontSize: 12, color: "#6b7280",
         fontFamily: "'DM Sans',sans-serif",
         transition: "color 0.18s",
         flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
       }}>
         {item?.name}
       </span>
-      <FiChevronRight size={10} style={{ color: "#2d3748", flexShrink: 0 }} />
+      <FiChevronRight size={10} style={{ color: "#d1d5db", flexShrink: 0 }} />
     </Link>
   );
 };
@@ -272,7 +327,7 @@ const SubRow = ({ item, parentId, onNavigate, delay = 0 }) => {
           {/* Dot indicator */}
           <span style={{
             width: 6, height: 6, borderRadius: "50%",
-            background: open ? "rgba(99,102,241,0.65)" : "rgba(255,255,255,0.1)",
+            background: open ? "#f97316" : "rgba(0,0,0,0.12)",
             flexShrink: 0, transition: "background 0.18s",
           }} />
 
@@ -282,7 +337,7 @@ const SubRow = ({ item, parentId, onNavigate, delay = 0 }) => {
             onClick={(e) => { e.stopPropagation(); triggerRipple(e); onNavigate(); }}
             className="cp-sub-label"
             style={{
-              flex: 1, fontSize: 13, color: "#8392a8",
+              flex: 1, fontSize: 13, color: "#4b5563",
               fontFamily: "'DM Sans',sans-serif",
               transition: "color 0.18s",
               textDecoration: "none",
@@ -298,7 +353,7 @@ const SubRow = ({ item, parentId, onNavigate, delay = 0 }) => {
             size={12}
             onClick={() => setOpen((p) => !p)}
             style={{
-              color: "#334155", flexShrink: 0,
+              color: "#6b7280", flexShrink: 0,
               transition: "transform 0.22s",
               transform: open ? "rotate(180deg)" : "rotate(0deg)",
               cursor: "pointer", padding: "2px",
@@ -321,23 +376,23 @@ const SubRow = ({ item, parentId, onNavigate, delay = 0 }) => {
         >
           <span style={{
             width: 6, height: 6, borderRadius: "50%",
-            background: "rgba(255,255,255,0.1)", flexShrink: 0,
+            background: "rgba(0,0,0,0.1)", flexShrink: 0,
           }} />
           <span className="cp-sub-label" style={{
-            flex: 1, fontSize: 13, color: "#8392a8",
+            flex: 1, fontSize: 13, color: "#4b5563",
             fontFamily: "'DM Sans',sans-serif",
             transition: "color 0.18s",
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
             {item?.name}
           </span>
-          <FiChevronRight size={11} style={{ color: "#2d3748", flexShrink: 0 }} />
+          <FiChevronRight size={11} style={{ color: "#d1d5db", flexShrink: 0 }} />
         </Link>
       )}
 
       {/* Sub-sub-categories */}
       {hasSubs && open && (
-        <div style={{ borderLeft: "1px solid rgba(99,102,241,0.1)", marginLeft: 52 }}>
+        <div style={{ borderLeft: "1px solid rgba(249,115,22,0.12)", marginLeft: 52 }}>
           {item.children.map((ssub, i) => (
             <SubSubRow
               key={ssub?._id || i}
@@ -393,7 +448,7 @@ const CategoryRow = ({ item, index, onNavigate }) => {
             position: "absolute", left: 0, top: "50%",
             transform: "translateY(-50%)",
             width: 3, height: "58%",
-            background: "linear-gradient(180deg, #6366f1, #818cf8)",
+            background: "linear-gradient(180deg, #f97316, #fb923c)",
             borderRadius: "0 3px 3px 0",
           }} />
         )}
@@ -403,14 +458,14 @@ const CategoryRow = ({ item, index, onNavigate }) => {
           className="cp-cat-iconbox"
           style={{
             width: 34, height: 34, borderRadius: 9,
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.07)",
+            background: "rgba(249,115,22,0.08)",
+            border: "1px solid rgba(249,115,22,0.2)",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 17, flexShrink: 0,
             transition: "all 0.22s",
           }}
         >
-          {item?.icon ? <span>{item.icon}</span> : <FiGrid size={13} style={{ color: "#475569" }} />}
+          {item?.icon ? <span>{item.icon}</span> : <FiGrid size={13} style={{ color: "#f97316" }} />}
         </div>
 
         {/* Name — always navigates to products */}
@@ -420,7 +475,7 @@ const CategoryRow = ({ item, index, onNavigate }) => {
           className="cp-cat-label"
           style={{
             flex: 1, fontSize: 14, fontWeight: 500,
-            color: "#c8d3e0",
+            color: "#1f2937",
             fontFamily: "'DM Sans',sans-serif",
             transition: "color 0.2s",
             letterSpacing: "0.005em",
@@ -438,9 +493,9 @@ const CategoryRow = ({ item, index, onNavigate }) => {
             style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, cursor: "pointer" }}
           >
             <span style={{
-              fontSize: 10, color: "#2d3748",
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.06)",
+              fontSize: 10, color: "#6b7280",
+              background: "rgba(249,115,22,0.08)",
+              border: "1px solid rgba(249,115,22,0.18)",
               borderRadius: 8, padding: "2px 6px",
               fontFamily: "'DM Sans',sans-serif",
             }}>
@@ -450,7 +505,7 @@ const CategoryRow = ({ item, index, onNavigate }) => {
               className="cp-cat-chevron"
               size={14}
               style={{
-                color: "#475569",
+                color: "#9ca3af",
                 transition: "transform 0.25s, color 0.2s",
                 transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
               }}
@@ -460,14 +515,14 @@ const CategoryRow = ({ item, index, onNavigate }) => {
 
         {/* Arrow for leaf categories */}
         {!hasSubs && (
-          <FiChevronRight size={13} style={{ color: "#2d3748", flexShrink: 0 }} />
+          <FiChevronRight size={13} style={{ color: "#d1d5db", flexShrink: 0 }} />
         )}
       </div>
 
       {/* Sub-categories */}
       {hasSubs && expanded && (
         <div style={{
-          borderLeft: "1px solid rgba(99,102,241,0.12)",
+          borderLeft: "1px solid rgba(249,115,22,0.12)",
           marginLeft: 33, paddingBottom: 4,
         }}>
           {item.children.map((sub, i) => (
@@ -491,10 +546,10 @@ const CategoryRow = ({ item, index, onNavigate }) => {
 const SearchResults = ({ results, query, onNavigate }) => {
   if (!results.length) return (
     <div style={{ padding: "38px 20px", textAlign: "center" }}>
-      <FiPackage size={28} style={{ color: "#1e2535", marginBottom: 10 }} />
-      <div style={{ fontSize: 13, color: "#334155", fontFamily: "'DM Sans',sans-serif", lineHeight: 1.7 }}>
+      <FiPackage size={28} style={{ color: "#d1d5db", marginBottom: 10 }} />
+      <div style={{ fontSize: 13, color: "#6b7280", fontFamily: "'DM Sans',sans-serif", lineHeight: 1.7 }}>
         No categories found for<br />
-        <strong style={{ color: "#6366f1" }}>"{query}"</strong>
+        <strong style={{ color: "#f97316" }}>"{query}"</strong>
       </div>
     </div>
   );
@@ -520,14 +575,14 @@ const SearchResults = ({ results, query, onNavigate }) => {
             <span style={{
               width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
               background: item._depth === 0
-                ? "#6366f1"
+                ? "#f97316"
                 : item._depth === 1
-                  ? "rgba(99,102,241,0.45)"
-                  : "rgba(99,102,241,0.2)",
+                  ? "rgba(249,115,22,0.45)"
+                  : "rgba(249,115,22,0.2)",
             }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="cp-result-label" style={{
-                fontSize: 13, color: "#8a9ab8",
+                fontSize: 13, color: "#4b5563",
                 fontFamily: "'DM Sans',sans-serif",
                 transition: "color 0.18s",
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
@@ -535,16 +590,16 @@ const SearchResults = ({ results, query, onNavigate }) => {
                 {highlight(item?.name, query)}
               </div>
               {item._parent && (
-                <div style={{ fontSize: 11, color: "#2d3748", marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
                   {item._depth === 1 ? "in " : "sub of "}{item._parent}
                 </div>
               )}
             </div>
             <div style={{
               display: "flex", alignItems: "center", gap: 4,
-              fontSize: 10, color: "#334155",
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.06)",
+              fontSize: 10, color: "#6b7280",
+              background: "rgba(249,115,22,0.07)",
+              border: "1px solid rgba(249,115,22,0.15)",
               borderRadius: 7, padding: "2px 7px",
               fontFamily: "'DM Sans',sans-serif",
               flexShrink: 0,
@@ -662,7 +717,7 @@ const CategoryPanel = (props) => {
       <div style={{
         width: 308, height: "100%",
         display: "flex", flexDirection: "column",
-        background: "#0b0d12",
+        background: "#ffffff",
         fontFamily: "'DM Sans',sans-serif",
         animation: "cpSlideIn 0.3s cubic-bezier(0.22,1,0.36,1) both",
         position: "relative", overflow: "hidden",
@@ -672,12 +727,12 @@ const CategoryPanel = (props) => {
         <div style={{
           position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
           background:
-            "radial-gradient(ellipse 260px 180px at 105% -5%, rgba(99,102,241,0.10) 0%, transparent 65%)," +
-            "radial-gradient(ellipse 180px 280px at -5% 105%, rgba(99,102,241,0.06) 0%, transparent 70%)",
+            "radial-gradient(ellipse 260px 180px at 105% -5%, rgba(249,115,22,0.06) 0%, transparent 65%)," +
+            "radial-gradient(ellipse 180px 280px at -5% 105%, rgba(249,115,22,0.04) 0%, transparent 70%)",
         }} />
         <div style={{
           position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
-          backgroundImage: "radial-gradient(rgba(99,102,241,0.05) 1px, transparent 1px)",
+          backgroundImage: "radial-gradient(rgba(249,115,22,0.08) 1px, transparent 1px)",
           backgroundSize: "22px 22px",
         }} />
 
@@ -686,7 +741,7 @@ const CategoryPanel = (props) => {
           position: "relative", zIndex: 2, flexShrink: 0,
           height: 58, padding: "0 14px",
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          borderBottom: "1px solid rgba(255,255,255,0.05)",
+          borderBottom: "1px solid rgba(0,0,0,0.07)",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             {localStorage.getItem("logo") ? (
@@ -696,7 +751,7 @@ const CategoryPanel = (props) => {
               <>
                 <div style={{
                   width: 30, height: 30, borderRadius: 8,
-                  background: "linear-gradient(135deg,#4f46e5,#818cf8)",
+                  background: "linear-gradient(135deg,#f97316,#fb923c)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   boxShadow: "0 0 14px rgba(99,102,241,0.35)",
                 }}>
@@ -705,7 +760,7 @@ const CategoryPanel = (props) => {
                 <span style={{
                   fontSize: 15, fontWeight: 800,
                   fontFamily: "'Syne',sans-serif",
-                  color: "#e2e8f0", letterSpacing: "0.02em",
+                  color: "#1a1a1a", letterSpacing: "0.02em",
                 }}>
                   Categories
                 </span>
@@ -714,11 +769,44 @@ const CategoryPanel = (props) => {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            {/* ── Become a Seller Button ── */}
+            <a
+              href="https://decemberadmin-2grx.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cp-seller-btn"
+              title="Start selling on our platform"
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "5px 10px",
+                borderRadius: 8,
+                background: "linear-gradient(135deg, #ea6f0e, #f97316)",
+                border: "1px solid rgba(249,115,22,0.6)",
+                color: "#fff",
+                fontSize: 11, fontWeight: 700,
+                cursor: "pointer",
+                textDecoration: "none",
+                fontFamily: "'DM Sans',sans-serif",
+                letterSpacing: "0.02em",
+                whiteSpace: "nowrap",
+                userSelect: "none",
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+              <span>Sell</span>
+              <svg className="cp-seller-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </a>
+
             {!isLoading && (
               <span style={{
-                fontSize: 10, color: "#2d3748",
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.07)",
+                fontSize: 10, color: "#6b7280",
+                background: "rgba(249,115,22,0.07)",
+                border: "1px solid rgba(249,115,22,0.18)",
                 borderRadius: 9, padding: "3px 8px",
               }}>
                 {totalCats} depts
@@ -730,9 +818,9 @@ const CategoryPanel = (props) => {
               aria-label="Close menu"
               style={{
                 width: 30, height: 30, borderRadius: 8,
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.07)",
-                color: "#475569", cursor: "pointer",
+                background: "rgba(0,0,0,0.04)",
+                border: "1px solid rgba(0,0,0,0.1)",
+                color: "#9ca3af", cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 transition: "all 0.18s", padding: 0, fontSize: 17,
               }}
@@ -748,7 +836,7 @@ const CategoryPanel = (props) => {
             <FiSearch style={{
               position: "absolute", left: 11, top: "50%",
               transform: "translateY(-50%)",
-              color: "#334155", fontSize: 13, pointerEvents: "none",
+              color: "#9ca3af", fontSize: 13, pointerEvents: "none",
             }} />
             <input
               ref={inputRef}
@@ -761,9 +849,9 @@ const CategoryPanel = (props) => {
                 width: "100%", boxSizing: "border-box",
                 padding: "9px 32px 9px 32px",
                 borderRadius: 9,
-                border: "1px solid rgba(255,255,255,0.07)",
-                background: "rgba(255,255,255,0.03)",
-                color: "#e2e8f0", fontSize: 13, outline: "none",
+                border: "1px solid rgba(0,0,0,0.1)",
+                background: "#f9fafb",
+                color: "#1a1a1a", fontSize: 13, outline: "none",
                 fontFamily: "'DM Sans',sans-serif",
                 transition: "all 0.2s",
               }}
@@ -774,8 +862,8 @@ const CategoryPanel = (props) => {
                 style={{
                   position: "absolute", right: 9, top: "50%",
                   transform: "translateY(-50%)",
-                  background: "rgba(255,255,255,0.07)", border: "none",
-                  borderRadius: 5, color: "#475569", cursor: "pointer",
+                  background: "rgba(0,0,0,0.06)", border: "none",
+                  borderRadius: 5, color: "#6b7280", cursor: "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   width: 20, height: 20, padding: 0,
                 }}
@@ -786,9 +874,9 @@ const CategoryPanel = (props) => {
           </div>
 
           {hasSearch && !searching && (
-            <div style={{ fontSize: 11, color: "#2d3748", marginTop: 7, paddingLeft: 2 }}>
+            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 7, paddingLeft: 2 }}>
               {searchResults.length > 0 ? (
-                <><span style={{ color: "#6366f1" }}>{searchResults.length}</span> result{searchResults.length !== 1 ? "s" : ""}</>
+                <><span style={{ color: "#f97316" }}>{searchResults.length}</span> result{searchResults.length !== 1 ? "s" : ""}</>
               ) : "No matches"}
             </div>
           )}
@@ -801,13 +889,13 @@ const CategoryPanel = (props) => {
             display: "flex", alignItems: "center", gap: 8,
             flexShrink: 0, position: "relative", zIndex: 2,
           }}>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.04)" }} />
+            <div style={{ flex: 1, height: 1, background: "rgba(0,0,0,0.07)" }} />
             <span style={{
               fontSize: 9, fontWeight: 700,
               letterSpacing: "0.14em", textTransform: "uppercase",
-              color: "#1a2030",
+              color: "#9ca3af",
             }}>All Departments</span>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.04)" }} />
+            <div style={{ flex: 1, height: 1, background: "rgba(0,0,0,0.07)" }} />
           </div>
         )}
 
@@ -847,8 +935,8 @@ const CategoryPanel = (props) => {
           {context?.isLogin ? (
             /* ── LOGGED IN: show user info + logout ── */
             <div style={{
-              background: "rgba(255,255,255,0.025)",
-              border: "1px solid rgba(255,255,255,0.06)",
+              background: "#f9fafb",
+              border: "1px solid rgba(0,0,0,0.07)",
               borderRadius: 11,
               padding: "10px 12px",
               display: "flex", alignItems: "center", gap: 10,
@@ -856,7 +944,7 @@ const CategoryPanel = (props) => {
               {/* Avatar */}
               <div style={{
                 width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
-                background: "linear-gradient(135deg, #4f46e5, #818cf8)",
+                background: "linear-gradient(135deg, #f97316, #fb923c)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 14, fontWeight: 700, color: "#fff",
                 boxShadow: "0 0 12px rgba(99,102,241,0.35)",
@@ -868,14 +956,14 @@ const CategoryPanel = (props) => {
               {/* Name + email */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
-                  fontSize: 13, fontWeight: 600, color: "#c8d3e0",
+                  fontSize: 13, fontWeight: 600, color: "#1f2937",
                   fontFamily: "'DM Sans',sans-serif",
                   whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                 }}>
                   {context?.userData?.name || "User"}
                 </div>
                 <div style={{
-                  fontSize: 11, color: "#334155",
+                  fontSize: 11, color: "#9ca3af",
                   fontFamily: "'DM Sans',sans-serif",
                   whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                   marginTop: 1,
@@ -914,21 +1002,21 @@ const CategoryPanel = (props) => {
           ) : (
             /* ── NOT LOGGED IN: login prompt ── */
             <div style={{
-              background: "rgba(99,102,241,0.04)",
-              border: "1px solid rgba(99,102,241,0.12)",
+              background: "rgba(249,115,22,0.04)",
+              border: "1px solid rgba(249,115,22,0.15)",
               borderRadius: 11,
               padding: "12px 13px",
             }}>
               {/* Prompt text */}
               <div style={{ marginBottom: 9 }}>
                 <div style={{
-                  fontSize: 13, fontWeight: 600, color: "#c8d3e0",
+                  fontSize: 13, fontWeight: 600, color: "#1f2937",
                   fontFamily: "'DM Sans',sans-serif",
                 }}>
                   Sign in to your account
                 </div>
                 <div style={{
-                  fontSize: 11, color: "#334155",
+                  fontSize: 11, color: "#9ca3af",
                   fontFamily: "'DM Sans',sans-serif",
                   marginTop: 2, lineHeight: 1.5,
                 }}>
@@ -945,9 +1033,9 @@ const CategoryPanel = (props) => {
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
                   padding: "9px 14px",
                   borderRadius: 9,
-                  border: "1px solid rgba(99,102,241,0.35)",
-                  background: "rgba(99,102,241,0.1)",
-                  color: "#818cf8",
+                  border: "1px solid rgba(249,115,22,0.4)",
+                  background: "rgba(249,115,22,0.08)",
+                  color: "#ea580c",
                   fontSize: 13, fontWeight: 600,
                   cursor: "pointer",
                   fontFamily: "'DM Sans',sans-serif",
@@ -965,13 +1053,13 @@ const CategoryPanel = (props) => {
               {/* Register link */}
               <div style={{
                 marginTop: 8, textAlign: "center",
-                fontSize: 11, color: "#1e2535",
+                fontSize: 11, color: "#6b7280",
                 fontFamily: "'DM Sans',sans-serif",
               }}>
                 New here?{" "}
                 <span
                   onClick={() => { closePanel(); navigate("/register"); }}
-                  style={{ color: "#6366f1", fontWeight: 600, cursor: "pointer" }}
+                  style={{ color: "#f97316", fontWeight: 600, cursor: "pointer" }}
                 >
                   Create account
                 </span>
@@ -982,7 +1070,7 @@ const CategoryPanel = (props) => {
 
         {/* ══════════════ FOOTER ══════════════ */}
         <div style={{
-          borderTop: "1px solid rgba(255,255,255,0.05)",
+          borderTop: "1px solid rgba(0,0,0,0.07)",
           padding: "11px 16px",
           display: "flex", alignItems: "center", justifyContent: "space-between",
           flexShrink: 0, position: "relative", zIndex: 2,
@@ -996,7 +1084,7 @@ const CategoryPanel = (props) => {
               animation: "cpPulse 2.2s ease infinite",
               boxShadow: "0 0 6px rgba(34,197,94,0.5)",
             }} />
-            <span style={{ fontSize: 11, color: "#1e2535", fontFamily: "'DM Sans',sans-serif" }}>
+            <span style={{ fontSize: 11, color: "#6b7280", fontFamily: "'DM Sans',sans-serif" }}>
               All categories live
             </span>
           </div>
@@ -1005,7 +1093,7 @@ const CategoryPanel = (props) => {
             onClick={closePanel}
             className="cp-viewall"
             style={{
-              fontSize: 11, color: "#6366f1",
+              fontSize: 11, color: "#f97316",
               textDecoration: "none", fontWeight: 600,
               display: "flex", alignItems: "center", gap: 3,
               fontFamily: "'DM Sans',sans-serif",

@@ -254,6 +254,49 @@ cloudinary.config({
   secure: true,
 });
 
+
+// ═══════════════════════════════════════════════════════════════════
+// SERVER-SIDE PRODUCT CACHE
+// getProduct fast karne ke liye — same product dobara click pe
+// DB hit nahi hogi, cache se instant response milega.
+// TTL: 5 min. Update/Delete pe auto-invalidate.
+// ═══════════════════════════════════════════════════════════════════
+const _productCache = new Map();
+const _CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function _cacheSet(id, data) {
+  _productCache.set(String(id), { data, exp: Date.now() + _CACHE_TTL });
+}
+function _cacheGet(id) {
+  const e = _productCache.get(String(id));
+  if (!e) return null;
+  if (Date.now() > e.exp) { _productCache.delete(String(id)); return null; }
+  return e.data;
+}
+function _cacheDel(id) { _productCache.delete(String(id)); }
+
+// filterOptions poore DB se ek baar fetch karo, 10 min cache rakho
+// (filters/search function bar-bar ye fetch karta tha — ab nahi)
+let _filterOptionsCache = null;
+let _filterOptionsCacheExp = 0;
+async function _getFilterOptions() {
+  if (_filterOptionsCache && Date.now() < _filterOptionsCacheExp) {
+    return _filterOptionsCache;
+  }
+  const items = await ProductModel.find({})
+    .select("brand size productType thirdsubCat subCat catName productWeight productRam colorOptions.name")
+    .lean();
+  _filterOptionsCache = {
+    brands:       [...new Set(items.map(i => i?.brand?.trim()).filter(Boolean))],
+    sizes:        [...new Set(items.flatMap(i => i?.size || []).filter(Boolean))],
+    productTypes: [...new Set(items.map(i => i?.productType || i?.thirdsubCat || i?.subCat || i?.catName).filter(Boolean))],
+    weights:      [...new Set(items.flatMap(i => i?.productWeight || []).filter(Boolean))],
+    ramOptions:   [...new Set(items.flatMap(i => i?.productRam || []).filter(Boolean))],
+    colors:       [...new Set(items.flatMap(i => (i?.colorOptions || []).map(c => c?.name)).filter(Boolean))],
+  };
+  _filterOptionsCacheExp = Date.now() + 10 * 60 * 1000; // 10 min
+  return _filterOptionsCache;
+}
 //image upload
 var imagesArr = [];
 export async function uploadImages(request, response) {
@@ -390,43 +433,28 @@ export async function createProduct(request, response) {
   }
 }
 
+
 //get all products
 export async function getAllProducts(request, response) {
   try {
     const page = parseInt(request.query.page) || 1;
     const limit = parseInt(request.query.limit) || 10;
-
-    // ✅ Fix: poore collection ka count, filtered products ka nahi
     const total = await ProductModel.countDocuments();
-
     const products = await ProductModel.find()
-    .populate("seller", "name email role status storeProfile")
+      .populate("seller", "name email role status storeProfile")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
-      .limit(limit);
-
-    if (!products) {
-      return response.status(400).json({ error: true, success: false });
-    }
-
+      .limit(limit)
+      .lean(); // ✅ FIX: lean() — 2-3x faster, plain JS object return karta hai
+    if (!products) return response.status(400).json({ error: true, success: false });
     return response.status(200).json({
-      error: false,
-      success: true,
-      products: products,
-      total: total,
-      page: page,
-      totalPages: Math.ceil(total / limit),
-      totalCount: total,
+      error: false, success: true, products,
+      total, page, totalPages: Math.ceil(total / limit), totalCount: total,
     });
   } catch (error) {
-    return response.status(500).json({
-      message: error.message || error,
-      error: true,
-      success: false,
-    });
+    return response.status(500).json({ message: error.message || error, error: true, success: false });
   }
 }
-
 //get all products by category id
 export async function getAllProductsByCatId(request, response) {
   try {
@@ -442,7 +470,7 @@ export async function getAllProductsByCatId(request, response) {
        .populate("seller", "name email role status storeProfile")
       .skip((page - 1) * perPage)
       .limit(perPage)
-      .exec();
+      .lean().exec();
 
     return response.status(200).json({
       error: false,
@@ -485,7 +513,7 @@ export async function getAllProductsByCatName(request, response) {
       .populate("seller", "name email role status storeProfile")
       .skip((page - 1) * perPage)
       .limit(perPage)
-      .exec();
+      .lean().exec();
 
     if (!products) {
       response.status(500).json({
@@ -526,7 +554,7 @@ export async function getAllProductsBySubCatId(request, response) {
       .populate("seller", "name email role status storeProfile")
       .skip((page - 1) * perPage)
       .limit(perPage)
-      .exec();
+      .lean().exec();
 
     return response.status(200).json({
       error: false,
@@ -569,7 +597,7 @@ export async function getAllProductsBySubCatName(request, response) {
       .populate("seller", "name email role status storeProfile")
       .skip((page - 1) * perPage)
       .limit(perPage)
-      .exec();
+      .lean().exec();
 
     if (!products) {
       response.status(500).json({
@@ -609,7 +637,7 @@ export async function getAllProductsByThirdLavelCatId(request, response) {
        .populate("seller", "name email role status storeProfile")
       .skip((page - 1) * perPage)
       .limit(perPage)
-      .exec();
+      .lean().exec();
 
     return response.status(200).json({
       error: false,
@@ -651,7 +679,7 @@ export async function getAllProductsByThirdLavelCatName(request, response) {
       .populate("category")
       .skip((page - 1) * perPage)
       .limit(perPage)
-      .exec();
+      .lean().exec();
 
     if (!products) {
       response.status(500).json({
@@ -762,7 +790,7 @@ export async function getAllProductsByRating(request, response) {
         .populate("category")
         .skip((page - 1) * perPage)
         .limit(perPage)
-        .exec();
+        .lean().exec();
     }
 
     if (request.query.subCatId !== undefined) {
@@ -773,7 +801,7 @@ export async function getAllProductsByRating(request, response) {
         .populate("category")
         .skip((page - 1) * perPage)
         .limit(perPage)
-        .exec();
+        .lean().exec();
     }
 
     if (request.query.thirdsubCatId !== undefined) {
@@ -784,7 +812,7 @@ export async function getAllProductsByRating(request, response) {
         .populate("category")
         .skip((page - 1) * perPage)
         .limit(perPage)
-        .exec();
+        .lean().exec();
     }
 
     if (!products) {
@@ -809,21 +837,33 @@ export async function getAllProductsByRating(request, response) {
     });
   }
 }
-
 export async function getProductsBySellerPublic(request, response) {
   try {
-
     const sellerId = request.params.sellerId;
-    const page = Math.max(parseInt(request.query.page) || 1, 1);
+    const page  = Math.max(parseInt(request.query.page)  || 1, 1);
     const limit = Math.min(Math.max(parseInt(request.query.limit) || 12, 1), 60);
-    const sortBy = request.query.sortBy || "latest";
-    const minPrice = Number(request.query.minPrice || 0);
-    const maxPrice = Number(request.query.maxPrice || 0);
-    const catId = request.query.catId;
-    const search = String(request.query.search || "").trim();
+    const sortBy     = request.query.sortBy    || "latest";
+    const minPrice   = Number(request.query.minPrice   || 0);
+    const maxPrice   = Number(request.query.maxPrice   || 0);
+    const minRating  = Number(request.query.minRating  || 0);
+    const catId      = request.query.catId      || "";
+    const search     = String(request.query.search     || "").trim();
+    const stockStatus = request.query.stockStatus || ""; // "inStock" | "outOfStock"
+    const saleOnly   = request.query.saleOnly === "true";
 
+    // Multi-value params (comma-separated)
+    const brands     = request.query.brands    ? String(request.query.brands).split(",").map(s => s.trim()).filter(Boolean)  : [];
+    const colors     = request.query.colors    ? String(request.query.colors).split(",").map(s => s.trim()).filter(Boolean)  : [];
+    const sizes      = request.query.sizes     ? String(request.query.sizes).split(",").map(s => s.trim()).filter(Boolean)   : [];
+    const ramOptions = request.query.ramOptions ? String(request.query.ramOptions).split(",").map(s => s.trim()).filter(Boolean) : [];
+    const weights    = request.query.weights   ? String(request.query.weights).split(",").map(s => s.trim()).filter(Boolean) : [];
+    const discountMin = Number(request.query.discountMin || 0);
+
+    // Build mongo query
     const query = { seller: sellerId };
+
     if (catId) query.catId = catId;
+
     if (search) {
       const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const searchRegex = new RegExp(escapedSearch, "i");
@@ -843,46 +883,75 @@ export async function getProductsBySellerPublic(request, response) {
       if (maxPrice > 0) query.price.$lte = maxPrice;
     }
 
-    const sortMap = {
-      latest: { createdAt: -1 },
-      oldest: { createdAt: 1 },
-      priceLowToHigh: { price: 1 },
-      priceHighToLow: { price: -1 },
-      popularity: { sale: -1, createdAt: -1 },
-      rating: { rating: -1, createdAt: -1 },
-      nameAZ: { name: 1 },
-      nameZA: { name: -1 },
-    };
+    if (minRating > 0) query.rating = { $gte: minRating };
+    if (brands.length)     query.brand = { $in: brands };
+    if (colors.length)     query["colorOptions.name"] = { $in: colors };
+    if (sizes.length)      query.size = { $in: sizes };
+    if (ramOptions.length) query.productRam = { $in: ramOptions };
+    if (weights.length)    query.productWeight = { $in: weights };
+    if (saleOnly)          query.discount = { $gt: 0 };
+    if (discountMin > 0)   query.discount = { ...(query.discount || {}), $gte: discountMin };
 
+    if (stockStatus === "inStock")    query.countInStock = { $gt: 0 };
+    if (stockStatus === "outOfStock") query.countInStock = { $lte: 0 };
+
+    const sortMap = {
+      latest:         { createdAt: -1 },
+      oldest:         { createdAt:  1 },
+      priceLowToHigh: { price:  1 },
+      priceHighToLow: { price: -1 },
+      popularity:     { sale: -1, createdAt: -1 },
+      rating:         { rating: -1, createdAt: -1 },
+      nameAZ:         { name:  1 },
+      nameZA:         { name: -1 },
+      discount:       { discount: -1 },
+    };
     const sortOption = sortMap[sortBy] || sortMap.latest;
 
-    const [products, total, categoryFacets] = await Promise.all([
+    // Run all queries in parallel
+    const [products, total, categoryFacets, filterOptionsRaw] = await Promise.all([
       ProductModel.find(query)
         .populate("seller", "name email role status storeProfile")
         .sort(sortOption)
         .skip((page - 1) * limit)
-        .limit(limit),
+        .limit(limit).lean(),
       ProductModel.countDocuments(query),
       ProductModel.aggregate([
         { $match: { seller: sellerId } },
-        {
-          $group: {
-            _id: "$catId",
-            name: { $first: "$catName" },
-            total: { $sum: 1 },
-          },
-        },
+        { $group: { _id: "$catId", name: { $first: "$catName" }, total: { $sum: 1 } } },
         { $sort: { total: -1 } },
       ]),
+      // filterOptions always from ALL seller products (not filtered) so options stay stable
+      ProductModel.find({ seller: sellerId })
+        .select("brand size productWeight productRam colorOptions.name discount countInStock rating")
+        .lean(),
     ]);
 
     const categories = (categoryFacets || [])
       .filter((item) => item?._id)
-      .map((item) => ({
-        _id: String(item._id),
-        name: item.name || "Uncategorized",
-        total: item.total || 0,
-      }));
+      .map((item) => ({ _id: String(item._id), name: item.name || "Uncategorized", total: item.total || 0 }));
+
+    const filterOptions = {
+      brands:     [...new Set(filterOptionsRaw.map(i => i?.brand?.trim()).filter(Boolean))].sort(),
+      sizes:      [...new Set(filterOptionsRaw.flatMap(i => i?.size || []).filter(Boolean))].sort(),
+      colors:     [...new Set(filterOptionsRaw.flatMap(i => (i?.colorOptions || []).map(c => c?.name)).filter(Boolean))].sort(),
+      ramOptions: [...new Set(filterOptionsRaw.flatMap(i => i?.productRam || []).filter(Boolean))].sort(),
+      weights:    [...new Set(filterOptionsRaw.flatMap(i => i?.productWeight || []).filter(Boolean))].sort(),
+      hasDiscount: filterOptionsRaw.some(i => (i?.discount || 0) > 0),
+      hasOutOfStock: filterOptionsRaw.some(i => (i?.countInStock || 0) <= 0),
+    };
+
+    // Rating stats
+    const ratingList = filterOptionsRaw.map(i => Number(i?.rating) || 0).filter(r => r > 0);
+    const ratingStats = {
+      avg: ratingList.length ? parseFloat((ratingList.reduce((s, r) => s + r, 0) / ratingList.length).toFixed(1)) : 0,
+      totalReviews: ratingList.length,
+      breakdown: ratingList.reduce((acc, r) => {
+        const key = Math.round(r);
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {}),
+    };
 
     return response.status(200).json({
       error: false,
@@ -894,6 +963,8 @@ export async function getProductsBySellerPublic(request, response) {
       totalPages: Math.ceil(total / limit),
       hasMore: page * limit < total,
       categories,
+      filterOptions,
+      ratingStats,
     });
   } catch (error) {
     return response.status(500).json({
@@ -924,7 +995,6 @@ export async function getSellerProducts(request, response) {
     });
   }
 }
-
 //get all products count
 
 export async function getProductsCount(request, response) {
@@ -1010,150 +1080,90 @@ export async function getAllProductsBanners(request, response) {
 
 //delete product
 export async function deleteProduct(request, response) {
-  const product = await ProductModel.findById(request.params.id).populate(
-    "category",
-  );
-
+  const product = await ProductModel.findById(request.params.id).populate("category");
   if (!product) {
-    return response.status(404).json({
-      message: "Product Not found",
-      error: true,
-      success: false,
-    });
+    return response.status(404).json({ message: "Product Not found", error: true, success: false });
   }
-
-  const images = product.images;
-
-  let img = "";
-  for (img of images) {
-    const imgUrl = img;
-    const urlArr = imgUrl.split("/");
-    const image = urlArr[urlArr.length - 1];
-
-    const imageName = image.split(".")[0];
-
-    if (imageName) {
-      cloudinary.uploader.destroy(imageName, (error, result) => {
-        // console.log(error, result);
-      });
-    }
+  for (const img of product.images) {
+    const imageName = img.split("/").pop().split(".")[0];
+    if (imageName) cloudinary.uploader.destroy(imageName, () => {});
   }
-
-  const deletedProduct = await ProductModel.findByIdAndDelete(
-    request.params.id,
-  );
-
+  const deletedProduct = await ProductModel.findByIdAndDelete(request.params.id);
   if (!deletedProduct) {
-    response.status(404).json({
-      message: "Product not deleted!",
-      success: false,
-      error: true,
-    });
+    return response.status(404).json({ message: "Product not deleted!", success: false, error: true });
   }
-
-  return response.status(200).json({
-    success: true,
-    error: false,
-    message: "Product Deleted!",
-  });
+  _cacheDel(request.params.id); // ✅ FIX: cache invalidate
+  return response.status(200).json({ success: true, error: false, message: "Product Deleted!" });
 }
 
 //delete multiple products
 export async function deleteMultipleProduct(request, response) {
   const { ids } = request.body;
-
   if (!ids || !Array.isArray(ids)) {
-    return response
-      .status(400)
-      .json({ error: true, success: false, message: "Invalid input" });
+    return response.status(400).json({ error: true, success: false, message: "Invalid input" });
   }
-
-  for (let i = 0; i < ids?.length; i++) {
-    const product = await ProductModel.findById(ids[i]);
-
-    const images = product.images;
-
-    let img = "";
-    for (img of images) {
-      const imgUrl = img;
-      const urlArr = imgUrl.split("/");
-      const image = urlArr[urlArr.length - 1];
-
-      const imageName = image.split(".")[0];
-
-      if (imageName) {
-        cloudinary.uploader.destroy(imageName, (error, result) => {
-          // console.log(error, result);
-        });
+  for (const id of ids) {
+    const product = await ProductModel.findById(id);
+    if (product) {
+      for (const img of product.images) {
+        const imageName = img.split("/").pop().split(".")[0];
+        if (imageName) cloudinary.uploader.destroy(imageName, () => {});
       }
     }
+    _cacheDel(id); // ✅ FIX: cache invalidate
   }
-
   try {
     await ProductModel.deleteMany({ _id: { $in: ids } });
-    return response.status(200).json({
-      message: "Product delete successfully",
-      error: false,
-      success: true,
-    });
+    return response.status(200).json({ message: "Product delete successfully", error: false, success: true });
   } catch (error) {
-    return response.status(500).json({
-      message: error.message || error,
-      error: true,
-      success: false,
-    });
+    return response.status(500).json({ message: error.message || error, error: true, success: false });
   }
 }
 
-//get single product
+// ── GET SINGLE PRODUCT — OPTIMIZED ──────────────────────────────────────────
+// FIX 1: .lean() → plain JS object, 2-3x faster (no Mongoose document overhead)
+// FIX 2: In-memory cache (5 min TTL) → dobara click pe instant response
+// FIX 3: Cache-Control header → browser bhi cache kar sakta hai
 export async function getProduct(request, response) {
   try {
-    const product = await ProductModel.findById(request.params.id).populate(
-      "category",
-    );
+    const id = request.params.id;
 
-    if (!product) {
-      return response.status(404).json({
-        message: "The product is not found",
-        error: true,
-        success: false,
-      });
+    // Cache hit — instant return, no DB call
+    const cached = _cacheGet(id);
+    if (cached) {
+      return response
+        .status(200)
+        .set("Cache-Control", "public, max-age=60, stale-while-revalidate=300")
+        .json({ error: false, success: true, product: cached });
     }
 
-    return response.status(200).json({
-      error: false,
-      success: true,
-      product: product,
-    });
+    // Cache miss — DB se fetch, lean() se fast
+    const product = await ProductModel.findById(id)
+      .populate("category")
+      .lean(); // ✅ KEY FIX
+
+    if (!product) {
+      return response.status(404).json({ message: "The product is not found", error: true, success: false });
+    }
+
+    _cacheSet(id, product); // save for next request
+
+    return response
+      .status(200)
+      .set("Cache-Control", "public, max-age=60, stale-while-revalidate=300")
+      .json({ error: false, success: true, product });
   } catch (error) {
-    return response.status(500).json({
-      message: error.message || error,
-      error: true,
-      success: false,
-    });
+    return response.status(500).json({ message: error.message || error, error: true, success: false });
   }
 }
 
 //delete images
 export async function removeImageFromCloudinary(request, response) {
   const imgUrl = request.query.img;
-
-  const urlArr = imgUrl.split("/");
-  const image = urlArr[urlArr.length - 1];
-
-  const imageName = image.split(".")[0];
-
+  const imageName = imgUrl.split("/").pop().split(".")[0];
   if (imageName) {
-    const res = await cloudinary.uploader.destroy(
-      imageName,
-      (error, result) => {
-        // console.log(error, res)
-      },
-    );
-
-    if (res) {
-      response.status(200).send(res);
-    }
+    const res = await cloudinary.uploader.destroy(imageName, () => {});
+    if (res) response.status(200).send(res);
   }
 }
 
@@ -1161,36 +1171,21 @@ export async function removeImageFromCloudinary(request, response) {
 export async function updateProduct(request, response) {
   try {
     const existingProduct = await ProductModel.findById(request.params.id);
-
     if (!existingProduct) {
-      return response.status(404).json({
-        error: true,
-        success: false,
-        message: "Product not found",
-      });
+      return response.status(404).json({ error: true, success: false, message: "Product not found" });
     }
-
-    if (
-      request.currentUser?.role === "SELLER" &&
-      existingProduct.seller?.toString() !== request.userId
-    ) {
-      return response.status(403).json({
-        error: true,
-        success: false,
-        message: "You can update only your products",
-      });
+    if (request.currentUser?.role === "SELLER" && existingProduct.seller?.toString() !== request.userId) {
+      return response.status(403).json({ error: true, success: false, message: "You can update only your products" });
     }
     const product = await ProductModel.findByIdAndUpdate(
       request.params.id,
       {
         name: request.body.name,
-        subCat: request.body.subCat,
         description: request.body.description,
         bannerimages: request.body.bannerimages,
         bannerTitleName: request.body.bannerTitleName,
         isDisplayOnHomeBanner: request.body.isDisplayOnHomeBanner,
         images: request.body.images,
-        bannerTitleName: request.body.bannerTitleName,
         brand: request.body.brand,
         keywords: normalizeKeywords(request.body.keywords),
         price: request.body.price,
@@ -1205,39 +1200,28 @@ export async function updateProduct(request, response) {
         countInStock: request.body.countInStock,
         rating: request.body.rating,
         isFeatured: request.body.isFeatured,
+        discount: request.body.discount,
         productRam: request.body.productRam,
         size: request.body.size,
         productWeight: request.body.productWeight,
         sale: request.body.sale || 0,
         colorOptions: request.body.colorOptions || [],
         specifications: request.body.specifications || [],
+        seller: request.body.seller,
       },
       { new: true },
     );
-
     if (!product) {
-      return response.status(404).json({
-        message: "the product can not be updated!",
-        status: false,
-      });
+      return response.status(404).json({ message: "the product can not be updated!", status: false });
     }
-
+    _cacheDel(request.params.id); // ✅ FIX: update ke baad cache clear
+    _filterOptionsCache = null;   // ✅ FIX: filter options refresh
     imagesArr = [];
-
-    return response.status(200).json({
-      message: "The product is updated",
-      error: false,
-      success: true,
-    });
+    return response.status(200).json({ message: "The product is updated", error: false, success: true });
   } catch (error) {
-    return response.status(500).json({
-      message: error.message || error,
-      error: true,
-      success: false,
-    });
+    return response.status(500).json({ message: error.message || error, error: true, success: false });
   }
 }
-
 export async function createProductRAMS(request, response) {
   try {
     let productRAMS = new ProductRAMSModel({
@@ -1666,583 +1650,236 @@ export async function getProductSizeById(request, response) {
 
 export async function filters(request, response) {
   const {
-    catId,
-    subCatId,
-    thirdsubCatId,
-    minPrice,
-    maxPrice,
-    rating,
-    colors,
-    page,
-    limit,
-    brands,
-    sizes,
-    productTypes,
-    priceRanges,
-    saleOnly,
-    stockStatus,
-    discountRanges,
-    weights,
-    ramOptions,
-    sortType,
-    query,
+    catId, subCatId, thirdsubCatId, minPrice, maxPrice, rating,
+    colors, page, limit, brands, sizes, productTypes, priceRanges,
+    saleOnly, stockStatus, discountRanges, weights, ramOptions, sortType, query,
   } = request.body;
 
-  const filters = {};
-
-  if (catId?.length) {
-    filters.catId = { $in: catId };
-  }
-
-  if (subCatId?.length) {
-    filters.subCatId = { $in: subCatId };
-  }
-
-  if (thirdsubCatId?.length) {
-    filters.thirdsubCatId = { $in: thirdsubCatId };
-  }
-
-  if (minPrice || maxPrice) {
-    filters.price = { $gte: +minPrice || 0, $lte: +maxPrice || Infinity };
-  }
-
-  if (rating?.length) {
-    filters.rating = { $in: rating };
-  }
-  if (colors?.length) {
-    filters["colorOptions.name"] = { $in: colors };
-  }
-  if (brands?.length) {
-    filters.brand = { $in: brands };
-  }
-
-  if (sizes?.length) {
-    filters.size = { $in: sizes };
+  const filterQuery = {};
+  if (catId?.length)         filterQuery.catId         = { $in: catId };
+  if (subCatId?.length)      filterQuery.subCatId      = { $in: subCatId };
+  if (thirdsubCatId?.length) filterQuery.thirdsubCatId = { $in: thirdsubCatId };
+  if (minPrice || maxPrice)  filterQuery.price         = { $gte: +minPrice || 0, $lte: +maxPrice || Infinity };
+  if (rating?.length)        filterQuery.rating        = { $in: rating };
+  if (colors?.length)        filterQuery["colorOptions.name"] = { $in: colors };
+  if (brands?.length)        filterQuery.brand         = { $in: brands };
+  if (sizes?.length)         filterQuery.size          = { $in: sizes };
+  if (weights?.length)       filterQuery.productWeight = { $in: weights };
+  if (ramOptions?.length)    filterQuery.productRam    = { $in: ramOptions };
+  if (saleOnly)              filterQuery.discount      = { $gt: 0 };
+  if (stockStatus === "inStock")    filterQuery.countInStock = { $gt: 0 };
+  if (stockStatus === "outOfStock") filterQuery.countInStock = { $lte: 0 };
+  if (discountRanges?.length) {
+    const minDiscount = Math.min(...discountRanges.map(Number).filter(Boolean));
+    if (Number.isFinite(minDiscount)) filterQuery.discount = { ...(filterQuery.discount || {}), $gte: minDiscount };
   }
 
   const andConditions = [];
-
   if (productTypes?.length) {
-    andConditions.push({
-      $or: [
-        { productType: { $in: productTypes } },
-        { thirdsubCat: { $in: productTypes } },
-        { subCat: { $in: productTypes } },
-        { catName: { $in: productTypes } },
-      ],
-    });
+    andConditions.push({ $or: [
+      { productType: { $in: productTypes } }, { thirdsubCat: { $in: productTypes } },
+      { subCat: { $in: productTypes } },      { catName: { $in: productTypes } },
+    ]});
   }
-
   if (query?.trim()) {
-    const queryRegex = new RegExp(query.trim(), "i");
-    andConditions.push({
-      $or: [
-        { name: queryRegex },
-        { description: queryRegex },
-        { brand: queryRegex },
-        { catName: queryRegex },
-        { subCat: queryRegex },
-        { thirdsubCat: queryRegex },
-      ],
-    });
+    const qr = new RegExp(query.trim(), "i");
+    andConditions.push({ $or: [{ name: qr }, { description: qr }, { brand: qr }, { catName: qr }, { subCat: qr }, { thirdsubCat: qr }] });
   }
-
   if (priceRanges?.length) {
-    const rangeFilters = priceRanges
-      .map((range) => {
-        const [min, max] = String(range).split("-").map(Number);
-        if (Number.isNaN(min) || Number.isNaN(max)) return null;
-        return { price: { $gte: min, $lte: max } };
-      })
-      .filter(Boolean);
-
-    if (rangeFilters.length) {
-      andConditions.push({ $or: rangeFilters });
-    }
+    const rangeFilters = priceRanges.map(r => { const [mn, mx] = String(r).split("-").map(Number); return (isNaN(mn)||isNaN(mx)) ? null : { price: { $gte: mn, $lte: mx } }; }).filter(Boolean);
+    if (rangeFilters.length) andConditions.push({ $or: rangeFilters });
   }
-
-  if (andConditions.length) {
-    filters.$and = [...(filters.$and || []), ...andConditions];
-  }
-
-  if (saleOnly) {
-    filters.discount = { $gt: 0 };
-  }
-
-  if (stockStatus === "inStock") {
-    filters.countInStock = { $gt: 0 };
-  }
-
-  if (stockStatus === "outOfStock") {
-    filters.countInStock = { $lte: 0 };
-  }
-
-  if (discountRanges?.length) {
-    const minDiscount = Math.min(...discountRanges.map(Number).filter(Boolean));
-    if (Number.isFinite(minDiscount)) {
-      filters.discount = { ...(filters.discount || {}), $gte: minDiscount };
-    }
-  }
-
-  if (weights?.length) {
-    filters.productWeight = { $in: weights };
-  }
-
-  if (ramOptions?.length) {
-    filters.productRam = { $in: ramOptions };
-  }
+  if (andConditions.length) filterQuery.$and = [...(filterQuery.$and || []), ...andConditions];
 
   const sortConfig = {
     bestSeller: { sale: -1, rating: -1, createdAt: -1, _id: -1 },
-    latest: { createdAt: -1, _id: -1 },
-    popular: { rating: -1, sale: -1, _id: -1 },
-    featured: { isFeatured: -1, sale: -1, _id: -1 },
-    priceAsc: { price: 1, _id: 1 },
-    priceDesc: { price: -1, _id: -1 },
-    nameAsc: { name: 1, _id: 1 },
-    nameDesc: { name: -1, _id: -1 },
+    latest:     { createdAt: -1, _id: -1 },
+    popular:    { rating: -1, sale: -1, _id: -1 },
+    featured:   { isFeatured: -1, sale: -1, _id: -1 },
+    priceAsc:   { price: 1, _id: 1 },
+    priceDesc:  { price: -1, _id: -1 },
+    nameAsc:    { name: 1, _id: 1 },
+    nameDesc:   { name: -1, _id: -1 },
   };
+
   try {
     const currentPage = Math.max(1, parseInt(page) || 1);
-    const perPage = Math.max(1, parseInt(limit) || 20);
-    const products = await ProductModel.find(filters)
-      .populate("category")
-      .sort(sortConfig[sortType] || sortConfig.bestSeller)
-      .skip((currentPage - 1) * perPage)
-      .limit(perPage);
+    const perPage     = Math.max(1, parseInt(limit) || 20);
 
-    const total = await ProductModel.countDocuments(filters);
-
-    const filterOptionsProducts = await ProductModel.find({})
-      .select("brand size productType thirdsubCat subCat catName productWeight productRam colorOptions.name")
-      .lean();
-
-
-    const filterOptions = {
-      brands: [...new Set(filterOptionsProducts.map((item) => item?.brand?.trim()).filter(Boolean))],
-      sizes: [...new Set(filterOptionsProducts.flatMap((item) => item?.size || []).filter(Boolean))],
-      productTypes: [...new Set(filterOptionsProducts
-        .map((item) => item?.productType || item?.thirdsubCat || item?.subCat || item?.catName)
-        .filter(Boolean))],
-      weights: [...new Set(filterOptionsProducts.flatMap((item) => item?.productWeight || []).filter(Boolean))],
-      ramOptions: [...new Set(filterOptionsProducts.flatMap((item) => item?.productRam || []).filter(Boolean))],
-      colors: [...new Set(filterOptionsProducts.flatMap((item) => (item?.colorOptions || []).map((colorItem) => colorItem?.name)).filter(Boolean))],
-    };
+    // ✅ FIX: products + count parallel mein, aur filterOptions cached
+    const [products, total, filterOptions] = await Promise.all([
+      ProductModel.find(filterQuery)
+        .populate("category")
+        .sort(sortConfig[sortType] || sortConfig.bestSeller)
+        .skip((currentPage - 1) * perPage)
+        .limit(perPage)
+        .lean(), // ✅ lean()
+      ProductModel.countDocuments(filterQuery),
+      _getFilterOptions(), // ✅ FIX: cached — bar-bar poora DB scan nahi
+    ]);
 
     return response.status(200).json({
-      error: false,
-      success: true,
-      products: products,
-      total: total,
-      page: currentPage,
-      totalPages: Math.max(1, Math.ceil(total / perPage)),
+      error: false, success: true, products, total,
+      page: currentPage, totalPages: Math.max(1, Math.ceil(total / perPage)),
       filterOptions,
     });
   } catch (error) {
-    return response.status(500).json({
-      message: error.message || error,
-      error: true,
-      success: false,
-    });
+    return response.status(500).json({ message: error.message || error, error: true, success: false });
   }
 }
 
 // Sort function
-const sortItems = (products, sortBy, order) => {
-  return products.sort((a, b) => {
-    if (sortBy === "name") {
-      return order === "asc"
-        ? a.name.localeCompare(b.name)
-        : b.name.localeCompare(a.name);
-    }
-    if (sortBy === "price") {
-      return order === "asc" ? a.price - b.price : b.price - a.price;
-    }
-    return 0; // Default
-  });
-};
+const sortItems = (products, sortBy, order) => products.sort((a, b) => {
+  if (sortBy === "name")  return order === "asc" ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+  if (sortBy === "price") return order === "asc" ? a.price - b.price : b.price - a.price;
+  return 0;
+});
 
 export async function sortBy(request, response) {
   const { products, sortBy, order } = request.body;
   const sortedItems = sortItems([...products?.products], sortBy, order);
-  return response.status(200).json({
-    error: false,
-    success: true,
-    products: sortedItems,
-    totalPages: 0,
-    page: 0,
-  });
+  return response.status(200).json({ error: false, success: true, products: sortedItems, totalPages: 0, page: 0 });
 }
 
 export async function searchProductController(request, response) {
   try {
     const {
-      query,
-      page,
-      limit,
-      brands,
-      sizes,
-      productTypes,
-      priceRanges,
-      saleOnly,
-      stockStatus,
-      discountRanges,
-      weights,
-      ramOptions,
-      ratingBands,
-      sortType,
+      query, page, limit, brands, sizes, productTypes, priceRanges,
+      saleOnly, stockStatus, discountRanges, weights, ramOptions, ratingBands, sortType,
     } = request.body;
-    const requestedPage = parseInt(page) || 1;
+    const requestedPage  = parseInt(page)  || 1;
     const requestedLimit = parseInt(limit) || 20;
 
     if (!query) {
-      return response.status(400).json({
-        error: true,
-        success: false,
-        message: "Query is required",
-      });
+      return response.status(400).json({ error: true, success: false, message: "Query is required" });
     }
-    const applyAdvancedFilters = (items = []) => {
-      return items.filter((item) => {
-        if (brands?.length && !brands.includes(item?.brand)) return false;
-        if (
-          sizes?.length &&
-          !(item?.size || []).some((size) => sizes.includes(size))
-        )
-          return false;
 
-        if (productTypes?.length) {
-          const itemType =
-            item?.productType ||
-            item?.thirdsubCat ||
-            item?.subCat ||
-            item?.catName;
-          if (!productTypes.includes(itemType)) return false;
-        }
+    const applyAdvancedFilters = (items = []) => items.filter((item) => {
+      if (brands?.length && !brands.includes(item?.brand)) return false;
+      if (sizes?.length && !(item?.size || []).some(s => sizes.includes(s))) return false;
+      if (productTypes?.length) {
+        const t = item?.productType || item?.thirdsubCat || item?.subCat || item?.catName;
+        if (!productTypes.includes(t)) return false;
+      }
+      if (priceRanges?.length) {
+        const p = Number(item?.price || 0);
+        const inRange = priceRanges.some(r => { const [mn,mx] = String(r).split("-").map(Number); return !isNaN(mn)&&!isNaN(mx)&&p>=mn&&p<=mx; });
+        if (!inRange) return false;
+      }
+      if (saleOnly && Number(item?.discount || 0) <= 0) return false;
+      if (stockStatus === "inStock"    && Number(item?.countInStock || 0) <= 0) return false;
+      if (stockStatus === "outOfStock" && Number(item?.countInStock || 0) > 0)  return false;
+      if (discountRanges?.length && !discountRanges.some(mn => Number(item?.discount||0) >= Number(mn||0))) return false;
+      if (weights?.length    && !(item?.productWeight || []).some(w => weights.includes(w)))    return false;
+      if (ramOptions?.length && !(item?.productRam    || []).some(r => ramOptions.includes(r))) return false;
+      if (ratingBands?.length) {
+        const r = Number(item?.rating || 0);
+        const inBand = ratingBands.some(({ min, max }) => max === null ? r >= min : r >= min && r < max);
+        if (!inBand) return false;
+      }
+      return true;
+    });
 
-        if (priceRanges?.length) {
-          const itemPrice = Number(item?.price || 0);
-          const inRange = priceRanges.some((range) => {
-            const [min, max] = String(range).split("-").map(Number);
-            return (
-              !Number.isNaN(min) &&
-              !Number.isNaN(max) &&
-              itemPrice >= min &&
-              itemPrice <= max
-            );
-          });
-          if (!inRange) return false;
-        }
+    const sortFilteredItems = (items = []) => [...items].sort((a, b) => {
+      if (sortType === "nameAsc")   return String(a?.name||"").localeCompare(String(b?.name||""));
+      if (sortType === "nameDesc")  return String(b?.name||"").localeCompare(String(a?.name||""));
+      if (sortType === "priceAsc")  return Number(a?.price||0) - Number(b?.price||0);
+      if (sortType === "priceDesc") return Number(b?.price||0) - Number(a?.price||0);
+      if (sortType === "latest")    return new Date(b?.createdAt||0).getTime() - new Date(a?.createdAt||0).getTime();
+      if (sortType === "popular")   { const d = Number(b?.rating||0)-Number(a?.rating||0); if(d!==0) return d; return Number(b?.sale||0)-Number(a?.sale||0); }
+      if (sortType === "featured")  { const d = Number(Boolean(b?.isFeatured))-Number(Boolean(a?.isFeatured)); if(d!==0) return d; }
+      return Number(b?.sale||0) - Number(a?.sale||0);
+    });
 
-        if (saleOnly && Number(item?.discount || 0) <= 0) return false;
-        if (stockStatus === "inStock" && Number(item?.countInStock || 0) <= 0)
-          return false;
-        if (stockStatus === "outOfStock" && Number(item?.countInStock || 0) > 0)
-          return false;
-
-        if (discountRanges?.length) {
-          const discount = Number(item?.discount || 0);
-          if (!discountRanges.some((min) => discount >= Number(min || 0)))
-            return false;
-        }
-
-        if (
-          weights?.length &&
-          !(item?.productWeight || []).some((w) => weights.includes(w))
-        )
-          return false;
-        if (
-          ramOptions?.length &&
-          !(item?.productRam || []).some((ram) => ramOptions.includes(ram))
-        )
-          return false;
-
-        if (ratingBands?.length) {
-          const rating = Number(item?.rating || 0);
-          const inBand = ratingBands.some(({ min, max }) =>
-            max === null ? rating >= min : rating >= min && rating < max,
-          );
-          if (!inBand) return false;
-        }
-
-        return true;
-      });
-    };
-
-    const sortFilteredItems = (items = []) => {
-      return [...items].sort((a, b) => {
-        if (sortType === "nameAsc") {
-          return String(a?.name || "").localeCompare(String(b?.name || ""));
-        }
-
-        if (sortType === "nameDesc") {
-          return String(b?.name || "").localeCompare(String(a?.name || ""));
-        }
-
-        if (sortType === "priceAsc") {
-          return Number(a?.price || 0) - Number(b?.price || 0);
-        }
-
-        if (sortType === "priceDesc") {
-          return Number(b?.price || 0) - Number(a?.price || 0);
-        }
-
-        if (sortType === "latest") {
-          return (
-            new Date(b?.createdAt || b?.updatedAt || 0).getTime() -
-            new Date(a?.createdAt || a?.updatedAt || 0).getTime()
-          );
-        }
-
-        if (sortType === "popular") {
-          const ratingDiff = Number(b?.rating || 0) - Number(a?.rating || 0);
-          if (ratingDiff !== 0) return ratingDiff;
-          return Number(b?.sale || 0) - Number(a?.sale || 0);
-        }
-
-        if (sortType === "featured") {
-          const featuredDiff =
-            Number(Boolean(b?.isFeatured)) - Number(Boolean(a?.isFeatured));
-          if (featuredDiff !== 0) return featuredDiff;
-        }
-
-        return Number(b?.sale || 0) - Number(a?.sale || 0);
-      });
-    };
-
-    const cleanQuery = normalizeSearchText(query);
-    const queryParts = getMeaningfulSearchTokens(cleanQuery);
-    const intentPhrases = buildSearchIntentPhrases(cleanQuery);
-
+    const cleanQuery     = normalizeSearchText(query);
+    const queryParts     = getMeaningfulSearchTokens(cleanQuery);
+    const intentPhrases  = buildSearchIntentPhrases(cleanQuery);
     const fullQueryRegex = new RegExp(cleanQuery, "i");
-    const intentPhraseMatchers = intentPhrases.map((phrase) => {
-      const phraseRegex = new RegExp(phrase, "i");
-      return {
-        $or: [
-          { name: phraseRegex },
-          { brand: phraseRegex },
-          { description: phraseRegex },
-          { keywords: phraseRegex },
-          { catName: phraseRegex },
-          { subCat: phraseRegex },
-          { thirdsubCat: phraseRegex },
-        ],
-      };
+
+    const intentPhraseMatchers = intentPhrases.map(phrase => {
+      const r = new RegExp(phrase, "i");
+      return { $or: [{ name:r },{ brand:r },{ description:r },{ keywords:r },{ catName:r },{ subCat:r },{ thirdsubCat:r }] };
+    });
+    const termBasedMatcher = queryParts.map(term => {
+      const r = new RegExp(term, "i");
+      return { $or: [{ name:r },{ brand:r },{ description:r },{ keywords:r },{ catName:r },{ subCat:r },{ thirdsubCat:r }] };
     });
 
-    const termBasedMatcher = queryParts.map((term) => {
-      const termRegex = new RegExp(term, "i");
-      return {
+    // ✅ FIX: fetch + filterOptions parallel mein
+    const [products, filterOptions] = await Promise.all([
+      ProductModel.find({
         $or: [
-          { name: termRegex },
-          { brand: termRegex },
-          { description: termRegex },
-          { keywords: termRegex },
-          { catName: termRegex },
-          { subCat: termRegex },
-          { thirdsubCat: termRegex },
+          { name: fullQueryRegex }, { brand: fullQueryRegex }, { description: fullQueryRegex },
+          { keywords: fullQueryRegex }, { catName: fullQueryRegex }, { subCat: fullQueryRegex },
+          { thirdsubCat: fullQueryRegex },
+          ...intentPhraseMatchers,
+          ...(termBasedMatcher.length ? [{ $and: termBasedMatcher }] : []),
         ],
-      };
-    });
+      }).populate("category").lean().limit(250),
+      _getFilterOptions(), // ✅ FIX: cached — 2 separate full-DB scans hata diye
+    ]);
 
-    const products = await ProductModel.find({
-      $or: [
-        { name: fullQueryRegex },
-        { brand: fullQueryRegex },
-        { description: fullQueryRegex },
-        { keywords: fullQueryRegex },
-        { catName: fullQueryRegex },
-        { subCat: fullQueryRegex },
-        { thirdsubCat: fullQueryRegex },
-        ...intentPhraseMatchers,
-        ...(termBasedMatcher.length ? [{ $and: termBasedMatcher }] : []),
-      ],
-    })
-      .populate("category")
-      .limit(250);
+    const vocabulary      = buildSearchVocabulary(products);
+    const correctedQuery  = getSpellCorrectedQuery(cleanQuery, vocabulary);
+    const correctedTokens = getMeaningfulSearchTokens(correctedQuery || cleanQuery);
 
-    const vocabulary = buildSearchVocabulary(products);
-    const correctedQuery = getSpellCorrectedQuery(cleanQuery, vocabulary);
-    const correctedTokens = getMeaningfulSearchTokens(
-      correctedQuery || cleanQuery,
-    );
-
-    let scoredProducts = products
-      .map((item) => {
-        const data = [
-          item?.name,
-          item?.brand,
-          item?.catName,
-          item?.subCat,
-          item?.thirdsubCat,
-          item?.description,
-          ...(item?.keywords || []),
-        ]
-          .map((field) => normalizeSearchText(field))
-          .filter(Boolean);
-
-        let score = 0;
-
-        for (const term of correctedTokens) {
-          const hasContainMatch = data.some(
-            (field) => field.includes(term) || term.includes(field),
-          );
-
-          if (hasContainMatch) {
-            score += 8;
-            continue;
-          }
-
-          const hasFuzzyMatch = data.some((field) => {
-            const words = field.split(" ").filter(Boolean);
-            return words.some((word) => {
-              if (!word) return false;
-              const distance = levenshteinDistance(term, word);
-              const allowedDistance = term.length > 6 ? 2 : 1;
-              return distance <= allowedDistance;
-            });
-          });
-
-          if (hasFuzzyMatch) {
-            score += 4;
-          }
-        }
-
-        if (
-          normalizeSearchText(item?.name).includes(cleanQuery) ||
-          intentPhrases.some((phrase) =>
-            normalizeSearchText(item?.name).includes(phrase),
-          )
-        ) {
-          score += 10;
-        }
-
-        return { item, score };
-      })
-      .filter((item) => item.score > 0)
-      .sort(
-        (a, b) => b.score - a.score || (b.item.sale || 0) - (a.item.sale || 0),
-      )
-      .map((entry) => entry.item);
+    let scoredProducts = products.map(item => {
+      const data = [item?.name, item?.brand, item?.catName, item?.subCat, item?.thirdsubCat, item?.description, ...(item?.keywords||[])]
+        .map(f => normalizeSearchText(f)).filter(Boolean);
+      let score = 0;
+      for (const term of correctedTokens) {
+        if (data.some(f => f.includes(term) || term.includes(f))) { score += 8; continue; }
+        if (data.some(f => f.split(" ").filter(Boolean).some(w => levenshteinDistance(term,w) <= (term.length>6?2:1)))) score += 4;
+      }
+      if (normalizeSearchText(item?.name).includes(cleanQuery) || intentPhrases.some(p => normalizeSearchText(item?.name).includes(p))) score += 10;
+      return { item, score };
+    }).filter(e => e.score > 0).sort((a,b) => b.score-a.score || (b.item.sale||0)-(a.item.sale||0)).map(e => e.item);
 
     if (!scoredProducts.length) {
-      const fuzzyFallback = await ProductModel.find()
-        .populate("category")
-        .limit(200);
+      // Fuzzy fallback
+      const fuzzyFallback = await ProductModel.find().populate("category").lean().limit(200);
+      const fbVocab       = buildSearchVocabulary(fuzzyFallback);
+      const fbCorrection  = correctedQuery || getSpellCorrectedQuery(cleanQuery, fbVocab);
+      const fbTokens      = getMeaningfulSearchTokens(fbCorrection || cleanQuery);
 
-      const fallbackVocabulary = buildSearchVocabulary(fuzzyFallback);
-      const fallbackCorrection =
-        correctedQuery ||
-        getSpellCorrectedQuery(cleanQuery, fallbackVocabulary);
-      const fallbackTokens = getMeaningfulSearchTokens(
-        fallbackCorrection || cleanQuery,
-      );
-      scoredProducts = fuzzyFallback
-        .map((item) => {
-          const fields = [item?.name, ...(item?.keywords || []), item?.brand]
-            .map((field) => normalizeSearchText(field))
-            .filter(Boolean);
+      scoredProducts = fuzzyFallback.map(item => {
+        const fields = [item?.name, ...(item?.keywords||[]), item?.brand].map(f => normalizeSearchText(f)).filter(Boolean);
+        const dist = Math.min(...fields.map(f => Math.min(...f.split(" ").filter(Boolean).map(w => Math.min(...fbTokens.map(t => levenshteinDistance(t,w)))))));
+        return { item, distance: dist };
+      }).filter(e => e.distance <= 2).sort((a,b) => a.distance-b.distance).map(e => e.item);
 
-          const closestDistance = Math.min(
-            ...fields.map((field) => {
-              const words = field.split(" ").filter(Boolean);
-              return Math.min(
-                ...fallbackTokens.map((token) =>
-                  Math.min(
-                    ...words.map((word) => levenshteinDistance(token, word)),
-                  ),
-                ),
-              );
-            }),
-          );
-
-          return { item, distance: closestDistance };
-        })
-        .filter((item) => item.distance <= 2)
-        .sort((a, b) => a.distance - b.distance)
-        .map((entry) => entry.item);
       scoredProducts = sortFilteredItems(applyAdvancedFilters(scoredProducts));
-
       const total = scoredProducts.length;
-      const start = (requestedPage - 1) * requestedLimit;
-      const paginatedProducts = scoredProducts.slice(start, start + requestedLimit);
-
-      // ✅ Fix: poore DB se filterOptions
-      const allProductsForOptions = await ProductModel.find({})
-        .select("brand size productType thirdsubCat subCat catName productWeight productRam colorOptions.name")
-        .lean();
-
-      const filterOptions = {
-        brands: [...new Set(allProductsForOptions.map((item) => item?.brand?.trim()).filter(Boolean))],
-        sizes: [...new Set(allProductsForOptions.flatMap((item) => item?.size || []).filter(Boolean))],
-        productTypes: [...new Set(allProductsForOptions.map((item) => item?.productType || item?.thirdsubCat || item?.subCat || item?.catName).filter(Boolean))],
-        weights: [...new Set(allProductsForOptions.flatMap((item) => item?.productWeight || []).filter(Boolean))],
-        ramOptions: [...new Set(allProductsForOptions.flatMap((item) => item?.productRam || []).filter(Boolean))],
-        colors: [...new Set(allProductsForOptions.flatMap((item) => (item?.colorOptions || []).map((c) => c?.name)).filter(Boolean))],
-      };
+      const paginatedProducts = scoredProducts.slice((requestedPage-1)*requestedLimit, requestedPage*requestedLimit);
 
       return response.status(200).json({
-        error: false,
-        success: true,
-        products: paginatedProducts,
-        total,
-        page: requestedPage,
-        totalPages: Math.max(1, Math.ceil(total / requestedLimit)),
-        originalQuery: query,
-        correctedQuery: fallbackCorrection,
-        suggestions: buildSearchSuggestions(scoredProducts, query, fallbackCorrection),
+        error: false, success: true, products: paginatedProducts, total,
+        page: requestedPage, totalPages: Math.max(1, Math.ceil(total/requestedLimit)),
+        originalQuery: query, correctedQuery: fbCorrection,
+        suggestions: buildSearchSuggestions(scoredProducts, query, fbCorrection),
         suggestionProducts: buildSuggestionProducts(scoredProducts),
-        aiInsights: buildAiSearchInsights(paginatedProducts, fallbackCorrection),
+        aiInsights: buildAiSearchInsights(paginatedProducts, fbCorrection),
         filterOptions,
       });
     }
 
     scoredProducts = sortFilteredItems(applyAdvancedFilters(scoredProducts));
     const total = scoredProducts.length;
-    const start = (requestedPage - 1) * requestedLimit;
-    const paginatedProducts = scoredProducts.slice(
-      start,
-      start + requestedLimit,
-    );
-
-    // ✅ Fix: filterOptions poore DB se fetch karo — scored/filtered products se nahi
-    // Isse filter apply hone ke baad bhi sidebar ke options stable rahenge
-    const allProductsForOptions = await ProductModel.find({})
-      .select("brand size productType thirdsubCat subCat catName productWeight productRam colorOptions.name")
-      .lean();
-
-    const filterOptions = {
-      brands: [...new Set(allProductsForOptions.map((item) => item?.brand?.trim()).filter(Boolean))],
-      sizes: [...new Set(allProductsForOptions.flatMap((item) => item?.size || []).filter(Boolean))],
-      productTypes: [...new Set(allProductsForOptions.map((item) => item?.productType || item?.thirdsubCat || item?.subCat || item?.catName).filter(Boolean))],
-      weights: [...new Set(allProductsForOptions.flatMap((item) => item?.productWeight || []).filter(Boolean))],
-      ramOptions: [...new Set(allProductsForOptions.flatMap((item) => item?.productRam || []).filter(Boolean))],
-      colors: [...new Set(allProductsForOptions.flatMap((item) => (item?.colorOptions || []).map((c) => c?.name)).filter(Boolean))],
-    };
+    const paginatedProducts = scoredProducts.slice((requestedPage-1)*requestedLimit, requestedPage*requestedLimit);
 
     return response.status(200).json({
-      error: false,
-      success: true,
-      products: paginatedProducts,
-      total,
-      page: requestedPage,
-      totalPages: Math.max(1, Math.ceil(total / requestedLimit)),
-      originalQuery: query,
-      correctedQuery,
+      error: false, success: true, products: paginatedProducts, total,
+      page: requestedPage, totalPages: Math.max(1, Math.ceil(total/requestedLimit)),
+      originalQuery: query, correctedQuery,
       suggestions: buildSearchSuggestions(scoredProducts, query, correctedQuery),
       suggestionProducts: buildSuggestionProducts(scoredProducts),
       aiInsights: buildAiSearchInsights(paginatedProducts, correctedQuery),
       filterOptions,
     });
   } catch (error) {
-    return response.status(500).json({
-      message: error.message || error,
-      error: true,
-      success: false,
-    });
+    return response.status(500).json({ message: error.message || error, error: true, success: false });
   }
 }
-
 // ─── Seller Dashboard Stats ───────────────────────────────────────────────────
 // GET /api/product/seller/dashboard-stats
 // Requires auth middleware — request.userId must be the seller's _id
@@ -2402,6 +2039,7 @@ export async function addReview(request, response) {
     const allReviews = await ReviewModel.find({ productId });
     const avgRating  = allReviews.reduce((s, r) => s + (Number(r.rating) || 0), 0) / allReviews.length;
     await ProductModel.findByIdAndUpdate(productId, { rating: parseFloat(avgRating.toFixed(1)) });
+    _cacheDel(productId); // ✅ rating changed — cache clear
 
     return response.status(201).json({
       error:   false,
@@ -2415,6 +2053,9 @@ export async function addReview(request, response) {
 }
 
 // GET /api/product/reviews/:productId  — Get paginated reviews for a product
+// ── GET PRODUCT REVIEWS — OPTIMIZED ─────────────────────────────────────────
+// FIX: Pehle 2 alag DB queries thi (paginated + full stats ke liye).
+// Ab ek hi Promise.all mein — paginated reviews + aggregation stats ek saath.
 export async function getProductReviews(request, response) {
   try {
     const { productId } = request.params;
@@ -2426,43 +2067,36 @@ export async function getProductReviews(request, response) {
       return response.status(400).json({ error: true, message: "productId is required" });
     }
 
-    const sortMap = {
-      NEWEST:  { createdAt: -1 },
-      OLDEST:  { createdAt:  1 },
-      HIGHEST: { rating:    -1 },
-      LOWEST:  { rating:     1 },
-    };
+    const sortMap = { NEWEST: { createdAt:-1 }, OLDEST: { createdAt:1 }, HIGHEST: { rating:-1 }, LOWEST: { rating:1 } };
     const sortObj = sortMap[sort] || sortMap.NEWEST;
 
-    const total   = await ReviewModel.countDocuments({ productId });
-    const reviews = await ReviewModel.find({ productId })
-      .sort(sortObj)
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean();
+    const matchId = mongoose.Types.ObjectId.isValid(productId)
+      ? new mongoose.Types.ObjectId(productId) : productId;
 
-    // Stats — always full product, not just current page
-    const allReviews = await ReviewModel.find({ productId }).lean();
-    const breakdown  = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
-    let ratingSum = 0;
-    allReviews.forEach((r) => {
-      const n = String(Math.round(Number(r.rating) || 0));
-      if (breakdown[n] !== undefined) breakdown[n]++;
-      ratingSum += Number(r.rating) || 0;
-    });
-    const avgRating = total > 0 ? (ratingSum / total).toFixed(1) : "0.0";
+    // ✅ FIX: 3 kaam ek saath — countDocuments + paginated find + stats aggregation
+    const [total, reviews, statsAgg] = await Promise.all([
+      ReviewModel.countDocuments({ productId }),
+      ReviewModel.find({ productId }).sort(sortObj).skip((page-1)*limit).limit(limit).lean(),
+      ReviewModel.aggregate([
+        { $match: { productId: matchId } },
+        { $group: {
+          _id: null, sum: { $sum: { $toDouble: "$rating" } }, count: { $sum: 1 },
+          s1: { $sum: { $cond: [{ $eq: [{ $round:[{$toDouble:"$rating"}] },1] },1,0] } },
+          s2: { $sum: { $cond: [{ $eq: [{ $round:[{$toDouble:"$rating"}] },2] },1,0] } },
+          s3: { $sum: { $cond: [{ $eq: [{ $round:[{$toDouble:"$rating"}] },3] },1,0] } },
+          s4: { $sum: { $cond: [{ $eq: [{ $round:[{$toDouble:"$rating"}] },4] },1,0] } },
+          s5: { $sum: { $cond: [{ $eq: [{ $round:[{$toDouble:"$rating"}] },5] },1,0] } },
+        }},
+      ]),
+    ]);
+
+    const s = statsAgg[0] || { sum:0, count:0, s1:0, s2:0, s3:0, s4:0, s5:0 };
+    const avgRating  = s.count > 0 ? (s.sum / s.count).toFixed(1) : "0.0";
+    const breakdown  = { "1": s.s1, "2": s.s2, "3": s.s3, "4": s.s4, "5": s.s5 };
 
     return response.status(200).json({
-      error:      false,
-      success:    true,
-      reviews,
-      total,
-      avgRating,
-      breakdown,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      hasMore:    page * limit < total,
+      error: false, success: true, reviews, total, avgRating, breakdown,
+      page, limit, totalPages: Math.ceil(total / limit), hasMore: page * limit < total,
     });
   } catch (error) {
     return response.status(500).json({ error: true, message: error.message || error });
@@ -2486,6 +2120,7 @@ export async function deleteReview(request, response) {
       rating: parseFloat(avgRating.toFixed(1)),
     });
 
+    _cacheDel(String(deleted.productId)); // ✅ rating changed — cache clear
     return response.status(200).json({ error: false, success: true, message: "Review deleted" });
   } catch (error) {
     return response.status(500).json({ error: true, message: error.message || error });
