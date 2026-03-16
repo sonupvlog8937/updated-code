@@ -176,6 +176,8 @@ const ProductItem = (props) => {
     location.pathname === "/search" ? location.search : ""
   }`;
 
+  const linkState = { product: props?.item };
+
   useEffect(() => {
     const myListItem = context?.myListData?.filter((item) =>
       item.productId.includes(props?.item?._id)
@@ -225,7 +227,7 @@ const ProductItem = (props) => {
       >
         {/* Image */}
         <div style={S.imgWrapper}>
-          <Link to={productDetailsUrl}>
+          <Link to={productDetailsUrl} state={linkState}>
             <img
               src={props?.item?.images[0]}
               alt={props?.item?.name}
@@ -304,7 +306,7 @@ const ProductItem = (props) => {
         <div style={S.info}>
           <span style={S.brand}>{props?.item?.brand}</span>
 
-          <Link to={productDetailsUrl} style={S.title}>
+           <Link to={productDetailsUrl} state={linkState} style={S.title}>
             {props?.item?.name}
           </Link>
 
@@ -357,6 +359,8 @@ export const ProductItemList = (props) => {
   const productDetailsUrl = `/product/${props?.item?._id}${
     location.pathname === "/search" ? location.search : ""
   }`;
+
+  const linkState = { product: props?.item };
 
   useEffect(() => {
     const myListItem = context?.myListData?.filter((item) =>
@@ -427,7 +431,7 @@ export const ProductItemList = (props) => {
             background: "#f7f7f9",
           }}
         >
-          <Link to={productDetailsUrl}>
+          <Link to={productDetailsUrl} state={linkState}>
             <img
               src={props?.item?.images[0]}
               alt={props?.item?.name}
@@ -535,6 +539,7 @@ export const ProductItemList = (props) => {
 
             <Link
               to={productDetailsUrl}
+               state={linkState}
               style={{
                 fontSize: "15px",
                 fontWeight: 600,

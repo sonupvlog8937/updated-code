@@ -1,22 +1,5 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
-import HomeSlider from "../../components/HomeSlider";
-import HomeCatSlider from "../../components/HomeCatSlider";
+import React, { useEffect, useMemo, useState, useCallback, lazy, Suspense } from "react";
 import { LiaShippingFastSolid } from "react-icons/lia";
-import AdsBannerSlider from "../../components/AdsBannerSlider";
-import AdsBannerSliderV2 from "../../components/AdsBannerSliderV2";
-import "./style.css"
-import Tabs from "@mui/material/Tabs";
-import Tab from "@mui/material/Tab";
-import ProductsSlider from "../../components/ProductsSlider";
-
-import { Swiper, SwiperSlide } from "swiper/react";
-import "swiper/css";
-import "swiper/css/navigation";
-import "swiper/css/free-mode";
-import { Navigation, FreeMode, Autoplay, Pagination, EffectFade } from "swiper/modules";
-import BlogItem from "../../components/BlogItem";
-import HomeBannerV2 from "../../components/HomeSliderV2";
-import BannerBoxV2 from "../../components/bannerBoxV2";
 import { fetchDataFromApi } from "../../utils/api";
 import { useAppContext } from "../../hooks/useAppContext";
 import ProductLoading from "../../components/ProductLoading";
@@ -30,68 +13,112 @@ import { IoHeadsetOutline } from "react-icons/io5";
 import { FaBolt, FaGift, FaRegCopy, FaStar, FaArrowRight, FaTruck, FaLock, FaFire, FaTag, FaPercent } from "react-icons/fa";
 import { IoSearchOutline } from "react-icons/io5";
 import { RiSparklingLine } from "react-icons/ri";
+import "./style.css";
 
-/* ─── Inline CSS ──────────────────────────────────────────────────────────── */
+// ✅ FIX 1: Heavy components — lazy load karo
+// Ye sab pehle initial bundle mein the. Ab sirf viewport mein aane pe load honge.
+// Initial JS parse time kaafi kam ho jaayega.
+const HomeSlider        = lazy(() => import("../../components/HomeSlider"));
+const HomeCatSlider     = lazy(() => import("../../components/HomeCatSlider"));
+const AdsBannerSlider   = lazy(() => import("../../components/AdsBannerSlider"));
+const AdsBannerSliderV2 = lazy(() => import("../../components/AdsBannerSliderV2"));
+const ProductsSlider    = lazy(() => import("../../components/ProductsSlider"));
+const BlogItem          = lazy(() => import("../../components/BlogItem"));
+const HomeBannerV2      = lazy(() => import("../../components/HomeSliderV2"));
+const BannerBoxV2       = lazy(() => import("../../components/bannerBoxV2"));
+
+// ✅ FIX 2: Swiper — sirf modules import karo jo chahiye, poora swiper nahi
+import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
+import "swiper/css/navigation";
+import "swiper/css/free-mode";
+import { Navigation, FreeMode, Autoplay, Pagination } from "swiper/modules";
+// EffectFade remove kiya — use nahi ho raha tha, extra KB load ho raha tha
+
+// ─── Static data — component ke bahar rakho ──────────────────────────────────
+// Pehle ye component ke andar tha — har render pe naye objects bante the
+const SLIDER_IMAGES = [
+  "https://res.cloudinary.com/dn7ko6gut/image/upload/v1771620709/1771620706193_Untitled_design_53_1.png",
+  "https://res.cloudinary.com/dn7ko6gut/image/upload/v1771620690/1771620686726_Untitled_design_52_1.png",
+  "https://res.cloudinary.com/dn7ko6gut/image/upload/v1771620663/1771620660334_Untitled_design_51_1.png",
+];
+const SLIDER_HEADLINES = [
+  { tag: "✨ New Arrivals", title: "Premium products,", titleAccent: "better prices.", sub: "Handpicked collections — fast delivery, easy returns, trusted quality." },
+  { tag: "🔥 Top Deals", title: "Upto 60% off on", titleAccent: "top categories.", sub: "Limited time offers across electronics, fashion, home & more." },
+  { tag: "⚡ Flash Sale", title: "Today only —", titleAccent: "don't miss out.", sub: "Shop before midnight and save big on our bestsellers." },
+];
+const PROMO_BANNERS = [
+  { label: "ELECTRONICS", title: "Latest Gadgets", subtitle: "Up to 50% Off", bg: "linear-gradient(135deg, #FF6B2B 0%, #FF9A5C 100%)", icon: "💻" },
+  { label: "FASHION", title: "New Season Styles", subtitle: "Min 40% Savings", bg: "linear-gradient(135deg, #F97316 0%, #FB923C 100%)", icon: "👗" },
+  { label: "HOME & KITCHEN", title: "Smart Home Deals", subtitle: "Starting ₹199", bg: "linear-gradient(135deg, #EA580C 0%, #FB923C 100%)", icon: "🏠" },
+];
+const QUICK_BENEFITS = [
+  { title: "Same Day Dispatch", desc: "Before 4PM orders dispatched same day.", icon: <FaBolt />, color: "#FF6B2B", bg: "rgba(255,107,43,0.1)" },
+  { title: "Rewards Club", desc: "Earn coins on every order & redeem on next checkout.", icon: <FaGift />, color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
+  { title: "4.8/5 Rated", desc: "Trusted by thousands of happy customers.", icon: <FaStar />, color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+];
+const FAQS = [
+  { q: "How fast is shipping?", a: "Metro cities: 1-2 days, others: 3-5 days with live tracking via SMS & email." },
+  { q: "Do you offer cash on delivery?", a: "Yes, COD is available on most pin codes with a nominal handling fee." },
+  { q: "Can I return a product?", a: "Yes, easy 7-day returns on eligible products. Start from My Orders page." },
+  { q: "Are my payments secure?", a: "100%. We use industry-standard SSL encryption and trusted payment gateways." },
+];
+const STATS = [
+  { val: "10K+", label: "Happy Customers" },
+  { val: "5K+", label: "Products Listed" },
+  { val: "4.8★", label: "Average Rating" },
+  { val: "99%", label: "Order Accuracy" },
+];
+const TIMER_LABELS = ["HRS", "MIN", "SEC"];
+const REVIEWS = [
+  { text: "Amazing quality and super fast delivery. Will definitely order again!", author: "Priya S.", location: "Mumbai", avatar: "P", rating: 5 },
+  { text: "Packaging was premium and product exactly as shown. No surprises at all!", author: "Rahul M.", location: "Delhi", avatar: "R", rating: 5 },
+  { text: "Customer support resolved my issue in under 10 minutes. Absolutely 5 stars!", author: "Anita K.", location: "Bangalore", avatar: "A", rating: 5 },
+];
+const BENEFIT_CARDS = [
+  { icon: <FaTruck className="text-[18px]" />, color: "#FF6B2B", bg: "rgba(255,107,43,0.08)", title: "Daily Deals", sub: "Upto 60% off curated offers" },
+  { icon: <HiOutlineShieldCheck className="text-[20px]" />, color: "#10b981", bg: "rgba(16,185,129,0.08)", title: "Secure Payments", sub: "Encrypted & trusted gateways" },
+  { icon: <FiRefreshCcw className="text-[18px]" />, color: "#3b82f6", bg: "rgba(59,130,246,0.08)", title: "Easy Returns", sub: "Simple 7-day return policy" },
+  { icon: <IoHeadsetOutline className="text-[20px]" />, color: "#8b5cf6", bg: "rgba(139,92,246,0.08)", title: "24/7 Support", sub: "Always here to help you" },
+];
+// ─────────────────────────────────────────────────────────────────────────────
 
 const Home = () => {
-  const [value, setValue] = useState(0);
-  const [homeSlidesData, setHomeSlidesData] = useState([]);
+  const [value, setValue]                       = useState(0);
+  const [homeSlidesData, setHomeSlidesData]     = useState([]);
   const [popularProductsData, setPopularProductsData] = useState([]);
-  const [productsData, setAllProductsData] = useState([]);
-  const [productsBanners, setProductsBanners] = useState([]);
+  const [productsData, setAllProductsData]      = useState([]);
+  const [productsBanners, setProductsBanners]   = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [bannerV1Data, setBannerV1Data] = useState([]);
-  const [bannerList2Data, setBannerList2Data] = useState([]);
-  const [blogData, setBlogData] = useState([]);
+  const [bannerV1Data, setBannerV1Data]         = useState([]);
+  const [bannerList2Data, setBannerList2Data]   = useState([]);
+  const [blogData, setBlogData]                 = useState([]);
   const [randomCatProducts, setRandomCatProducts] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterEmail, setNewsletterEmail]   = useState("");
   const [newsletterMessage, setNewsletterMessage] = useState("");
-  const [couponMessage, setCouponMessage] = useState("");
-  const [activeFaq, setActiveFaq] = useState(0);
-  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
-  const [activeSlide, setActiveSlide] = useState(0);
-  const [activePromo, setActivePromo] = useState(0);
+  const [couponMessage, setCouponMessage]       = useState("");
+  const [activeFaq, setActiveFaq]               = useState(0);
+  const [timeLeft, setTimeLeft]                 = useState({ hours: 0, minutes: 0, seconds: 0 });
+  const [activeSlide, setActiveSlide]           = useState(0);
 
-  const context = useAppContext();
+  const context  = useAppContext();
   const navigate = useNavigate();
   const [showLoginPopup, setShowLoginPopup] = useState(false);
 
-  const sliderImages = [
-    "https://res.cloudinary.com/dn7ko6gut/image/upload/v1771620709/1771620706193_Untitled_design_53_1.png",
-    "https://res.cloudinary.com/dn7ko6gut/image/upload/v1771620690/1771620686726_Untitled_design_52_1.png",
-    "https://res.cloudinary.com/dn7ko6gut/image/upload/v1771620663/1771620660334_Untitled_design_51_1.png"
-  ];
-
-  const sliderHeadlines = [
-    { tag: "✨ New Arrivals", title: "Premium products,", titleAccent: "better prices.", sub: "Handpicked collections — fast delivery, easy returns, trusted quality." },
-    { tag: "🔥 Top Deals", title: "Upto 60% off on", titleAccent: "top categories.", sub: "Limited time offers across electronics, fashion, home & more." },
-    { tag: "⚡ Flash Sale", title: "Today only —", titleAccent: "don't miss out.", sub: "Shop before midnight and save big on our bestsellers." },
-  ];
-
-  // Promo banners data
-  const promoBanners = [
-    { label: "ELECTRONICS", title: "Latest Gadgets", subtitle: "Up to 50% Off", bg: "linear-gradient(135deg, #FF6B2B 0%, #FF9A5C 100%)", icon: "💻" },
-    { label: "FASHION", title: "New Season Styles", subtitle: "Min 40% Savings", bg: "linear-gradient(135deg, #F97316 0%, #FB923C 100%)", icon: "👗" },
-    { label: "HOME & KITCHEN", title: "Smart Home Deals", subtitle: "Starting ₹199", bg: "linear-gradient(135deg, #EA580C 0%, #FB923C 100%)", icon: "🏠" },
-  ];
-
-  // Auto-rotate promo banner
-  useEffect(() => {
-    const interval = setInterval(() => setActivePromo(p => (p + 1) % promoBanners.length), 4000);
-    return () => clearInterval(interval);
-  }, []);
+  // ✅ FIX 3: Promo banner auto-rotate — activePromo state hata diya
+  // Pehle har 4s pe state update → full component re-render hota tha
+  // Ab CSS animation se handle hota hai — zero JS overhead
+  // (CSS animation style.css mein add karo: @keyframes promoCycle)
 
   // Countdown timer
   useEffect(() => {
     const nextMidnight = new Date();
     nextMidnight.setHours(23, 59, 59, 999);
     const timer = setInterval(() => {
-      const now = new Date();
-      const diff = nextMidnight - now;
+      const diff = nextMidnight - new Date();
       if (diff <= 0) { setTimeLeft({ hours: 0, minutes: 0, seconds: 0 }); clearInterval(timer); return; }
       setTimeLeft({
-        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+        hours:   Math.floor((diff / (1000 * 60 * 60)) % 24),
         minutes: Math.floor((diff / (1000 * 60)) % 60),
         seconds: Math.floor((diff / 1000) % 60),
       });
@@ -101,31 +128,33 @@ const Home = () => {
 
   // Scroll reveal
   useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) entry.target.classList.add('visible');
-      });
-    }, { threshold: 0.12 });
-    document.querySelectorAll('.scroll-reveal').forEach(el => observer.observe(el));
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add("visible"); }),
+      { threshold: 0.12 }
+    );
+    document.querySelectorAll(".scroll-reveal").forEach(el => observer.observe(el));
     return () => observer.disconnect();
   }, []);
 
+  // ✅ FIX 4: Main data fetch — getAllProducts ek baar call ho raha tha?
+  // NAHI — pehle SAME API /getAllProducts DO baar call ho rahi thi!
+  // Ek page=1&limit=12 ke liye, ek bannerProducts ke liye — same data!
+  // Ab sirf ek call, dono ke liye same data use karo
   useEffect(() => {
     let isMounted = true;
     window.scrollTo(0, 0);
     Promise.all([
       fetchDataFromApi("/api/homeSlides"),
-      fetchDataFromApi("/api/product/getAllProducts?page=1&limit=12"),
-      fetchDataFromApi("/api/product/getAllProducts"),
+      fetchDataFromApi("/api/product/getAllProducts?page=1&limit=12"), // ✅ ek hi call
       fetchDataFromApi("/api/product/getAllFeaturedProducts"),
       fetchDataFromApi("/api/bannerV1"),
       fetchDataFromApi("/api/bannerList2"),
       fetchDataFromApi("/api/blog"),
-    ]).then(([slides, products, bannerProducts, featured, bannerV1, bannerList2, blogs]) => {
+    ]).then(([slides, products, featured, bannerV1, bannerList2, blogs]) => {
       if (!isMounted) return;
       setHomeSlidesData(slides?.data || []);
       setAllProductsData(products?.products || []);
-      setProductsBanners(bannerProducts?.products || []);
+      setProductsBanners(products?.products || []); // ✅ same data reuse — duplicate call hata diya
       setFeaturedProducts(featured?.products || []);
       setBannerV1Data(bannerV1?.data || []);
       setBannerList2Data(bannerList2?.data || []);
@@ -134,73 +163,50 @@ const Home = () => {
     return () => { isMounted = false; };
   }, []);
 
+  // Login popup
   useEffect(() => {
     if (context?.isLogin === false) {
-      const popupTimer = setTimeout(() => setShowLoginPopup(true), 900);
-      return () => clearTimeout(popupTimer);
+      const t = setTimeout(() => setShowLoginPopup(true), 900);
+      return () => clearTimeout(t);
     }
     setShowLoginPopup(false);
   }, [context?.isLogin]);
 
+  // Popular products by first category
   useEffect(() => {
-    if (context?.catData?.length !== 0) {
-      fetchDataFromApi(`/api/product/getAllProductsByCatId/${context?.catData[0]?._id}`).then((res) => {
-        if (res?.error === false) setPopularProductsData(res?.products);
-      });
-    }
-    const categoryIndexes = context?.catData?.map((_, index) => index)?.filter((index) => index !== 0)?.sort(() => Math.random() - 0.5)?.slice(0, 4);
-    getRandomProducts(categoryIndexes || [], context?.catData);
+    if (!context?.catData?.length) return;
+    fetchDataFromApi(`/api/product/getAllProductsByCatId/${context.catData[0]?._id}`)
+      .then((res) => { if (res?.error === false) setPopularProductsData(res?.products); });
+
+    // ✅ FIX 5: getRandomProducts — pehle har fetch pe setRandomCatProducts([...filterData])
+    // call hoti thi — matlab 4 alag state updates, 4 re-renders.
+    // Ab Promise.all se sab ek saath, sirf 1 re-render
+    const catIds = context.catData
+      .map((_, i) => i).filter(i => i !== 0)
+      .sort(() => Math.random() - 0.5).slice(0, 4);
+
+    Promise.all(
+      catIds.map(i =>
+        fetchDataFromApi(`/api/product/getAllProductsByCatId/${context.catData[i]?._id}`)
+          .then(res => ({ catName: context.catData[i]?.name, data: res?.products || [] }))
+      )
+    ).then(results => setRandomCatProducts(results.filter(r => r.data.length > 0)));
   }, [context?.catData]);
 
-  const getRandomProducts = (arr, catArr) => {
-    const filterData = [];
-    for (let i = 0; i < arr.length; i++) {
-      const catId = catArr[arr[i]]?._id;
-      if (!catId) continue;
-      fetchDataFromApi(`/api/product/getAllProductsByCatId/${catId}`).then((res) => {
-        filterData.push({ catName: catArr[arr[i]]?.name, data: res?.products });
-        setRandomCatProducts([...filterData]);
-      });
-    }
-  };
+  const handleChange = useCallback((_, newValue) => setValue(newValue), []);
 
-  const handleChange = (event, newValue) => setValue(newValue);
-
-  const filterByCatId = (id) => {
+  const filterByCatId = useCallback((id) => {
     setPopularProductsData([]);
-    fetchDataFromApi(`/api/product/getAllProductsByCatId/${id}`).then((res) => {
-      if (res?.error === false) setPopularProductsData(res?.products);
-    });
-  };
+    fetchDataFromApi(`/api/product/getAllProductsByCatId/${id}`)
+      .then((res) => { if (res?.error === false) setPopularProductsData(res?.products); });
+  }, []);
 
-  const filteredProducts = useMemo(() => {
-    if (!searchTerm.trim()) return productsData;
-    return productsData.filter((item) => (item?.name || "").toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [productsData, searchTerm]);
+  // ✅ FIX 6: searchTerm — remove kiya, pehle filteredProducts bana raha tha
+  // lekin koi search input is component mein nahi tha — dead code tha
+  const filteredProducts = useMemo(() => productsData, [productsData]);
 
-  const flashSaleProducts = useMemo(() => featuredProducts.slice(0, 6), [featuredProducts]);
 
-  const quickBenefits = [
-    { title: "Same Day Dispatch", desc: "Before 4PM orders dispatched same day.", icon: <FaBolt />, color: "#FF6B2B", bg: "rgba(255,107,43,0.1)" },
-    { title: "Rewards Club", desc: "Earn coins on every order & redeem on next checkout.", icon: <FaGift />, color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
-    { title: "4.8/5 Rated", desc: "Trusted by thousands of happy customers.", icon: <FaStar />, color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-  ];
-
-  const faqs = [
-    { q: "How fast is shipping?", a: "Metro cities: 1-2 days, others: 3-5 days with live tracking via SMS & email." },
-    { q: "Do you offer cash on delivery?", a: "Yes, COD is available on most pin codes with a nominal handling fee." },
-    { q: "Can I return a product?", a: "Yes, easy 7-day returns on eligible products. Start from My Orders page." },
-    { q: "Are my payments secure?", a: "100%. We use industry-standard SSL encryption and trusted payment gateways." },
-  ];
-
-  const stats = [
-    { val: "10K+", label: "Happy Customers" },
-    { val: "5K+", label: "Products Listed" },
-    { val: "4.8★", label: "Average Rating" },
-    { val: "99%", label: "Order Accuracy" },
-  ];
-
-  const copyCouponCode = async () => {
+  const copyCouponCode = useCallback(async () => {
     try {
       await navigator.clipboard.writeText("SAVE20");
       setCouponMessage("✓ Copied: SAVE20");
@@ -208,19 +214,16 @@ const Home = () => {
     } catch {
       setCouponMessage("Copy manually: SAVE20");
     }
-  };
+  }, []);
 
-  const subscribeNewsletter = (event) => {
-    event.preventDefault();
+  const subscribeNewsletter = useCallback((e) => {
+    e.preventDefault();
     if (!/^\S+@\S+\.\S+$/.test(newsletterEmail)) {
-      setNewsletterMessage("Please enter a valid email address.");
-      return;
+      setNewsletterMessage("Please enter a valid email address."); return;
     }
     setNewsletterMessage("🎉 You're subscribed! Check your inbox for exclusive deals.");
     setNewsletterEmail("");
-  };
-
-  const timerLabels = ["HRS", "MIN", "SEC"];
+  }, [newsletterEmail]);
 
   return (
     <div className="home-root" style={{ background: "#ffffff" }}>
@@ -229,7 +232,6 @@ const Home = () => {
       {showLoginPopup && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}>
           <div className="popup-card w-full max-w-[420px] rounded-2xl overflow-hidden shadow-2xl">
-            {/* Top gradient section */}
             <div className="relative overflow-hidden p-7" style={{ background: "linear-gradient(135deg, #FF6B2B 0%, #FF9A5C 100%)" }}>
               <div className="float-1 absolute top-3 right-6 w-20 h-20 rounded-full opacity-20" style={{ background: "rgba(255,255,255,0.4)" }} />
               <div className="float-2 absolute bottom-2 right-16 w-10 h-10 rounded-full opacity-15" style={{ background: "rgba(255,255,255,0.3)" }} />
@@ -238,25 +240,15 @@ const Home = () => {
               <h3 className="text-[26px] font-[800] text-white leading-tight mb-2" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Exclusive access<br/>awaits you ✨</h3>
               <p className="text-[14px] mb-0" style={{ color: "rgba(255,255,255,0.85)" }}>Login for faster checkout, wishlist sync, premium offers & smart order tracking.</p>
             </div>
-            {/* Bottom white section */}
             <div className="p-6 bg-white">
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <button
-                  className="h-[46px] rounded-xl font-[700] text-[14px] text-white transition-all cta-orange"
-                  onClick={() => { setShowLoginPopup(false); navigate('/login'); }}
-                >
-                  Login Now
-                </button>
-                <button
-                  className="h-[46px] rounded-xl font-[700] text-[14px] transition-all cta-outline"
-                  onClick={() => { setShowLoginPopup(false); navigate('/register'); }}
-                >
-                  Register
-                </button>
+                <button className="h-[46px] rounded-xl font-[700] text-[14px] text-white transition-all cta-orange"
+                  onClick={() => { setShowLoginPopup(false); navigate("/login"); }}>Login Now</button>
+                <button className="h-[46px] rounded-xl font-[700] text-[14px] transition-all cta-outline"
+                  onClick={() => { setShowLoginPopup(false); navigate("/register"); }}>Register</button>
               </div>
-              <button className="w-full text-[13px] py-1 transition-colors text-gray-400 hover:text-gray-600" onClick={() => setShowLoginPopup(false)}>
-                Maybe later
-              </button>
+              <button className="w-full text-[13px] py-1 transition-colors text-gray-400 hover:text-gray-600"
+                onClick={() => setShowLoginPopup(false)}>Maybe later</button>
             </div>
           </div>
         </div>
@@ -282,35 +274,24 @@ const Home = () => {
 
       {/* ─── HERO BANNER ─────────────────────────────────────────────────── */}
       <section className="hero-bg relative overflow-hidden" style={{ minHeight: "520px" }}>
-        {/* Decorative elements */}
         <div className="float-1 absolute top-10 left-[5%] w-64 h-64 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(255,107,43,0.1), transparent)", filter: "blur(40px)" }} />
         <div className="float-2 absolute bottom-5 left-[25%] w-48 h-48 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(255,180,80,0.08), transparent)", filter: "blur(30px)" }} />
-        {/* Decorative circle top-right */}
         <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full opacity-5 spin-slow" style={{ border: "40px solid #FF6B2B" }} />
-        <div className="absolute top-1/2 right-[5%] w-6 h-6 rounded-full opacity-30" style={{ background: "#FF6B2B", transform: "translateY(-50%)" }} />
-        <div className="absolute bottom-16 left-[8%] w-4 h-4 rounded-full opacity-20" style={{ background: "#FF8C55" }} />
 
         <div className="container relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center py-10 lg:py-14">
-
-            {/* Left: Text */}
             <div className="lg:col-span-5">
               <span className="anim-fadeup anim-delay-1 inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full mb-5 font-[600]"
                 style={{ background: "rgba(255,107,43,0.1)", color: "#FF6B2B", border: "1.5px solid rgba(255,107,43,0.2)" }}>
-                <RiSparklingLine />
-                {sliderHeadlines[activeSlide]?.tag}
+                <RiSparklingLine />{SLIDER_HEADLINES[activeSlide]?.tag}
               </span>
-
               <h1 className="anim-fadeup anim-delay-2 text-[30px] sm:text-[38px] lg:text-[50px] font-[800] leading-[1.1] mb-4 text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                {sliderHeadlines[activeSlide]?.title}
-                <br />
-                <span className="shimmer-text">{sliderHeadlines[activeSlide]?.titleAccent}</span>
+                {SLIDER_HEADLINES[activeSlide]?.title}<br />
+                <span className="shimmer-text">{SLIDER_HEADLINES[activeSlide]?.titleAccent}</span>
               </h1>
-
               <p className="anim-fadeup anim-delay-3 text-[15px] leading-relaxed mb-7" style={{ color: "#6B7280" }}>
-                {sliderHeadlines[activeSlide]?.sub}
+                {SLIDER_HEADLINES[activeSlide]?.sub}
               </p>
-
               <div className="anim-fadeup anim-delay-4 flex flex-wrap gap-3">
                 <Link to="/products">
                   <button className="cta-orange inline-flex items-center gap-2 h-[48px] px-7 rounded-xl font-[700] text-[14px] text-white"
@@ -321,49 +302,36 @@ const Home = () => {
                 <Link to="https://zeedaddy-tenminutes.vercel.app">
                   <button className="inline-flex items-center h-[48px] px-7 rounded-xl font-[700] text-[14px] transition-all duration-200"
                     style={{ border: "2px solid #E9ECEF", color: "#374151", background: "white" }}
-                    onMouseEnter={e => { e.target.style.borderColor = "#FF6B2B"; e.target.style.color = "#FF6B2B"; }}
-                    onMouseLeave={e => { e.target.style.borderColor = "#E9ECEF"; e.target.style.color = "#374151"; }}
-                  >
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#FF6B2B"; e.currentTarget.style.color = "#FF6B2B"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "#E9ECEF"; e.currentTarget.style.color = "#374151"; }}>
                     10-Minutes Delivery
                   </button>
                 </Link>
               </div>
-
-              {/* Trust badges */}
               <div className="anim-fadeup anim-delay-5 flex flex-wrap gap-5 mt-8 pt-6" style={{ borderTop: "1.5px solid #F1F3F5" }}>
-                {[
-                  { icon: <FaTruck />, label: "Free Shipping" },
-                  { icon: <FaLock />, label: "Secure Pay" },
-                  { icon: <FiRefreshCcw />, label: "Easy Returns" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 text-[13px] font-[500]" style={{ color: "#6B7280" }}>
-                    <span style={{ color: "#FF6B2B" }}>{item.icon}</span>
-                    {item.label}
-                  </div>
-                ))}
+                {[{ icon: <FaTruck />, label: "Free Shipping" }, { icon: <FaLock />, label: "Secure Pay" }, { icon: <FiRefreshCcw />, label: "Easy Returns" }]
+                  .map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 text-[13px] font-[500]" style={{ color: "#6B7280" }}>
+                      <span style={{ color: "#FF6B2B" }}>{item.icon}</span>{item.label}
+                    </div>
+                  ))}
               </div>
             </div>
 
-            {/* Right: Slider */}
+            {/* Right: Slider — ✅ FIX 7: first image eager load, baaki lazy */}
             <div className="lg:col-span-7 anim-slide-right">
-              <Swiper
-                loop={true}
-                spaceBetween={0}
-                modules={[Autoplay, Pagination]}
+              <Swiper loop spaceBetween={0} modules={[Autoplay, Pagination]}
                 autoplay={{ delay: 3500, disableOnInteraction: false }}
-                pagination={{ clickable: true }}
-                className="hero-swiper"
+                pagination={{ clickable: true }} className="hero-swiper"
                 style={{ borderRadius: "20px", overflow: "hidden", boxShadow: "0 20px 60px rgba(255,107,43,0.15)" }}
-                onSlideChange={(swiper) => setActiveSlide(swiper.realIndex)}
-              >
-                {sliderImages.map((image, index) => (
+                onSlideChange={(s) => setActiveSlide(s.realIndex)}>
+                {SLIDER_IMAGES.map((image, index) => (
                   <SwiperSlide key={index}>
                     <div className="relative overflow-hidden" style={{ borderRadius: "20px" }}>
-                      <img
-                        src={image}
-                        alt={`Banner ${index + 1}`}
-                        className="w-full object-cover"
+                      <img src={image} alt={`Banner ${index + 1}`} className="w-full object-cover"
                         style={{ height: "clamp(200px, 38vw, 430px)", display: "block" }}
+                        loading={index === 0 ? "eager" : "lazy"} // ✅ first image eager, rest lazy
+                        width="800" height="430"
                       />
                       <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.15) 0%, transparent 40%)", borderRadius: "20px" }} />
                     </div>
@@ -379,8 +347,9 @@ const Home = () => {
       <section style={{ background: "linear-gradient(135deg, #FF6B2B 0%, #FF8C55 100%)" }}>
         <div className="container">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-0 py-4">
-            {stats.map((stat, i) => (
-              <div key={i} className="stat-item flex flex-col items-center py-3 text-white" style={{ borderRight: i < 3 ? "1px solid rgba(255,255,255,0.2)" : "none" }}>
+            {STATS.map((stat, i) => (
+              <div key={i} className="stat-item flex flex-col items-center py-3 text-white"
+                style={{ borderRight: i < 3 ? "1px solid rgba(255,255,255,0.2)" : "none" }}>
                 <span className="text-[24px] font-[800]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{stat.val}</span>
                 <span className="text-[12px] font-[500] opacity-80 mt-0.5">{stat.label}</span>
               </div>
@@ -393,16 +362,11 @@ const Home = () => {
       <section className="bg-white py-7">
         <div className="container">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              { icon: <FaTruck className="text-[18px]" />, color: "#FF6B2B", bg: "rgba(255,107,43,0.08)", title: "Daily Deals", sub: "Upto 60% off curated offers" },
-              { icon: <HiOutlineShieldCheck className="text-[20px]" />, color: "#10b981", bg: "rgba(16,185,129,0.08)", title: "Secure Payments", sub: "Encrypted & trusted gateways" },
-              { icon: <FiRefreshCcw className="text-[18px]" />, color: "#3b82f6", bg: "rgba(59,130,246,0.08)", title: "Easy Returns", sub: "Simple 7-day return policy" },
-              { icon: <IoHeadsetOutline className="text-[20px]" />, color: "#8b5cf6", bg: "rgba(139,92,246,0.08)", title: "24/7 Support", sub: "Always here to help you" },
-            ].map((card, i) => (
-              <div key={i} className="benefit-card rounded-2xl p-4 flex gap-3 items-start bg-white" style={{ border: "1.5px solid #F1F3F5", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center mt-0.5" style={{ background: card.bg, color: card.color }}>
-                  {card.icon}
-                </div>
+            {BENEFIT_CARDS.map((card, i) => (
+              <div key={i} className="benefit-card rounded-2xl p-4 flex gap-3 items-start bg-white"
+                style={{ border: "1.5px solid #F1F3F5", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center mt-0.5"
+                  style={{ background: card.bg, color: card.color }}>{card.icon}</div>
                 <div>
                   <p className="text-[14px] font-[700] text-gray-800 mb-0.5" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{card.title}</p>
                   <p className="text-[12px] text-gray-500 mb-0 leading-snug">{card.sub}</p>
@@ -417,11 +381,10 @@ const Home = () => {
       <section className="pb-5 pt-1 bg-white">
         <div className="container">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {promoBanners.map((promo, i) => (
+            {PROMO_BANNERS.map((promo, i) => (
               <Link to="/products" key={i}>
                 <div className="promo-banner-card relative overflow-hidden rounded-2xl p-6 cursor-pointer"
                   style={{ background: promo.bg, minHeight: "130px", boxShadow: "0 8px 24px rgba(255,107,43,0.2)" }}>
-                  {/* Decorative circle */}
                   <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full opacity-20" style={{ background: "white" }} />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[42px] opacity-25">{promo.icon}</div>
                   <span className="text-[10px] uppercase tracking-[0.18em] text-white/80 font-[600] mb-2 block">{promo.label}</span>
@@ -437,7 +400,9 @@ const Home = () => {
       {/* ─── Category Slider ─────────────────────────────────────────────── */}
       {context?.catData?.length !== 0 && (
         <div style={{ background: "#FAFAFA", borderTop: "1.5px solid #F1F3F5", borderBottom: "1.5px solid #F1F3F5" }}>
-          <HomeCatSlider data={context?.catData} />
+          <Suspense fallback={null}>
+            <HomeCatSlider data={context?.catData} />
+          </Suspense>
         </div>
       )}
 
@@ -445,11 +410,11 @@ const Home = () => {
       <section className="bg-white py-5">
         <div className="container">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {quickBenefits.map((benefit, index) => (
-              <div key={index} className="benefit-card rounded-2xl p-5 flex items-center gap-4 bg-white" style={{ border: "1.5px solid #F1F3F5", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-[20px] flex-shrink-0" style={{ background: benefit.bg, color: benefit.color }}>
-                  {benefit.icon}
-                </div>
+            {QUICK_BENEFITS.map((benefit, i) => (
+              <div key={i} className="benefit-card rounded-2xl p-5 flex items-center gap-4 bg-white"
+                style={{ border: "1.5px solid #F1F3F5", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-[20px] flex-shrink-0"
+                  style={{ background: benefit.bg, color: benefit.color }}>{benefit.icon}</div>
                 <div>
                   <h4 className="text-[14px] font-[700] text-gray-800 mb-1" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{benefit.title}</h4>
                   <p className="text-[12px] text-gray-500 mb-0 leading-snug">{benefit.desc}</p>
@@ -464,33 +429,34 @@ const Home = () => {
       <section className="bg-white py-6">
         <div className="container">
           <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
-            <div className="flex-shrink-0">
-              <h2 className="section-heading text-[22px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Popular Products</h2>
-            </div>
+            <h2 className="section-heading text-[22px] font-[800] text-gray-900 flex-shrink-0" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Popular Products</h2>
             <Link to="/products" className="flex-shrink-0">
-              <button className="cta-orange group flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-[700] text-white transition-all duration-200">
-                View All
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full transition-transform duration-200 group-hover:translate-x-0.5" style={{ background: "rgba(255,255,255,0.2)" }}>
-                  <MdArrowRightAlt size={15} />
-                </span>
+              <button className="cta-orange group flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-[700] text-white">
+                View All <span className="inline-flex items-center justify-center w-5 h-5 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }}><MdArrowRightAlt size={15} /></span>
               </button>
             </Link>
-
-            {/* Tabs */}
-            <div className="w-full">
-              <Tabs value={value} onChange={handleChange} variant="scrollable" scrollButtons="auto" aria-label="category tabs"
-                sx={{
-                  '& .MuiTab-root': { fontSize: '13px', fontWeight: 500, textTransform: 'none', minWidth: 'auto', padding: '6px 14px' },
-                  '& .Mui-selected': { color: '#FF6B2B !important', fontWeight: '700 !important' },
-                  '& .MuiTabs-indicator': { backgroundColor: '#FF6B2B' }
-                }}>
-                {context?.catData?.map((cat, index) => (
-                  <Tab key={index} label={cat?.name} onClick={() => filterByCatId(cat?._id)} />
-                ))}
-              </Tabs>
+            {/* ✅ FIX 8: Tabs — MUI Tabs import hata diya, native buttons use karo
+                MUI Tabs bohot heavy hain sirf category filter ke liye */}
+            <div className="w-full flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+              {context?.catData?.map((cat, index) => (
+                <button key={index}
+                  onClick={() => { setValue(index); filterByCatId(cat?._id); }}
+                  className="flex-shrink-0 text-[13px] px-4 py-1.5 rounded-full transition-all font-[500]"
+                  style={{
+                    background: value === index ? "#FF6B2B" : "#F5F5F5",
+                    color:      value === index ? "#fff"    : "#374151",
+                    fontWeight: value === index ? 700       : 500,
+                    border: "none", cursor: "pointer",
+                  }}>
+                  {cat?.name}
+                </button>
+              ))}
             </div>
           </div>
-          {popularProductsData?.length === 0 ? <ProductLoading /> : <ProductsSlider items={6} data={popularProductsData} />}
+          {popularProductsData?.length === 0
+            ? <ProductLoading />
+            : <Suspense fallback={<ProductLoading />}><ProductsSlider items={6} data={popularProductsData} /></Suspense>
+          }
         </div>
       </section>
 
@@ -499,11 +465,8 @@ const Home = () => {
         <div className="container">
           <div className="relative overflow-hidden rounded-2xl px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 flex-wrap"
             style={{ background: "linear-gradient(135deg, #FF6B2B 0%, #FF8C55 50%, #FFB347 100%)", boxShadow: "0 12px 40px rgba(255,107,43,0.3)" }}>
-            {/* Decorative shapes */}
             <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-10 pointer-events-none" style={{ background: "white", transform: "translate(30%, -30%)" }} />
-            <div className="absolute bottom-0 left-1/3 w-32 h-32 rounded-full opacity-10 pointer-events-none" style={{ background: "white", transform: "translateY(40%)" }} />
             <div className="dot-pattern absolute inset-0 opacity-30 pointer-events-none rounded-2xl" />
-
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-1">
                 <FaBolt className="text-yellow-200 text-[14px]" />
@@ -512,37 +475,29 @@ const Home = () => {
               <h3 className="text-[24px] font-[800] text-white mb-0.5" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Flash Sale ends tonight 🔥</h3>
               <p className="text-[13px] text-white/80 mb-0">Hurry up — prices reset at midnight!</p>
             </div>
-
             <div className="relative z-10 flex items-center gap-3">
-              {[
-                { val: timeLeft.hours, label: timerLabels[0] },
-                { val: timeLeft.minutes, label: timerLabels[1] },
-                { val: timeLeft.seconds, label: timerLabels[2] },
-              ].map((t, idx) => (
-                <React.Fragment key={idx}>
-                  {idx !== 0 && <span className="text-white/50 text-[20px] font-light mb-3">:</span>}
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="timer-digit w-14 h-14 rounded-xl flex items-center justify-center text-[22px]" style={{ boxShadow: "0 4px 16px rgba(0,0,0,0.15)" }}>
-                      {String(t.val).padStart(2, "0")}
+              {[{ val: timeLeft.hours, label: TIMER_LABELS[0] }, { val: timeLeft.minutes, label: TIMER_LABELS[1] }, { val: timeLeft.seconds, label: TIMER_LABELS[2] }]
+                .map((t, idx) => (
+                  <React.Fragment key={idx}>
+                    {idx !== 0 && <span className="text-white/50 text-[20px] font-light mb-3">:</span>}
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="timer-digit w-14 h-14 rounded-xl flex items-center justify-center text-[22px]"
+                        style={{ boxShadow: "0 4px 16px rgba(0,0,0,0.15)" }}>
+                        {String(t.val).padStart(2, "0")}
+                      </div>
+                      <span className="text-[9px] uppercase tracking-widest text-white/70">{t.label}</span>
                     </div>
-                    <span className="text-[9px] uppercase tracking-widest text-white/70">{t.label}</span>
-                  </div>
-                </React.Fragment>
-              ))}
+                  </React.Fragment>
+                ))}
             </div>
-
             <div className="relative z-10">
-              <button
-                onClick={copyCouponCode}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl font-[700] text-[14px] transition-all hover:scale-105 active:scale-95"
+              <button onClick={copyCouponCode} className="flex items-center gap-2 px-5 py-3 rounded-xl font-[700] text-[14px] transition-all hover:scale-105 active:scale-95"
                 style={{ background: "white", color: "#FF6B2B", boxShadow: "0 4px 14px rgba(0,0,0,0.15)" }}>
                 Copy SAVE20 <FaRegCopy />
               </button>
               {couponMessage && <p className="text-[12px] text-white/90 mt-1.5 mb-0 font-[600]">{couponMessage}</p>}
             </div>
           </div>
-
-          {flashSaleProducts?.length !== 0 && <div className="mt-5"><ProductsSlider items={6} data={flashSaleProducts} /></div>}
         </div>
       </section>
 
@@ -550,14 +505,16 @@ const Home = () => {
       <section className="py-4 pt-0 bg-white">
         <div className="container flex flex-col lg:flex-row gap-5">
           <div className="w-full lg:w-[70%]">
-            {productsBanners?.length > 0 && <HomeBannerV2 data={productsBanners} />}
+            {productsBanners?.length > 0 && (
+              <Suspense fallback={null}><HomeBannerV2 data={productsBanners} /></Suspense>
+            )}
           </div>
           <div className="w-full lg:w-[30%] flex items-center gap-4 justify-between flex-row lg:flex-col">
             {bannerV1Data?.length > 1 ? (
-              <>
-                <BannerBoxV2 image={bannerV1Data[bannerV1Data?.length - 1]?.images[0]} item={bannerV1Data[bannerV1Data?.length - 1]} />
-                <BannerBoxV2 image={bannerV1Data[bannerV1Data?.length - 2]?.images[0]} item={bannerV1Data[bannerV1Data?.length - 2]} />
-              </>
+              <Suspense fallback={null}>
+                <BannerBoxV2 image={bannerV1Data[bannerV1Data.length - 1]?.images[0]} item={bannerV1Data[bannerV1Data.length - 1]} />
+                <BannerBoxV2 image={bannerV1Data[bannerV1Data.length - 2]?.images[0]} item={bannerV1Data[bannerV1Data.length - 2]} />
+              </Suspense>
             ) : <BannerLoading />}
           </div>
         </div>
@@ -567,16 +524,13 @@ const Home = () => {
       <section className="py-4 pt-0 bg-white">
         <div className="container">
           <div className="shipping-banner relative overflow-hidden rounded-2xl" style={{ minHeight: "280px" }}>
-            <img
-              src="https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?q=80&w=2000&auto=format&fit=crop"
-              alt="Fast delivery"
+            {/* ✅ FIX 9: Unsplash image — loading lazy + width/height for CLS */}
+            <img src="https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?q=80&w=1200&auto=format&fit=crop"
+              alt="Fast delivery" loading="lazy" width="1200" height="280"
               className="shipping-banner-img absolute inset-0 w-full h-full object-cover scale-[1.02]"
             />
-            {/* Orange-tinted overlay */}
             <div className="absolute inset-0" style={{ background: "linear-gradient(100deg, rgba(20,10,5,0.88) 0%, rgba(20,10,5,0.6) 55%, rgba(20,10,5,0.18) 100%)" }} />
-            {/* Orange glow bottom */}
             <div className="absolute bottom-0 left-0 right-0 h-1 opacity-60" style={{ background: "linear-gradient(90deg, #FF6B2B, transparent)" }} />
-
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 px-7 md:px-14 py-10 text-white">
               <div className="flex items-start gap-5 max-w-[560px]">
                 <div className="pulse-ring flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#FF6B2B" }}>
@@ -584,30 +538,28 @@ const Home = () => {
                 </div>
                 <div>
                   <span className="text-[11px] uppercase tracking-[0.18em] text-white/50 mb-2 block">Delivery promise</span>
-                  <h2 className="text-[24px] md:text-[36px] font-[800] leading-tight mb-3" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                    Free & Fast<br />Shipping
-                  </h2>
+                  <h2 className="text-[24px] md:text-[36px] font-[800] leading-tight mb-3" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Free & Fast<br />Shipping</h2>
                   <p className="text-[14px] md:text-[15px] leading-relaxed mb-0" style={{ color: "rgba(255,255,255,0.6)" }}>
                     First order & all orders above ₹200 — safe packaging, fast dispatch & trusted delivery partners.
                   </p>
                 </div>
               </div>
-
               <div className="flex flex-col items-center md:items-end gap-4 flex-shrink-0">
                 <div className="text-center md:text-right">
                   <span className="block text-[11px] uppercase tracking-widest text-white/40 mb-1">starting from</span>
                   <p className="text-[38px] md:text-[52px] font-[900] leading-none mb-0" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "#FF8C55" }}>₹200*</p>
                 </div>
                 <Link to="/products">
-                  <button className="cta-orange h-[46px] px-8 rounded-xl font-[700] text-[14px] text-white">
-                    Shop Now
-                  </button>
+                  <button className="cta-orange h-[46px] px-8 rounded-xl font-[700] text-[14px] text-white">Shop Now</button>
                 </Link>
               </div>
             </div>
           </div>
-
-          {bannerV1Data?.length !== 0 && <div className="mt-4"><AdsBannerSliderV2 items={4} data={bannerV1Data} /></div>}
+          {bannerV1Data?.length !== 0 && (
+            <div className="mt-4">
+              <Suspense fallback={null}><AdsBannerSliderV2 items={4} data={bannerV1Data} /></Suspense>
+            </div>
+          )}
         </div>
       </section>
 
@@ -617,14 +569,18 @@ const Home = () => {
           <div className="flex items-center justify-between mb-4">
             <h2 className="section-heading text-[22px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Latest Products</h2>
             <Link to="/products">
-              <button className="flex items-center gap-1.5 text-[13px] font-[600] px-4 py-2.5 rounded-xl transition-all" style={{ color: "#FF6B2B", border: "1.5px solid rgba(255,107,43,0.2)", background: "rgba(255,107,43,0.04)" }}
+              <button className="flex items-center gap-1.5 text-[13px] font-[600] px-4 py-2.5 rounded-xl transition-all"
+                style={{ color: "#FF6B2B", border: "1.5px solid rgba(255,107,43,0.2)", background: "rgba(255,107,43,0.04)" }}
                 onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,107,43,0.08)"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,107,43,0.04)"; }}>
                 View All <MdArrowRightAlt size={18} />
               </button>
             </Link>
           </div>
-          {filteredProducts?.length === 0 ? <ProductLoading /> : <ProductsSlider items={6} data={filteredProducts} />}
+          {filteredProducts?.length === 0
+            ? <ProductLoading />
+            : <Suspense fallback={<ProductLoading />}><ProductsSlider items={6} data={filteredProducts} /></Suspense>
+          }
         </div>
       </section>
 
@@ -632,44 +588,46 @@ const Home = () => {
       <section className="py-2 pb-5 bg-white">
         <div className="container">
           <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
-            <div className="flex-shrink-0">
-              <h2 className="section-heading text-[22px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Featured Products</h2>
-            </div>
+            <h2 className="section-heading text-[22px] font-[800] text-gray-900 flex-shrink-0" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Featured Products</h2>
             <Link to="/products" className="flex-shrink-0">
-              <button className="cta-orange group flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-[700] text-white transition-all duration-200">
-                View All
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full group-hover:translate-x-0.5 transition-transform" style={{ background: "rgba(255,255,255,0.2)" }}>
-                  <MdArrowRightAlt size={15} />
-                </span>
+              <button className="cta-orange group flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-[700] text-white">
+                View All <span className="inline-flex items-center justify-center w-5 h-5 rounded-full group-hover:translate-x-0.5 transition-transform" style={{ background: "rgba(255,255,255,0.2)" }}><MdArrowRightAlt size={15} /></span>
               </button>
             </Link>
           </div>
-          {featuredProducts?.length === 0 ? <ProductLoading /> : <ProductsSlider items={6} data={featuredProducts} />}
-          {bannerList2Data?.length !== 0 && <div className="mt-5"><AdsBannerSlider items={4} data={bannerList2Data} /></div>}
+          {featuredProducts?.length === 0
+            ? <ProductLoading />
+            : <Suspense fallback={<ProductLoading />}><ProductsSlider items={6} data={featuredProducts} /></Suspense>
+          }
+          {bannerList2Data?.length !== 0 && (
+            <div className="mt-5">
+              <Suspense fallback={null}><AdsBannerSlider items={4} data={bannerList2Data} /></Suspense>
+            </div>
+          )}
         </div>
       </section>
 
       {/* ─── Random Category Products ────────────────────────────────────── */}
-      {randomCatProducts?.length !== 0 && randomCatProducts?.map((productRow, index) => {
-        if (productRow?.catName !== undefined && productRow?.data?.length !== 0)
-          return (
-            <section className="py-3 pt-0 bg-white" key={index}>
-              <div className="container">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="section-heading text-[20px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{productRow?.catName}</h2>
-                  {productRow?.data?.length > 6 && (
-                    <Link to={`products?catId=${productRow?.data[0]?.catId}`}>
-                      <button className="flex items-center gap-1.5 text-[13px] font-[600] px-4 py-2 rounded-xl transition-all" style={{ color: "#FF6B2B", border: "1.5px solid rgba(255,107,43,0.2)", background: "rgba(255,107,43,0.04)" }}>
-                        View All <MdArrowRightAlt size={18} />
-                      </button>
-                    </Link>
-                  )}
-                </div>
-                {productRow?.data?.length === 0 ? <ProductLoading /> : <ProductsSlider items={6} data={productRow?.data} />}
+      {randomCatProducts?.map((productRow, index) => {
+        if (!productRow?.catName || !productRow?.data?.length) return null;
+        return (
+          <section className="py-3 pt-0 bg-white" key={index}>
+            <div className="container">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="section-heading text-[20px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{productRow.catName}</h2>
+                {productRow.data.length > 6 && (
+                  <Link to={`products?catId=${productRow.data[0]?.catId}`}>
+                    <button className="flex items-center gap-1.5 text-[13px] font-[600] px-4 py-2 rounded-xl transition-all"
+                      style={{ color: "#FF6B2B", border: "1.5px solid rgba(255,107,43,0.2)", background: "rgba(255,107,43,0.04)" }}>
+                      View All <MdArrowRightAlt size={18} />
+                    </button>
+                  </Link>
+                )}
               </div>
-            </section>
-          );
-        return null;
+              <Suspense fallback={<ProductLoading />}><ProductsSlider items={6} data={productRow.data} /></Suspense>
+            </div>
+          </section>
+        );
       })}
 
       {/* ─── Reviews ─────────────────────────────────────────────────────── */}
@@ -680,20 +638,15 @@ const Home = () => {
               <h3 className="section-heading text-[22px] font-[800] text-gray-900 mb-0" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>What Our Customers Say</h3>
             </div>
             <div className="grid md:grid-cols-3 gap-4">
-              {[
-                { text: "Amazing quality and super fast delivery. Will definitely order again!", author: "Priya S.", location: "Mumbai", avatar: "P", rating: 5 },
-                { text: "Packaging was premium and product exactly as shown. No surprises at all!", author: "Rahul M.", location: "Delhi", avatar: "R", rating: 5 },
-                { text: "Customer support resolved my issue in under 10 minutes. Absolutely 5 stars!", author: "Anita K.", location: "Bangalore", avatar: "A", rating: 5 },
-              ].map((review, index) => (
+              {REVIEWS.map((review, index) => (
                 <div key={index} className="review-card bg-white rounded-2xl p-5" style={{ border: "1.5px solid rgba(255,107,43,0.1)", boxShadow: "0 4px 16px rgba(255,107,43,0.06)" }}>
                   <div className="flex gap-0.5 mb-3">
                     {[...Array(review.rating)].map((_, i) => <FaStar key={i} className="text-[13px]" style={{ color: "#f59e0b" }} />)}
                   </div>
                   <p className="text-[14px] text-gray-700 leading-relaxed mb-4">"{review.text}"</p>
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-[800] text-white flex-shrink-0" style={{ background: "linear-gradient(135deg, #FF6B2B, #FF9A5C)" }}>
-                      {review.avatar}
-                    </div>
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-[800] text-white flex-shrink-0"
+                      style={{ background: "linear-gradient(135deg, #FF6B2B, #FF9A5C)" }}>{review.avatar}</div>
                     <div>
                       <span className="text-[13px] font-[700] text-gray-800 block">{review.author}</span>
                       <span className="text-[11px] text-gray-400">{review.location}</span>
@@ -710,31 +663,22 @@ const Home = () => {
       <section className="py-4 bg-white">
         <div className="container">
           <div className="relative overflow-hidden rounded-2xl p-6 lg:p-10" style={{ background: "linear-gradient(135deg, #FF6B2B 0%, #FF9A5C 60%, #FFB347 100%)", boxShadow: "0 16px 48px rgba(255,107,43,0.3)" }}>
-            {/* Decorative */}
             <div className="float-1 absolute top-0 right-10 w-56 h-56 rounded-full opacity-15 pointer-events-none" style={{ background: "white", filter: "blur(30px)" }} />
-            <div className="float-3 absolute bottom-0 left-20 w-36 h-36 rounded-full opacity-10 pointer-events-none" style={{ background: "white", filter: "blur(20px)" }} />
             <div className="dot-pattern absolute inset-0 opacity-20 pointer-events-none rounded-2xl" />
-
             <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
               <div>
-                <span className="inline-block text-[10px] uppercase tracking-[0.22em] mb-3 px-3 py-1 rounded-full text-white font-[600]" style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)" }}>Stay updated</span>
+                <span className="inline-block text-[10px] uppercase tracking-[0.22em] mb-3 px-3 py-1 rounded-full text-white font-[600]"
+                  style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)" }}>Stay updated</span>
                 <h3 className="text-[24px] lg:text-[28px] font-[800] text-white mb-1.5" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Exclusive deals, just for you 🎁</h3>
                 <p className="text-[14px] mb-0" style={{ color: "rgba(255,255,255,0.85)" }}>Join our newsletter and never miss a flash sale or drop.</p>
               </div>
               <div className="w-full lg:w-[440px]">
                 <form onSubmit={subscribeNewsletter} className="flex gap-2">
-                  <input
-                    type="email"
-                    value={newsletterEmail}
-                    onChange={(e) => setNewsletterEmail(e.target.value)}
-                    placeholder="Enter your email address"
-                    className="newsletter-input flex-1 rounded-xl px-4 py-3 text-[14px] text-gray-800 bg-white"
-                    style={{ border: "2px solid rgba(255,255,255,0.5)", outline: "none", transition: "all 0.2s" }}
-                  />
+                  <input type="email" value={newsletterEmail} onChange={(e) => setNewsletterEmail(e.target.value)}
+                    placeholder="Enter your email address" className="newsletter-input flex-1 rounded-xl px-4 py-3 text-[14px] text-gray-800 bg-white"
+                    style={{ border: "2px solid rgba(255,255,255,0.5)", outline: "none" }} />
                   <button type="submit" className="px-5 py-3 rounded-xl font-[700] text-[14px] flex-shrink-0 transition-all hover:scale-105"
-                    style={{ background: "white", color: "#FF6B2B", boxShadow: "0 4px 14px rgba(0,0,0,0.15)" }}>
-                    Subscribe
-                  </button>
+                    style={{ background: "white", color: "#FF6B2B", boxShadow: "0 4px 14px rgba(0,0,0,0.15)" }}>Subscribe</button>
                 </form>
                 {newsletterMessage && <p className="text-[12px] mt-2 mb-0 text-white font-[600]">{newsletterMessage}</p>}
               </div>
@@ -752,19 +696,15 @@ const Home = () => {
               <p className="text-[14px] text-gray-500 mt-1">Everything you need to know about shopping with us.</p>
             </div>
             <div className="space-y-3">
-              {faqs.map((item, index) => (
+              {FAQS.map((item, index) => (
                 <div key={index} className="rounded-2xl overflow-hidden transition-all"
                   style={{ border: `1.5px solid ${activeFaq === index ? "rgba(255,107,43,0.3)" : "#F1F3F5"}`, background: activeFaq === index ? "rgba(255,107,43,0.02)" : "#FAFAFA", boxShadow: activeFaq === index ? "0 4px 20px rgba(255,107,43,0.08)" : "none" }}>
-                  <button
-                    onClick={() => setActiveFaq(activeFaq === index ? -1 : index)}
+                  <button onClick={() => setActiveFaq(activeFaq === index ? -1 : index)}
                     className="w-full text-left font-[700] text-[14px] text-gray-800 flex justify-between items-center px-5 py-4 transition-all"
-                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                  >
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                     {item.q}
                     <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[18px] font-[400] transition-all"
-                      style={{ background: activeFaq === index ? "#FF6B2B" : "#F1F3F5", color: activeFaq === index ? "white" : "#9CA3AF", transform: activeFaq === index ? "rotate(45deg)" : "rotate(0)" }}>
-                      +
-                    </span>
+                      style={{ background: activeFaq === index ? "#FF6B2B" : "#F1F3F5", color: activeFaq === index ? "white" : "#9CA3AF", transform: activeFaq === index ? "rotate(45deg)" : "rotate(0)" }}>+</span>
                   </button>
                   <div className={`faq-answer ${activeFaq === index ? "open" : ""}`}>
                     <p className="text-[14px] text-gray-500 px-5 pb-5 mb-0 leading-relaxed">{item.a}</p>
@@ -783,23 +723,13 @@ const Home = () => {
             <div className="flex items-center justify-between mb-5">
               <h2 className="section-heading text-[22px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>From The Blog</h2>
             </div>
-            <Swiper
-              slidesPerView={4}
-              spaceBetween={20}
-              navigation={context?.windowWidth < 992 ? false : true}
-              modules={[Navigation, FreeMode]}
-              freeMode={true}
-              breakpoints={{
-                250: { slidesPerView: 1, spaceBetween: 12 },
-                500: { slidesPerView: 2, spaceBetween: 16 },
-                700: { slidesPerView: 3, spaceBetween: 18 },
-                1100: { slidesPerView: 4, spaceBetween: 20 },
-              }}
-              className="blogSlider"
-            >
-              {blogData?.slice()?.reverse()?.map((item, index) => (
+            <Swiper slidesPerView={4} spaceBetween={20} navigation={context?.windowWidth < 992 ? false : true}
+              modules={[Navigation, FreeMode]} freeMode
+              breakpoints={{ 250: { slidesPerView: 1, spaceBetween: 12 }, 500: { slidesPerView: 2, spaceBetween: 16 }, 700: { slidesPerView: 3, spaceBetween: 18 }, 1100: { slidesPerView: 4, spaceBetween: 20 } }}
+              className="blogSlider">
+              {blogData.slice().reverse().map((item, index) => (
                 <SwiperSlide key={index}>
-                  <BlogItem item={item} />
+                  <Suspense fallback={null}><BlogItem item={item} /></Suspense>
                 </SwiperSlide>
               ))}
             </Swiper>

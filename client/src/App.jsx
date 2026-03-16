@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { IoArrowBack } from "react-icons/io5";
 import "./App.css";
@@ -42,24 +42,17 @@ import {
 
 /* ─────────────────────────────────────────
    GLOBAL LOADER
-   Cinematic top-bar + centered logo pulse
 ───────────────────────────────────────── */
 const GlobalLoader = () => {
   const isLoading = useSelector((state) => state.app.globalLoading);
 
   return (
     <>
-      {/* Injected styles – no extra CSS file needed */}
-      
-
-      {/* Top progress bar – always rendered, only animates when loading */}
       {isLoading && (
         <div className="gl-bar-wrap" aria-hidden="true">
           <div className="gl-bar-inner" />
         </div>
       )}
-
-      {/* Full overlay */}
       {isLoading && (
         <div
           className="gl-overlay"
@@ -68,7 +61,9 @@ const GlobalLoader = () => {
           aria-label="Loading page"
         >
           <div className="gl-dots" aria-hidden="true">
-            {[0,1,2,3].map(i => <span key={i} className="gl-dot" />)}
+            {[0, 1, 2, 3].map((i) => (
+              <span key={i} className="gl-dot" />
+            ))}
           </div>
           <span className="gl-label">Loading</span>
         </div>
@@ -81,11 +76,10 @@ const GlobalLoader = () => {
    GLOBAL BACK BUTTON
 ───────────────────────────────────────── */
 const GlobalBackButton = () => {
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleGoBack = (e) => {
-    /* Ripple effect */
     const btn  = e.currentTarget;
     const rect = btn.getBoundingClientRect();
     const x    = e.clientX - rect.left;
@@ -101,7 +95,6 @@ const GlobalBackButton = () => {
     });
     btn.appendChild(ripple);
     ripple.addEventListener("animationend", () => ripple.remove());
-
     window.history.length > 1 ? navigate(-1) : navigate("/");
   };
 
@@ -109,9 +102,7 @@ const GlobalBackButton = () => {
 
   return (
     <>
-      {/* ambient glow */}
       <div className="gb-glow" aria-hidden="true" />
-
       <button
         className="gb-btn"
         onClick={handleGoBack}
@@ -129,21 +120,43 @@ const GlobalBackButton = () => {
   );
 };
 
-
 /* ─────────────────────────────────────────
    APP CONTENT
 ───────────────────────────────────────── */
 const AppContent = () => {
-  const dispatch = useDispatch();
-  const location = useLocation();
+  const dispatch  = useDispatch();
+  const location  = useLocation();
+  const timerRef  = useRef(null);
+  const prevPath  = useRef(location.pathname);
 
   useEffect(() => {
+    const isProductPage = location.pathname.startsWith("/product/");
+    const wasProductPage = prevPath.current.startsWith("/product/");
+    prevPath.current = location.pathname;
+
+    // ✅ FIX: Product details page pe loading turant show karo
+    // aur band MAT karo — ProductDetails khud band karega jab data aa jaaye
+    // Baaki pages pe pehle jaisi 350ms loading rehti hai
+    if (isProductPage && !wasProductPage) {
+      // Sirf show karo — band karna ProductDetails ka kaam hai
+      dispatch(setGlobalLoading(true));
+      return;
+    }
+
+    // Same product ID pe dobara navigate ho (e.g. related product click)
+    if (isProductPage && wasProductPage) {
+      dispatch(setGlobalLoading(true));
+      return;
+    }
+
+    // Baaki saare pages — 350ms fixed delay (pehle jaisa)
+    clearTimeout(timerRef.current);
     dispatch(setGlobalLoading(true));
-    const timer = setTimeout(() => {
+    timerRef.current = setTimeout(() => {
       dispatch(setGlobalLoading(false));
     }, 350);
 
-    return () => clearTimeout(timer);
+    return () => clearTimeout(timerRef.current);
   }, [location.pathname, dispatch]);
 
   return (
@@ -152,25 +165,25 @@ const AppContent = () => {
       <GlobalBackButton />
       <Header />
       <Routes>
-        <Route path="/" exact={true} element={<Home />} />
-        <Route path="/products" exact={true} element={<ProductListing />} />
-        <Route path="/product/:id" exact={true} element={<ProductDetails />} />
-        <Route path="/login" exact={true} element={<Login />} />
-        <Route path="/register" exact={true} element={<Register />} />
-        <Route path="/cart" exact={true} element={<CartPage />} />
-        <Route path="/verify" exact={true} element={<Verify />} />
+        <Route path="/"                exact={true} element={<Home />} />
+        <Route path="/products"        exact={true} element={<ProductListing />} />
+        <Route path="/product/:id"     exact={true} element={<ProductDetails />} />
+        <Route path="/login"           exact={true} element={<Login />} />
+        <Route path="/register"        exact={true} element={<Register />} />
+        <Route path="/cart"            exact={true} element={<CartPage />} />
+        <Route path="/verify"          exact={true} element={<Verify />} />
         <Route path="/forgot-password" exact={true} element={<ForgotPassword />} />
-        <Route path="/checkout" exact={true} element={<Checkout />} />
-        <Route path="/my-account" exact={true} element={<MyAccount />} />
-        <Route path="/my-list" exact={true} element={<MyList />} />
-        <Route path="/my-orders" exact={true} element={<Orders />} />
-        <Route path="/order/success" exact={true} element={<OrderSuccess />} />
-        <Route path="/order/failed" exact={true} element={<OrderFailed />} />
-        <Route path="/address" exact={true} element={<Address />} />
-        <Route path="/search" exact={true} element={<SearchPage />} />
-        <Route path={"/blog"} exact={true} element={<Blog />} />
-        <Route path={"/blog/:id"} exact={true} element={<BlogDetails />} />
-        <Route path={"/categories"} exact={true} element={<CategoriesPage />} />
+        <Route path="/checkout"        exact={true} element={<Checkout />} />
+        <Route path="/my-account"      exact={true} element={<MyAccount />} />
+        <Route path="/my-list"         exact={true} element={<MyList />} />
+        <Route path="/my-orders"       exact={true} element={<Orders />} />
+        <Route path="/order/success"   exact={true} element={<OrderSuccess />} />
+        <Route path="/order/failed"    exact={true} element={<OrderFailed />} />
+        <Route path="/address"         exact={true} element={<Address />} />
+        <Route path="/search"          exact={true} element={<SearchPage />} />
+        <Route path="/blog"            exact={true} element={<Blog />} />
+        <Route path="/blog/:id"        exact={true} element={<BlogDetails />} />
+        <Route path="/categories"      exact={true} element={<CategoriesPage />} />
         <Route path="/store/:sellerId" exact={true} element={<StorePage />} />
       </Routes>
       <Footer />
@@ -200,13 +213,8 @@ function App() {
 
   useEffect(() => {
     dispatch(fetchCategories());
-
-    const handleResize = () => {
-      dispatch(setWindowWidth(window.innerWidth));
-    };
-
+    const handleResize = () => dispatch(setWindowWidth(window.innerWidth));
     window.addEventListener("resize", handleResize);
-
     return () => {
       window.removeEventListener("resize", handleResize);
       dispatch(setAddressMode("add"));
@@ -218,7 +226,6 @@ function App() {
       <BrowserRouter>
         <AppContent />
       </BrowserRouter>
-
       <Toaster
         position="top-right"
         toastOptions={{
@@ -230,8 +237,7 @@ function App() {
             letterSpacing: "0.01em",
             borderRadius: "12px",
             border: "1px solid rgba(0,0,0,0.08)",
-            boxShadow:
-              "0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)",
             padding: "12px 16px",
             color: "#111",
             background: "#fff",

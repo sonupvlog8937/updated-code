@@ -1,6 +1,23 @@
 import axios from "axios";
 const apiUrl = import.meta.env.VITE_API_URL;
 
+const apiCache = new Map();
+
+const getCacheKey = (url) => `${localStorage.getItem("accessToken") || "guest"}:${url}`;
+
+const getCachedResponse = (url) => {
+    const cacheKey = getCacheKey(url);
+    const cached = apiCache.get(cacheKey);
+    if (!cached) return null;
+
+    if (Date.now() > cached.expireAt) {
+        apiCache.delete(cacheKey);
+        return null;
+    }
+
+    return cached.data;
+};
+
 export const postData = async (url, formData) => {
     try {
         
@@ -32,8 +49,13 @@ export const postData = async (url, formData) => {
 
 
 
-export const fetchDataFromApi = async (url) => {
+export const fetchDataFromApi = async (url, options = {}) => {
+    const { useCache = false, ttl = 120000, forceRefresh = false } = options;
     try {
+        if (useCache && !forceRefresh) {
+            const cachedData = getCachedResponse(url);
+            if (cachedData) return cachedData;
+        }
         const params={
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('accessToken')}`, // Include your API key in the Authorization header
@@ -43,6 +65,12 @@ export const fetchDataFromApi = async (url) => {
         } 
 
         const { data } = await axios.get(apiUrl + url,params)
+        if (useCache) {
+            apiCache.set(getCacheKey(url), {
+                data,
+                expireAt: Date.now() + ttl,
+            });
+        }
         return data;
     } catch (error) {
         console.log(error);
@@ -50,6 +78,10 @@ export const fetchDataFromApi = async (url) => {
     }
 }
 
+export const getCachedDataFromApi = (url) => getCachedResponse(url);
+
+export const prefetchDataFromApi = (url, options = {}) =>
+    fetchDataFromApi(url, { ...options, useCache: true });
 
 export const uploadImage = async (url, updatedData ) => {
     const params={
