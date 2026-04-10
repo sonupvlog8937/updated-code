@@ -35,6 +35,7 @@ import { BannerList2 } from "./Pages/Banners/bannerList2";
 import { BlogList } from "./Pages/Blog";
 import LoadingBar from "react-top-loading-bar";
 import BannersHub from "./Pages/BannersHub";
+import CouponsPage from "./Pages/Coupons";
 
 const MyContext = createContext();
 
@@ -470,6 +471,16 @@ function App() {
       element: (
         <PageWrapper {...wp}>
           <Reviewpage />
+        </PageWrapper>
+      ),
+    },
+
+    //Coupon
+    {
+      path: '/coupons',
+      element: (
+        <PageWrapper {...wp}>
+          <CouponsPage />
         </PageWrapper>
       ),
     },

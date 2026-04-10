@@ -79,6 +79,42 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    returnRequest: {
+      requested: {
+        type: Boolean,
+        default: false,
+      },
+      reason: {
+        type: String,
+        default: "",
+      },
+      requestedAt: {
+        type: Date,
+        default: null,
+      },
+      status: {
+        type: String,
+        default: "none",
+      },
+    },
+    refund: {
+      status: {
+        type: String,
+        default: "none",
+      },
+      method: {
+        type: String,
+        default: "",
+      },
+      amount: {
+        type: Number,
+        default: 0,
+      },
+      processedAt: {
+        type: Date,
+        default: null,
+      },
+    },
   },
   {
     timestamps: true,

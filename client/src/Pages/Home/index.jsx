@@ -4,15 +4,9 @@ import { fetchDataFromApi } from "../../utils/api";
 import { useAppContext } from "../../hooks/useAppContext";
 import ProductLoading from "../../components/ProductLoading";
 import BannerLoading from "../../components/LoadingSkeleton/bannerLoading";
-import { Button } from "@mui/material";
 import { MdArrowRightAlt } from "react-icons/md";
 import { Link, useNavigate } from "react-router-dom";
-import { HiOutlineShieldCheck } from "react-icons/hi";
-import { FiRefreshCcw } from "react-icons/fi";
-import { IoHeadsetOutline } from "react-icons/io5";
-import { FaBolt, FaGift, FaRegCopy, FaStar, FaArrowRight, FaTruck, FaLock, FaFire, FaTag, FaPercent } from "react-icons/fa";
-import { IoSearchOutline } from "react-icons/io5";
-import { RiSparklingLine } from "react-icons/ri";
+import { FaBolt, FaRegCopy, FaStar } from "react-icons/fa";
 import "./style.css";
 
 // ✅ FIX 1: Heavy components — lazy load karo
@@ -22,10 +16,11 @@ const HomeSlider        = lazy(() => import("../../components/HomeSlider"));
 const HomeCatSlider     = lazy(() => import("../../components/HomeCatSlider"));
 const AdsBannerSlider   = lazy(() => import("../../components/AdsBannerSlider"));
 const AdsBannerSliderV2 = lazy(() => import("../../components/AdsBannerSliderV2"));
-const ProductsSlider    = lazy(() => import("../../components/ProductsSlider"));
+const ProductItem       = lazy(() => import("../../components/ProductItem"));
 const BlogItem          = lazy(() => import("../../components/BlogItem"));
 const HomeBannerV2      = lazy(() => import("../../components/HomeSliderV2"));
 const BannerBoxV2       = lazy(() => import("../../components/bannerBoxV2"));
+// const ProductItem       = lazy(() => import("../../components/ProductItem"));
 
 // ✅ FIX 2: Swiper — sirf modules import karo jo chahiye, poora swiper nahi
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -35,53 +30,124 @@ import "swiper/css/free-mode";
 import { Navigation, FreeMode, Autoplay, Pagination } from "swiper/modules";
 // EffectFade remove kiya — use nahi ho raha tha, extra KB load ho raha tha
 
-// ─── Static data — component ke bahar rakho ──────────────────────────────────
-// Pehle ye component ke andar tha — har render pe naye objects bante the
-const SLIDER_IMAGES = [
-  "https://res.cloudinary.com/dn7ko6gut/image/upload/v1771620709/1771620706193_Untitled_design_53_1.png",
-  "https://res.cloudinary.com/dn7ko6gut/image/upload/v1771620690/1771620686726_Untitled_design_52_1.png",
-  "https://res.cloudinary.com/dn7ko6gut/image/upload/v1771620663/1771620660334_Untitled_design_51_1.png",
-];
-const SLIDER_HEADLINES = [
-  { tag: "✨ New Arrivals", title: "Premium products,", titleAccent: "better prices.", sub: "Handpicked collections — fast delivery, easy returns, trusted quality." },
-  { tag: "🔥 Top Deals", title: "Upto 60% off on", titleAccent: "top categories.", sub: "Limited time offers across electronics, fashion, home & more." },
-  { tag: "⚡ Flash Sale", title: "Today only —", titleAccent: "don't miss out.", sub: "Shop before midnight and save big on our bestsellers." },
-];
-const PROMO_BANNERS = [
-  { label: "ELECTRONICS", title: "Latest Gadgets", subtitle: "Up to 50% Off", bg: "linear-gradient(135deg, #FF6B2B 0%, #FF9A5C 100%)", icon: "💻" },
-  { label: "FASHION", title: "New Season Styles", subtitle: "Min 40% Savings", bg: "linear-gradient(135deg, #F97316 0%, #FB923C 100%)", icon: "👗" },
-  { label: "HOME & KITCHEN", title: "Smart Home Deals", subtitle: "Starting ₹199", bg: "linear-gradient(135deg, #EA580C 0%, #FB923C 100%)", icon: "🏠" },
-];
-const QUICK_BENEFITS = [
-  { title: "Same Day Dispatch", desc: "Before 4PM orders dispatched same day.", icon: <FaBolt />, color: "#FF6B2B", bg: "rgba(255,107,43,0.1)" },
-  { title: "Rewards Club", desc: "Earn coins on every order & redeem on next checkout.", icon: <FaGift />, color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
-  { title: "4.8/5 Rated", desc: "Trusted by thousands of happy customers.", icon: <FaStar />, color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-];
+
 const FAQS = [
   { q: "How fast is shipping?", a: "Metro cities: 1-2 days, others: 3-5 days with live tracking via SMS & email." },
   { q: "Do you offer cash on delivery?", a: "Yes, COD is available on most pin codes with a nominal handling fee." },
   { q: "Can I return a product?", a: "Yes, easy 7-day returns on eligible products. Start from My Orders page." },
   { q: "Are my payments secure?", a: "100%. We use industry-standard SSL encryption and trusted payment gateways." },
 ];
-const STATS = [
-  { val: "10K+", label: "Happy Customers" },
-  { val: "5K+", label: "Products Listed" },
-  { val: "4.8★", label: "Average Rating" },
-  { val: "99%", label: "Order Accuracy" },
-];
+
 const TIMER_LABELS = ["HRS", "MIN", "SEC"];
 const REVIEWS = [
   { text: "Amazing quality and super fast delivery. Will definitely order again!", author: "Priya S.", location: "Mumbai", avatar: "P", rating: 5 },
   { text: "Packaging was premium and product exactly as shown. No surprises at all!", author: "Rahul M.", location: "Delhi", avatar: "R", rating: 5 },
   { text: "Customer support resolved my issue in under 10 minutes. Absolutely 5 stars!", author: "Anita K.", location: "Bangalore", avatar: "A", rating: 5 },
 ];
-const BENEFIT_CARDS = [
-  { icon: <FaTruck className="text-[18px]" />, color: "#FF6B2B", bg: "rgba(255,107,43,0.08)", title: "Daily Deals", sub: "Upto 60% off curated offers" },
-  { icon: <HiOutlineShieldCheck className="text-[20px]" />, color: "#10b981", bg: "rgba(16,185,129,0.08)", title: "Secure Payments", sub: "Encrypted & trusted gateways" },
-  { icon: <FiRefreshCcw className="text-[18px]" />, color: "#3b82f6", bg: "rgba(59,130,246,0.08)", title: "Easy Returns", sub: "Simple 7-day return policy" },
-  { icon: <IoHeadsetOutline className="text-[20px]" />, color: "#8b5cf6", bg: "rgba(139,92,246,0.08)", title: "24/7 Support", sub: "Always here to help you" },
-];
-// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── All Products Section ─────────────────────────────────────────────────────
+const PRODUCTS_PER_PAGE = 10;
+
+const AllProductsSection = () => {
+  const [allProducts, setAllProducts] = useState([]);
+  const [page, setPage]               = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [loading, setLoading]         = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Page 1 — initial load
+  useEffect(() => {
+    fetchDataFromApi(`/api/product/getAllProducts?page=1&limit=${PRODUCTS_PER_PAGE}`)
+      .then(res => {
+        setAllProducts(res?.products || []);
+        setTotalProducts(res?.totalProducts ?? res?.total ?? 0);
+        setLoading(false);
+      });
+  }, []);
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setLoadingMore(true);
+    fetchDataFromApi(`/api/product/getAllProducts?page=${nextPage}&limit=${PRODUCTS_PER_PAGE}`)
+      .then(res => {
+        const newProducts = res?.products || [];
+        setAllProducts(prev => [...prev, ...newProducts]);
+        setTotalProducts(res?.totalProducts ?? res?.total ?? totalProducts);
+        setPage(nextPage);
+        setLoadingMore(false);
+      });
+  };
+
+  const hasMore = allProducts.length < totalProducts;
+
+  return (
+    <section className="py-6 bg-white" style={{ borderTop: "1.5px solid #F1F3F5" }}>
+      <div className="container">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="section-heading text-[22px] font-[800] text-gray-900 mb-0"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>All Products</h2>
+            {!loading && (
+              <p className="text-[13px] text-gray-400 mt-0.5 mb-0">
+                Showing {allProducts.length} of {totalProducts} products
+              </p>
+            )}
+          </div>
+          <Link to="/products">
+            <button className="cta-orange group flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-[700] text-white">
+              View All <span className="inline-flex items-center justify-center w-5 h-5 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }}><MdArrowRightAlt size={15} /></span>
+            </button>
+          </Link>
+        </div>
+
+        {loading ? (
+          <ProductLoading />
+        ) : (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              {allProducts.map((item, index) => (
+                <Suspense key={item?._id || index} fallback={null}>
+                  <ProductItem item={item} />
+                </Suspense>
+              ))}
+            </div>
+
+            {hasMore && (
+              <div className="flex justify-center mt-6">
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  className="flex items-center gap-2 px-8 py-3 rounded-xl font-[700] text-[14px] transition-all active:scale-95"
+                  style={{
+                    background: loadingMore ? "#F5F5F5" : "linear-gradient(135deg, #FF6B2B, #FF9A5C)",
+                    color: loadingMore ? "#9CA3AF" : "#fff",
+                    boxShadow: loadingMore ? "none" : "0 6px 20px rgba(255,107,43,0.3)",
+                    border: "none",
+                    cursor: loadingMore ? "not-allowed" : "pointer",
+                  }}>
+                  {loadingMore ? (
+                    <>
+                      <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>Load More <MdArrowRightAlt size={18} /></>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {!hasMore && totalProducts > 0 && (
+              <p className="text-center text-[13px] text-gray-400 mt-6 mb-0">
+                🎉 Saare products dekh liye! <Link to="/products" style={{ color: "#FF6B2B", fontWeight: 700 }}>Browse categories</Link>
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </section>
+  );
+};
 
 const Home = () => {
   const [value, setValue]                       = useState(0);
@@ -104,11 +170,6 @@ const Home = () => {
   const context  = useAppContext();
   const navigate = useNavigate();
   const [showLoginPopup, setShowLoginPopup] = useState(false);
-
-  // ✅ FIX 3: Promo banner auto-rotate — activePromo state hata diya
-  // Pehle har 4s pe state update → full component re-render hota tha
-  // Ab CSS animation se handle hota hai — zero JS overhead
-  // (CSS animation style.css mein add karo: @keyframes promoCycle)
 
   // Countdown timer
   useEffect(() => {
@@ -241,158 +302,36 @@ const Home = () => {
               <p className="text-[14px] mb-0" style={{ color: "rgba(255,255,255,0.85)" }}>Login for faster checkout, wishlist sync, premium offers & smart order tracking.</p>
             </div>
             <div className="p-6 bg-white">
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
                 <button className="h-[46px] rounded-xl font-[700] text-[14px] text-white transition-all cta-orange"
                   onClick={() => { setShowLoginPopup(false); navigate("/login"); }}>Login Now</button>
                 <button className="h-[46px] rounded-xl font-[700] text-[14px] transition-all cta-outline"
                   onClick={() => { setShowLoginPopup(false); navigate("/register"); }}>Register</button>
               </div>
               <button className="w-full text-[13px] py-1 transition-colors text-gray-400 hover:text-gray-600"
-                onClick={() => setShowLoginPopup(false)}>Maybe later</button>
+                onClick={() => setShowLoginPopup(false)}>Canel</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ─── Announcement Ticker ─────────────────────────────────────────── */}
-      <div className="overflow-hidden py-2.5" style={{ background: "linear-gradient(90deg, #FF6B2B 0%, #FF8C55 50%, #FF6B2B 100%)" }}>
-        <div className="ticker-track flex gap-0 whitespace-nowrap" style={{ width: "max-content" }}>
-          {[...Array(6)].map((_, i) => (
-            <span key={i} className="flex items-center gap-8 px-8 text-white text-[12px] font-[500] tracking-wide">
-              <span>🎁 Use code <strong className="font-[700]">SAVE20</strong> for 20% off</span>
-              <span className="opacity-40 text-[16px]">•</span>
-              <span>🚀 Free delivery on orders above ₹200</span>
-              <span className="opacity-40 text-[16px]">•</span>
-              <span>⭐ 4.8/5 rated by 10,000+ happy customers</span>
-              <span className="opacity-40 text-[16px]">•</span>
-              <span>🔄 Easy 7-day returns on all products</span>
-              <span className="opacity-40 text-[16px]">•</span>
-            </span>
-          ))}
-        </div>
-      </div>
-
       {/* ─── HERO BANNER ─────────────────────────────────────────────────── */}
-      <section className="hero-bg relative overflow-hidden" style={{ minHeight: "520px" }}>
-        <div className="float-1 absolute top-10 left-[5%] w-64 h-64 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(255,107,43,0.1), transparent)", filter: "blur(40px)" }} />
-        <div className="float-2 absolute bottom-5 left-[25%] w-48 h-48 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(255,180,80,0.08), transparent)", filter: "blur(30px)" }} />
-        <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full opacity-5 spin-slow" style={{ border: "40px solid #FF6B2B" }} />
-
+      <section className="hero-bg relative overflow-hidden" style={{ background: "linear-gradient(135deg, #FFF8F4 0%, #FFF4EE 100%)" }}>
         <div className="container relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center py-10 lg:py-14">
-            <div className="lg:col-span-5">
-              <span className="anim-fadeup anim-delay-1 inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] px-3.5 py-1.5 rounded-full mb-5 font-[600]"
-                style={{ background: "rgba(255,107,43,0.1)", color: "#FF6B2B", border: "1.5px solid rgba(255,107,43,0.2)" }}>
-                <RiSparklingLine />{SLIDER_HEADLINES[activeSlide]?.tag}
-              </span>
-              <h1 className="anim-fadeup anim-delay-2 text-[30px] sm:text-[38px] lg:text-[50px] font-[800] leading-[1.1] mb-4 text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                {SLIDER_HEADLINES[activeSlide]?.title}<br />
-                <span className="shimmer-text">{SLIDER_HEADLINES[activeSlide]?.titleAccent}</span>
-              </h1>
-              <p className="anim-fadeup anim-delay-3 text-[15px] leading-relaxed mb-7" style={{ color: "#6B7280" }}>
-                {SLIDER_HEADLINES[activeSlide]?.sub}
-              </p>
-              <div className="anim-fadeup anim-delay-4 flex flex-wrap gap-3">
-                <Link to="/products">
-                  <button className="cta-orange inline-flex items-center gap-2 h-[48px] px-7 rounded-xl font-[700] text-[14px] text-white"
-                    style={{ boxShadow: "0 8px 24px rgba(255,107,43,0.35)" }}>
-                    Shop Now <FaArrowRight className="text-[12px]" />
-                  </button>
-                </Link>
-                <Link to="https://zeedaddy-tenminutes.vercel.app">
-                  <button className="inline-flex items-center h-[48px] px-7 rounded-xl font-[700] text-[14px] transition-all duration-200"
-                    style={{ border: "2px solid #E9ECEF", color: "#374151", background: "white" }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#FF6B2B"; e.currentTarget.style.color = "#FF6B2B"; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = "#E9ECEF"; e.currentTarget.style.color = "#374151"; }}>
-                    10-Minutes Delivery
-                  </button>
-                </Link>
-              </div>
-              <div className="anim-fadeup anim-delay-5 flex flex-wrap gap-5 mt-8 pt-6" style={{ borderTop: "1.5px solid #F1F3F5" }}>
-                {[{ icon: <FaTruck />, label: "Free Shipping" }, { icon: <FaLock />, label: "Secure Pay" }, { icon: <FiRefreshCcw />, label: "Easy Returns" }]
-                  .map((item, i) => (
-                    <div key={i} className="flex items-center gap-2 text-[13px] font-[500]" style={{ color: "#6B7280" }}>
-                      <span style={{ color: "#FF6B2B" }}>{item.icon}</span>{item.label}
-                    </div>
-                  ))}
-              </div>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center py-2 lg:py-4">
 
             {/* Right: Slider — ✅ FIX 7: first image eager load, baaki lazy */}
-            <div className="lg:col-span-7 anim-slide-right">
+            <div className="lg:col-span-12 anim-slide-right">
               <Swiper loop spaceBetween={0} modules={[Autoplay, Pagination]}
                 autoplay={{ delay: 3500, disableOnInteraction: false }}
                 pagination={{ clickable: true }} className="hero-swiper"
                 style={{ borderRadius: "20px", overflow: "hidden", boxShadow: "0 20px 60px rgba(255,107,43,0.15)" }}
                 onSlideChange={(s) => setActiveSlide(s.realIndex)}>
-                {SLIDER_IMAGES.map((image, index) => (
-                  <SwiperSlide key={index}>
-                    <div className="relative overflow-hidden" style={{ borderRadius: "20px" }}>
-                      <img src={image} alt={`Banner ${index + 1}`} className="w-full object-cover"
-                        style={{ height: "clamp(200px, 38vw, 430px)", display: "block" }}
-                        loading={index === 0 ? "eager" : "lazy"} // ✅ first image eager, rest lazy
-                        width="800" height="430"
-                      />
-                      <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.15) 0%, transparent 40%)", borderRadius: "20px" }} />
-                    </div>
-                  </SwiperSlide>
-                ))}
+                {
+                        homeSlidesData?.length !== 0 && <HomeSlider data={homeSlidesData} />
+                      }
               </Swiper>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Stats Bar ───────────────────────────────────────────────────── */}
-      <section style={{ background: "linear-gradient(135deg, #FF6B2B 0%, #FF8C55 100%)" }}>
-        <div className="container">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-0 py-4">
-            {STATS.map((stat, i) => (
-              <div key={i} className="stat-item flex flex-col items-center py-3 text-white"
-                style={{ borderRight: i < 3 ? "1px solid rgba(255,255,255,0.2)" : "none" }}>
-                <span className="text-[24px] font-[800]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{stat.val}</span>
-                <span className="text-[12px] font-[500] opacity-80 mt-0.5">{stat.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Trust / Benefit Cards ───────────────────────────────────────── */}
-      <section className="bg-white py-7">
-        <div className="container">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {BENEFIT_CARDS.map((card, i) => (
-              <div key={i} className="benefit-card rounded-2xl p-4 flex gap-3 items-start bg-white"
-                style={{ border: "1.5px solid #F1F3F5", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center mt-0.5"
-                  style={{ background: card.bg, color: card.color }}>{card.icon}</div>
-                <div>
-                  <p className="text-[14px] font-[700] text-gray-800 mb-0.5" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{card.title}</p>
-                  <p className="text-[12px] text-gray-500 mb-0 leading-snug">{card.sub}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Promo Banners Strip ──────────────────────────────────────────── */}
-      <section className="pb-5 pt-1 bg-white">
-        <div className="container">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {PROMO_BANNERS.map((promo, i) => (
-              <Link to="/products" key={i}>
-                <div className="promo-banner-card relative overflow-hidden rounded-2xl p-6 cursor-pointer"
-                  style={{ background: promo.bg, minHeight: "130px", boxShadow: "0 8px 24px rgba(255,107,43,0.2)" }}>
-                  <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full opacity-20" style={{ background: "white" }} />
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[42px] opacity-25">{promo.icon}</div>
-                  <span className="text-[10px] uppercase tracking-[0.18em] text-white/80 font-[600] mb-2 block">{promo.label}</span>
-                  <h3 className="text-[18px] font-[800] text-white mb-1" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{promo.title}</h3>
-                  <p className="text-[13px] text-white/90 font-[600] mb-0">{promo.subtitle}</p>
-                </div>
-              </Link>
-            ))}
           </div>
         </div>
       </section>
@@ -405,25 +344,6 @@ const Home = () => {
           </Suspense>
         </div>
       )}
-
-      {/* ─── Quick Benefits ──────────────────────────────────────────────── */}
-      <section className="bg-white py-5">
-        <div className="container">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {QUICK_BENEFITS.map((benefit, i) => (
-              <div key={i} className="benefit-card rounded-2xl p-5 flex items-center gap-4 bg-white"
-                style={{ border: "1.5px solid #F1F3F5", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-[20px] flex-shrink-0"
-                  style={{ background: benefit.bg, color: benefit.color }}>{benefit.icon}</div>
-                <div>
-                  <h4 className="text-[14px] font-[700] text-gray-800 mb-1" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{benefit.title}</h4>
-                  <p className="text-[12px] text-gray-500 mb-0 leading-snug">{benefit.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ─── Popular Products ────────────────────────────────────────────── */}
       <section className="bg-white py-6">
@@ -455,7 +375,15 @@ const Home = () => {
           </div>
           {popularProductsData?.length === 0
             ? <ProductLoading />
-            : <Suspense fallback={<ProductLoading />}><ProductsSlider items={6} data={popularProductsData} /></Suspense>
+            : (
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                {popularProductsData.slice(0, 8).map((item, index) => (
+                  <Suspense key={item?._id || index} fallback={null}>
+                    <ProductItem item={item} />
+                  </Suspense>
+                ))}
+              </div>
+            )
           }
         </div>
       </section>
@@ -579,7 +507,15 @@ const Home = () => {
           </div>
           {filteredProducts?.length === 0
             ? <ProductLoading />
-            : <Suspense fallback={<ProductLoading />}><ProductsSlider items={6} data={filteredProducts} /></Suspense>
+            : (
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                {filteredProducts.slice(0, 8).map((item, index) => (
+                  <Suspense key={item?._id || index} fallback={null}>
+                    <ProductItem item={item} />
+                  </Suspense>
+                ))}
+              </div>
+            )
           }
         </div>
       </section>
@@ -597,7 +533,15 @@ const Home = () => {
           </div>
           {featuredProducts?.length === 0
             ? <ProductLoading />
-            : <Suspense fallback={<ProductLoading />}><ProductsSlider items={6} data={featuredProducts} /></Suspense>
+            : (
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                {featuredProducts.slice(0, 8).map((item, index) => (
+                  <Suspense key={item?._id || index} fallback={null}>
+                    <ProductItem item={item} />
+                  </Suspense>
+                ))}
+              </div>
+            )
           }
           {bannerList2Data?.length !== 0 && (
             <div className="mt-5">
@@ -624,11 +568,22 @@ const Home = () => {
                   </Link>
                 )}
               </div>
-              <Suspense fallback={<ProductLoading />}><ProductsSlider items={6} data={productRow.data} /></Suspense>
+              <Suspense fallback={<ProductLoading />}>
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                  {productRow.data.slice(0, 8).map((item, idx) => (
+                    <Suspense key={item?._id || idx} fallback={null}>
+                      <ProductItem item={item} />
+                    </Suspense>
+                  ))}
+                </div>
+              </Suspense>
             </div>
           </section>
         );
       })}
+
+      {/* ─── All Products ────────────────────────────────────────────────── */}
+      <AllProductsSection />
 
       {/* ─── Reviews ─────────────────────────────────────────────────────── */}
       <section className="py-6 bg-white scroll-reveal">

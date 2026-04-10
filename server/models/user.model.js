@@ -61,6 +61,14 @@ const userSchema = mongoose.Schema({
     otpExpires:{
         type:Date
     },
+    phone_login_otp: {
+        type: String,
+        default: null
+    },
+    phone_login_otp_expires: {
+        type: Date,
+        default: null
+    },
     role: {
         type: String,
         enum: ['ADMIN', 'USER', 'SELLER'],

@@ -22,7 +22,7 @@ const styles = `
     display: flex;
     align-items: center;
     width: 100%;
-    height: 52px;
+    height: 42px;
     background: #ffffff;
     border-radius: 14px;
     border: 1.5px solid #e0e0e0;
@@ -81,43 +81,44 @@ const styles = `
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    background: #1a1a2e;
-    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: transparent;
+    color: #9e9e9e;
     border: none;
     cursor: pointer;
     flex-shrink: 0;
-    transition: background 0.2s, transform 0.1s;
+    transition: color 0.2s, transform 0.1s;
   }
 
-  .search-btn:hover { background: #2d2d50; }
+  .search-btn:hover { color: #1a1a2e; }
   .search-btn:active { transform: scale(0.96); }
 
   .search-dropdown {
-    position: absolute;
-    top: calc(100% + 8px);
+    position: fixed;
+    top: 60px;
     left: 0;
+    right: 0;
+    bottom: 0;
     width: 100%;
     background: #ffffff;
-    border-radius: 16px;
-    border: 1.5px solid #ececec;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.10);
-    z-index: 200;
+    border-top: 1.5px solid #ececec;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.06);
+    z-index: 9999;
     overflow: hidden;
-    animation: dropIn 0.15s ease;
+    animation: dropIn 0.18s ease;
   }
 
   @keyframes dropIn {
-    from { opacity: 0; transform: translateY(-6px); }
+    from { opacity: 0; transform: translateY(-8px); }
     to { opacity: 1; transform: translateY(0); }
   }
 
   .dropdown-scroll {
-    max-height: 72vh;
+    height: 100%;
     overflow-y: auto;
-    padding: 8px;
+    padding: 12px 16px 80px;
   }
 
   .dropdown-scroll::-webkit-scrollbar { width: 4px; }
@@ -489,7 +490,7 @@ const Search = () => {
 
       {/* Search Box */}
       <div className="search-box">
-        <IoSearch className="search-icon" />
+        {/* <IoSearch className="search-icon" /> */}
         <input
           ref={inputRef}
           type="text"

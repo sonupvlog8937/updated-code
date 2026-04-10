@@ -5,7 +5,10 @@ import sendEmailFun from '../config/sendEmail.js';
 import VerificationEmail from '../utils/verifyEmailTemplate.js';
 import generatedAccessToken from '../utils/generatedAccessToken.js';
 import generatedRefreshToken from '../utils/generatedRefreshToken.js';
-
+import AddressModel from '../models/address.model.js';
+import CartProductModel from '../models/cartProduct.modal.js';
+import MyListModel from '../models/myList.modal.js';
+import OrderModel from '../models/order.model.js';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import ReviewModel from '../models/reviews.model.js';
@@ -17,6 +20,52 @@ cloudinary.config({
     api_secret: process.env.cloudinary_Config_api_secret,
     secure: true,
 });
+
+async function deleteUserAssociatedData(userId) {
+    const userIdString = String(userId);
+
+    const orders = await OrderModel.find({ userId }).select('_id delivery_address');
+    const orderIds = orders.map((order) => order._id);
+    const addressIds = [
+        ...new Set([
+            ...orders.map((order) => order.delivery_address).filter(Boolean).map((id) => String(id)),
+            ...(await AddressModel.find({ userId: userIdString }).select('_id')).map((address) => String(address._id)),
+        ]),
+    ];
+
+    await Promise.all([
+        AddressModel.deleteMany({ _id: { $in: addressIds } }),
+        CartProductModel.deleteMany({ userId: userIdString }),
+        MyListModel.deleteMany({ userId: userIdString }),
+        ReviewModel.deleteMany({ userId: userIdString }),
+        OrderModel.deleteMany({ _id: { $in: orderIds } }),
+        ProductModel.updateMany(
+            { 'reviews.userId': userIdString },
+            { $pull: { reviews: { userId: userIdString } } }
+        ),
+    ]);
+}
+
+
+
+const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
+
+const sendLoginResponse = async (response, userId) => {
+    const accesstoken = await generatedAccessToken(userId);
+    const refreshToken = await generatedRefreshToken(userId);
+
+    await UserModel.findByIdAndUpdate(userId, { last_login_date: new Date() });
+
+    response.cookie('accessToken', accesstoken, cookiesOption);
+    response.cookie('refreshToken', refreshToken, cookiesOption);
+
+    return response.json({
+        message: "Login successfully",
+        error: false,
+        success: true,
+        data: { accesstoken, refreshToken }
+    });
+};
 
 
 // ─── Register Controller ──────────────────────────────────────────────────────
@@ -250,34 +299,10 @@ export async function authWithGoogle(request, response) {
 
             await user.save();
 
-            const accesstoken  = await generatedAccessToken(user._id);
-            const refreshToken = await generatedRefreshToken(user._id);
-            await UserModel.findByIdAndUpdate(user._id, { last_login_date: new Date() });
-
-            const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
-            response.cookie('accessToken', accesstoken, cookiesOption);
-            response.cookie('refreshToken', refreshToken, cookiesOption);
-
-            return response.json({
-                message: "Login successfully",
-                error: false, success: true,
-                data: { accesstoken, refreshToken }
-            });
+            return sendLoginResponse(response, user._id);
 
         } else {
-            const accesstoken  = await generatedAccessToken(existingUser._id);
-            const refreshToken = await generatedRefreshToken(existingUser._id);
-            await UserModel.findByIdAndUpdate(existingUser._id, { last_login_date: new Date() });
-
-            const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
-            response.cookie('accessToken', accesstoken, cookiesOption);
-            response.cookie('refreshToken', refreshToken, cookiesOption);
-
-            return response.json({
-                message: "Login successfully",
-                error: false, success: true,
-                data: { accesstoken, refreshToken }
-            });
+            return sendLoginResponse(response, existingUser._id);
         }
 
     } catch (error) {
@@ -325,24 +350,179 @@ export async function loginUserController(request, response) {
             });
         }
 
-        const accesstoken  = await generatedAccessToken(user._id);
-        const refreshToken = await generatedRefreshToken(user._id);
-        await UserModel.findByIdAndUpdate(user._id, { last_login_date: new Date() });
+        return sendLoginResponse(response, user._id);
 
-        const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
-        response.cookie('accessToken', accesstoken, cookiesOption);
-        response.cookie('refreshToken', refreshToken, cookiesOption);
+        } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true, success: false
+        });
+    }
+}
+export async function sendPhoneLoginOtpController(request, response) {
+    try {
+        const { mobile } = request.body;
 
-        return response.json({
-            message: "Login successfully",
-            error: false, success: true,
-            data: { accesstoken, refreshToken }
+        if (!mobile) {
+            return response.status(400).json({
+                message: "Mobile number is required",
+                error: true,
+                success: false
+            });
+        }
+
+        const normalizedMobile = String(mobile).replace(/\D/g, "").slice(-10);
+
+        if (normalizedMobile.length !== 10) {
+            return response.status(400).json({
+                message: "Please provide a valid 10 digit mobile number",
+                error: true,
+                success: false
+            });
+        }
+
+        let user = await UserModel.findOne({ mobile: Number(normalizedMobile) });
+
+        if (user && user.status !== "Active") {
+            return response.status(400).json({
+                message: "Contact to admin",
+                error: true,
+                success: false
+            });
+        }
+
+        if (!user) {
+            const generatedEmail = `phone_${normalizedMobile}@fast2sms.local`;
+            const randomPassword = `fast2sms-${normalizedMobile}-${Date.now()}`;
+            const salt = await bcryptjs.genSalt(10);
+            const hashPassword = await bcryptjs.hash(randomPassword, salt);
+
+            user = await UserModel.create({
+                name: `User ${normalizedMobile.slice(-4)}`,
+                email: generatedEmail,
+                password: hashPassword,
+                mobile: Number(normalizedMobile),
+                verify_email: true,
+                status: "Active",
+            });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpires = Date.now() + 10 * 60 * 1000;
+
+        user.phone_login_otp = otp;
+        user.phone_login_otp_expires = otpExpires;
+        await user.save();
+
+        const apiKey = process.env.FAST2SMS_API_KEY;
+
+        if (!apiKey) {
+            return response.status(500).json({
+                message: "FAST2SMS_API_KEY is not configured",
+                error: true,
+                success: false
+            });
+        }
+
+        const payload = new URLSearchParams({
+            route: "q",
+            message: `Your login OTP is ${otp}. It is valid for 10 minutes.`,
+            language: "english",
+            flash: "0",
+            numbers: normalizedMobile
+        });
+
+        const smsResponse = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+            method: 'POST',
+            headers: {
+                'authorization': apiKey,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: payload.toString()
+        });
+
+        const smsResult = await smsResponse.json();
+
+        if (!smsResponse.ok || smsResult?.return === false) {
+            return response.status(400).json({
+                message: smsResult?.message?.[0] || smsResult?.message || "Unable to send OTP",
+                error: true,
+                success: false
+            });
+        }
+
+        return response.status(200).json({
+            message: "OTP sent successfully",
+            error: false,
+            success: true
         });
 
     } catch (error) {
         return response.status(500).json({
             message: error.message || error,
-            error: true, success: false
+            error: true,
+            success: false
+        });
+    }
+}
+
+export async function verifyPhoneLoginOtpController(request, response) {
+    try {
+        const { mobile, otp } = request.body;
+
+        if (!mobile || !otp) {
+            return response.status(400).json({
+                message: "Mobile number and OTP are required",
+                error: true,
+                success: false
+            });
+        }
+
+        const normalizedMobile = String(mobile).replace(/\D/g, "").slice(-10);
+        const user = await UserModel.findOne({ mobile: Number(normalizedMobile) });
+
+        if (!user) {
+            return response.status(400).json({
+                message: "User not found",
+                error: true,
+                success: false
+            });
+        }
+
+        if (user.status !== "Active") {
+            return response.status(400).json({
+                message: "Contact to admin",
+                error: true,
+                success: false
+            });
+        }
+
+        if (!user.phone_login_otp || user.phone_login_otp !== otp) {
+            return response.status(400).json({
+                message: "Invalid OTP",
+                error: true,
+                success: false
+            });
+        }
+
+        if (!user.phone_login_otp_expires || user.phone_login_otp_expires < Date.now()) {
+            return response.status(400).json({
+                message: "OTP expired",
+                error: true,
+                success: false
+            });
+        }
+
+        user.phone_login_otp = null;
+        user.phone_login_otp_expires = null;
+        await user.save();
+
+        return sendLoginResponse(response, user._id);
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
         });
     }
 }
@@ -452,7 +632,6 @@ export async function logoutController(request, response) {
     try {
         const userid = request.userId;
 
-        const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
         response.clearCookie("accessToken", cookiesOption);
         response.clearCookie("refreshToken", cookiesOption);
 
@@ -1129,18 +1308,91 @@ export async function getAllUsers(request, response) {
     }
 }
 
-export async function deleteUser(request, response) {
-    const user = await UserModel.findById(request.params.id);
-    if (!user) {
-        return response.status(404).json({ message: "User Not found", error: true, success: false });
+export async function deleteMyAccount(request, response) {
+    try {
+        const userId = request.userId;
+        const { email, password, confirmText } = request.body;
+
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            return response.status(404).json({
+                message: "User not found",
+                error: true,
+                success: false
+            });
+        }
+
+        if (!email || email.trim().toLowerCase() !== user.email.toLowerCase()) {
+            return response.status(400).json({
+                message: "Please enter your registered email to confirm account deletion",
+                error: true,
+                success: false
+            });
+        }
+
+        if (confirmText !== 'DELETE') {
+            return response.status(400).json({
+                message: 'Please type DELETE to confirm account deletion',
+                error: true,
+                success: false
+            });
+        }
+
+        if (user.signUpWithGoogle === false) {
+            if (!password) {
+                return response.status(400).json({
+                    message: 'Password is required to delete your account',
+                    error: true,
+                    success: false
+                });
+            }
+
+            const isPasswordValid = await bcryptjs.compare(password, user.password);
+            if (!isPasswordValid) {
+                return response.status(400).json({
+                    message: 'Entered password is incorrect',
+                    error: true,
+                    success: false
+                });
+            }
+        }
+
+        await deleteUserAssociatedData(user._id);
+        await UserModel.findByIdAndDelete(user._id);
+
+    const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
+        response.clearCookie('accessToken', cookiesOption);
+        response.clearCookie('refreshToken', cookiesOption);
+
+        return response.status(200).json({
+            message: 'Your account has been deleted successfully',
+            error: false,
+            success: true
+        });
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        });
     }
 
-    const deletedUser = await UserModel.findByIdAndDelete(request.params.id);
-    if (!deletedUser) {
-        return response.status(404).json({ message: "User not deleted!", success: false, error: true });
     }
+
+export async function deleteUser(request, response) {
+    try {
+        const user = await UserModel.findById(request.params.id);
+        if (!user) {
+            return response.status(404).json({ message: "User Not found", error: true, success: false });
+        }
+
+        await deleteUserAssociatedData(user._id);
+        await UserModel.findByIdAndDelete(request.params.id);
 
     return response.status(200).json({ success: true, error: false, message: "User Deleted!" });
+    } catch (error) {
+        return response.status(500).json({ message: error.message || error, error: true, success: false });
+    }
 }
 
 export async function deleteMultiple(request, response) {
@@ -1150,6 +1402,8 @@ export async function deleteMultiple(request, response) {
     }
 
     try {
+        const users = await UserModel.find({ _id: { $in: ids } }).select('_id');
+        await Promise.all(users.map((user) => deleteUserAssociatedData(user._id)));
         await UserModel.deleteMany({ _id: { $in: ids } });
         return response.status(200).json({ message: "Users deleted successfully", error: false, success: true });
 

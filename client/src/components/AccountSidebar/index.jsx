@@ -5,12 +5,12 @@ import { FaRegUser } from "react-icons/fa";
 import { IoBagCheckOutline } from "react-icons/io5";
 import { IoMdHeartEmpty } from "react-icons/io";
 import { IoIosLogOut } from "react-icons/io";
-import { NavLink } from "react-router";
+import { NavLink } from "react-router-dom";
 import { useAppContext } from "../../hooks/useAppContext";
 import CircularProgress from '@mui/material/CircularProgress';
 import { fetchDataFromApi, uploadImage } from "../../utils/api";
 import { LuMapPin } from "react-icons/lu";
-
+import { MdOutlineNotificationsActive, MdLocalOffer } from "react-icons/md";
 
 
 const AccountSidebar = () => {
@@ -174,6 +174,48 @@ const AccountSidebar = () => {
             </Button>
           </NavLink>
         </li>
+
+        <li className="w-full">
+          <NavLink to="/notifications" exact={true} activeClassName="isActive">
+            <Button className="w-full !py-2 !text-left !px-5 !justify-start !capitalize !text-[rgba(0,0,0,0.8)] !rounded-none flex items-center gap-2">
+              <MdOutlineNotificationsActive className="text-[18px]" /> Notifications
+            </Button>
+          </NavLink>
+        </li>
+
+        <li className="w-full">
+          <NavLink to="/offers" exact={true} activeClassName="isActive">
+            <Button className="w-full !py-2 !text-left !px-5 !justify-start !capitalize !text-[rgba(0,0,0,0.8)] !rounded-none flex items-center gap-2">
+              <MdLocalOffer className="text-[18px]" /> Offers & Coupons
+            </Button>
+          </NavLink>
+        </li>
+
+        <li className="w-full">
+          <NavLink to="/settings" exact={true} activeClassName="isActive">
+            <Button className="w-full !py-2 !text-left !px-5 !justify-start !capitalize !text-[rgba(0,0,0,0.8)] !rounded-none flex items-center gap-2">
+              <MdOutlineNotificationsActive className="text-[18px]" /> Settings
+            </Button>
+          </NavLink>
+        </li>
+
+        <li className="w-full">
+          <NavLink to="/notification-settings" exact={true} activeClassName="isActive">
+            <Button className="w-full !py-2 !text-left !px-5 !justify-start !capitalize !text-[rgba(0,0,0,0.8)] !rounded-none flex items-center gap-2">
+              <MdOutlineNotificationsActive className="text-[18px]" /> Notifications Settings
+            </Button>
+          </NavLink>
+        </li>
+
+        <li className="w-full">
+          <NavLink to="/privacy-policy" exact={true} activeClassName="isActive">
+            <Button className="w-full !py-2 !text-left !px-5 !justify-start !capitalize !text-[rgba(0,0,0,0.8)] !rounded-none flex items-center gap-2">
+              <MdLocalOffer className="text-[18px]" /> Privacy & Policy
+            </Button>
+          </NavLink>
+        </li>
+
+        
 
         <li className="w-full">
           <Button className="w-full !py-2  !text-left !px-5 !justify-start !capitalize !text-[rgba(0,0,0,0.8)] !rounded-none flex items-center gap-2" onClick={logout}>

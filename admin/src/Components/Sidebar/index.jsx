@@ -17,6 +17,7 @@ import {
   MdOutlineViewCarousel,
   MdOutlinePermMedia,
   MdOutlineArticle,
+  MdLocalOffer,
 } from "react-icons/md";
 import { MyContext } from "../../App";
 import { fetchDataFromApi } from "../../utils/api";
@@ -146,6 +147,7 @@ const Sidebar = () => {
             <>
               <GroupLabel label="Management" />
               <NavItem to="/users" icon={FiUsers} label="Users & Sellers" />
+              <NavItem to="/coupons" icon={MdLocalOffer} label="Coupons" />
 
               <CollapseGroup groupKey="catalog" icon={TbCategory} label="Catalog">
                 <SubItem to="/category/list" label="Categories" />

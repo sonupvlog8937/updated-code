@@ -1,4 +1,4 @@
-import NotificationModel from "../models/notification.model";
+import NotificationModel from "../models/notification.model.js";
 
 // 1. Get all notifications for the logged-in user
 export async function getUserNotifications(request, response) {

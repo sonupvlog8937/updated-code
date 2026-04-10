@@ -259,6 +259,40 @@ const CSS = `
 
   /* ── Pagination ── */
   .pl-paging { margin-top:40px; padding-top:24px; border-top:1px solid #e8e8f0; display:flex; justify-content:center; }
+
+  /* ══════════════════════════════════════════════════
+     MOBILE TOOLBAR — fixed top, scroll-aware
+  ══════════════════════════════════════════════════ */
+  @media (max-width: 991px) {
+    .pl-toolbar {
+      position: fixed;
+      top: 53px;
+      bottom: auto;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      margin: 0;
+      padding: 6px 12px 0;
+      background: transparent;
+      transition:
+        transform  0.38s cubic-bezier(0.22, 0.61, 0.36, 1),
+        opacity    0.28s ease;
+    }
+    .pl-toolbar.pl-tb-hide {
+      transform: translateY(-140%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .pl-toolbar.pl-tb-show {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+    .pl-toolbar-inner {
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.10), 0 1px 6px rgba(0,0,0,0.06);
+    }
+  }
 `;
 
 /* ══════════════════════════════════════════════════════════════════
@@ -446,7 +480,7 @@ const ProductListing = () => {
     <div className="pl-root">
       <style>{CSS}</style>
 
-      <section style={{ background: "#f8f8fb", minHeight: "100vh", padding: "0 0 56px" }}>
+      <section style={{ background: "#f8f8fb", minHeight: "100vh", padding: "0 0 56px 0" }}>
         <div className="container" style={{ display: "flex", gap: "18px", alignItems: "flex-start" }}>
 
           {/* ══ SIDEBAR ══ */}
@@ -481,7 +515,7 @@ const ProductListing = () => {
           )}
 
           {/* ══ RIGHT CONTENT ══ */}
-          <div style={{ flex: 1, minWidth: 0, paddingTop: "20px" }}>
+          <div style={{ flex: 1, minWidth: 0, paddingTop: "20px" }} className="lg:pt-5 pt-[110px]">
 
             {/* ══════════════════════════════════════════════════════
                 SCROLL-AWARE TOOLBAR
@@ -599,7 +633,7 @@ const ProductListing = () => {
 
             {/* ══ Product Grid ══ */}
             <div
-              style={{ marginTop: 14 }}
+              style={{ marginTop: 32 }}
               className={`pl-grid${viewMode === "list" ? " pl-list" : ""}`}
             >
               {isLoading ? (

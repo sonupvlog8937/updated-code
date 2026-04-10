@@ -230,23 +230,6 @@ const styles = `
     transform: scale(1.04);
   }
 
-  /* ── LOADING ── */
-  .pz-loading {
-    position: absolute; inset: 0; z-index: 15;
-    background: rgba(255,255,255,0.7);
-    backdrop-filter: blur(3px);
-    display: flex; align-items: center; justify-content: center;
-    pointer-events: none;
-  }
-  .pz-spinner {
-    width: 30px; height: 30px;
-    border: 2px solid rgba(0,0,0,0.06);
-    border-top-color: #999;
-    border-radius: 50%;
-    animation: pz-spin 0.7s linear infinite;
-  }
-  @keyframes pz-spin { to { transform: rotate(360deg); } }
-
   /* ── COUNTER ── */
   .pz-counter {
     position: absolute; top: 14px; right: 14px; z-index: 10;
@@ -313,7 +296,6 @@ const styles = `
 ───────────────────────────────────────────── */
 export const ProductZoom = (props) => {
   const [slideIndex, setSlideIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
   const [zoomSrc, setZoomSrc] = useState(null);
   const swiperRef = useRef();
 
@@ -321,10 +303,8 @@ export const ProductZoom = (props) => {
 
   const goTo = (index) => {
     if (index === slideIndex) return;
-    setIsLoading(true);
     setSlideIndex(index);
     swiperRef.current?.swiper?.slideTo(index);
-    setTimeout(() => setIsLoading(false), 450);
   };
 
   const goPrev = (e) => { e.stopPropagation(); goTo(Math.max(0, slideIndex - 1)); };
@@ -356,8 +336,6 @@ export const ProductZoom = (props) => {
 
         {/* Stage */}
         <div className="pz-stage" onClick={openZoom}>
-
-          {isLoading && <div className="pz-loading"><div className="pz-spinner" /></div>}
 
           {total > 1 && <div className="pz-counter">{slideIndex + 1} / {total}</div>}
 
@@ -391,9 +369,7 @@ export const ProductZoom = (props) => {
             spaceBetween={0}
             onSlideChange={(s) => {
               if (s.activeIndex !== slideIndex) {
-                setIsLoading(true);
                 setSlideIndex(s.activeIndex);
-                setTimeout(() => setIsLoading(false), 450);
               }
             }}
             style={{ width: "100%", height: "100%" }}

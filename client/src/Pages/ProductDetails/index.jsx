@@ -88,6 +88,20 @@ export const ProductDetails = () => {
     }
   }, [id]);
 
+  // ✅ Safety net — component unmount pe global loading zaroor band ho
+  useEffect(() => {
+    return () => {
+      dispatch(setGlobalLoading(false));
+    };
+  }, [dispatch]);
+
+  // ✅ productData aa jaaye toh bhi global loading band karo
+  useEffect(() => {
+    if (productData) {
+      dispatch(setGlobalLoading(false));
+    }
+  }, [productData, dispatch]);
+
   // ─── Main data fetch ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!id) return;
@@ -166,7 +180,13 @@ export const ProductDetails = () => {
 
       cacheSet(id, { product, relatedProducts, sellerData });
       setIsLoading(false);
+      dispatch(setGlobalLoading(false));
     });
+
+    // ✅ Agar effect dobara chale (id badla) toh purana loading state clear karo
+    return () => {
+      dispatch(setGlobalLoading(false));
+    };
   }, [id, dispatch]);
 
   const gotoReviews = useCallback(() => {

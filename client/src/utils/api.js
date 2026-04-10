@@ -18,28 +18,24 @@ const getCachedResponse = (url) => {
     return cached.data;
 };
 
+const getAuthHeaders = (contentType = 'application/json') => ({
+    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+    'Content-Type': contentType,
+});
+
 export const postData = async (url, formData) => {
     try {
         
         const response = await fetch(apiUrl + url, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`, // Include your API key in the Authorization header
-                'Content-Type': 'application/json', // Adjust the content type as needed
-              },
+            headers: getAuthHeaders(),
 
             body: JSON.stringify(formData)
         });
 
 
-        if (response.ok) {
-            const data = await response.json();
-            //console.log(data)
-            return data;
-        } else {
-            const errorData = await response.json();
-            return errorData;
-        }
+        const data = await response.json();
+        return data;
 
     } catch (error) {
         console.error('Error:', error);
@@ -56,15 +52,11 @@ export const fetchDataFromApi = async (url, options = {}) => {
             const cachedData = getCachedResponse(url);
             if (cachedData) return cachedData;
         }
-        const params={
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`, // Include your API key in the Authorization header
-                'Content-Type': 'application/json', // Adjust the content type as needed
-              },
-        
-        } 
+        const params = {
+            headers: getAuthHeaders(),
+        };
 
-        const { data } = await axios.get(apiUrl + url,params)
+        const { data } = await axios.get(apiUrl + url, params)
         if (useCache) {
             apiCache.set(getCacheKey(url), {
                 data,
@@ -83,54 +75,32 @@ export const getCachedDataFromApi = (url) => getCachedResponse(url);
 export const prefetchDataFromApi = (url, options = {}) =>
     fetchDataFromApi(url, { ...options, useCache: true });
 
-export const uploadImage = async (url, updatedData ) => {
-    const params={
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`, // Include your API key in the Authorization header
-            'Content-Type': 'multipart/form-data', // Adjust the content type as needed
-          },
-    
-    } 
+export const uploadImage = async (url, updatedData) => {
+    const params = {
+        headers: getAuthHeaders('multipart/form-data'),
+    };
 
-    var response;
-    await axios.put(apiUrl + url,updatedData, params).then((res)=>{
-        response=res;
-        
-    })
-    return response;
-   
+    return axios.put(apiUrl + url, updatedData, params);
 }
 
 
 
 
-export const editData = async (url, updatedData ) => {
-    const params={
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`, // Include your API key in the Authorization header
-            'Content-Type': 'application/json', // Adjust the content type as needed
-          },
-    
-    } 
+export const editData = async (url, updatedData) => {
+    const params = {
+        headers: getAuthHeaders(),
+    };
 
-    var response;
-    await axios.put(apiUrl + url,updatedData, params).then((res)=>{
-        response=res;
-        
-    })
-    return response;
+    return axios.put(apiUrl + url, updatedData, params);
    
 }
+export const deleteData = async (url, data = null) => {
+    const params = {
+        headers: getAuthHeaders(),
+        data,
+    };
 
 
-export const deleteData = async (url ) => {
-    const params={
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`, // Include your API key in the Authorization header
-            'Content-Type': 'application/json', // Adjust the content type as needed
-          },
-    
-    } 
-    const { res } = await axios.delete(apiUrl +url,params)
-    return res;
+const response = await axios.delete(apiUrl + url, params);
+    return response.data;
 }

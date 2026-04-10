@@ -82,6 +82,9 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isPasswordShow, setIsPasswordShow] = useState(false);
   const [formFields, setFormFields] = useState({ email: "", password: "" });
+  const [phoneData, setPhoneData] = useState({ phone: "", otp: "" });
+  const [isPhoneMode, setIsPhoneMode] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [shake, setShake] = useState(false);
 
@@ -102,6 +105,15 @@ const Login = () => {
     const { name, value } = e.target;
     setFormFields((prev) => ({ ...prev, [name]: value }));
   };
+
+  const onPhoneInputChange = (e) => {
+  const { name, value } = e.target;
+
+  setPhoneData((prev) => ({
+    ...prev,
+    [name]: value
+  }));
+};
 
   const triggerShake = () => {
     setShake(true);
@@ -126,6 +138,85 @@ const Login = () => {
   };
 
   const valideValue = Object.values(formFields).every((el) => el);
+
+  const normalizePhone = (value) => value.replace(/\D/g, "");
+
+  const sendPhoneOtp = async () => {
+    const normalizedPhone = normalizePhone(phoneData.phone);
+
+    if (!normalizedPhone || normalizedPhone.length < 10) {
+      context.alertBox("error", "Please enter valid phone number");
+      triggerShake();
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      context.setGlobalLoading(true);
+
+      const res = await postData("/api/user/login-phone-otp/send", { mobile: normalizedPhone });
+
+      if (res?.error !== true) {
+        setPhoneData((prev) => ({ ...prev, phone: normalizedPhone, otp: "" }));
+        setOtpSent(true);
+        context.alertBox("success", res?.message || "OTP sent successfully");
+      } else {
+        context.alertBox("error", res?.message || "Unable to send OTP");
+        triggerShake();
+      }
+    } catch (error) {
+      context.alertBox("error", error?.message || "Unable to send OTP");
+      triggerShake();
+    } finally {
+      setIsLoading(false);
+      context.setGlobalLoading(false);
+    }
+  };
+
+  const verifyPhoneOtp = async () => {
+    const normalizedPhone = normalizePhone(phoneData.phone);
+
+    if (!normalizedPhone || normalizedPhone.length < 10) {
+      context.alertBox("error", "Please enter valid phone number");
+      triggerShake();
+      return;
+    }
+
+    if (!phoneData.otp || phoneData.otp.length < 6) {
+      context.alertBox("error", "Please enter valid OTP");
+      triggerShake();
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      context.setGlobalLoading(true);
+
+      const res = await postData("/api/user/login-phone-otp/verify", {
+        mobile: normalizedPhone,
+        otp: phoneData.otp,
+      }, { withCredentials: true });
+
+      if (res?.error !== true) {
+        localStorage.setItem("accessToken", res?.data?.accesstoken);
+        localStorage.setItem("refreshToken", res?.data?.refreshToken);
+        context.setIsLogin(true);
+        context.alertBox("success", res?.message);
+        setPhoneData({ phone: "", otp: "" });
+        setOtpSent(false);
+        history("/");
+      } else {
+        context.alertBox("error", res?.message);
+        triggerShake();
+      }
+    } catch (error) {
+      context.alertBox("error", error?.message || "OTP verification failed");
+      triggerShake();
+    } finally {
+      setIsLoading(false);
+      context.setGlobalLoading(false);
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -215,52 +306,105 @@ const Login = () => {
               <p className="login-subtitle">Sign in to your account to continue</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="login-form" noValidate>
-              {/* Email */}
-              <FloatingInput
-                label="Email address"
-                type="email"
-                name="email"
-                value={formFields.email}
-                onChange={onChangeInput}
-                disabled={isLoading}
-              />
-
-              {/* Password */}
-              <FloatingInput
-                label="Password"
-                type={isPasswordShow ? "text" : "password"}
-                name="password"
-                value={formFields.password}
-                onChange={onChangeInput}
-                disabled={isLoading}
-                rightSlot={
-                  <button type="button" className="eye-btn" onClick={() => setIsPasswordShow(!isPasswordShow)}>
-                    <EyeIcon open={isPasswordShow} />
-                  </button>
-                }
-              />
-              
-
-              {/* Remember + Forgot */}
-              <div className="login-meta">
-                <label className="remember-label">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="remember-checkbox"
-                  />
-                  <span className="remember-custom" />
-                  <span className="remember-text">Remember me</span>
-                </label>
-                <button type="button" className="forgot-btn" onClick={forgotPassword}>
-                  Forgot password?
+             <form onSubmit={(e) => { if (!isPhoneMode) handleSubmit(e); else e.preventDefault(); }} className="login-form" noValidate>
+              {/* <div className="login-mode-switch">
+                <button
+                  type="button"
+                  className={`mode-btn ${!isPhoneMode ? "active" : ""}`}
+                  onClick={() => setIsPhoneMode(false)}
+                  disabled={isLoading}
+                >
+                  Email
                 </button>
-              </div>
+                <button
+                  type="button"
+                  className={`mode-btn ${isPhoneMode ? "active" : ""}`}
+                  onClick={() => setIsPhoneMode(true)}
+                  disabled={isLoading}
+                >
+                  Phone OTP
+                </button>
+              </div> */}
+
+              {!isPhoneMode ? (
+                <>
+                  {/* Email */}
+                  <FloatingInput
+                    label="Email address"
+                    type="email"
+                    name="email"
+                    value={formFields.email}
+                    onChange={onChangeInput}
+                    disabled={isLoading}
+                  />
+
+                  {/* Password */}
+                  <FloatingInput
+                    label="Password"
+                    type={isPasswordShow ? "text" : "password"}
+                    name="password"
+                    value={formFields.password}
+                    onChange={onChangeInput}
+                    disabled={isLoading}
+                    rightSlot={
+                      <button type="button" className="eye-btn" onClick={() => setIsPasswordShow(!isPasswordShow)}>
+                        <EyeIcon open={isPasswordShow} />
+                      </button>
+                    }
+                  />
+
+                  {/* Remember + Forgot */}
+                  <div className="login-meta">
+                    <label className="remember-label">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="remember-checkbox"
+                      />
+                      <span className="remember-custom" />
+                      <span className="remember-text">Remember me</span>
+                    </label>
+                    <button type="button" className="forgot-btn" onClick={forgotPassword}>
+                      Forgot password?
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <FloatingInput
+                    label="Phone number"
+                    type="tel"
+                    name="phone"
+                    value={phoneData.phone}
+                    onChange={onPhoneInputChange}
+                    disabled={isLoading}
+                  />
+
+                  {otpSent && (
+                    <FloatingInput
+                      label="Enter OTP"
+                      type="text"
+                      name="otp"
+                      value={phoneData.otp}
+                      onChange={onPhoneInputChange}
+                      disabled={isLoading}
+                    />
+                  )}
+
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={otpSent ? verifyPhoneOtp : sendPhoneOtp}
+                    disabled={isLoading}
+                  >
+                    {otpSent ? "Verify OTP & Login" : "Send OTP"}
+                  </button>
+                </>
+              )}
 
               {/* Submit */}
-              <button type="submit" disabled={!valideValue || isLoading} className="btn-primary">
+              <button type="submit" disabled={isPhoneMode || !valideValue || isLoading} className="btn-primary">
                 {isLoading ? (
                   <span className="flex items-center gap-2 justify-center">
                     <CircularProgress size={18} color="inherit" />
@@ -276,18 +420,18 @@ const Login = () => {
                 )}
               </button>
 
-              {/* Divider */}
-              {/* <div className="divider">
+             
+              <div className="divider">
                 <span className="divider-line" />
                 <span className="divider-text">or continue with</span>
                 <span className="divider-line" />
-              </div> */}
+              </div>
 
-              {/* Google */}
-              {/* <button type="button" className="btn-google" onClick={authWithGoogle} disabled={isLoading}>
+             
+              <button type="button" className="btn-google" onClick={authWithGoogle} disabled={isLoading}>
                 <GoogleIcon />
                 <span>Continue with Google</span>
-              </button> */}
+              </button>
 
               {/* Register link */}
               <p className="login-footer-text">
@@ -415,6 +559,31 @@ const loginStyles = `
   /* Form */
   .login-form { display: flex; flex-direction: column; gap: 1rem; }
 
+  .login-mode-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: #f3f4f6;
+    border-radius: 10px;
+    padding: 4px;
+    gap: 6px;
+  }
+  .mode-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6b7280;
+    background: transparent;
+    cursor: pointer;
+  }
+  .mode-btn.active {
+    background: #fff;
+    color: #FF6B00;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  }
+
+
   /* Floating input */
   .login-input-wrap { position: relative; }
   .login-input-inner {
@@ -538,6 +707,16 @@ const loginStyles = `
   .forgot-btn:hover { opacity: 0.75; }
 
   /* Primary button */
+
+  .btn-secondary {
+    height: 48px;
+    border-radius: 12px;
+    border: 1px solid #FF6B00;
+    background: #fff7ed;
+    color: #c2410c;
+    font-weight: 700;
+    cursor: pointer;
+  }
   .btn-primary {
     width: 100%;
     padding: 0.875rem 1.5rem;

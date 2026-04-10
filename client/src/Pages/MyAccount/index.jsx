@@ -1,22 +1,29 @@
-import React, { useContext, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@mui/material";
 import TextField from "@mui/material/TextField";
 import AccountSidebar from "../../components/AccountSidebar";
 import { useAppContext } from "../../hooks/useAppContext";
 import { useNavigate } from "react-router-dom";
-import { editData, postData } from "../../utils/api";
+import { deleteData, editData, postData } from "../../utils/api";
 import CircularProgress from '@mui/material/CircularProgress';
 import { Collapse } from "react-collapse";
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
 
-const MyAccount = () => {
+const initialDeleteForm = {
+  email: "",
+  password: "",
+  confirmText: "",
+};
 
+const MyAccount = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoading2, setIsLoading2] = useState(false);
+  const [isDeleteLoading, setIsDeleteLoading] = useState(false);
   const [userId, setUserId] = useState("");
   const [isChangePasswordFormShow, setisChangePasswordFormShow] = useState(false);
   const [phone, setPhone] = useState('');
+const [deleteForm, setDeleteForm] = useState(initialDeleteForm);
 
   const [formFields, setFormsFields] = useState({
     name: '',
@@ -42,138 +49,178 @@ const MyAccount = () => {
     }
 
 
-  }, [context?.isLogin])
+ }, [context?.isLogin, history]);
 
 
   useEffect(() => {
-    if (context?.userData?._id !== "" && context?.userData?._id !== undefined) {
+     if (context?.userData?._id) {
       setUserId(context?.userData?._id);
-      setTimeout(() => {
-        setFormsFields({
-          name: context?.userData?.name,
-          email: context?.userData?.email,
-          mobile: context?.userData?.mobile
-        })
-      }, 200);
-      const ph = `"${context?.userData?.mobile}"`
-      setPhone(ph)
+      setFormsFields({
+        name: context?.userData?.name || '',
+        email: context?.userData?.email || '',
+        mobile: context?.userData?.mobile || ''
+      });
+      setPhone(context?.userData?.mobile ? String(context?.userData?.mobile) : '');
 
-      setChangePassword({
-        email: context?.userData?.email
-      })
+      setChangePassword((prev) => ({
+        ...prev,
+        email: context?.userData?.email || ''
+      }));
+
+      setDeleteForm((prev) => ({
+        ...prev,
+        email: context?.userData?.email || ''
+      }));
     }
 
-  }, [context?.userData])
+  }, [context?.userData]);
 
 
 
   const onChangeInput = (e) => {
     const { name, value } = e.target;
-    setFormsFields(() => {
-      return {
-        ...formFields,
-        [name]: value
-      }
-    })
+    setFormsFields((prev) => ({
+      ...prev,
+      [name]: value
+    }));
 
-    setChangePassword(() => {
-      return {
-        ...formFields,
-        [name]: value
-      }
-    })
+    setChangePassword((prev) => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
+  const onDeleteInputChange = (e) => {
+    const { name, value } = e.target;
+    setDeleteForm((prev) => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
-  }
+  const valideValue = Object.values(formFields).every((el) => el !== "" && el !== null && el !== undefined);
+  const canDeleteAccount = useMemo(() => {
+    const hasEmail = deleteForm.email.trim() !== "";
+    const hasConfirmText = deleteForm.confirmText.trim() === "DELETE";
+    const hasPassword = context?.userData?.signUpWithGoogle ? true : deleteForm.password.trim() !== "";
 
+    return hasEmail && hasConfirmText && hasPassword;
+  }, [context?.userData?.signUpWithGoogle, deleteForm]);
 
-  const valideValue = Object.values(formFields).every(el => el)
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     setIsLoading(true);
 
     if (formFields.name === "") {
       context.alertBox("error", "Please enter full name");
-      return false
+      setIsLoading(false);
+      return;
     }
 
 
     if (formFields.email === "") {
       context.alertBox("error", "Please enter email id");
-      return false
+      setIsLoading(false);
+      return;
     }
 
 
     if (formFields.mobile === "") {
       context.alertBox("error", "Please enter mobile number");
-      return false
+      setIsLoading(false);
+      return;
     }
 
-
-    editData(`/api/user/${userId}`, formFields, { withCredentials: true }).then((res) => {
-      console.log(res)
-      if (res?.error !== true) {
-        setIsLoading(false);
-        context.alertBox("success", res?.data?.message);
-
-      } else {
-        context.alertBox("error", res?.data?.message);
-        setIsLoading(false);
-      }
-
-    })
+    try {
+      const res = await editData(`/api/user/${userId}`, formFields);
+      context.alertBox("success", res?.data?.message || "Profile updated successfully");
+      context.getUserDetails();
+    } catch (error) {
+      context.alertBox("error", error?.response?.data?.message || "Unable to update profile");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
 
-  }
-
-  const valideValue2 = Object.values(formFields).every(el => el)
-
-
-
-  const handleSubmitChangePassword = (e) => {
+    const handleSubmitChangePassword = async (e) => {
     e.preventDefault();
 
     setIsLoading2(true);
 
-    if (changePassword.oldPassword === "") {
+    if (changePassword.oldPassword === "" && context?.userData?.signUpWithGoogle === false) {
       context.alertBox("error", "Please enter old password");
-      return false
+      setIsLoading2(false);
+      return;
     }
 
 
     if (changePassword.newPassword === "") {
       context.alertBox("error", "Please enter new password");
-      return false
+      setIsLoading2(false);
+      return;
     }
 
 
     if (changePassword.confirmPassword === "") {
       context.alertBox("error", "Please enter confirm password");
-      return false
+      setIsLoading2(false);
+      return;
     }
 
     if (changePassword.confirmPassword !== changePassword.newPassword) {
       context.alertBox("error", "password and confirm password not match");
-      return false
+      setIsLoading2(false);
+      return;
     }
 
+    const res = await postData(`/api/user/reset-password`, changePassword);
 
-    postData(`/api/user/reset-password`, changePassword, { withCredentials: true }).then((res) => {
 
-      if (res?.error !== true) {
-        setIsLoading2(false);
-        context.alertBox("success", res?.message);
-      } else {
-        context.alertBox("error", res?.message);
-        setIsLoading2(false);
+     if (res?.error !== true) {
+      context.alertBox("success", res?.message);
+      setChangePassword((prev) => ({ ...prev, oldPassword: '', newPassword: '', confirmPassword: '' }));
+    } else {
+      context.alertBox("error", res?.message);
+    }
+    setIsLoading2(false);
+  };
+
+      const handleDeleteAccount = async (e) => {
+    e.preventDefault();
+
+     if (!canDeleteAccount) {
+      context.alertBox("error", "Please complete all delete account confirmation fields");
+      return;
+    }
+
+    const shouldDelete = window.confirm("Are you sure you want to permanently delete your account? This action cannot be undone.");
+    if (!shouldDelete) return;
+
+    setIsDeleteLoading(true);
+
+    try {
+      const res = await deleteData('/api/user/delete-account', deleteForm);
+      if (res?.error) {
+        context.alertBox("error", res?.message || "Unable to delete account");
+        return;
       }
 
-    })
-
-
-  }
+      context.alertBox("success", res?.message || "Account deleted successfully");
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      context.setIsLogin(false);
+      context.setUserData(null);
+      context.setCartData([]);
+      context.setMyListData([]);
+      history('/');
+    } catch (error) {
+      context.alertBox("error", error?.response?.data?.message || "Unable to delete account");
+    } finally {
+      setIsDeleteLoading(false);
+    }
+  };
 
   return (
     <section className="py-3 lg:py-10 w-full">
@@ -183,8 +230,8 @@ const MyAccount = () => {
           <AccountSidebar />
         </div>
 
-        <div className="col2 w-full lg:w-[50%]">
-          <div className="card bg-white p-5 shadow-md rounded-md mb-5">
+       <div className="col2 w-full lg:w-[50%] space-y-5">
+          <div className="card bg-white p-5 shadow-md rounded-md">
             <div className="flex items-center pb-3">
               <h2 className="pb-0">My Profile</h2>
               <Button className="!ml-auto" onClick={() => setisChangePasswordFormShow(!isChangePasswordFormShow)}>Change Password</Button>
@@ -194,44 +241,26 @@ const MyAccount = () => {
             <form className="mt-8" onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 ">
                 <div className="col">
-                  <TextField
-                    label="Full Name"
-                    variant="outlined"
-                    size="small"
-                    className="w-full"
-                    name="name"
-                    value={formFields.name}
-                    disabled={isLoading === true ? true : false}
-                    onChange={onChangeInput}
-                  />
+                  <TextField label="Full Name" variant="outlined" size="small" className="w-full" name="name" value={formFields.name} disabled={isLoading} onChange={onChangeInput} />
                 </div>
 
                 <div className="col">
-                  <TextField
-                    type="email"
-                    label="Email"
-                    variant="outlined"
-                    size="small"
-                    className="w-full"
-                    name="email"
-                    value={formFields.email}
-                    disabled={true}
-                    onChange={onChangeInput}
-                  />
+                   <TextField type="email" label="Email" variant="outlined" size="small" className="w-full" name="email" value={formFields.email} disabled onChange={onChangeInput} />
                 </div>
 
 
                 
-               <div className="col">
+               <div className="col sm:col-span-2">
                   <PhoneInput
                     defaultCountry="in"
                     value={phone}
-                    disabled={isLoading === true ? true : false}
-                    onChange={(phone) => {
-                      setPhone(phone);
-                      setFormsFields({
-                        mobile: phone
-                      })
+                    disabled={isLoading}
+                    onChange={(updatedPhone) => {
+                      setPhone(updatedPhone);
+                      setFormsFields((prev) => ({
+                        ...prev,
+                        mobile: updatedPhone
+                      }));
                     }}
                   />
 
@@ -243,12 +272,8 @@ const MyAccount = () => {
               <br />
 
               <div className="flex items-center gap-4">
-                <Button type="submit" disabled={!valideValue} className="btn-org btn-sm w-[150px]">
-                  {
-                    isLoading === true ? <CircularProgress color="inherit" />
-                      :
-                      'Update Profile'
-                  }
+                 <Button type="submit" disabled={!valideValue || isLoading} className="btn-org btn-sm w-[150px]">
+                  {isLoading ? <CircularProgress color="inherit" size={24} /> : 'Update Profile'}
                 </Button>
 
               </div>
@@ -270,47 +295,20 @@ const MyAccount = () => {
               <form className="mt-8" onSubmit={handleSubmitChangePassword}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
 
-                  {
-                    context?.userData?.signUpWithGoogle === false &&
+                  {context?.userData?.signUpWithGoogle === false && (
                     <div className="col">
-                      <TextField
-                        label="Old Password"
-                        variant="outlined"
-                        size="small"
-                        className="w-full"
-                        name="oldPassword"
-                        value={changePassword.oldPassword}
-                        disabled={isLoading2 === true ? true : false}
-                        onChange={onChangeInput}
-                      />
+                      <TextField label="Old Password" variant="outlined" size="small" className="w-full" name="oldPassword" value={changePassword.oldPassword} disabled={isLoading2} onChange={onChangeInput} />
                     </div>
-                  }
+                   )}
 
 
 
                   <div className="col">
-                    <TextField
-                      type="text"
-                      label="New Password"
-                      variant="outlined"
-                      size="small"
-                      className="w-full"
-                      name="newPassword"
-                      value={changePassword.newPassword}
-                      onChange={onChangeInput}
-                    />
+                    <TextField type="text" label="New Password" variant="outlined" size="small" className="w-full" name="newPassword" value={changePassword.newPassword} onChange={onChangeInput} />
                   </div>
 
                   <div className="col">
-                    <TextField
-                      label="Confirm Password"
-                      variant="outlined"
-                      size="small"
-                      className="w-full"
-                      name="confirmPassword"
-                      value={changePassword.confirmPassword}
-                      onChange={onChangeInput}
-                    />
+                     <TextField label="Confirm Password" variant="outlined" size="small" className="w-full" name="confirmPassword" value={changePassword.confirmPassword} onChange={onChangeInput} />
                   </div>
 
 
@@ -320,12 +318,8 @@ const MyAccount = () => {
                 <br />
 
                 <div className="flex items-center gap-4">
-                  <Button type="submit"  className="btn-org btn-sm w-[200px]">
-                    {
-                      isLoading2 === true ? <CircularProgress color="inherit" />
-                        :
-                        'Change Password'
-                    }
+                  <Button type="submit" className="btn-org btn-sm w-[200px]" disabled={isLoading2}>
+                    {isLoading2 ? <CircularProgress color="inherit" size={24} /> : 'Change Password'}
                   </Button>
 
                 </div>
@@ -334,15 +328,65 @@ const MyAccount = () => {
 
 
             </div>
-            <div className="card bg-white p-5 shadow-md">
-              <div className="flex items-center pb-3">
-                <h2 className="pb-0">Change Password for Contact Us: <span className="text-primary font-bold item-center">8069737537</span></h2>
-              </div>
-              <hr />
-              </div>
+            
           </Collapse>
 
+<div className="card bg-white p-5 shadow-md rounded-md border border-red-100">
+            <div className="flex items-center pb-3">
+              <h2 className="pb-0 text-red-600">Delete Account</h2>
+            </div>
+            <hr />
 
+            <div className="mt-6 rounded-md bg-red-50 p-4 text-sm text-red-700">
+              Account delete karne ke baad aapka profile, address, cart, wishlist, reviews aur related order data database se permanently remove ho jayega.
+            </div>
+
+            <form className="mt-6 space-y-4" onSubmit={handleDeleteAccount}>
+              <TextField
+                label="Confirm your email"
+                variant="outlined"
+                size="small"
+                className="w-full"
+                name="email"
+                value={deleteForm.email}
+                onChange={onDeleteInputChange}
+                disabled={isDeleteLoading}
+              />
+
+              {context?.userData?.signUpWithGoogle === false && (
+                <TextField
+                  label="Enter password"
+                  type="password"
+                  variant="outlined"
+                  size="small"
+                  className="w-full"
+                  name="password"
+                  value={deleteForm.password}
+                  onChange={onDeleteInputChange}
+                  disabled={isDeleteLoading}
+                />
+              )}
+
+              <TextField
+                label='Type "DELETE" to confirm'
+                variant="outlined"
+                size="small"
+                className="w-full"
+                name="confirmText"
+                value={deleteForm.confirmText}
+                onChange={onDeleteInputChange}
+                disabled={isDeleteLoading}
+              />
+
+              <Button
+                type="submit"
+                disabled={!canDeleteAccount || isDeleteLoading}
+                className="!bg-red-600 !text-white hover:!bg-red-700 !px-6 !py-2.5 !capitalize"
+              >
+                {isDeleteLoading ? <CircularProgress color="inherit" size={24} /> : 'Delete My Account'}
+              </Button>
+            </form>
+          </div>
 
         </div>
       </div>

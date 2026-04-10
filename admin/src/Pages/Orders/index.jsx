@@ -525,6 +525,7 @@ const STATUS_COLORS = {
   shipped:    { bg: "#e0f2fe", color: "#0369a1", dot: "#0ea5e9" },
   delivered:  { bg: "#d1fae5", color: "#065f46", dot: "#16a34a" },
   cancelled:  { bg: "#fee2e2", color: "#991b1b", dot: "#ef4444" },
+  refunded:   { bg: "#ccfbf1", color: "#0f766e", dot: "#14b8a6" },
 };
 const getStatusStyle = (s = "") => STATUS_COLORS[s.toLowerCase()] || { bg: "#f0f0f7", color: "#374151", dot: "#9ca3af" };
 
@@ -884,6 +885,24 @@ const isSellerView = context?.userData?.role === "SELLER";
     });
   };
 
+  const handleReturnRefundUpdate = (id, mode) => {
+    const payload = mode === "approve"
+      ? { returnStatus: "approved", refundStatus: "processing" }
+      : { returnStatus: "approved", refundStatus: "processed", refundMethod: "original", refundAmount: 0 };
+
+    editData(`/api/order/return-refund-status/${id}`, payload).then((res) => {
+      if (res?.data?.success) {
+        context.alertBox("success", res?.data?.message || "Updated");
+        fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=5`).then((next) => {
+          if (next?.error === false) setOrdersData(next?.data || []);
+        });
+        fetchDataFromApi(`${ordersListEndpoint}`).then((all) => {
+          if (all?.error === false) setTotalOrdersData(all);
+        });
+      }
+    });
+  };
+
   /* delete */
   const deleteOrder = (id) => {
     if (context?.userData?.role !== "ADMIN") {
@@ -1103,12 +1122,18 @@ const isSellerView = context?.userData?.role === "SELLER";
                             <MenuItem value="shipped">🚚 Shipped</MenuItem>
                             <MenuItem value="delivered">📬 Delivered</MenuItem>
                             <MenuItem value="cancelled">❌ Cancelled</MenuItem>
+                            <MenuItem value="refunded">💸 Refunded</MenuItem>
                           </Select>
                         </td>
 
                         {/* Date */}
                         <td style={{ whiteSpace: "nowrap", fontSize: 12, color: "#6b7280", fontWeight: 500 }}>
                           📅 {fmtDate(order?.createdAt)}
+                           {(order?.returnRequest?.requested || order?.refund?.status === "processed") && (
+                            <div style={{ marginTop: 4, fontSize: 10 }}>
+                              ↩ {order?.returnRequest?.status || "requested"} • 💸 {order?.refund?.status || "none"}
+                            </div>
+                          )}
                         </td>
 
                         {/* Delete + Receipt */}
@@ -1120,6 +1145,12 @@ const isSellerView = context?.userData?.role === "SELLER";
                             >
                               🧾 Receipt
                             </button>
+                            {order?.returnRequest?.requested && order?.refund?.status !== "processed" && (
+                              <>
+                                <button className="ao-receipt-btn" onClick={() => handleReturnRefundUpdate(order._id, "approve")}>↩️ Approve Return</button>
+                                <button className="ao-receipt-btn" onClick={() => handleReturnRefundUpdate(order._id, "refund")}>💸 Mark Refund</button>
+                              </>
+                            )}
                             <button className="ao-del" onClick={() => deleteOrder(order._id)}>
                               🗑 Delete
                             </button>

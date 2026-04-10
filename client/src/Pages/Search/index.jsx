@@ -115,6 +115,40 @@ const CSS = `
 
   .sp-paging { margin-top:40px; padding-top:24px; border-top:1px solid #e8e8f0; display:flex; flex-direction:column; align-items:center; gap:8px; }
   .sp-page-label { font-size:12px; color:#9ca3af; font-weight:500; }
+
+  /* ══════════════════════════════════════════════════
+     MOBILE TOOLBAR — fixed top, scroll-aware
+  ══════════════════════════════════════════════════ */
+  @media (max-width: 991px) {
+    .sp-toolbar {
+      position: fixed;
+      top: 40px;
+      bottom: auto;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      margin: 0;
+      padding: 6px 12px 0;
+      background: transparent;
+      transition:
+        transform  0.38s cubic-bezier(0.22, 0.61, 0.36, 1),
+        opacity    0.28s ease;
+    }
+    .sp-toolbar.sp-hide {
+      transform: translateY(-140%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .sp-toolbar.sp-show {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+    .sp-toolbar-inner {
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.10), 0 1px 6px rgba(0,0,0,0.06);
+    }
+  }
 `;
 
 /* ─────────────────── SORT OPTIONS ─────────────────────────────── */
@@ -427,7 +461,7 @@ const SearchPage = () => {
           )}
 
           {/* ══ RIGHT CONTENT ══ */}
-          <div style={{ flex: 1, minWidth: 0, paddingTop: "20px" }}>
+          <div style={{ flex: 1, minWidth: 0, paddingTop: "37px" }}>
 
             {/* Search meta */}
             {searchQuery && !isLoading && (

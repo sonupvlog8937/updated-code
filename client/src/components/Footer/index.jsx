@@ -410,7 +410,7 @@ const css = `
   /* Scroll-to-top */
   .zd-scroll-top {
     position: fixed;
-    bottom: 84px; right: 24px;
+    bottom: 77px; right: 24px;
     z-index: 9998;
     background: rgba(255,107,0,0.1);
     backdrop-filter: blur(8px);

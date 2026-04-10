@@ -27,6 +27,10 @@ import SearchPage from "./Pages/Search";
 import Blog from "./Pages/Blog";
 import BlogDetails from "./Pages/BlogDetails";
 import CategoriesPage from "./Pages/Categories";
+import SettingsPage from "./Pages/Settings";
+import OffersPage from "./Pages/Offers";
+import NotificationsPage from "./Pages/Notifications";
+import BecomeSeller from "./Pages/Becomeseller";
 
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -39,6 +43,10 @@ import {
   setIsLogin,
   setWindowWidth,
 } from "./store/appSlice";
+import NotificationSettings from "./Pages/NotificationSettings";
+import ScrollToTop from "./components/ScrollToTop";
+import PrivacyPolicy from "./Pages/PrivacyPolicy";
+// import Settings from "./Pages/Settings";
 
 /* ─────────────────────────────────────────
    GLOBAL LOADER
@@ -103,7 +111,7 @@ const GlobalBackButton = () => {
   return (
     <>
       <div className="gb-glow" aria-hidden="true" />
-      <button
+      {/* <button
         className="gb-btn"
         onClick={handleGoBack}
         aria-label="Go back to previous page"
@@ -115,7 +123,7 @@ const GlobalBackButton = () => {
           </span>
           <span className="gb-label">Back</span>
         </span>
-      </button>
+      </button> */}
     </>
   );
 };
@@ -184,6 +192,13 @@ const AppContent = () => {
         <Route path="/blog"            exact={true} element={<Blog />} />
         <Route path="/blog/:id"        exact={true} element={<BlogDetails />} />
         <Route path="/categories"      exact={true} element={<CategoriesPage />} />
+        <Route path="/offers"          exact={true} element={<OffersPage />} />
+        <Route path="/settings" exact={true} element={<SettingsPage />} />
+        <Route path="/notification-settings" exact={true} element={<NotificationSettings />} />
+        <Route path="/notifications" exact={true} element={<NotificationsPage />} />
+        <Route path="/become-seller" exact={true} element={<BecomeSeller />} />
+        <Route path="/privacy-policy" exact={true} element={<PrivacyPolicy />} />
+       {/* <Route path="/settings" exact={true} element={<Settings />} /> */}
         <Route path="/store/:sellerId" exact={true} element={<StorePage />} />
       </Routes>
       <Footer />
@@ -224,6 +239,7 @@ function App() {
   return (
     <>
       <BrowserRouter>
+        <ScrollToTop />
         <AppContent />
       </BrowserRouter>
       <Toaster

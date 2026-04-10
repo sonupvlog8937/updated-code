@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import AccountSidebar from "../../components/AccountSidebar";
-import { fetchDataFromApi } from "../../utils/api";
+import { fetchDataFromApi, postData } from "../../utils/api";
 import Pagination from "@mui/material/Pagination";
 import {
   MdOutlineShoppingBag, MdLocalShipping, MdCheckCircle,
@@ -123,6 +123,13 @@ const CSS = `
   .ord-empty h3 { font-family: 'Sora', sans-serif; font-size: 16px; font-weight: 700; color: #374151; margin: 0; }
   .ord-empty p { font-size: 13px; color: #9ca3af; margin: 0; }
 
+  .ord-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  .ord-action-btn { border:none; border-radius:10px; padding:9px 14px; font-size:12px; font-weight:700; cursor:pointer; }
+  .ord-action-btn.return { background:#111827; color:#fff; }
+  .ord-action-btn.return:hover { background:#1f2937; }
+  .ord-action-btn.disabled { background:#e5e7eb; color:#6b7280; cursor:not-allowed; }
+  .ord-return-note { font-size:11px; color:#6b7280; margin-top:10px; text-align:right; }
+
   .ord-pagination { display: flex; justify-content: center; padding: 20px 24px 24px; }
 `;
 
@@ -134,6 +141,7 @@ const STATUS_MAP = {
   shipped:            { color:"#0369a1", bg:"#e0f2fe", dot:"#0ea5e9" },
   "out for delivery": { color:"#0369a1", bg:"#e0f2fe", dot:"#0ea5e9" },
   delivered:          { color:"#065f46", bg:"#d1fae5", dot:"#16a34a" },
+  refunded:           { color:"#0f766e", bg:"#ccfbf1", dot:"#14b8a6" },
   cancelled:          { color:"#991b1b", bg:"#fee2e2", dot:"#ef4444" },
 };
 const getStatus = (s) => STATUS_MAP[(s||"").toLowerCase()] || { color:"#374151", bg:"#f3f4f6", dot:"#9ca3af" };
@@ -186,9 +194,24 @@ const Orders = () => {
     });
   }, [page]);
 
+  const [loadingReturnId, setLoadingReturnId] = useState("");
+
   const toggle  = (id) => setOpenOrder(p => p === id ? null : id);
   const fmt     = (n)  => Number(n||0).toLocaleString("en-IN", { style:"currency", currency:"INR", maximumFractionDigits:0 });
   const fmtDate = (d)  => d ? new Date(d).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" }) : "—";
+
+  const requestReturn = async (orderId) => {
+    const reason = window.prompt("Return reason likhiye (optional):", "Product issue / size issue");
+    setLoadingReturnId(orderId);
+    const res = await postData(`/api/order/return-request/${orderId}`, { reason: reason || "Customer requested return" });
+    if (res?.success) {
+      const refreshed = await fetchDataFromApi(`/api/order/order-list/orders?page=${page}&limit=5`);
+      if (refreshed?.error === false) setOrders(refreshed);
+    } else {
+      window.alert(res?.message || "Return request failed");
+    }
+    setLoadingReturnId("");
+  };
 
   return (
     <section className="ord-root py-5 lg:py-10 w-full">
@@ -355,6 +378,27 @@ const Orders = () => {
                             </div>
                           </div>
                         ))}
+
+                         <div className="ord-actions">
+                          {status === "delivered" && !order?.returnRequest?.requested ? (
+                            <button
+                              className="ord-action-btn return"
+                              onClick={() => requestReturn(order._id)}
+                              disabled={loadingReturnId === order._id}
+                            >
+                              {loadingReturnId === order._id ? "Requesting..." : "Request Return & Refund"}
+                            </button>
+                          ) : (
+                            <button className="ord-action-btn disabled" disabled>
+                              {order?.refund?.status === "processed" ? "Refund Processed" : order?.returnRequest?.requested ? `Return ${order?.returnRequest?.status || "requested"}` : "Return available after delivery"}
+                            </button>
+                          )}
+                        </div>
+                        {(order?.returnRequest?.requested || order?.refund?.status === "processed") && (
+                          <div className="ord-return-note">
+                            Return: {order?.returnRequest?.status || "none"} • Refund: {order?.refund?.status || "none"}
+                          </div>
+                        )}
 
                         {/* Grand total */}
                         <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center",

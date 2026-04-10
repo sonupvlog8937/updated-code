@@ -274,14 +274,6 @@ import { useAppContext } from "../../hooks/useAppContext";
 import { fetchDataFromApi } from "../../utils/api";
 import { Link } from "react-router-dom";
 
-const COUPON_CONFIG = {
-  SAVE10: { type: "percentage", value: 10, minAmount: 100 },
-  FLAT200: { type: "fixed", value: 200, minAmount: 1500 },
-  FREESHIP: { type: "fixed", value: 0, minAmount: 0 },
-  WISDOM20: { type: "fixed", value: 20, minAmount: 0 },
-  HOLI20: { type: "fixed", value: 20, minAmount: 0 },
-};
-
 const CartPage = () => {
 
   const [productSizeData, setProductSizeData] = useState([]);
@@ -292,6 +284,7 @@ const CartPage = () => {
   const [appliedCoupon, setAppliedCoupon] = useState(localStorage.getItem("couponCode") || "");
   const [couponMessage, setCouponMessage] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
+  const [couponSummary, setCouponSummary] = useState({ discountAmount: Number(localStorage.getItem("couponDiscount") || 0), isValid: false, message: "" });
 
   const context = useAppContext();
 
@@ -319,55 +312,36 @@ const CartPage = () => {
       .reduce((total, value) => total + value, 0);
   }, [context?.cartData]);
 
-  // ✅ Coupon Calculation
-  const couponSummary = useMemo(() => {
-    const code = appliedCoupon.trim().toUpperCase();
-    if (!code) return { discountAmount: 0, isValid: false, message: "" };
-
-    const coupon = COUPON_CONFIG[code];
-    if (!coupon)
-      return { discountAmount: 0, isValid: false, message: "Invalid coupon code" };
-
-    if (cartSubTotal < coupon.minAmount)
-      return {
-        discountAmount: 0,
-        isValid: false,
-        message: `Minimum order ₹${coupon.minAmount} required`,
-      };
-
-    const discountAmount =
-      coupon.type === "percentage"
-        ? Math.round((cartSubTotal * coupon.value) / 100)
-        : coupon.value;
-
-    return {
-      discountAmount,
-      isValid: true,
-      message: `${code} applied successfully`,
-    };
-  }, [appliedCoupon, cartSubTotal]);
-
-  useEffect(() => {
-    if (couponSummary.isValid) {
-      localStorage.setItem("couponCode", appliedCoupon);
-      localStorage.setItem("couponDiscount", couponSummary.discountAmount);
-    } else {
-      localStorage.removeItem("couponDiscount");
-    }
-  }, [couponSummary, appliedCoupon]);
-
-  const applyCoupon = () => {
+ const applyCoupon = async () => {
     if (!couponInput.trim()) {
       setCouponMessage("Please enter a coupon code");
       return;
     }
 
     setCouponLoading(true);
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/coupon/validate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("accessToken")}`
+      },
+      body: JSON.stringify({ code: couponInput.trim().toUpperCase(), orderAmount: cartSubTotal })
+    });
 
-    setTimeout(() => {
-      setAppliedCoupon(couponInput.trim().toUpperCase());
-      setCouponLoading(false);
-    }, 800);
+    const data = await response.json();
+    setCouponLoading(false);
+
+     if (response.ok && data?.success) {
+      setAppliedCoupon(data.code);
+      setCouponSummary({ discountAmount: data.discountAmount, isValid: true, message: data.message });
+      setCouponMessage("");
+      localStorage.setItem("couponCode", data.code);
+      localStorage.setItem("couponDiscount", String(data.discountAmount));
+    } else {
+      setCouponSummary({ discountAmount: 0, isValid: false, message: data?.message || "Invalid coupon code" });
+      setCouponMessage(data?.message || "Invalid coupon code");
+      localStorage.removeItem("couponDiscount");
+    }
   };
 
   const removeCoupon = () => {
@@ -377,6 +351,7 @@ const CartPage = () => {
 
     localStorage.removeItem("couponCode");
     localStorage.removeItem("couponDiscount");
+    setCouponSummary({ discountAmount: 0, isValid: false, message: "" });
   };
 
   // ✅ SIZE SELECT FIX

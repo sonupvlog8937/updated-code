@@ -21,6 +21,9 @@ import logoRouter from './route/logo.route.js';
 import { requestContext } from './middlewares/requestContext.js';
 import { globalErrorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import mongoose from 'mongoose';
+import notificationRouter from './route/notification.route.js';
+import couponRouter from './route/coupon.route.js';
+import notificationSettingRouter from './route/notificationSetting.route.js';
 
 const app = express();
 const allowedOrigins = [
@@ -100,6 +103,9 @@ app.use("/api/bannerList2",bannerList2Router)
 app.use("/api/blog",blogRouter)
 app.use("/api/order",orderRouter)
 app.use("/api/logo",logoRouter)
+app.use("/api/notifications",notificationRouter)
+app.use("/api/coupon",couponRouter)
+app.use("/api/notification-settings",notificationSettingRouter)
 
 app.use(notFoundHandler)
 app.use(globalErrorHandler)
@@ -108,5 +114,16 @@ app.use(globalErrorHandler)
 connectDB().then(() => {
     app.listen(process.env.PORT, () => {
         console.log("Server is running", process.env.PORT);
-    })
-})
+    });
+
+    // 🔥 Auto self ping every 5 min
+    setInterval(async () => {
+        try {
+            const url = `https://sonuserver-5.onrender.com/health`;
+            const res = await fetch(url);
+            console.log("Self ping success:", res.status);
+        } catch (err) {
+            console.log("Self ping failed:", err.message);
+        }
+    }, 5 * 60 * 1000); // 5 min
+});

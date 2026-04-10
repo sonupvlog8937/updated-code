@@ -776,6 +776,59 @@ export const ProductDetailsComponent = (props) => {
           )}
         </div>
 
+        <div className="pdc-section mt-4" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {/* Qty */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ ...S.label, margin: 0 }}>Qty</span>
+            <div className="qtyBoxWrapper w-[80px]">
+              <QtyBox handleSelecteQty={handleSelecteQty} />
+            </div>
+          </div>
+
+          {/* Cart + Buy Now */}
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              className="pdc-btn-cart"
+              onClick={() => addToCart(props?.item, context?.userData?._id, quantity)}
+              disabled={isLoading}
+              style={{
+                flex: 1, height: "52px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                background: isAdded ? "#111" : "#fff", color: isAdded ? "#fff" : "#111",
+                border: "1.5px solid #111", borderRadius: "12px",
+                fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em",
+                cursor: isLoading ? "not-allowed" : "pointer", opacity: isLoading ? 0.7 : 1,
+                outline: "none", fontFamily: "inherit",
+              }}
+            >
+              {isLoading ? <CircularProgress size={18} color="inherit" /> : (
+                <>
+                  {isAdded ? <FaCheckDouble style={{ fontSize: "14px" }} /> : <MdOutlineShoppingCart style={{ fontSize: "18px" }} />}
+                  {isAdded ? "Added to Cart" : "Add to Cart"}
+                </>
+              )}
+            </button>
+
+            <button
+              className="pdc-btn-buy"
+              onClick={handleBuyNow} disabled={isBuyingNow}
+              style={{
+                flex: 1, height: "52px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                background: "linear-gradient(135deg,#ff6b00,#ff9200)", color: "#fff",
+                border: "none", borderRadius: "12px",
+                fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em",
+                cursor: isBuyingNow ? "not-allowed" : "pointer", opacity: isBuyingNow ? 0.75 : 1,
+                boxShadow: "0 4px 18px rgba(255,107,0,0.32)", outline: "none", fontFamily: "inherit",
+              }}
+            >
+              {isBuyingNow ? <CircularProgress size={18} color="inherit" /> : (
+                <><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>Buy Now</>
+              )}
+            </button>
+          </div>
+
+          
+        </div>
+
         <div className="pdc-section" style={S.divider} />
 
         {/* ── 5. DELIVERY INFO ── */}
@@ -871,53 +924,14 @@ export const ProductDetailsComponent = (props) => {
         {/* ── 8. QTY + BUTTONS ── */}
         <div className="pdc-section" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           {/* Qty */}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {/* <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={{ ...S.label, margin: 0 }}>Qty</span>
             <div className="qtyBoxWrapper w-[80px]">
               <QtyBox handleSelecteQty={handleSelecteQty} />
             </div>
-          </div>
+          </div> */}
 
-          {/* Cart + Buy Now */}
-          <div style={{ display: "flex", gap: "10px" }}>
-            <button
-              className="pdc-btn-cart"
-              onClick={() => addToCart(props?.item, context?.userData?._id, quantity)}
-              disabled={isLoading}
-              style={{
-                flex: 1, height: "52px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-                background: isAdded ? "#111" : "#fff", color: isAdded ? "#fff" : "#111",
-                border: "1.5px solid #111", borderRadius: "12px",
-                fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em",
-                cursor: isLoading ? "not-allowed" : "pointer", opacity: isLoading ? 0.7 : 1,
-                outline: "none", fontFamily: "inherit",
-              }}
-            >
-              {isLoading ? <CircularProgress size={18} color="inherit" /> : (
-                <>
-                  {isAdded ? <FaCheckDouble style={{ fontSize: "14px" }} /> : <MdOutlineShoppingCart style={{ fontSize: "18px" }} />}
-                  {isAdded ? "Added to Cart" : "Add to Cart"}
-                </>
-              )}
-            </button>
-
-            <button
-              className="pdc-btn-buy"
-              onClick={handleBuyNow} disabled={isBuyingNow}
-              style={{
-                flex: 1, height: "52px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-                background: "linear-gradient(135deg,#ff6b00,#ff9200)", color: "#fff",
-                border: "none", borderRadius: "12px",
-                fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em",
-                cursor: isBuyingNow ? "not-allowed" : "pointer", opacity: isBuyingNow ? 0.75 : 1,
-                boxShadow: "0 4px 18px rgba(255,107,0,0.32)", outline: "none", fontFamily: "inherit",
-              }}
-            >
-              {isBuyingNow ? <CircularProgress size={18} color="inherit" /> : (
-                <><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>Buy Now</>
-              )}
-            </button>
-          </div>
+          
 
           {/* Wishlist + Compare */}
           <div style={{ display: "flex", gap: "10px" }}>

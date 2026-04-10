@@ -335,17 +335,24 @@ export const captureOrderPaypalController = async (request, response) => {
 
 export const updateOrderStatusController = async (request, response) => {
     try {
-        const { id, order_status } = request.body;
+        const id = request.params.id || request.body.id;
+        const { order_status } = request.body;
 
-        const updateOrder = await OrderModel.updateOne(
-            {
-                _id: id,
-            },
+        if (!id || !order_status) {
+            return response.status(400).json({
+                message: "Order id and status are required",
+                error: true,
+                success: false
+            });
+        }
+
+        const updateOrder = await OrderModel.findByIdAndUpdate(
+            id,
             {
                 order_status: order_status,
             },
             { new: true }
-        )
+        );
 
         return response.json({
             message: "Update order status",
@@ -362,6 +369,116 @@ export const updateOrderStatusController = async (request, response) => {
     }
 
 }
+
+export const requestOrderReturnController = async (request, response) => {
+    try {
+        const { id } = request.params;
+        const { reason } = request.body;
+
+        const order = await OrderModel.findOne({ _id: id, userId: request.userId });
+
+        if (!order) {
+            return response.status(404).json({
+                message: "Order not found",
+                error: true,
+                success: false,
+            });
+        }
+
+        const status = (order.order_status || "").toLowerCase();
+        if (status !== "delivered") {
+            return response.status(400).json({
+                message: "Return can be requested only for delivered orders",
+                error: true,
+                success: false,
+            });
+        }
+
+        if (order.returnRequest?.requested && order.returnRequest?.status !== "rejected") {
+            return response.status(400).json({
+                message: "Return request already exists for this order",
+                error: true,
+                success: false,
+            });
+        }
+
+        order.returnRequest = {
+            requested: true,
+            reason: reason || "No reason provided",
+            requestedAt: new Date(),
+            status: "requested",
+        };
+
+        await order.save();
+
+        return response.status(200).json({
+            message: "Return requested successfully",
+            error: false,
+            success: true,
+            data: order,
+        });
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false,
+        });
+    }
+};
+
+export const updateReturnRefundStatusController = async (request, response) => {
+    try {
+        const { id } = request.params;
+        const { returnStatus, refundStatus, refundMethod, refundAmount } = request.body;
+
+        const order = await OrderModel.findById(id);
+
+        if (!order) {
+            return response.status(404).json({
+                message: "Order not found",
+                error: true,
+                success: false,
+            });
+        }
+
+        if (returnStatus) {
+            order.returnRequest = {
+                ...(order.returnRequest || {}),
+                requested: true,
+                status: returnStatus,
+            };
+        }
+
+        if (refundStatus) {
+            order.refund = {
+                ...(order.refund || {}),
+                status: refundStatus,
+                method: refundMethod || order.refund?.method || "",
+                amount: Number(refundAmount ?? order.refund?.amount ?? order.totalAmt ?? 0),
+                processedAt: refundStatus === "processed" ? new Date() : order.refund?.processedAt || null,
+            };
+
+            if (refundStatus === "processed") {
+                order.order_status = "refunded";
+            }
+        }
+
+        await order.save();
+
+        return response.status(200).json({
+            message: "Return/refund status updated",
+            error: false,
+            success: true,
+            data: order,
+        });
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false,
+        });
+    }
+};
 
 
 
