@@ -10,8 +10,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://sonuserver-qqyb.onrender.com",
-        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_SvUtGs6tnbMfpe"
+        "EXPO_PUBLIC_API_URL": "https://sonuserver-ruix.vercel.app",
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_live_SukpRI4otsuC4i"
       }
     },
     "preview": {
@@ -21,8 +21,8 @@
       },
       "node": "20.18.0",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://sonuserver-qqyb.onrender.com",
-        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_SvUtGs6tnbMfpe"
+        "EXPO_PUBLIC_API_URL": "https://sonuserver-ruix.vercel.app",
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_live_SukpRI4otsuC4i"
       }
     },
     "production": {
@@ -36,8 +36,8 @@
       },
       "env": {
         "NODE_ENV": "production",
-        "EXPO_PUBLIC_API_URL": "https://sonuserver-qqyb.onrender.com",
-        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_StcZJCWgWm9nzc"
+        "EXPO_PUBLIC_API_URL": "https://sonuserver-ruix.vercel.app",
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_live_SukpRI4otsuC4i"
       },
       "channel": "production"
     }
