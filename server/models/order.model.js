@@ -67,6 +67,14 @@ const orderSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    razorpayOrderId: {
+      type: String,
+      default: "",
+    },
+    razorpaySignature: {
+      type: String,
+      default: "",
+    },
     order_status: {
       type: String,
       default: "confirm",

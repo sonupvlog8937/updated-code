@@ -1,9 +1,39 @@
+import crypto from "crypto";
 import OrderModel from "../models/order.model.js";
 import ProductModel from '../models/product.modal.js';
 import UserModel from '../models/user.model.js';
 import paypal from "@paypal/checkout-server-sdk";
 import OrderConfirmationEmail from "../utils/orderEmailTemplate.js";
 import sendEmailFun from "../config/sendEmail.js";
+import { getRazorpayCredentials } from "./payment.controller.js";
+
+
+const isRazorpaySignaturePayload = (body = {}) =>
+    Boolean(body.razorpay_order_id || body.razorpay_signature);
+
+const verifyRazorpayPaymentSignature = (body = {}) => {
+    const { keySecret } = getRazorpayCredentials();
+    const razorpayOrderId = String(body.razorpay_order_id || "");
+    const paymentId = String(body.paymentId || body.razorpay_payment_id || "");
+    const razorpaySignature = String(body.razorpay_signature || "");
+
+    if (!keySecret || !razorpayOrderId || !paymentId || !razorpaySignature) {
+        return false;
+    }
+
+    const expectedSignature = crypto
+        .createHmac("sha256", keySecret)
+        .update(`${razorpayOrderId}|${paymentId}`)
+        .digest("hex");
+
+    const expectedBuffer = Buffer.from(expectedSignature, "hex");
+    const actualBuffer = Buffer.from(razorpaySignature, "hex");
+
+    return (
+        expectedBuffer.length === actualBuffer.length &&
+        crypto.timingSafeEqual(expectedBuffer, actualBuffer)
+    );
+};
 
 const updateProductsInventory = async (products = []) => {
     if (!Array.isArray(products) || products.length === 0) {
@@ -104,6 +134,14 @@ const applySellerCommission = async (products = []) => {
 export const createOrderController = async (request, response) => {
     try {
 
+         if (isRazorpaySignaturePayload(request.body) && !verifyRazorpayPaymentSignature(request.body)) {
+            return response.status(400).json({
+                message: "Razorpay payment verification failed.",
+                error: true,
+                success: false
+            });
+        }
+
         const productsWithSeller = await attachSellerToProducts(request.body.products);
 
         let order = new OrderModel({
@@ -111,6 +149,8 @@ export const createOrderController = async (request, response) => {
             products: productsWithSeller,
             paymentId: request.body.paymentId,
             payment_status: request.body.payment_status,
+            razorpayOrderId: request.body.razorpay_order_id,
+            razorpaySignature: request.body.razorpay_signature,
             delivery_address: request.body.delivery_address,
             totalAmt: request.body.totalAmt,
             date: request.body.date

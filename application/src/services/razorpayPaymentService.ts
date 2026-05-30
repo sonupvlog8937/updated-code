@@ -26,7 +26,13 @@ const CREATE_ORDER_ENDPOINT = "/api/payment/razorpay/create";
 const DEFAULT_APP_NAME = "Zeedaddy Store";
 const DEFAULT_THEME_COLOR = "#ff6b00";
 
-const getRazorpayKeyId = () => process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || "";
+// Only the public key ID is used in the app. The Razorpay key secret must stay
+// on the backend, where order creation and signature verification happen.
+const getConfiguredRazorpayKeyId = () =>
+  process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || "";
+
+const getRazorpayKeyId = (runtimeKeyId?: string) =>
+  runtimeKeyId || getConfiguredRazorpayKeyId();
 
 export const isExpoGo = () => Constants.appOwnership === "expo";
 
@@ -45,12 +51,7 @@ export const assertRazorpayEnvironment = () => {
     );
   }
 
-  if (!getRazorpayKeyId()) {
-    throw new RazorpayPaymentError(
-      "Razorpay key is not configured. Set EXPO_PUBLIC_RAZORPAY_KEY_ID for your EAS build profile.",
-      "configuration_error",
-    );
-  }
+  
 };
 
 const getRazorpayCheckout = (): RazorpayNativeModule => {
@@ -91,6 +92,7 @@ const normalizeOrder = (
     ),
     currency: dataOrder?.currency || response?.currency || "INR",
     receipt: dataOrder?.receipt,
+    keyId: response?.keyId,
     status: dataOrder?.status,
     notes: dataOrder?.notes,
   };
@@ -150,7 +152,15 @@ export const openRazorpayCheckout = async (
   request: RazorpayCheckoutRequest,
 ): Promise<RazorpaySuccessResponse> => {
   const RazorpayCheckout = getRazorpayCheckout();
-  const key = getRazorpayKeyId();
+  const key = getRazorpayKeyId(request.keyId);
+
+  if (!key) {
+    throw new RazorpayPaymentError(
+      "Razorpay key is not configured for this payment.",
+      "configuration_error",
+    );
+  }
+
 
   try {
     const response = await RazorpayCheckout.open({
@@ -200,6 +210,7 @@ export const startRazorpayPayment = async (
 
   return openRazorpayCheckout({
     orderId: order.id,
+    keyId: order.keyId,
     amount: order.amount,
     currency: order.currency,
     name: request.appName || DEFAULT_APP_NAME,

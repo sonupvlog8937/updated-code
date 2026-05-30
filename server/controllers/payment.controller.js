@@ -1,7 +1,7 @@
 const RAZORPAY_ORDERS_URL = "https://api.razorpay.com/v1/orders";
 const MIN_RAZORPAY_AMOUNT = 100;
 
-const getRazorpayCredentials = () => ({
+export const getRazorpayCredentials = () => ({
     keyId: process.env.RAZORPAY_KEY_ID || process.env.VITE_APP_RAZORPAY_KEY_ID || "",
     keySecret: process.env.RAZORPAY_KEY_SECRET || process.env.VITE_APP_RAZORPAY_KEY_SECRET || "",
 });

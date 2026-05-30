@@ -21,6 +21,7 @@ export interface CreateRazorpayOrderRequest {
 export interface RazorpayOrder {
   id: string;
   amount: number;
+  keyId?: string;
   currency: RazorpayCurrency;
   receipt?: string;
   status?: string;
@@ -33,6 +34,7 @@ export interface CreateRazorpayOrderResponse {
   message?: string;
   order?: Partial<RazorpayOrder>;
   data?: Partial<RazorpayOrder> | { order?: Partial<RazorpayOrder> };
+  keyId?: string;
   orderId?: string;
   razorpayOrderId?: string;
   id?: string;
@@ -43,6 +45,7 @@ export interface CreateRazorpayOrderResponse {
 export interface RazorpayCheckoutRequest {
   orderId: string;
   amount: number;
+  keyId?: string;
   currency?: RazorpayCurrency;
   name?: string;
   description?: string;

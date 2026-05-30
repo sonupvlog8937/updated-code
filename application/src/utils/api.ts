@@ -3,7 +3,7 @@ import axios, { AxiosError } from "axios";
 
 // Use environment variable if available, otherwise fallback to localhost for development
 export const API_URL =
-  process.env.EXPO_PUBLIC_API_URL || "https://sonuserver-qqyb.onrender.com";
+  process.env.EXPO_PUBLIC_API_URL || "";
 
 // Log the API URL in development mode
 if (__DEV__) {
