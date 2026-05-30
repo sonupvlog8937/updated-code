@@ -61,8 +61,13 @@ export const addToMyListController = async (request, response) => {
 
 export const deleteToMyListController = async (request, response) => {
     try {
+        const userId = request.userId; // middleware
+        const { id } = request.params;
 
-        const myListItem = await MyListModel.findById(request.params.id);
+        const myListItem = await MyListModel.findOne({
+            _id: id,
+            userId: userId
+        });
 
         if(!myListItem){
             return response.status(404).json({
@@ -73,9 +78,12 @@ export const deleteToMyListController = async (request, response) => {
         }
 
 
-        const deletedItem = await MyListModel.findByIdAndDelete(request.params.id);
+        const deletedItem = await MyListModel.deleteOne({
+            _id: id,
+            userId: userId
+        });
 
-        if(!deletedItem){
+        if(!deletedItem || deletedItem.deletedCount === 0){
             return response.status(404).json({
                 error:true,
                 success:false,

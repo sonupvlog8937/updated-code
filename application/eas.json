@@ -1,0 +1,48 @@
+{
+  "cli": {
+    "version": ">= 13.2.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://sonuserver-qqyb.onrender.com",
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_StcZJCWgWm9nzc"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "node": "20.18.0",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://sonuserver-qqyb.onrender.com",
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_StcZJCWgWm9nzc"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "node": "20.18.0",
+      "cache": {
+        "disabled": true
+      },
+      "env": {
+        "NODE_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://sonuserver-qqyb.onrender.com",
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_StcZJCWgWm9nzc"
+      },
+      "channel": "production"
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

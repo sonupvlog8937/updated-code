@@ -27,17 +27,18 @@ import notificationSettingRouter from './route/notificationSetting.route.js';
 
 const app = express();
 const allowedOrigins = [
-  "https://www.zeedaddy.in",  // production (www zeedaddy)
-  "https://zeedaddy.in",      // production (non-www zeedaddy)
-  "https://decemberadmin-2grx.vercel.app", // admin panel
-  "https://zeedaddyseller.vercel.app", // seller panel
-  "http://localhost:5173",    // local dev
+  "https://www.zeedaddy.in",
+  "https://zeedaddy.in",
+  "https://decemberadmin-2grx.vercel.app",
+  "https://zeedaddyseller.vercel.app",
+  "http://localhost:5173",
   "http://localhost:5174",
+  "http://localhost:8000",
 ];
 
-app.use(cors({
+// CORS Configuration
+const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (Postman, mobile apps, server-to-server)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -45,85 +46,82 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
-app.options('*', cors({
-  origin: allowedOrigins,
-  credentials: true,
-}));
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Cookie"],
+  exposedHeaders: ["Content-Range", "X-Content-Range"],
+  maxAge: 86400,
+};
 
-app.use(requestContext)
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
+app.use(requestContext);
 
-app.use(express.json())
-app.use(cookieParser())
+// Debug middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log('Origin:', req.get('origin') || 'no-origin (mobile/server)');
+  next();
+});
+
+app.use(express.json());
+app.use(cookieParser());
 if (process.env.NODE_ENV !== 'production') {
-    app.use(morgan('dev'))
+  app.use(morgan('dev'));
 }
 app.use(helmet({
-    crossOriginResourcePolicy: false
-}))
-
+  crossOriginResourcePolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
 
 app.get("/", (request, response) => {
-    ///server to client
-    response.json({
-        message: "Server is running " + process.env.PORT
-    })
+  response.json({
+    message: "Server is running on port " + process.env.PORT
+  })
 })
 
 app.get('/health', (request, response) => {
-    const dbReadyState = mongoose.connection.readyState
-    const isDatabaseConnected = dbReadyState === 1
+  const dbReadyState = mongoose.connection.readyState
+  const isDatabaseConnected = dbReadyState === 1
 
-    response.status(isDatabaseConnected ? 200 : 503).json({
-        success: isDatabaseConnected,
-        service: 'api',
-        timestamp: new Date().toISOString(),
-        uptimeSeconds: Math.floor(process.uptime()),
-        database: {
-            connected: isDatabaseConnected,
-            state: dbReadyState
-        },
-        requestId: request.id
-    })
+  response.status(isDatabaseConnected ? 200 : 503).json({
+    success: isDatabaseConnected,
+    service: 'api',
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    database: {
+      connected: isDatabaseConnected,
+      state: dbReadyState
+    },
+    requestId: request.id
+  })
 })
 
-
-app.use('/api/user',userRouter)
-app.use('/api/category',categoryRouter)
-app.use('/api/product',productRouter);
-app.use("/api/cart",cartRouter)
-app.use("/api/myList",myListRouter)
-app.use("/api/address",addressRouter)
-app.use("/api/homeSlides",homeSlidesRouter)
-app.use("/api/bannerV1",bannerV1Router)
-app.use("/api/bannerList2",bannerList2Router)
-app.use("/api/blog",blogRouter)
-app.use("/api/order",orderRouter)
-app.use("/api/logo",logoRouter)
-app.use("/api/notifications",notificationRouter)
-app.use("/api/coupon",couponRouter)
-app.use("/api/notification-settings",notificationSettingRouter)
+app.use('/api/user', userRouter)
+app.use('/api/category', categoryRouter)
+app.use('/api/product', productRouter);
+app.use("/api/cart", cartRouter)
+app.use("/api/myList", myListRouter)
+app.use("/api/address", addressRouter)
+app.use("/api/homeSlides", homeSlidesRouter)
+app.use("/api/bannerV1", bannerV1Router)
+app.use("/api/bannerList2", bannerList2Router)
+app.use("/api/blog", blogRouter)
+app.use("/api/order", orderRouter)
+app.use("/api/logo", logoRouter)
+app.use("/api/notifications", notificationRouter)
+app.use("/api/coupon", couponRouter)
+app.use("/api/notification-settings", notificationSettingRouter)
 
 app.use(notFoundHandler)
 app.use(globalErrorHandler)
 
-
 connectDB().then(() => {
-    app.listen(process.env.PORT, () => {
-        console.log("Server is running", process.env.PORT);
-    });
-
-    // 🔥 Auto self ping every 5 min
-    setInterval(async () => {
-        try {
-            const url = `https://sonuserver-5.onrender.com/health`;
-            const res = await fetch(url);
-            console.log("Self ping success:", res.status);
-        } catch (err) {
-            console.log("Self ping failed:", err.message);
-        }
-    }, 5 * 60 * 1000); // 5 min
+  app.listen(process.env.PORT, () => {
+    console.log("✅ Server is running on port", process.env.PORT);
+    console.log("🔒 Allowed origins:", allowedOrigins);
+  });
+}).catch((err) => {
+  console.error("❌ Failed to connect to database:", err.message);
+  process.exit(1);
 });
