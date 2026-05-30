@@ -12,7 +12,12 @@ export const addToMyListController = async (request, response) => {
             price,
             oldPrice,
             brand,
-            discount
+            discount,
+            size,
+            weight,
+            ram,
+            color,
+            colorCode,
         } = request.body;
 
 
@@ -37,6 +42,11 @@ export const addToMyListController = async (request, response) => {
             oldPrice,
             brand,
             discount,
+            size,
+            weight,
+            ram,
+            color,
+            colorCode,
             userId
         })
 
@@ -64,12 +74,15 @@ export const deleteToMyListController = async (request, response) => {
         const userId = request.userId; // middleware
         const { id } = request.params;
 
+        console.log("🗑️ Delete wishlist request - userId:", userId, "itemId:", id);
+
         const myListItem = await MyListModel.findOne({
             _id: id,
             userId: userId
         });
 
         if(!myListItem){
+            console.log("❌ Wishlist item not found");
             return response.status(404).json({
                 error:true,
                 success:false,
@@ -83,11 +96,13 @@ export const deleteToMyListController = async (request, response) => {
             userId: userId
         });
 
-        if(!deletedItem || deletedItem.deletedCount === 0){
+        console.log("💝 Delete result:", deletedItem);
+
+        if(deletedItem.deletedCount === 0){
             return response.status(404).json({
                 error:true,
                 success:false,
-                message:"The item is not deleted"
+                message:"The item could not be deleted"
             })
         }
 
@@ -99,6 +114,7 @@ export const deleteToMyListController = async (request, response) => {
         })
         
     } catch (error) {
+        console.error("❌ Delete wishlist error:", error);
         return response.status(500).json({
             message: error.message || error,
             error: true,

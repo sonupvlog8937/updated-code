@@ -27,15 +27,29 @@ const myListSchema = new mongoose.Schema({
     },
     oldPrice:{
         type:Number,
-        required:true
     },
     brand:{
         type:String,
-        required:true
     },
     discount:{
         type:Number,
-        required:true
+    },
+    size:{
+        type:String,
+    },
+    weight:{
+        type:String,
+    },
+    ram:{
+        type:String,
+    },
+    color:{
+        type:String,
+        default:""
+    },
+    colorCode:{
+        type:String,
+        default:""
     },
 },{
     timestamps : true

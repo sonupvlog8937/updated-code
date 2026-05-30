@@ -214,9 +214,30 @@ export const deleteCartItemQtyController = async (request, response) => {
     const userId = request.userId; // middleware
     const { id } = request.params;
 
-    if ( !id) {
+    console.log("🗑️ Delete cart request - userId:", userId, "itemId:", id);
+    console.log("📋 Request params:", request.params);
+    console.log("📋 Request headers:", request.headers.authorization);
+
+    if (!id) {
+      console.log("❌ No ID provided");
       return response.status(400).json({
         message: "Provide _id",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Check if item exists first
+    const existingItem = await CartProductModel.findOne({
+      _id: id,
+      userId: userId,
+    });
+
+    console.log("🔍 Existing item:", existingItem ? "Found" : "Not found");
+
+    if (!existingItem) {
+      return response.status(404).json({
+        message: "The product in the cart is not found",
         error: true,
         success: false,
       });
@@ -227,21 +248,25 @@ export const deleteCartItemQtyController = async (request, response) => {
       userId: userId,
     });
 
-    if (!deleteCartItem) {
+    console.log("📦 Delete result:", deleteCartItem);
+
+    if (deleteCartItem.deletedCount === 0) {
       return response.status(404).json({
-        message: "The product in the cart is not found",
+        message: "The product in the cart could not be deleted",
         error: true,
         success: false,
       });
     }
 
+    console.log("✅ Item deleted successfully");
     return response.status(200).json({
-      message: "Item remove",
+      message: "Item removed",
       error: false,
       success: true,
       data: deleteCartItem,
     });
   } catch (error) {
+    console.error("❌ Delete cart error:", error);
     return response.status(500).json({
       message: error.message || error,
       error: true,
