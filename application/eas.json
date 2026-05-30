@@ -11,7 +11,7 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://sonuserver-qqyb.onrender.com",
-        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_StcZJCWgWm9nzc"
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_SvUtGs6tnbMfpe"
       }
     },
     "preview": {
@@ -22,7 +22,7 @@
       "node": "20.18.0",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://sonuserver-qqyb.onrender.com",
-        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_StcZJCWgWm9nzc"
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_SvUtGs6tnbMfpe"
       }
     },
     "production": {

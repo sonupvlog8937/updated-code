@@ -13,6 +13,10 @@ declare module "react-native-razorpay" {
       name?: string;
     };
     notes?: Record<string, string>;
+    retry?: {
+      enabled: boolean;
+      max_count?: number;
+    };
     theme?: {
       color?: string;
     };
@@ -25,20 +29,21 @@ declare module "react-native-razorpay" {
   }
 
   export interface RazorpayErrorResponse {
-    code: string;
-    description: string;
-    source: string;
-    step: string;
-    reason: string;
-    metadata: {
-      order_id: string;
-      payment_id: string;
+    code?: string | number;
+    description?: string;
+    source?: string;
+    step?: string;
+    reason?: string;
+    metadata?: {
+      order_id?: string;
+      payment_id?: string;
     };
+    message?: string;
   }
 
   const RazorpayCheckout: {
     open: (
-      options: RazorpayCheckoutOptions
+      options: RazorpayCheckoutOptions,
     ) => Promise<RazorpaySuccessResponse>;
   };
 

@@ -21,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { useRazorpay } from "@/src/hooks/useRazorpay";
+import { RazorpayPaymentError } from "@/src/types/razorpay";
 import { useScrollHeader } from "@/src/hooks/useScrollHeader";
 import { useAppDispatch, useAppSelector } from "@/src/store";
 import { fetchCartItems, UserAddress } from "@/src/store/appSlice";
@@ -731,7 +732,7 @@ const CouponSection = ({
                 { color: colors.mutedForeground },
               ]}
             >
-              You're saving ₹{discount.toLocaleString("en-IN")}
+              {`You're saving ₹${discount.toLocaleString("en-IN")}`}
             </Text>
           </View>
           <Pressable onPress={onRemove} style={couponStyles.removeBtn}>
@@ -1023,7 +1024,8 @@ export default function CheckoutScreen() {
   const { handleScroll } = useScrollHeader();
   const cartData = useAppSelector((s) => s.app.cartData);
   const userData = useAppSelector((s) => s.app.userData);
-  const { initiatePayment, isProcessing: isPaymentProcessing } = useRazorpay();
+  const { createOrderAndPay, isProcessing: isPaymentProcessing } =
+    useRazorpay();
   const { buyNowItem, isBuyNow } = useLocalSearchParams<{
     buyNowItem?: string;
     isBuyNow?: string;
@@ -1151,60 +1153,40 @@ export default function CheckoutScreen() {
 
     setPlacing(true);
     try {
-      const backendRes = await postData("/api/payment/razorpay/create", {
+      const description =
+        checkoutItems.length === 1
+          ? checkoutItems[0]?.productTitle || "Order"
+          : `Order with ${checkoutItems.length} items`;
+
+      const paymentResponse = await createOrderAndPay({
         amount: total,
         currency: "INR",
-        description:
-          checkoutItems.length === 1
-            ? checkoutItems[0]?.productTitle || "Order"
-            : `Order with ${checkoutItems.length} items`,
+        description,
         productNames: checkoutItems
           .map((item) => item?.productTitle)
+          .filter(Boolean)
           .join(", "),
         userId: userData?._id,
         customerName: userData?.name,
         customerEmail: userData?.email,
         customerContact: userData?.mobile,
-      });
-
-      if (backendRes?.error !== false && backendRes?.success !== true) {
-        throw new Error(
-          backendRes?.message || "Failed to create Razorpay order",
-        );
-      }
-
-      const order =
-        backendRes?.order || backendRes?.data?.order || backendRes?.data;
-      const razorpayOrderId =
-        order?.id ||
-        backendRes?.orderId ||
-        backendRes?.razorpayOrderId ||
-        backendRes?.id;
-      const amountInPaise =
-        order?.amount || backendRes?.amount || Math.round(total * 100);
-
-      if (!razorpayOrderId)
-        throw new Error("No Razorpay order ID received from backend");
-
-      const paymentResponse = await initiatePayment({
-        orderId: razorpayOrderId,
-        amount: amountInPaise,
-        currency: "INR",
-        description:
-          checkoutItems.length === 1
-            ? checkoutItems[0]?.productTitle || "Order"
-            : `Order with ${checkoutItems.length} items`,
+      
         prefill: {
           name: userData?.name || "",
           email: userData?.email || "",
           contact: userData?.mobile || "",
         },
-        theme: { color: "#ff6b00" },
+        themeColor: "#ff6b00",
       });
 
       await handleRazorpaySuccess(paymentResponse);
-    } catch (error: any) {
-      showToast("error", error?.message || "Error initiating payment");
+     } catch (error) {
+      if (
+        error instanceof RazorpayPaymentError &&
+        error.reason === "cancelled"
+      ) {
+        showToast("info", "Payment cancelled. You can retry when ready.");
+      }
       setPlacing(false);
     }
   };
@@ -1653,18 +1635,27 @@ export default function CheckoutScreen() {
           >
             <Pressable
               onPress={handlePlaceOrder}
-              disabled={placing}
+              disabled={placing || isPaymentProcessing}
               style={{
-                backgroundColor: placing ? colors.muted : colors.primary,
+                backgroundColor:
+                  placing || isPaymentProcessing
+                    ? colors.muted
+                    : colors.primary,
                 paddingVertical: 14,
                 borderRadius: 10,
                 alignItems: "center",
                 justifyContent: "center",
-                opacity: placing ? 0.6 : 1,
+                opacity: placing || isPaymentProcessing ? 0.6 : 1,
               }}
             >
-              <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" }}>
-                {placing
+               <Text
+                style={{
+                  color: "#fff",
+                  fontSize: 15,
+                  fontFamily: "Inter_700Bold",
+                }}
+              >
+                {placing || isPaymentProcessing
                   ? "Processing..."
                   : paymentMode === "COD"
                     ? "Place Order"
@@ -1698,7 +1689,9 @@ const CheckoutHeader = ({ itemCount }: { itemCount?: number }) => {
         { backgroundColor: colors.card, borderBottomColor: colors.border },
       ]}
     >
-      <Text style={[checkoutHeaderStyles.headerTitle, { color: colors.foreground }]}>
+      <Text
+        style={[checkoutHeaderStyles.headerTitle, { color: colors.foreground }]}
+      >
         Checkout{itemCount ? ` (${itemCount})` : ""}
       </Text>
     </View>
