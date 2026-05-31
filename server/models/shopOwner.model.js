@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 const shopOwnerSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, trim: true, lowercase: true, index: true },
   mobile: { type: String, required: true, trim: true },

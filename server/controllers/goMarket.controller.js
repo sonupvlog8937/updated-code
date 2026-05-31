@@ -20,10 +20,72 @@ const requiredFields = {
   items: ["restaurantId", "menuId", "itemName", "price"],
 };
 
+const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER"];
+const isSellerRole = (role) => SELLER_ROLES.includes(role);
+
+const getSellerOwnerIds = async (req) => {
+  if (!isSellerRole(req.currentUser?.role)) return null;
+  const owners = await resources.owners.model.find({
+    $or: [{ userId: req.userId }, { email: req.currentUser.email }],
+  }).select("_id").lean();
+  return owners.map((owner) => owner._id);
+};
+
+const applySellerScope = async (resourceKey, filter, req) => {
+  const ownerIds = await getSellerOwnerIds(req);
+  if (!ownerIds) return filter;
+
+  if (resourceKey === "owners") return { ...filter, _id: { $in: ownerIds } };
+  if (["grocery-shops", "restaurants"].includes(resourceKey)) return { ...filter, ownerId: { $in: ownerIds } };
+
+  if (resourceKey === "products") {
+    const shops = await GroceryShop.find({ ownerId: { $in: ownerIds } }).select("_id").lean();
+    return { ...filter, shopId: { $in: shops.map((shop) => shop._id) } };
+  }
+
+  if (["menus", "items"].includes(resourceKey)) {
+    const restaurants = await Restaurant.find({ ownerId: { $in: ownerIds } }).select("_id").lean();
+    const restaurantIds = restaurants.map((restaurant) => restaurant._id);
+    return resourceKey === "menus"
+      ? { ...filter, restaurantId: { $in: restaurantIds } }
+      : { ...filter, restaurantId: { $in: restaurantIds } };
+  }
+
+  return filter;
+};
+
+const assertSellerCanWrite = async (resourceKey, body, req) => {
+  if (!isSellerRole(req.currentUser?.role)) return body;
+  const ownerIds = await getSellerOwnerIds(req);
+  const ownerIdStrings = ownerIds.map(String);
+
+  if (["grocery-shops", "restaurants"].includes(resourceKey)) {
+    if (!ownerIds.length) throw Object.assign(new Error("No Go Market owner found for this seller"), { statusCode: 403 });
+    return { ...body, ownerId: ownerIds[0] };
+  }
+
+  if (resourceKey === "products") {
+    const shop = await GroceryShop.findOne({ _id: body.shopId, ownerId: { $in: ownerIds } }).select("_id");
+    if (!shop) throw Object.assign(new Error("Please select your own grocery shop"), { statusCode: 403 });
+  }
+
+  if (["menus", "items"].includes(resourceKey)) {
+    const restaurantId = resourceKey === "menus" ? body.restaurantId : body.restaurantId;
+    const restaurant = await Restaurant.findOne({ _id: restaurantId, ownerId: { $in: ownerIds } }).select("_id");
+    if (!restaurant) throw Object.assign(new Error("Please select your own restaurant"), { statusCode: 403 });
+  }
+
+  if (resourceKey === "owners" && body._id && !ownerIdStrings.includes(String(body._id))) {
+    throw Object.assign(new Error("You can only manage your own owner profile"), { statusCode: 403 });
+  }
+
+  return body;
+};
+
 export const listResource = (resourceKey) => async (req, res) => {
   try {
     const resource = resources[resourceKey];
-    const filter = buildQuery(req.query, resource.searchFields);
+    const filter = await applySellerScope(resourceKey, buildQuery(req.query, resource.searchFields), req);
     const result = await paginate(resource.model, filter, req.query, resource.populate);
     ok(res, result);
   } catch (error) { sendError(res, error); }
@@ -43,28 +105,39 @@ export const getResource = (resourceKey) => async (req, res) => {
 
 export const createResource = (resourceKey) => async (req, res) => {
   try {
-    const missing = required(req.body, requiredFields[resourceKey] || []);
+    const expectedFields = isSellerRole(req.currentUser?.role) && ["grocery-shops", "restaurants"].includes(resourceKey)
+      ? (requiredFields[resourceKey] || []).filter((field) => field !== "ownerId")
+      : (requiredFields[resourceKey] || []);
+    const missing = required(req.body, expectedFields);
     if (missing.length) return sendError(res, `Missing required fields: ${missing.join(", ")}`, 400);
     const resource = resources[resourceKey];
-    const data = await resource.model.create(req.body);
+    const payload = await assertSellerCanWrite(resourceKey, req.body, req);
+    const data = await resource.model.create(payload);
     ok(res, { message: `${resource.label} created`, data });
-  } catch (error) { sendError(res, error, 400); }
+  } catch (error) { sendError(res, error, error.statusCode || 400); }
 };
 
 export const updateResource = (resourceKey) => async (req, res) => {
   try {
     if (!isObjectId(req.params.id)) return sendError(res, "Invalid id", 400);
     const resource = resources[resourceKey];
-    const data = await resource.model.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const existingFilter = await applySellerScope(resourceKey, { _id: req.params.id }, req);
+    const existing = await resource.model.findOne(existingFilter).select("_id");
+    if (!existing) return sendError(res, `${resource.label} not found`, 404);
+    const payload = await assertSellerCanWrite(resourceKey, req.body, req);
+    const data = await resource.model.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
     if (!data) return sendError(res, `${resource.label} not found`, 404);
     ok(res, { message: `${resource.label} updated`, data });
-  } catch (error) { sendError(res, error, 400); }
+  } catch (error) { sendError(res, error, error.statusCode || 400); }
 };
 
 export const deleteResource = (resourceKey) => async (req, res) => {
   try {
     if (!isObjectId(req.params.id)) return sendError(res, "Invalid id", 400);
     const resource = resources[resourceKey];
+    const existingFilter = await applySellerScope(resourceKey, { _id: req.params.id }, req);
+    const existing = await resource.model.findOne(existingFilter).select("_id");
+    if (!existing) return sendError(res, `${resource.label} not found`, 404);
     const data = await resource.model.findByIdAndDelete(req.params.id);
     if (!data) return sendError(res, `${resource.label} not found`, 404);
     ok(res, { message: `${resource.label} deleted`, data });

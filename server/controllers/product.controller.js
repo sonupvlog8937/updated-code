@@ -376,6 +376,13 @@ export async function uploadBannerImages(request, response) {
 //create product
 export async function createProduct(request, response) {
   try {
+    if (["GROCERY_SELLER", "RESTAURANT_SELLER"].includes(request.currentUser?.role)) {
+      return response.status(403).json({
+        message: "Please add grocery or restaurant products from the Go Market panel only.",
+        error: true,
+        success: false,
+      });
+    }
     let product = new ProductModel({
       name: request.body.name,
       description: request.body.description,

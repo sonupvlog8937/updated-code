@@ -13,15 +13,23 @@ import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import ReviewModel from '../models/reviews.model.js';
 import ProductModel from '../models/product.modal.js';
+import Market from '../models/market.model.js';
+import ShopOwner from '../models/shopOwner.model.js';
+import GroceryShop from '../models/groceryShop.model.js';
+import Restaurant from '../models/restaurant.model.js';
 
 const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
 const ALL_PANEL_ROLES = ['ADMIN', 'USER', ...SELLER_ROLES];
+const PUBLIC_SIGNUP_SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
 const normalizePanelRole = (role, fallback = 'SELLER') => {
     const normalized = String(role || fallback).trim().toUpperCase();
     return ALL_PANEL_ROLES.includes(normalized) ? normalized : fallback;
 };
-
+const normalizePublicSellerRole = (role) => {
+    const normalized = String(role || 'SELLER').trim().toUpperCase();
+    return PUBLIC_SIGNUP_SELLER_ROLES.includes(normalized) ? normalized : 'SELLER';
+};
 
 cloudinary.config({
     cloud_name: process.env.cloudinary_Config_Cloud_Name,
@@ -53,6 +61,63 @@ async function deleteUserAssociatedData(userId) {
             { $pull: { reviews: { userId: userIdString } } }
         ),
     ]);
+}
+
+async function createDefaultGoMarketStore({ seller, role, marketId, storeName, storeLocation, storeContact, storeDescription }) {
+    if (!marketId) return null;
+
+    const market = await Market.findOne({ _id: marketId, status: 'active' });
+    if (!market) {
+        const error = new Error('Please select a valid active market');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const owner = await ShopOwner.findOneAndUpdate(
+        { $or: [{ userId: seller._id }, { email: seller.email }] },
+        {
+            $set: {
+                userId: seller._id,
+                name: seller.name,
+                email: seller.email,
+                mobile: String(storeContact || seller.mobile || ''),
+                avatar: seller.avatar || '',
+            },
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    const address = storeLocation || [market.name, market.city, market.state, market.pincode].filter(Boolean).join(', ');
+    const base = {
+        marketId: market._id,
+        ownerId: owner._id,
+        address,
+        latitude: market.latitude,
+        longitude: market.longitude,
+        description: storeDescription || '',
+        isOpen: true,
+    };
+
+    let store = null;
+    if (role === 'GROCERY_SELLER') {
+        store = await GroceryShop.findOneAndUpdate(
+            { ownerId: owner._id },
+            { $setOnInsert: { ...base, shopName: storeName } },
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
+    } else if (role === 'RESTAURANT_SELLER') {
+        store = await Restaurant.findOneAndUpdate(
+            { ownerId: owner._id },
+            { $setOnInsert: { ...base, restaurantName: storeName } },
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
+    }
+
+    seller.storeProfile.marketId = market._id;
+    seller.storeProfile.goMarketOwnerId = owner._id;
+    await seller.save();
+
+    return { owner, store, market };
 }
 
 
@@ -1426,13 +1491,17 @@ export async function deleteMultiple(request, response) {
 
 export async function registerSellerController(request, response) {
     try {
-        const { 
-            name, email, password, mobile, role,
-            storeName, storeLocation, storeContact, storeDescription, storeCategory,
-            accountHolderName, bankName, accountNumber, ifscCode 
+        
+            const {
+            name, email, password, mobile, role, marketId,
+            storeName, storeLocation, storeContact, storeDescription,
+            accountHolderName, bankName, accountNumber, ifscCode
         } = request.body;
 
-        if (!name || !email || !password || !storeName) {
+        const sellerRole = normalizePublicSellerRole(role);
+        const contactNumber = storeContact || mobile;
+
+        if (!name || !email || !password || !storeName || !contactNumber || !marketId) {
             return response.status(400).json({
                 message: "Please provide essential basic and store details.",
                 error: true,
@@ -1442,32 +1511,23 @@ export async function registerSellerController(request, response) {
 
         const existingUser = await UserModel.findOne({ email });
         if (existingUser) {
-            if (existingUser.verify_email === false) {
-                // Resend OTP logic (same as normal user)
-                const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-                existingUser.otp = newOtp;
-                existingUser.otpExpires = Date.now() + 10 * 60 * 1000;
-                await existingUser.save();
-
-                sendEmailFun({
-                    sendTo: email,
-                    subject: `Verify your Seller Account – ${process.env.STORE_NAME || 'Zeedaddy'}`,
-                    text: `Your OTP is: ${newOtp}. It expires in 10 minutes.`,
-                    html: VerificationEmail(existingUser.name, newOtp)
-                }).catch((err) => console.error('Verification email error:', err));
-
-                return response.status(200).json({
-                    success: true, error: false,
-                    message: "OTP resent! Please check your email to verify your seller account.",
-                });
-            }
             return response.status(400).json({
                 message: "Email already registered.",
-                error: true, success: false
+                error: true,
+                success: false
             });
         }
 
-        const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const selectedMarket = await Market.findOne({ _id: marketId, status: 'active' }).select('_id');
+        if (!selectedMarket) {
+            return response.status(400).json({
+                message: "Please select a valid active market",
+                error: true,
+                success: false
+            });
+        }
+
+        
         const salt = await bcryptjs.genSalt(10);
         const hashPassword = await bcryptjs.hash(password, salt);
 
@@ -1476,16 +1536,16 @@ export async function registerSellerController(request, response) {
             password: hashPassword,
             name,
             mobile,
-            role: normalizePanelRole(role, 'SELLER'),
-            otp: verifyCode,
-            otpExpires: Date.now() + 10 * 60 * 1000,
-            verify_email: false,
+            role: sellerRole,
+            verify_email: true,
+            status: "Active",
             storeProfile: {
                 storeName: storeName || "",
                 location: storeLocation || "",
-                contactNo: storeContact || mobile || "",
+                contactNo: contactNumber || "",
                 description: storeDescription || "",
-                category: storeCategory || ""
+                category: "",
+                marketId
             },
             bankDetails: {
                 accountHolderName: accountHolderName || "",
@@ -1496,21 +1556,32 @@ export async function registerSellerController(request, response) {
         });
 
         await seller.save();
+        const goMarket = await createDefaultGoMarketStore({
+            seller,
+            role: sellerRole,
+            marketId,
+            storeName,
+            storeLocation,
+            storeContact: contactNumber,
+            storeDescription,
+        });
 
-        sendEmailFun({
-            sendTo: email,
-            subject: `Verify your Seller Account – ${process.env.STORE_NAME || 'Zeedaddy'}`,
-            text: `Your OTP is: ${verifyCode}. It expires in 10 minutes.`,
-            html: VerificationEmail(name, verifyCode)
-        }).catch((err) => console.error('Verification email error:', err));
+        const accesstoken = await generatedAccessToken(seller._id);
+        const refreshToken = await generatedRefreshToken(seller._id);
+        await UserModel.findByIdAndUpdate(seller._id, { last_login_date: new Date() });
+
+        response.cookie('accessToken', accesstoken, cookiesOption);
+        response.cookie('refreshToken', refreshToken, cookiesOption);
 
         return response.status(200).json({
-            success: true, error: false,
-            message: "Seller registered successfully! Please verify your email.",
+            success: true,
+            error: false,
+            message: "Seller registered successfully. Your panel is ready.",
+            data: { accesstoken, refreshToken, role: sellerRole, seller, goMarket }
         });
 
     } catch (error) {
-        return response.status(500).json({
+        return response.status(error.statusCode || 500).json({
             message: error.message || error,
             error: true, success: false
         });

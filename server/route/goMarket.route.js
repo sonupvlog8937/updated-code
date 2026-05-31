@@ -1,5 +1,6 @@
 import express from "express";
 import auth from "../middlewares/auth.js";
+import optionalAuth from "../middlewares/optionalAuth.js";
 import authorizeRole from "../middlewares/authorizeRole.js";
 import {
   createResource,
@@ -19,7 +20,7 @@ import {
 const router = express.Router();
 const canManage = [auth, authorizeRole("ADMIN", "SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER")];
 const crud = (path, key, detailHandler = null) => {
-  router.get(path, listResource(key));
+  router.get(path, optionalAuth, listResource(key));
   router.post(path, ...canManage, createResource(key));
   router.get(`${path}/:id`, detailHandler || getResource(key));
   router.put(`${path}/:id`, ...canManage, updateResource(key));

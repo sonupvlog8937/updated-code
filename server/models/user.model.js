@@ -90,6 +90,8 @@ const userSchema = mongoose.Schema({
         shippingTime: { type: String, default: "" },
         openHours:    { type: String, default: "" },
         supportEmail: { type: String, default: "" },
+        marketId:     { type: mongoose.Schema.ObjectId, ref: 'Market', default: null },
+        goMarketOwnerId: { type: mongoose.Schema.ObjectId, ref: 'ShopOwner', default: null },
     },
     bankDetails: {
         accountHolderName: { type: String, default: "" },

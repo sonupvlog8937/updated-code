@@ -150,8 +150,8 @@ const Sidebar = () => {
         <ul className="flex-1 overflow-y-auto px-3 py-1 space-y-0.5">
           <GroupLabel label="Main" />
           <NavItem to="/" icon={RxDashboard} label="Dashboard" />
-          <NavItem to="/products" icon={RiProductHuntLine} label={isSeller ? "My Products" : "Products"} />
-          <NavItem to="/orders" icon={IoBagCheckOutline} label={isSeller ? "My Orders" : "All Orders"} />
+          {(isAdmin || isGeneralSeller) && <NavItem to="/products" icon={RiProductHuntLine} label={isSeller ? "My Products" : "Products"} />}
+          {(isAdmin || isGeneralSeller) && <NavItem to="/orders" icon={IoBagCheckOutline} label={isSeller ? "My Orders" : "All Orders"} />}
           {isAdmin && <NavItem to="/reviews" icon={MdOutlineRateReview} label="All Reviews" />}
           {isSeller && <NavItem to="/reviews" icon={MdOutlineRateReview} label="My Reviews" />}
 

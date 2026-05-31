@@ -20,28 +20,15 @@ const STEPS = [
 
 const ROLE_OPTIONS = [
   { value: "SELLER", label: "Seller", tone: "#2874f0", description: "General marketplace seller with complete catalog controls." },
-  { value: "GROCERY_SELLER", label: "Grocery Seller", tone: "#10b981", description: "Grocery-first tools for shops, grocery products, inventory and local delivery." },
-  { value: "RESTAURANT_SELLER", label: "Restaurant Seller", tone: "#f97316", description: "Restaurant tools for restaurant profile, menus, food items and order handling." },
-  { value: "ADMIN", label: "Admin", tone: "#7c3aed", description: "Full admin access after account verification." },
+  { value: "GROCERY_SELLER", label: "Grocery Seller", tone: "#10b981", description: "Creates a grocery shop in your selected Go Market instantly." },
+  { value: "RESTAURANT_SELLER", label: "Restaurant Seller", tone: "#f97316", description: "Creates a restaurant in your selected Go Market instantly." },
 ];
 
 const COMMON_FEATURES = ["All Products", "Add Product", "All Orders", "Manage Orders", "All Reviews", "Store Information", "Wallet Transactions", "More Features"];
 const ROLE_FEATURES = {
-  ADMIN: ["Users & Sellers", "Catalog", "Banners", "Go Market", ...COMMON_FEATURES],
   SELLER: COMMON_FEATURES,
-  GROCERY_SELLER: ["Grocery Shops", "Grocery Products", "Stock & Freshness", ...COMMON_FEATURES],
-  RESTAURANT_SELLER: ["Restaurants", "Menus", "Restaurant Items", "Food Orders", ...COMMON_FEATURES],
-};
-
-const CATEGORY_OPTIONS = {
-  SELLER: [
-    "Electronics", "Fashion & Apparel", "Home & Garden", "Sports & Outdoors",
-    "Beauty & Personal Care", "Books & Stationery", "Food & Beverages",
-    "Toys & Games", "Automotive", "Jewelry & Accessories", "Health & Wellness", "Other"
-  ],
-  GROCERY_SELLER: ["Fresh Fruits & Vegetables", "Dairy & Bakery", "Staples", "Snacks & Beverages", "Personal Care", "Household Essentials", "Organic Grocery", "Other Grocery"],
-  RESTAURANT_SELLER: ["Indian Restaurant", "Fast Food", "Cafe & Bakery", "Cloud Kitchen", "Chinese", "Pizza & Burgers", "Desserts", "Healthy Food", "Other Restaurant"],
-  ADMIN: ["Marketplace Admin", "Operations", "Catalog Management", "Seller Management", "Other"],
+  GROCERY_SELLER: ["Grocery Shops", "Grocery Products", "Stock & Freshness", "Store Information", "Wallet Transactions"],
+  RESTAURANT_SELLER: ["Restaurants", "Menus", "Restaurant Items", "Food Orders", "Store Information", "Wallet Transactions"],
 };
 
 const getRoleMeta = (role) => ROLE_OPTIONS.find((item) => item.value === role) || ROLE_OPTIONS[0];
@@ -108,17 +95,21 @@ const SellerSignUp = () => {
 
   const [formFields, setFormFields] = useState({
     name: "", email: "", mobile: "", password: "", confirmPassword: "", role: "SELLER",
-    storeName: "", storeLocation: "", storeContact: "", storeDescription: "", storeCategory: "",
+    storeName: "", storeLocation: "", storeContact: "", storeDescription: "", marketId: "",
     accountHolderName: "", bankName: "", accountNumber: "", ifscCode: "",
     agreeTerms: false
   });
 
+  const [markets, setMarkets] = useState([]);
   const context = useContext(MyContext);
   const history = useNavigate();
 
   useEffect(() => {
     fetchDataFromApi("/api/logo").then((res) => {
       localStorage.setItem("logo", res?.logo?.[0]?.logo || "");
+    });
+    fetchDataFromApi("/api/go-market/markets?limit=100&status=active").then((res) => {
+      setMarkets(res?.data || []);
     });
   }, []);
 
@@ -127,7 +118,6 @@ const SellerSignUp = () => {
      setFormFields(prev => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
-      ...(name === "role" ? { storeCategory: "" } : {}),
     }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
   };
@@ -152,7 +142,8 @@ const SellerSignUp = () => {
     }
     if (s === 2) {
       if (!formFields.storeName.trim()) e.storeName = "Store name is required";
-      if (!formFields.storeCategory) e.storeCategory = "Please select a category";
+      if (!formFields.marketId) e.marketId = "Please select a Go Market";
+      if (!(formFields.storeContact || formFields.mobile)) e.storeContact = "Store contact or mobile number is required";
     }
     if (s === 4) {
       if (!formFields.agreeTerms) e.agreeTerms = "You must agree to the terms";
@@ -198,7 +189,7 @@ const SellerSignUp = () => {
         storeLocation: formFields.storeLocation,
         storeContact: formFields.storeContact || formFields.mobile,
         storeDescription: formFields.storeDescription,
-        storeCategory: formFields.storeCategory,
+        marketId: formFields.marketId,
         accountHolderName: formFields.accountHolderName,
         bankName: formFields.bankName,
         accountNumber: formFields.accountNumber,
@@ -206,9 +197,11 @@ const SellerSignUp = () => {
       };
       const res = await postData("/api/user/register-seller", payload);
       if (res?.error !== true) {
-        context.alertBox("success", res?.message || "Registered! Check your email.");
-        localStorage.setItem("userEmail", formFields.email);
-        history("/verify-account");
+        context.alertBox("success", res?.message || "Registered! Your panel is ready.");
+        localStorage.setItem("accessToken", res?.data?.accesstoken || "");
+        localStorage.setItem("refreshToken", res?.data?.refreshToken || "");
+        context.setIsLogin(true);
+        history("/");
       } else {
         context.alertBox("error", res?.message);
       }
@@ -241,7 +234,6 @@ const SellerSignUp = () => {
   });
 
   const selectedRole = getRoleMeta(formFields.role);
-  const CATEGORIES = CATEGORY_OPTIONS[formFields.role] || CATEGORY_OPTIONS.SELLER;
 
   // ─── Review row ──────────────────────────────────────────────────────────────
   const ReviewRow = ({ label, value }) => value ? (
@@ -474,11 +466,15 @@ const SellerSignUp = () => {
                     onChange={onChangeInput} onBlur={onBlur} style={inputStyle("storeName")} />
                 </Field>
 
-                <Field label="Business Category" icon={FaFileAlt} error={touched.storeCategory && errors.storeCategory}>
-                  <select name="storeCategory" value={formFields.storeCategory}
-                    onChange={onChangeInput} onBlur={onBlur} style={selectStyle("storeCategory")}>
-                    <option value="">Select {selectedRole.label.toLowerCase()} category…</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                <Field label="Go Market" icon={FaMapMarkerAlt} error={touched.marketId && errors.marketId} hint="Your shop will be created inside this market instantly.">
+                  <select name="marketId" value={formFields.marketId}
+                    onChange={onChangeInput} onBlur={onBlur} style={selectStyle("marketId")}>
+                    <option value="">Select market…</option>
+                    {markets.map((market) => (
+                      <option key={market._id} value={market._id}>
+                        {market.name} — {market.city}, {market.state}
+                      </option>
+                    ))}
                   </select>
                 </Field>
 
@@ -563,7 +559,7 @@ const SellerSignUp = () => {
                   </div>
                   <div style={{ background: "#f9fafb", border: "1px solid rgba(0,0,0,0.06)", borderRadius: 10, padding: "0 14px" }}>
                     <ReviewRow label="Store Name" value={formFields.storeName} />
-                    <ReviewRow label="Category" value={formFields.storeCategory} />
+                    <ReviewRow label="Market" value={markets.find((market) => market._id === formFields.marketId)?.name || "—"} />
                     <ReviewRow label="Location" value={formFields.storeLocation || "—"} />
                     <ReviewRow label="Contact" value={formFields.storeContact || "—"} />
                     <ReviewRow label="Enabled Features" value={(ROLE_FEATURES[formFields.role] || COMMON_FEATURES).join(", ")} />
