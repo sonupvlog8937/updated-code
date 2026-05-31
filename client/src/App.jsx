@@ -46,6 +46,7 @@ import {
 import NotificationSettings from "./Pages/NotificationSettings";
 import ScrollToTop from "./components/ScrollToTop";
 import PrivacyPolicy from "./Pages/PrivacyPolicy";
+import { GoMarketHome, GoMarketRestaurantDetails, GoMarketShopDetails } from "./Pages/GoMarket";
 // import Settings from "./Pages/Settings";
 
 /* ─────────────────────────────────────────
@@ -198,6 +199,9 @@ const AppContent = () => {
         <Route path="/notifications" exact={true} element={<NotificationsPage />} />
         <Route path="/become-seller" exact={true} element={<BecomeSeller />} />
         <Route path="/privacy-policy" exact={true} element={<PrivacyPolicy />} />
+        <Route path="/go-market" exact={true} element={<GoMarketHome />} />
+        <Route path="/go-market/shop/:id" exact={true} element={<GoMarketShopDetails />} />
+        <Route path="/go-market/restaurant/:id" exact={true} element={<GoMarketRestaurantDetails />} />
        {/* <Route path="/settings" exact={true} element={<Settings />} /> */}
         <Route path="/store/:sellerId" exact={true} element={<StorePage />} />
       </Routes>

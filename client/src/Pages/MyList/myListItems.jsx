@@ -11,9 +11,16 @@ const MyListItems = (props) => {
 
   const removeItem=(id)=>{
     deleteData(`/api/myList/${id}`).then((res)=>{
-      context?.alertBox("success", "Product remove from My List");
-      context?.getMyListData();
-     
+      const responseData = res?.data || res;
+      if (responseData?.error === false && responseData?.success === true) {
+        context?.alertBox("success", responseData?.message || "Product removed from My List");
+        context?.getMyListData();
+      } else {
+        context?.alertBox("error", responseData?.message || "Failed to remove product from My List");
+      }
+    }).catch((error) => {
+      context?.alertBox("error", "Failed to remove product from My List");
+      console.error("Error removing wishlist item:", error);
     })
   }
 

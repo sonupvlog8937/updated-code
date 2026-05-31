@@ -7,6 +7,7 @@ import {
   StatusBar,
   Modal,
   ScrollView,
+  Platform
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -148,7 +149,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
       <SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: colors.card }]}>
         <View style={[styles.headerContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           {/* Left: Menu or Back Button */}
-          <Pressable
+          {/* <Pressable
             onPress={() => {
               if (isHomePage) {
                 setCategoryMenuOpen(true);
@@ -164,57 +165,78 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
               size={24}
               color={colors.foreground}
             />
-          </Pressable>
+          </Pressable> */}
 
-          {/* Center: Logo */}
-          <View style={styles.logoContainer}>
-            <Pressable onPress={() => router.push("/" as never)}>
-              <View style={styles.logoWrapper}>
-                <Text style={[styles.logo, { color: colors.foreground }]}>
-                  <Text style={[styles.logoBold, { color: colors.foreground }]}>zee</Text>
-                  <Text style={[styles.logoBoldAccent, { color: colors.primary }]}>
-                    daddy
-                  </Text>
-                </Text>
-                <Text style={[styles.logoSubtitle, { color: colors.mutedForeground }]}>
-                  ONLINE SHOPPING APP
-                </Text>
+          <View style={styles.leftSection}>
+
+            {/* ZeeDaddy */}
+            <Pressable
+              onPress={() => router.push("/" as never)}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              hitSlop={6}
+            >
+              <View style={styles.wordmarkRow}>
+                <Text style={[styles.wordmarkZee, { color: colors.foreground }]}>Zee</Text>
+                <Text style={[styles.wordmarkDaddy, { color: "#E5333A" }]}>Daddy</Text>
+                <Text style={[styles.starAccent, { color: "#E5333A" }]}>★</Text>
+              </View>
+              <Text style={[styles.logoSubtitle, { color: colors.mutedForeground }]}>
+                ONLINE SHOPPING APP
+              </Text>
+            </Pressable>
+
+            {/* Divider */}
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+            {/* Go Market */}
+            <Pressable
+              onPress={() => router.push("/go-market" as never)}
+              style={({ pressed }) => [styles.goMarketPill, { opacity: pressed ? 0.82 : 1 }]}
+              hitSlop={6}
+            >
+              <View style={styles.goMarketIconBox}>
+                <Feather name="shopping-bag" size={11} color="#FFFFFF" />
+              </View>
+              <View style={styles.goMarketTextStack}>
+                <View style={styles.goMarketTitleRow}>
+                  <Text style={styles.goMarketTitle}>Go Market</Text>
+                  <View style={styles.liveDot} />
+                </View>
+                <Text style={styles.goMarketSub}>⚡ quick delivery</Text>
               </View>
             </Pressable>
+
           </View>
 
-          {/* Right: Search + Login/Menu Icon */}
+          {/* RIGHT: Search + more-vertical / login */}
           <View style={styles.rightSection}>
+
             <Pressable
               onPress={() => setSearchModalOpen(true)}
-              style={styles.iconButton}
+              style={[styles.iconBtn, { backgroundColor: colors.accent }]}
               hitSlop={8}
             >
-              <Feather name="search" size={20} color={colors.foreground} />
+              <Feather name="search" size={17} color={colors.foreground} />
             </Pressable>
 
             {isLogin ? (
               <Pressable
                 onPress={() => setQuickMenuOpen(true)}
-                style={styles.iconButton}
+                style={[styles.iconBtn, { backgroundColor: colors.accent }]}
                 hitSlop={8}
               >
-                <Feather name="more-vertical" size={22} color={colors.foreground} />
+                <Feather name="more-vertical" size={17} color={colors.foreground} />
               </Pressable>
             ) : (
               <Pressable
                 onPress={() => router.push("/login" as never)}
-                style={styles.iconButton}
+                style={styles.loginBtn}
                 hitSlop={8}
               >
-                <Feather name="log-in" size={20} color={colors.foreground} />
+                <Text style={styles.loginBtnText}>Login</Text>
               </Pressable>
             )}
 
-            {/* Red Accent Bar */}
-            <View
-              style={[styles.accentBar, { backgroundColor: colors.primary }]}
-            />
           </View>
         </View>
       </SafeAreaView>
@@ -1006,527 +1028,527 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
             showsVerticalScrollIndicator={false}
           >
             <View style={{ marginTop: 16, marginLeft: 16, marginRight: 16 }}>
-                <Pressable
-                  onPress={() => router.push("/" as never)}
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      marginTop: 10,
-                    },
-                  ]}
+              <Pressable
+                onPress={() => router.push("/" as never)}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <View
+                  <Feather name="home" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
                     }}
                   >
-                    <Feather name="home" size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.foreground,
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 14,
-                      }}
-                    >
-                      Home
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/my-account" as never)}
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      marginTop: 10,
-                    },
-                  ]}
+                    Home
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/my-account" as never)}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <View
+                  <Feather name="user" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
                     }}
                   >
-                    <Feather name="user" size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.foreground,
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 14,
-                      }}
-                    >
-                      My Profile
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/my-orders" as never)}
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      marginTop: 10,
-                    },
-                  ]}
+                    My Profile
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/my-orders" as never)}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <View
+                  <Feather name="package" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
                     }}
                   >
-                    <Feather name="package" size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.foreground,
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 14,
-                      }}
-                    >
-                      My Orders
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/cart" as never)}
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      marginTop: 10,
-                    },
-                  ]}
+                    My Orders
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/cart" as never)}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <View
+                  <Feather name="shopping-cart" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
                     }}
                   >
-                    <Feather name="shopping-cart" size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.foreground,
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 14,
-                      }}
-                    >
-                      My Carts
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/wishlist" as never)}
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      marginTop: 10,
-                    },
-                  ]}
+                    My Carts
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/wishlist" as never)}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <View
+                  <Feather name="heart" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
                     }}
                   >
-                    <Feather name="heart" size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.foreground,
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 14,
-                      }}
-                    >
-                      My Wishlist
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/categories" as never)}
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      marginTop: 10,
-                    },
-                  ]}
+                    My Wishlist
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/categories" as never)}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <View
+                  <Feather name="database" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
                     }}
                   >
-                    <Feather name="database" size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.foreground,
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 14,
-                      }}
-                    >
-                      Categories
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/address" as never)}
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      marginTop: 10,
-                    },
-                  ]}
+                    Categories
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/address" as never)}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <View
+                  <Feather name="map-pin" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
                     }}
                   >
-                    <Feather name="map-pin" size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.foreground,
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 14,
-                      }}
-                    >
-                      Saved Addresses
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/notifications" as never)}
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      marginTop: 10,
-                    },
-                  ]}
+                    Saved Addresses
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/notifications" as never)}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <View
+                  <Feather name="bell" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
                     }}
                   >
-                    <Feather name="bell" size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.foreground,
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 14,
-                      }}
-                    >
-                      Notifications
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/notification-settings" as never)}
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      marginTop: 10,
-                    },
-                  ]}
+                    Notifications
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/notification-settings" as never)}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <View
+                  <Feather name="settings" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
                     }}
                   >
-                    <Feather name="settings" size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.foreground,
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 14,
-                      }}
-                    >
-                      Notification & Setting
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/become-seller" as never)}
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      marginTop: 10,
-                    },
-                  ]}
+                    Notification & Setting
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/become-seller" as never)}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <View
+                  <Feather name="shopping-bag" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
                     }}
                   >
-                    <Feather name="shopping-bag" size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.foreground,
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 14,
-                      }}
-                    >
-                      Become a Seller
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/blog" as never)}
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      marginTop: 10,
-                    },
-                  ]}
+                    Become a Seller
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/blog" as never)}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <View
+                  <Feather name="book-open" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
                     }}
                   >
-                    <Feather name="book-open" size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.foreground,
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 14,
-                      }}
-                    >
-                      Blog & Tips
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/offers" as never)}
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      marginTop: 10,
-                    },
-                  ]}
+                    Blog & Tips
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/offers" as never)}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <View
+                  <Feather name="tag" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
                     }}
                   >
-                    <Feather name="tag" size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.foreground,
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 14,
-                      }}
-                    >
-                      Offers & coupons
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/privacy-policy" as never)}
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      marginTop: 10,
-                    },
-                  ]}
+                    Offers & coupons
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/privacy-policy" as never)}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <View
+                  <Feather name="shield" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      color: colors.foreground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 14,
                     }}
                   >
-                    <Feather name="shield" size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.foreground,
-                        fontFamily: "Inter_600SemiBold",
-                        fontSize: 14,
-                      }}
-                    >
-                      Privacy & Policy
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={20}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-              </View>
+                    Privacy & Policy
+                  </Text>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+            </View>
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -1534,18 +1556,21 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
   );
 };
 
+const FONT_SERIF = Platform.select({ ios: "Georgia", android: "serif", default: "serif" });
+
+
 const styles = StyleSheet.create({
   safeArea: {
     backgroundColor: "transparent",
   },
-  headerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 0.5,
-  },
+  // headerContainer: {
+  //   flexDirection: "row",
+  //   alignItems: "center",
+  //   justifyContent: "space-between",
+  //   paddingHorizontal: 12,
+  //   paddingVertical: 8,
+  //   borderBottomWidth: 0.5,
+  // },
   iconButton: {
     width: 40,
     height: 40,
@@ -1554,8 +1579,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   logoContainer: {
-    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
+    gap: 6,
   },
   logoWrapper: {
     alignItems: "center",
@@ -1571,19 +1597,19 @@ const styles = StyleSheet.create({
   logoBoldAccent: {
     fontWeight: "bold",
   },
-  logoSubtitle: {
-    fontSize: 7,
-    fontWeight: "600",
-    letterSpacing: 0.8,
-    marginTop: -2,
-  },
-  rightSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    flex: 1,
-    justifyContent: "flex-end",
-  },
+  // logoSubtitle: {
+  //   fontSize: 7,
+  //   fontWeight: "600",
+  //   letterSpacing: 0.8,
+  //   marginTop: -2,
+  // },
+  // rightSection: {
+  //   flexDirection: "row",
+  //   alignItems: "center",
+  //   gap: 8,
+  //   flex: 1,
+  //   justifyContent: "flex-end",
+  // },
   accentBar: {
     width: 3,
     height: 24,
@@ -1751,4 +1777,236 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
+  logoPress: {
+    gap: 2,
+  },
+  // wordmarkRow: {
+  //   flexDirection: "row",
+  //   alignItems: "flex-start",
+  //   position: "relative",
+  // },
+  // wordmarkZee: {
+  //   fontFamily: FONT_SERIF,
+  //   fontSize: 21,
+  //   fontWeight: "800",
+  //   letterSpacing: -0.6,
+  //   lineHeight: 24,
+  // },
+  // wordmarkDaddy: {
+  //   fontFamily: FONT_SERIF,
+  //   fontSize: 21,
+  //   fontWeight: "800",
+  //   letterSpacing: -0.6,
+  //   lineHeight: 24,
+  // },
+  // starAccent: {
+  //   fontSize: 8,
+  //   color: "#E5333A",
+  //   fontWeight: "700",
+  //   marginTop: 3,
+  //   marginLeft: 2,
+  //   lineHeight: 10,
+  // },
+  // logoSubtitle: {
+  //   fontSize: 7,
+  //   fontWeight: "700",
+  //   letterSpacing: 1.2,
+  //   textTransform: "uppercase",
+  //   marginTop: 1,
+  // },
+
+  /* ── Divider ── */
+  // divider: {
+  //   width: 1,
+  //   height: 32,
+  //   opacity: 0.35,
+  // },
+
+  /* ── Go Market pill ── */
+  // goMarketPill: {
+  //   flexDirection: "row",
+  //   alignItems: "center",
+  //   gap: 8,
+  //   backgroundColor: "#111111",
+  //   borderRadius: 12,
+  //   paddingVertical: 7,
+  //   paddingHorizontal: 11,
+  //   paddingLeft: 8,
+  // },
+  // goMarketIconBox: {
+  //   width: 30,
+  //   height: 30,
+  //   borderRadius: 8,
+  //   backgroundColor: "rgba(255,255,255,0.10)",
+  //   borderWidth: 0.5,
+  //   borderColor: "rgba(255,255,255,0.13)",
+  //   alignItems: "center",
+  //   justifyContent: "center",
+  // },
+  // goMarketTextStack: {
+  //   gap: 1,
+  // },
+  // goMarketTitleRow: {
+  //   flexDirection: "row",
+  //   alignItems: "center",
+  //   gap: 5,
+  // },
+  // goMarketTitle: {
+  //   color: "#FFFFFF",
+  //   fontSize: 13,
+  //   fontWeight: "700",
+  //   letterSpacing: -0.15,
+  //   lineHeight: 16,
+  // },
+  // liveDot: {
+  //   width: 6,
+  //   height: 6,
+  //   borderRadius: 3,
+  //   backgroundColor: "#22C55E",
+  // },
+  // goMarketSub: {
+  //   color: "rgba(255,255,255,0.45)",
+  //   fontSize: 9,
+  //   fontWeight: "500",
+  //   letterSpacing: 0.2,
+  //   lineHeight: 12,
+  // },
+  headerContainer: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  paddingHorizontal: 12,
+  paddingVertical: 8,
+  borderBottomWidth: 0.5,
+},
+ 
+// LEFT
+leftSection: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 8,
+  flex: 1,
+  minWidth: 0,       // allows inner items to shrink on small screens
+},
+wordmarkRow: {
+  flexDirection: "row",
+  alignItems: "flex-start",
+},
+wordmarkZee: {
+  fontFamily: Platform.select({ ios: "Georgia", android: "serif", default: "serif" }),
+  fontSize: 17,
+  fontWeight: "800",
+  letterSpacing: -0.5,
+  lineHeight: 20,
+},
+wordmarkDaddy: {
+  fontFamily: Platform.select({ ios: "Georgia", android: "serif", default: "serif" }),
+  fontSize: 17,
+  fontWeight: "800",
+  letterSpacing: -0.5,
+  lineHeight: 20,
+},
+starAccent: {
+  fontSize: 7,
+  fontWeight: "700",
+  marginTop: 2,
+  marginLeft: 1,
+  lineHeight: 9,
+},
+logoSubtitle: {
+  fontSize: 6,
+  fontWeight: "700",
+  letterSpacing: 0.9,
+  textTransform: "uppercase",
+  marginTop: 1,
+},
+divider: {
+  width: 1,
+  height: 26,
+  opacity: 0.3,
+  flexShrink: 0,
+},
+ 
+// Go Market pill
+goMarketPill: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 5,
+  backgroundColor: "#111111",
+  borderRadius: 9,
+  paddingVertical: 5,
+  paddingRight: 8,
+  paddingLeft: 5,
+  flexShrink: 1,     // pill shrinks before icons disappear on narrow screens
+  minWidth: 0,
+},
+goMarketIconBox: {
+  width: 22,
+  height: 22,
+  borderRadius: 6,
+  backgroundColor: "rgba(255,255,255,0.10)",
+  borderWidth: 0.5,
+  borderColor: "rgba(255,255,255,0.14)",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+},
+goMarketTextStack: {
+  gap: 0,
+  minWidth: 0,
+},
+goMarketTitleRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 4,
+},
+goMarketTitle: {
+  color: "#FFFFFF",
+  fontSize: 11,
+  fontWeight: "700",
+  letterSpacing: -0.1,
+  lineHeight: 14,
+},
+liveDot: {
+  width: 5,
+  height: 5,
+  borderRadius: 2.5,
+  backgroundColor: "#22C55E",
+  flexShrink: 0,
+},
+goMarketSub: {
+  color: "rgba(255,255,255,0.45)",
+  fontSize: 8,
+  fontWeight: "500",
+  letterSpacing: 0.1,
+  lineHeight: 11,
+},
+ 
+// RIGHT
+rightSection: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 6,
+  flexShrink: 0,    // icons never shrink — always visible
+  marginLeft: 8,
+},
+iconBtn: {
+  width: 34,
+  height: 34,
+  borderRadius: 9,
+  alignItems: "center",
+  justifyContent: "center",
+},
+loginBtn: {
+  paddingHorizontal: 12,
+  paddingVertical: 6,
+  borderRadius: 17,
+  backgroundColor: "#111111",
+},
+loginBtnText: {
+  color: "#FFFFFF",
+  fontSize: 11,
+  fontWeight: "700",
+  letterSpacing: 0.2,
+},
 });

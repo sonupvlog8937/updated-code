@@ -165,8 +165,16 @@ const CartItems = (props) => {
 
   const removeItem = (id) => {
     deleteData(`/api/cart/delete-cart-item/${id}`).then((res) => {
-      context.alertBox("success", "Product removed from cart");
-      context?.getCartItems();
+      const responseData = res?.data || res;
+      if (responseData?.error === false && responseData?.success === true) {
+        context.alertBox("success", responseData?.message || "Product removed from cart");
+        context?.getCartItems();
+      } else {
+        context.alertBox("error", responseData?.message || "Failed to remove product from cart");
+      }
+    }).catch((error) => {
+      context.alertBox("error", "Failed to remove product from cart");
+      console.error("Error removing cart item:", error);
     })
   }
 

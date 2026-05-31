@@ -1,0 +1,530 @@
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { useParams } from "react-router-dom";
+import toast from "react-hot-toast";
+import { deleteData, editData, fetchDataFromApi, postData } from "../../utils/api";
+import {
+  MdStorefront, MdPeople, MdShoppingCart, MdRestaurant,
+  MdInventory, MdMenuBook, MdFastfood, MdAdd, MdEdit,
+  MdDelete, MdSearch, MdClose, MdRefresh, MdChevronLeft,
+  MdChevronRight, MdSave, MdCheck, MdWarning
+} from "react-icons/md";
+
+/* ─── Config ────────────────────────────────────────────────────── */
+const configs = {
+  markets: {
+    title: "Markets",
+    subtitle: "Manage marketplace locations",
+    icon: MdStorefront,
+    color: "#6366f1",
+    endpoint: "/api/go-market/markets",
+    fields: [
+      { key: "name",      label: "Market Name",  type: "text",   required: true },
+      { key: "city",      label: "City",         type: "text",   required: true },
+      { key: "state",     label: "State",        type: "text",   required: true },
+      { key: "pincode",   label: "Pincode",      type: "text" },
+      { key: "latitude",  label: "Latitude",     type: "number" },
+      { key: "longitude", label: "Longitude",    type: "number" },
+      { key: "banner",    label: "Banner URL",   type: "url" },
+      { key: "status",    label: "Status",       type: "select", options: ["active", "inactive"] },
+    ],
+  },
+  owners: {
+    title: "Shop Owners",
+    subtitle: "Manage vendor accounts",
+    icon: MdPeople,
+    color: "#f59e0b",
+    endpoint: "/api/go-market/owners",
+    fields: [
+      { key: "name",   label: "Full Name",    type: "text",   required: true },
+      { key: "email",  label: "Email",        type: "email",  required: true },
+      { key: "mobile", label: "Mobile",       type: "tel",    required: true },
+      { key: "avatar", label: "Avatar URL",   type: "url" },
+      { key: "rating", label: "Rating",       type: "number" },
+    ],
+  },
+  "grocery-shops": {
+    title: "Grocery Shops",
+    subtitle: "Manage grocery store listings",
+    icon: MdShoppingCart,
+    color: "#10b981",
+    endpoint: "/api/go-market/grocery-shops",
+    fields: [
+      { key: "marketId",      label: "Market ID",      type: "text",     required: true },
+      { key: "ownerId",       label: "Owner ID",       type: "text",     required: true },
+      { key: "shopName",      label: "Shop Name",      type: "text",     required: true },
+      { key: "shopBanner",    label: "Banner URL",     type: "url" },
+      { key: "shopLogo",      label: "Logo URL",       type: "url" },
+      { key: "address",       label: "Address",        type: "text" },
+      { key: "latitude",      label: "Latitude",       type: "number" },
+      { key: "longitude",     label: "Longitude",      type: "number" },
+      { key: "rating",        label: "Rating",         type: "number" },
+      { key: "totalProducts", label: "Total Products", type: "number" },
+      { key: "description",   label: "Description",    type: "textarea" },
+      { key: "isOpen",        label: "Is Open",        type: "toggle" },
+    ],
+  },
+  restaurants: {
+    title: "Restaurants",
+    subtitle: "Manage restaurant listings",
+    icon: MdRestaurant,
+    color: "#ef4444",
+    endpoint: "/api/go-market/restaurants",
+    fields: [
+      { key: "marketId",        label: "Market ID",     type: "text",     required: true },
+      { key: "ownerId",         label: "Owner ID",      type: "text",     required: true },
+      { key: "restaurantName",  label: "Name",          type: "text",     required: true },
+      { key: "restaurantBanner",label: "Banner URL",    type: "url" },
+      { key: "restaurantLogo",  label: "Logo URL",      type: "url" },
+      { key: "address",         label: "Address",       type: "text" },
+      { key: "latitude",        label: "Latitude",      type: "number" },
+      { key: "longitude",       label: "Longitude",     type: "number" },
+      { key: "rating",          label: "Rating",        type: "number" },
+      { key: "totalMenus",      label: "Total Menus",   type: "number" },
+      { key: "totalItems",      label: "Total Items",   type: "number" },
+      { key: "description",     label: "Description",   type: "textarea" },
+      { key: "isOpen",          label: "Is Open",       type: "toggle" },
+    ],
+  },
+  products: {
+    title: "Grocery Products",
+    subtitle: "Manage product catalog",
+    icon: MdInventory,
+    color: "#3b82f6",
+    endpoint: "/api/go-market/products",
+    fields: [
+      { key: "shopId",        label: "Shop ID",       type: "text",   required: true },
+      { key: "name",          label: "Product Name",  type: "text",   required: true },
+      { key: "image",         label: "Image URL",     type: "url" },
+      { key: "price",         label: "Price",         type: "number", required: true },
+      { key: "discountPrice", label: "Discount Price",type: "number" },
+      { key: "stock",         label: "Stock",         type: "number" },
+      { key: "description",   label: "Description",   type: "textarea" },
+    ],
+  },
+  menus: {
+    title: "Menus",
+    subtitle: "Manage restaurant menus",
+    icon: MdMenuBook,
+    color: "#8b5cf6",
+    endpoint: "/api/go-market/menus",
+    fields: [
+      { key: "restaurantId", label: "Restaurant ID", type: "text",     required: true },
+      { key: "menuName",     label: "Menu Name",     type: "text",     required: true },
+      { key: "image",        label: "Image URL",     type: "url" },
+      { key: "description",  label: "Description",   type: "textarea" },
+    ],
+  },
+  items: {
+    title: "Restaurant Items",
+    subtitle: "Manage food items",
+    icon: MdFastfood,
+    color: "#f97316",
+    endpoint: "/api/go-market/items",
+    fields: [
+      { key: "restaurantId", label: "Restaurant ID", type: "text",   required: true },
+      { key: "menuId",       label: "Menu ID",       type: "text",   required: true },
+      { key: "itemName",     label: "Item Name",     type: "text",   required: true },
+      { key: "image",        label: "Image URL",     type: "url" },
+      { key: "price",        label: "Price",         type: "number", required: true },
+      { key: "description",  label: "Description",   type: "textarea" },
+    ],
+  },
+};
+
+const blankFor = (fields) =>
+  fields.reduce((acc, f) => ({
+    ...acc,
+    [f.key]: f.type === "toggle" ? true : f.type === "select" ? (f.options?.[0] ?? "") : "",
+  }), {});
+
+/* ─── Field Input ───────────────────────────────────────────────── */
+const FieldInput = ({ field, value, onChange }) => {
+  const base =
+    "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all bg-white placeholder:text-gray-300";
+
+  if (field.type === "toggle") {
+    return (
+      <button
+        type="button"
+        onClick={() => onChange(!value)}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400/40 ${
+          value ? "bg-emerald-500" : "bg-gray-200"
+        }`}
+      >
+        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${value ? "translate-x-6" : "translate-x-1"}`} />
+      </button>
+    );
+  }
+  if (field.type === "select") {
+    return (
+      <select className={base} value={value ?? ""} onChange={(e) => onChange(e.target.value)}>
+        {field.options.map((o) => <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>)}
+      </select>
+    );
+  }
+  if (field.type === "textarea") {
+    return (
+      <textarea
+        className={`${base} resize-none`}
+        rows={2}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={`Enter ${field.label.toLowerCase()}…`}
+      />
+    );
+  }
+  return (
+    <input
+      type={field.type}
+      className={base}
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={`Enter ${field.label.toLowerCase()}…`}
+    />
+  );
+};
+
+/* ─── Delete Confirm Modal ───────────────────────────────────────── */
+const DeleteModal = ({ onConfirm, onCancel }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 animate-fade-in">
+      <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-50 mx-auto mb-4">
+        <MdWarning className="text-red-500 text-2xl" />
+      </div>
+      <h3 className="text-center text-[15px] font-bold text-gray-800 mb-1">Delete Record</h3>
+      <p className="text-center text-sm text-gray-500 mb-5">This action cannot be undone. Are you sure?</p>
+      <div className="flex gap-3">
+        <button onClick={onCancel} className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">Cancel</button>
+        <button onClick={onConfirm} className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition">Delete</button>
+      </div>
+    </div>
+  </div>
+);
+
+/* ─── Main Page ──────────────────────────────────────────────────── */
+const GoMarketAdminPage = () => {
+  const { resource = "markets" } = useParams();
+  const config = configs[resource] || configs.markets;
+  const Icon = config.icon;
+
+  const [rows, setRows] = useState([]);
+  const [form, setForm] = useState(blankFor(config.fields));
+  const [editingId, setEditingId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [formOpen, setFormOpen] = useState(false);
+
+  useEffect(() => {
+    setForm(blankFor(config.fields));
+    setEditingId(null);
+    setPage(1);
+    setFormOpen(false);
+    setSearch("");
+  }, [resource]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetchDataFromApi(
+      `${config.endpoint}?page=${page}&limit=10&search=${encodeURIComponent(search)}`
+    );
+    setRows(res?.data || []);
+    setPagination(res?.pagination || null);
+    setLoading(false);
+  }, [config.endpoint, page, search]);
+
+  useEffect(() => { load(); }, [resource, page]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setPage(1);
+    load();
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    const payload = Object.fromEntries(
+      Object.entries(form).map(([k, v]) => [k, v === "true" ? true : v === "false" ? false : v])
+    );
+    const res = editingId
+      ? await editData(`${config.endpoint}/${editingId}`, payload)
+      : await postData(config.endpoint, payload);
+    setSaving(false);
+    if (res?.data?.error || res?.error) {
+      toast.error(res?.message || "Save failed");
+    } else {
+      toast.success(res?.message || (editingId ? "Record updated" : "Record created"));
+      setForm(blankFor(config.fields));
+      setEditingId(null);
+      setFormOpen(false);
+      load();
+    }
+  };
+
+  const edit = (row) => {
+    setEditingId(row._id);
+    setForm(
+      Object.fromEntries(
+        config.fields.map((f) => [f.key, (row[f.key]?._id ?? row[f.key]) ?? ""])
+      )
+    );
+    setFormOpen(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setForm(blankFor(config.fields));
+    setFormOpen(false);
+  };
+
+  const confirmDelete = async () => {
+    await deleteData(`${config.endpoint}/${deleteTarget}`);
+    toast.success("Record deleted");
+    setDeleteTarget(null);
+    load();
+  };
+
+  const displayColumns = useMemo(() => config.fields.slice(0, 4), [config.fields]);
+
+  const getCellValue = (row, key) => {
+    const v = row[key];
+    if (v === null || v === undefined) return <span className="text-gray-300">—</span>;
+    if (typeof v === "boolean") return v
+      ? <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-xs"><MdCheck /> Yes</span>
+      : <span className="text-gray-400 text-xs">No</span>;
+    const str = String(v?.name || v?.shopName || v?.restaurantName || v);
+    return <span className="truncate block max-w-[160px]" title={str}>{str}</span>;
+  };
+
+  return (
+    <>
+      <style>{`
+        @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+        .animate-fade-in { animation: fadeIn .18s ease; }
+        .row-hover:hover { background: #f8faff; }
+      `}</style>
+
+      {deleteTarget && <DeleteModal onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />}
+
+      <div className="min-h-screen bg-[#f4f6fb] p-4 md:p-6">
+
+        {/* ── Header ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xl shadow-sm"
+              style={{ background: config.color }}>
+              <Icon />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Go Market Admin</p>
+              <h1 className="text-xl font-bold text-gray-800 leading-tight">{config.title}</h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Search */}
+            <form onSubmit={handleSearch} className="flex items-center gap-2">
+              <div className="relative">
+                <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[16px]" />
+                <input
+                  className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 w-48 transition-all"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search…"
+                />
+                {search && (
+                  <button type="button" onClick={() => { setSearch(""); setPage(1); setTimeout(load, 0); }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    <MdClose size={14} />
+                  </button>
+                )}
+              </div>
+              <button type="submit" className="px-3 py-2 bg-gray-800 text-white rounded-lg text-sm font-semibold hover:bg-gray-700 transition hidden sm:block">Search</button>
+            </form>
+
+            <button onClick={load} className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition text-gray-500" title="Refresh">
+              <MdRefresh className={`text-[18px] ${loading ? "animate-spin" : ""}`} />
+            </button>
+
+            {!formOpen && (
+              <button onClick={() => { setFormOpen(true); setEditingId(null); setForm(blankFor(config.fields)); }}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold shadow-sm hover:opacity-90 transition"
+                style={{ background: config.color }}>
+                <MdAdd className="text-[17px]" /> Add New
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ── Form Panel ── */}
+        {formOpen && (
+          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm mb-6 overflow-hidden animate-fade-in">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100"
+              style={{ borderLeftColor: config.color, borderLeftWidth: 3 }}>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md flex items-center justify-center text-white text-sm" style={{ background: config.color }}>
+                  {editingId ? <MdEdit /> : <MdAdd />}
+                </div>
+                <span className="font-bold text-gray-700 text-sm">{editingId ? "Edit Record" : `New ${config.title.replace("Manage ", "")}`}</span>
+              </div>
+              <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 transition p-1 rounded-lg hover:bg-gray-100">
+                <MdClose size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={submit} className="p-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-5">
+                {config.fields.map((field) => (
+                  <label key={field.key} className={`flex flex-col gap-1.5 ${field.type === "textarea" ? "sm:col-span-2" : ""}`}>
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                      {field.label}
+                      {field.required && <span className="text-red-400 ml-0.5">*</span>}
+                    </span>
+                    <FieldInput
+                      field={field}
+                      value={form[field.key]}
+                      onChange={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
+                    />
+                  </label>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
+                <button type="submit" disabled={saving}
+                  className="flex items-center gap-2 px-5 py-2 rounded-lg text-white text-sm font-bold shadow-sm hover:opacity-90 transition disabled:opacity-60"
+                  style={{ background: config.color }}>
+                  <MdSave className="text-[16px]" />
+                  {saving ? "Saving…" : editingId ? "Update Record" : "Create Record"}
+                </button>
+                <button type="button" onClick={cancelEdit}
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-500 hover:bg-gray-50 transition">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ── Table ── */}
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+          {/* Table header */}
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+            <p className="text-sm font-bold text-gray-700">
+              {pagination?.total != null ? `${pagination.total} records` : `${rows.length} records`}
+            </p>
+            <p className="text-xs text-gray-400">
+              Page {pagination?.page || page} of {pagination?.totalPages || 1}
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            {loading ? (
+              <div className="flex items-center justify-center py-16 text-gray-400">
+                <MdRefresh className="animate-spin text-2xl mr-2" />
+                <span className="text-sm">Loading…</span>
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                <Icon className="text-4xl mb-2 opacity-30" />
+                <p className="text-sm font-medium">No records found</p>
+                <p className="text-xs mt-1 opacity-70">Try adjusting your search or add a new record</p>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wide text-gray-400 font-bold w-8">#</th>
+                    <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wide text-gray-400 font-bold">ID</th>
+                    {displayColumns.map((f) => (
+                      <th key={f.key} className="text-left px-4 py-3 text-[11px] uppercase tracking-wide text-gray-400 font-bold">
+                        {f.label}
+                      </th>
+                    ))}
+                    <th className="text-right px-4 py-3 text-[11px] uppercase tracking-wide text-gray-400 font-bold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {rows.map((row, idx) => (
+                    <tr key={row._id} className="row-hover transition-colors">
+                      <td className="px-4 py-3 text-xs text-gray-300 font-mono">
+                        {(page - 1) * 10 + idx + 1}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-[11px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+                          {String(row._id).slice(-6)}
+                        </span>
+                      </td>
+                      {displayColumns.map((f) => (
+                        <td key={f.key} className="px-4 py-3 text-gray-700 text-[13px]">
+                          {getCellValue(row, f.key)}
+                        </td>
+                      ))}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => edit(row)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-blue-600 bg-blue-50 hover:bg-blue-100 text-xs font-semibold transition">
+                            <MdEdit size={13} /> Edit
+                          </button>
+                          <button onClick={() => setDeleteTarget(row._id)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-red-500 bg-red-50 hover:bg-red-100 text-xs font-semibold transition">
+                            <MdDelete size={13} /> Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* ── Pagination ── */}
+          {!loading && rows.length > 0 && (
+            <div className="flex items-center justify-between px-5 py-3.5 border-t border-gray-100">
+              <p className="text-xs text-gray-400">
+                Showing {(page - 1) * 10 + 1}–{Math.min(page * 10, pagination?.total || rows.length)} of {pagination?.total || rows.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <button disabled={page <= 1} onClick={() => setPage(page - 1)}
+                  className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                  <MdChevronLeft size={16} />
+                </button>
+                {Array.from({ length: pagination?.totalPages || 1 }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === (pagination?.totalPages || 1) || Math.abs(p - page) <= 1)
+                  .reduce((acc, p, i, arr) => {
+                    if (i > 0 && p - arr[i - 1] > 1) acc.push("…");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === "…" ? (
+                      <span key={`ellipsis-${i}`} className="px-1 text-gray-300 text-sm">…</span>
+                    ) : (
+                      <button key={p} onClick={() => setPage(p)}
+                        className={`w-8 h-8 rounded-lg text-xs font-bold transition ${
+                          p === page ? "text-white shadow-sm" : "border border-gray-200 text-gray-500 hover:bg-gray-50"
+                        }`}
+                        style={p === page ? { background: config.color } : {}}>
+                        {p}
+                      </button>
+                    )
+                  )}
+                <button disabled={!pagination || page >= pagination.totalPages} onClick={() => setPage(page + 1)}
+                  className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                  <MdChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default GoMarketAdminPage;

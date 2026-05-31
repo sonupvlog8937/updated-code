@@ -48,7 +48,11 @@ export const postData = async (url, formData) => {
 export const fetchDataFromApi = async (url, options = {}) => {
     const { useCache = false, ttl = 120000, forceRefresh = false } = options;
     try {
-        if (useCache && !forceRefresh) {
+        // ✅ OPTIMIZATION: Auto-enable cache for specific endpoints
+        const autoCacheEndpoints = ['/api/category', '/api/homeSlides', '/api/bannerV1', '/api/bannerList2'];
+        const shouldCache = useCache || autoCacheEndpoints.some(endpoint => url.includes(endpoint));
+        
+        if (shouldCache && !forceRefresh) {
             const cachedData = getCachedResponse(url);
             if (cachedData) return cachedData;
         }
@@ -57,7 +61,7 @@ export const fetchDataFromApi = async (url, options = {}) => {
         };
 
         const { data } = await axios.get(apiUrl + url, params)
-        if (useCache) {
+        if (shouldCache) {
             apiCache.set(getCacheKey(url), {
                 data,
                 expireAt: Date.now() + ttl,
@@ -95,12 +99,26 @@ export const editData = async (url, updatedData) => {
    
 }
 export const deleteData = async (url, data = null) => {
-    const params = {
-        headers: getAuthHeaders(),
-        data,
-    };
+    try {
+        const config = {
+            headers: getAuthHeaders(),
+        };
+        
+        // Only add data to config if it's provided
+        if (data) {
+            config.data = data;
+        }
 
-
-const response = await axios.delete(apiUrl + url, params);
-    return response.data;
+        const response = await axios.delete(apiUrl + url, config);
+        return { data: response.data };
+    } catch (error) {
+        console.error('Delete error:', error);
+        return { 
+            data: { 
+                error: true, 
+                success: false, 
+                message: error.response?.data?.message || error.message 
+            } 
+        };
+    }
 }

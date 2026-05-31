@@ -36,6 +36,7 @@ import { BlogList } from "./Pages/Blog";
 import LoadingBar from "react-top-loading-bar";
 import BannersHub from "./Pages/BannersHub";
 import CouponsPage from "./Pages/Coupons";
+import GoMarketAdminPage from "./Pages/GoMarket";
 
 const MyContext = createContext();
 
@@ -533,6 +534,15 @@ function App() {
       element: (
         <PageWrapper {...wp}>
           <BannersHub />
+        </PageWrapper>
+      ),
+    },
+
+    {
+      path: '/go-market/:resource',
+      element: (
+        <PageWrapper {...wp}>
+          <GoMarketAdminPage />
         </PageWrapper>
       ),
     },

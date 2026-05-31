@@ -111,6 +111,16 @@ const HeaderMain: React.FC = () => {
           </TouchableOpacity>
         )}
 
+        {!(headerState.showSearchBar && !isDesktop) && (
+          <TouchableOpacity
+            style={headerStyles.goMarketBtn}
+            onPress={() => navigation.navigate("go-market")}
+            activeOpacity={0.85}
+          >
+            <Text style={headerStyles.goMarketText}>Go Market</Text>
+          </TouchableOpacity>
+        )}
+
         {/* ── Mobile: Inline Expandable Search Bar ── */}
         {headerState.showSearchBar && !isDesktop && (
           <View style={headerStyles.searchRow}>
@@ -386,6 +396,18 @@ const headerStyles = StyleSheet.create({
     color: "#fff",
     fontSize: 22,
     fontWeight: "900",
+  },
+  goMarketBtn: {
+    backgroundColor: "#059669",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginHorizontal: 4,
+  },
+  goMarketText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "800",
   },
   logoText: {
     fontSize: 20,

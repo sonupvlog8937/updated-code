@@ -6,6 +6,7 @@ import productsReducer from "./productsSlice";
 import searchReducer from "./searchSlice";
 import sellerStoreReducer from "./sellerStoreSlice";
 import ordersReducer from "./ordersSlice";
+import goMarketReducer from "./goMarketSlice";
 
 export const store = configureStore({
   reducer: {
@@ -15,6 +16,7 @@ export const store = configureStore({
     search: searchReducer,
     sellerStore: sellerStoreReducer,
     orders: ordersReducer,
+    goMarket: goMarketReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -84,3 +86,4 @@ export {
 
 export const useAppDispatch = () => useDispatch<AppDispatch>();
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
+export { fetchGoMarketDetail, fetchGoMarkets, fetchGoNearbyMarkets, fetchGoRestaurantDetail, fetchGoShopDetail, followGoRestaurant, followGoShop, setGoMarketTab } from "./goMarketSlice";

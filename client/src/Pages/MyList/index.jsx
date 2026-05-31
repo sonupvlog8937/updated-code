@@ -10,6 +10,13 @@ const MyList = () => {
 
   const context = useAppContext();
 
+  // ✅ OPTIMIZATION: Fetch wishlist data only when MyList page is opened
+  useEffect(() => {
+    if (context?.isLogin) {
+      context?.getMyListData();
+    }
+  }, [context?.isLogin]);
+
   useEffect(()=>{
     window.scrollTo(0,0);
   },[]);

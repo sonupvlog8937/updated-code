@@ -31,7 +31,7 @@ const Sidebar = () => {
   const isAdmin = userRole === "ADMIN";
   const isSeller = userRole === "SELLER";
 
-  const [openGroups, setOpenGroups] = useState({ catalog: false, media: false, banners: false });
+  const [openGroups, setOpenGroups] = useState({ catalog: false, media: false, banners: false, goMarket: false });
   const toggleGroup = (key) => setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const closeSidebar = () => {
@@ -174,6 +174,18 @@ const Sidebar = () => {
                 <SubItem to="/slider/featured" label="Featured Slider" />
               </CollapseGroup>
 
+              <GroupLabel label="Go Market" />
+              <CollapseGroup groupKey="goMarket" icon={IoStorefrontOutline} label="Go Market">
+                <SubItem to="/go-market/markets" label="Manage Markets" />
+                <SubItem to="/go-market/grocery-shops" label="Grocery Shops" />
+                <SubItem to="/go-market/restaurants" label="Restaurants" />
+                <SubItem to="/go-market/products" label="Grocery Products" />
+                <SubItem to="/go-market/menus" label="Menus" />
+                <SubItem to="/go-market/items" label="Restaurant Items" />
+                <SubItem to="/go-market/owners" label="Shop Owners" />
+              </CollapseGroup>
+
+
               <GroupLabel label="Finance" />
               <NavItem to="/wallet/transactions" icon={IoWalletOutline} label="Wallet Requests" />
             </>
@@ -182,6 +194,13 @@ const Sidebar = () => {
           {isSeller && (
             <>
               <GroupLabel label="My Store" />
+              <CollapseGroup groupKey="goMarket" icon={IoStorefrontOutline} label="Go Market">
+                <SubItem to="/go-market/grocery-shops" label="My Grocery Shops" />
+                <SubItem to="/go-market/restaurants" label="My Restaurants" />
+                <SubItem to="/go-market/products" label="Grocery Products" />
+                <SubItem to="/go-market/menus" label="Menus" />
+                <SubItem to="/go-market/items" label="Restaurant Items" />
+              </CollapseGroup>
               <NavItem to="/seller/store-profile" icon={IoStorefrontOutline} label="Store Profile" />
               <NavItem to="/wallet/transactions" icon={IoWalletOutline} label="Wallet & Transactions" />
             </>

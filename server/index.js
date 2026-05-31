@@ -32,6 +32,7 @@ import notificationRouter from './route/notification.route.js';
 import couponRouter from './route/coupon.route.js';
 import notificationSettingRouter from './route/notificationSetting.route.js';
 import paymentRouter from './route/payment.route.js';
+import goMarketRouter from './route/goMarket.route.js';
 
 const app = express();
 
@@ -134,6 +135,7 @@ app.use("/api/notifications", notificationRouter)
 app.use("/api/coupon", couponRouter)
 app.use("/api/notification-settings", notificationSettingRouter)
 app.use("/api/payment", paymentRouter)
+app.use("/api/go-market", goMarketRouter)
 
 // Error handlers
 app.use(notFoundHandler)
