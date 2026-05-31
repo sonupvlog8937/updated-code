@@ -71,7 +71,7 @@ const userSchema = mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['ADMIN', 'USER', 'SELLER'],
+        enum: ['ADMIN', 'USER', 'SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'],
         default: "USER"
     },
     signUpWithGoogle:{

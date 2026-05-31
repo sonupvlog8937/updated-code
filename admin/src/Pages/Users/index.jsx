@@ -58,11 +58,24 @@ const initialSellerForm = {
     email: '',
     password: '',
     mobile: '',
+    role: 'SELLER',
 };
+
+const ROLE_OPTIONS = [
+    { value: 'USER', label: 'USER' },
+    { value: 'SELLER', label: 'SELLER' },
+    { value: 'GROCERY_SELLER', label: 'GROCERY SELLER' },
+    { value: 'RESTAURANT_SELLER', label: 'RESTAURANT SELLER' },
+    { value: 'ADMIN', label: 'ADMIN' },
+];
+const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
+const isSellerRole = (role) => SELLER_ROLES.includes(role);
 
 const roleConfig = {
     ADMIN: { color: '#7c3aed', bg: '#ede9fe', icon: <FaUserShield size={11} /> },
     SELLER: { color: '#0369a1', bg: '#e0f2fe', icon: <FaStore size={11} /> },
+    GROCERY_SELLER: { color: '#047857', bg: '#d1fae5', icon: <FaStore size={11} /> },
+    RESTAURANT_SELLER: { color: '#c2410c', bg: '#ffedd5', icon: <FaStore size={11} /> },
     USER: { color: '#374151', bg: '#f3f4f6', icon: <FaUsers size={11} /> },
 };
 
@@ -246,7 +259,7 @@ export const Users = () => {
     const allUsers = userTotalData?.totalUsers || [];
     const totalCount = userTotalData?.totalUsersCount || 0;
     const adminCount = allUsers.filter((u) => u.role === 'ADMIN').length;
-    const sellerCount = allUsers.filter((u) => u.role === 'SELLER').length;
+    const sellerCount = allUsers.filter((u) => isSellerRole(u.role)).length;
     const activeCount = allUsers.filter((u) => u.status === 'Active').length;
 
     if (context?.userData?.role !== 'ADMIN') {
@@ -573,9 +586,9 @@ export const Users = () => {
                                                     },
                                                 }}
                                             >
-                                                <MenuItem value="USER">USER</MenuItem>
-                                                <MenuItem value="SELLER">SELLER</MenuItem>
-                                                <MenuItem value="ADMIN">ADMIN</MenuItem>
+                                                 {ROLE_OPTIONS.map((role) => (
+                                                    <MenuItem key={role.value} value={role.value}>{role.label}</MenuItem>
+                                                ))}
                                             </Select>
                                         </TableCell>
 
@@ -812,6 +825,16 @@ export const Users = () => {
                         onChange={(e) => setSellerForm((prev) => ({ ...prev, mobile: e.target.value }))}
                         fullWidth
                     />
+                     <Select
+                        size="small"
+                        value={sellerForm.role}
+                        onChange={(e) => setSellerForm((prev) => ({ ...prev, role: e.target.value }))}
+                        fullWidth
+                    >
+                        {ROLE_OPTIONS.filter((role) => role.value !== 'USER').map((role) => (
+                            <MenuItem key={role.value} value={role.value}>{role.label}</MenuItem>
+                        ))}
+                    </Select>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
                     <Button

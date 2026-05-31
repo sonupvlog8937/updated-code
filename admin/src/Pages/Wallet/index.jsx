@@ -15,6 +15,9 @@ import {
 import { RiMoneyRupeeCircleLine, RiVipCrownLine } from "react-icons/ri";
 import { BsGraphUp, BsLightningCharge } from "react-icons/bs";
 
+const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER"];
+const isSellerRole = (role) => SELLER_ROLES.includes(role);
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (v) => (v || 0).toLocaleString("en-IN");
 const fmtDate = (d) => {
@@ -242,7 +245,7 @@ const WalletPage = () => {
       ]);
       if (res?.success) setOverview(res);
       if (isAdmin && usersRes?.success)
-        setAllSellers((usersRes.users || []).filter((u) => u.role === "SELLER"));
+        setAllSellers((usersRes.users || []).filter((u) => isSellerRole(u.role)));
     } catch {
       // silent fail
     } finally {

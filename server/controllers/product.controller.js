@@ -8,6 +8,9 @@ import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import mongoose from "mongoose";
 
+const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER"];
+const isSellerRole = (role) => SELLER_ROLES.includes(role);
+
 const normalizeKeywords = (keywords) => {
   if (Array.isArray(keywords)) {
     return keywords
@@ -1174,7 +1177,7 @@ export async function updateProduct(request, response) {
     if (!existingProduct) {
       return response.status(404).json({ error: true, success: false, message: "Product not found" });
     }
-    if (request.currentUser?.role === "SELLER" && existingProduct.seller?.toString() !== request.userId) {
+    if (isSellerRole(request.currentUser?.role) && existingProduct.seller?.toString() !== request.userId) {
       return response.status(403).json({ error: true, success: false, message: "You can update only your products" });
     }
     const product = await ProductModel.findByIdAndUpdate(

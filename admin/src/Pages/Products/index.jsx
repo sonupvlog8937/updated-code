@@ -23,6 +23,9 @@ import 'yet-another-react-lightbox/styles.css';
 
 const label = { inputProps: { 'aria-label': 'Checkbox demo' } };
 
+const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
+const isSellerRole = (role) => SELLER_ROLES.includes(role);
+
 const columns = [
     { id: 'product', label: 'PRODUCT', minWidth: 220 },
     { id: 'category', label: 'CATEGORY', minWidth: 110 },
@@ -114,7 +117,7 @@ export const Products = () => {
 
     const getProducts = async (pg, limit) => {
         setIsLoading(true);
-        const endpoint = context?.userData?.role === 'SELLER'
+        const endpoint = isSellerRole(context?.userData?.role)
             ? `/api/product/seller/products?page=${pg + 1}&limit=${limit}`
             : `/api/product/getAllProducts?page=${pg + 1}&limit=${limit}`;
         fetchDataFromApi(endpoint).then((res) => {
@@ -190,7 +193,7 @@ export const Products = () => {
                 getProducts(page, rowsPerPage);
             });
         } else {
-            if (!['ADMIN', 'SELLER'].includes(context?.userData?.role)) {
+            if (context?.userData?.role !== 'ADMIN' && !isSellerRole(context?.userData?.role)) {
                 context.alertBox('error', 'Only admin or seller can delete product');
                 return;
             }

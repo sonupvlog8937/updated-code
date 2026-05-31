@@ -4,6 +4,9 @@ import Rating from "@mui/material/Rating";
 import { MyContext } from "../../App";
 import { fetchDataFromApi } from "../../utils/api";
 
+const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER"];
+const isSellerRole = (role) => SELLER_ROLES.includes(role);
+
 const ReviewsPage = () => {
   const context = useContext(MyContext);
   const [reviews, setReviews] = useState([]);
@@ -12,7 +15,7 @@ const ReviewsPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
 
-  const isSeller = context?.userData?.role === "SELLER";
+const isSeller = isSellerRole(context?.userData?.role);
 
   const getReviews = async (currentPage, limit) => {
     setIsLoading(true);
@@ -30,7 +33,7 @@ const ReviewsPage = () => {
   };
 
   useEffect(() => {
-    if (context?.userData?.role === "ADMIN" || context?.userData?.role === "SELLER") {
+    if (context?.userData?.role === "ADMIN" || isSellerRole(context?.userData?.role)) {
       getReviews(page, rowsPerPage);
     }
   }, [page, rowsPerPage, context?.userData?.role]);

@@ -859,6 +859,10 @@ const ReceiptModal = ({ order, onClose }) => {
 /* ═══════════════════════════════════════════════════════
    MAIN ORDERS COMPONENT
 ═══════════════════════════════════════════════════════ */
+
+const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER"];
+const isSellerRole = (role) => SELLER_ROLES.includes(role);
+
 const Orders = () => {
   const [openOrderId,      setOpenOrderId]       = useState(null);
   const [orderStatus,      setOrderStatus]        = useState("");
@@ -871,7 +875,7 @@ const Orders = () => {
   const [receiptOrder,     setReceiptOrder]       = useState(null);
 
   const context = useContext(MyContext);
-const isSellerView = context?.userData?.role === "SELLER";
+const isSellerView = isSellerRole(context?.userData?.role);
   const ordersListEndpoint = isSellerView ? "/api/order/seller/orders" : "/api/order/order-list";
   /* toggle expand */
   const toggleOrder = (id) => setOpenOrderId((prev) => (prev === id ? null : id));

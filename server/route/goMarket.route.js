@@ -17,7 +17,7 @@ import {
 } from "../controllers/goMarket.controller.js";
 
 const router = express.Router();
-const canManage = [auth, authorizeRole("ADMIN", "SELLER")];
+const canManage = [auth, authorizeRole("ADMIN", "SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER")];
 const crud = (path, key, detailHandler = null) => {
   router.get(path, listResource(key));
   router.post(path, ...canManage, createResource(key));

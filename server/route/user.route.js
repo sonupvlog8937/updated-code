@@ -27,17 +27,17 @@ userRouter.post('/create-seller',auth,authorizeRole('ADMIN'),createSellerByAdmin
 userRouter.put('/admin/user-access',auth,authorizeRole('ADMIN'),updateUserAccessByAdminController);
 userRouter.post('/addReview',auth,addReview);
 userRouter.get('/getReviews',getReviews);
-userRouter.get('/getAllReviews',auth,authorizeRole('ADMIN','SELLER'),getAllReviews);
+userRouter.get('/getAllReviews',auth,authorizeRole('ADMIN','SELLER','GROCERY_SELLER','RESTAURANT_SELLER'),getAllReviews);
 userRouter.get('/getAllUsers',auth,authorizeRole('ADMIN'),getAllUsers);
 userRouter.delete('/deleteMultiple',auth,authorizeRole('ADMIN'),deleteMultiple);
 userRouter.delete('/deleteUser/:id',auth,authorizeRole('ADMIN'),deleteUser);
 
-userRouter.put('/seller/store-profile',auth,authorizeRole('SELLER','USER'),upsertSellerStoreProfile);
-userRouter.get('/seller/store-profile',auth,authorizeRole('SELLER','USER'),getSellerStoreProfile);
+userRouter.put('/seller/store-profile',auth,authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER','USER'),upsertSellerStoreProfile);
+userRouter.get('/seller/store-profile',auth,authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER','USER'),getSellerStoreProfile);
 userRouter.get('/seller/store-profile/:sellerId',getSellerStoreProfile);
-userRouter.get('/wallet/overview',auth,authorizeRole('ADMIN','SELLER'),getCommissionOverview);
-userRouter.get('/seller/commission',auth,authorizeRole('SELLER'),getCommissionOverview);
-userRouter.post('/wallet/request',auth,authorizeRole('SELLER'),createWalletRequest);
+userRouter.get('/wallet/overview',auth,authorizeRole('ADMIN','SELLER','GROCERY_SELLER','RESTAURANT_SELLER'),getCommissionOverview);
+userRouter.get('/seller/commission',auth,authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER'),getCommissionOverview);
+userRouter.post('/wallet/request',auth,authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER'),createWalletRequest);
 userRouter.put('/wallet/request/approve',auth,authorizeRole('ADMIN'),approveWalletRequest);
 userRouter.post('/register-seller', registerSellerController);
 

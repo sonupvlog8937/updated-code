@@ -18,6 +18,34 @@ const STEPS = [
   { id: 4, label: "Review",    icon: FaShieldAlt, color: "#f9a8d4" },
 ];
 
+const ROLE_OPTIONS = [
+  { value: "SELLER", label: "Seller", tone: "#2874f0", description: "General marketplace seller with complete catalog controls." },
+  { value: "GROCERY_SELLER", label: "Grocery Seller", tone: "#10b981", description: "Grocery-first tools for shops, grocery products, inventory and local delivery." },
+  { value: "RESTAURANT_SELLER", label: "Restaurant Seller", tone: "#f97316", description: "Restaurant tools for restaurant profile, menus, food items and order handling." },
+  { value: "ADMIN", label: "Admin", tone: "#7c3aed", description: "Full admin access after account verification." },
+];
+
+const COMMON_FEATURES = ["All Products", "Add Product", "All Orders", "Manage Orders", "All Reviews", "Store Information", "Wallet Transactions", "More Features"];
+const ROLE_FEATURES = {
+  ADMIN: ["Users & Sellers", "Catalog", "Banners", "Go Market", ...COMMON_FEATURES],
+  SELLER: COMMON_FEATURES,
+  GROCERY_SELLER: ["Grocery Shops", "Grocery Products", "Stock & Freshness", ...COMMON_FEATURES],
+  RESTAURANT_SELLER: ["Restaurants", "Menus", "Restaurant Items", "Food Orders", ...COMMON_FEATURES],
+};
+
+const CATEGORY_OPTIONS = {
+  SELLER: [
+    "Electronics", "Fashion & Apparel", "Home & Garden", "Sports & Outdoors",
+    "Beauty & Personal Care", "Books & Stationery", "Food & Beverages",
+    "Toys & Games", "Automotive", "Jewelry & Accessories", "Health & Wellness", "Other"
+  ],
+  GROCERY_SELLER: ["Fresh Fruits & Vegetables", "Dairy & Bakery", "Staples", "Snacks & Beverages", "Personal Care", "Household Essentials", "Organic Grocery", "Other Grocery"],
+  RESTAURANT_SELLER: ["Indian Restaurant", "Fast Food", "Cafe & Bakery", "Cloud Kitchen", "Chinese", "Pizza & Burgers", "Desserts", "Healthy Food", "Other Restaurant"],
+  ADMIN: ["Marketplace Admin", "Operations", "Catalog Management", "Seller Management", "Other"],
+};
+
+const getRoleMeta = (role) => ROLE_OPTIONS.find((item) => item.value === role) || ROLE_OPTIONS[0];
+
 // ─── Strength Meter ───────────────────────────────────────────────────────────
 function PasswordStrength({ password }) {
   const checks = [
@@ -79,7 +107,7 @@ const SellerSignUp = () => {
   const formRef = useRef(null);
 
   const [formFields, setFormFields] = useState({
-    name: "", email: "", mobile: "", password: "", confirmPassword: "",
+    name: "", email: "", mobile: "", password: "", confirmPassword: "", role: "SELLER",
     storeName: "", storeLocation: "", storeContact: "", storeDescription: "", storeCategory: "",
     accountHolderName: "", bankName: "", accountNumber: "", ifscCode: "",
     agreeTerms: false
@@ -96,7 +124,11 @@ const SellerSignUp = () => {
 
   const onChangeInput = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormFields(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+     setFormFields(prev => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+      ...(name === "role" ? { storeCategory: "" } : {}),
+    }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
   };
 
@@ -161,6 +193,7 @@ const SellerSignUp = () => {
         email: formFields.email,
         password: formFields.password,
         mobile: formFields.mobile,
+        role: formFields.role,
         storeName: formFields.storeName,
         storeLocation: formFields.storeLocation,
         storeContact: formFields.storeContact || formFields.mobile,
@@ -207,11 +240,8 @@ const SellerSignUp = () => {
     cursor: "pointer"
   });
 
-  const CATEGORIES = [
-    "Electronics", "Fashion & Apparel", "Home & Garden", "Sports & Outdoors",
-    "Beauty & Personal Care", "Books & Stationery", "Food & Beverages",
-    "Toys & Games", "Automotive", "Jewelry & Accessories", "Health & Wellness", "Other"
-  ];
+  const selectedRole = getRoleMeta(formFields.role);
+  const CATEGORIES = CATEGORY_OPTIONS[formFields.role] || CATEGORY_OPTIONS.SELLER;
 
   // ─── Review row ──────────────────────────────────────────────────────────────
   const ReviewRow = ({ label, value }) => value ? (
@@ -373,6 +403,22 @@ const SellerSignUp = () => {
             {/* ── STEP 1: PERSONAL ─────────────────────────────────────── */}
             {step === 1 && (
               <>
+                 <Field label="Account Role" icon={FaShieldAlt} error={touched.role && errors.role} hint={selectedRole.description}>
+                  <select name="role" value={formFields.role}
+                    onChange={onChangeInput} onBlur={onBlur} style={selectStyle("role")}>
+                    {ROLE_OPTIONS.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
+                  </select>
+                </Field>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "-4px 0 18px" }}>
+                  {(ROLE_FEATURES[formFields.role] || COMMON_FEATURES).map(feature => (
+                    <span key={feature} style={{
+                      fontSize: 11, fontWeight: 700, color: selectedRole.tone,
+                      background: `${selectedRole.tone}12`, border: `1px solid ${selectedRole.tone}25`,
+                      borderRadius: 999, padding: "5px 9px", fontFamily: "'Space Mono', monospace"
+                    }}>{feature}</span>
+                  ))}
+                </div>
                 <Field label="Full Name" icon={FaUser} error={touched.name && errors.name}>
                   <input type="text" name="name" placeholder="John Doe" value={formFields.name}
                     onChange={onChangeInput} onBlur={onBlur} style={inputStyle("name")} />
@@ -431,7 +477,7 @@ const SellerSignUp = () => {
                 <Field label="Business Category" icon={FaFileAlt} error={touched.storeCategory && errors.storeCategory}>
                   <select name="storeCategory" value={formFields.storeCategory}
                     onChange={onChangeInput} onBlur={onBlur} style={selectStyle("storeCategory")}>
-                    <option value="">Select a category…</option>
+                    <option value="">Select {selectedRole.label.toLowerCase()} category…</option>
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </Field>
@@ -502,6 +548,7 @@ const SellerSignUp = () => {
                     <span style={{ fontSize: 11, fontWeight: 700, color: "#6ee7b7", fontFamily: "'Space Mono', monospace", letterSpacing: "0.08em" }}>PERSONAL</span>
                   </div>
                   <div style={{ background: "#f9fafb", border: "1px solid rgba(0,0,0,0.06)", borderRadius: 10, padding: "0 14px" }}>
+                    <ReviewRow label="Role" value={selectedRole.label} />
                     <ReviewRow label="Name" value={formFields.name} />
                     <ReviewRow label="Email" value={formFields.email} />
                     <ReviewRow label="Mobile" value={formFields.mobile || "—"} />
@@ -519,6 +566,7 @@ const SellerSignUp = () => {
                     <ReviewRow label="Category" value={formFields.storeCategory} />
                     <ReviewRow label="Location" value={formFields.storeLocation || "—"} />
                     <ReviewRow label="Contact" value={formFields.storeContact || "—"} />
+                    <ReviewRow label="Enabled Features" value={(ROLE_FEATURES[formFields.role] || COMMON_FEATURES).join(", ")} />
                     {formFields.storeDescription && <ReviewRow label="Description" value={formFields.storeDescription} />}
                   </div>
                 </div>

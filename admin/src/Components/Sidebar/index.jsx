@@ -22,6 +22,15 @@ import {
 import { MyContext } from "../../App";
 import { fetchDataFromApi } from "../../utils/api";
 
+const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
+const isSellerRole = (role) => SELLER_ROLES.includes(role);
+const roleLabels = {
+  ADMIN: '🛡️ Admin Panel',
+  SELLER: '🏪 Seller Panel',
+  GROCERY_SELLER: '🛒 Grocery Seller Panel',
+  RESTAURANT_SELLER: '🍽️ Restaurant Seller Panel',
+};
+
 const Sidebar = () => {
   const context = useContext(MyContext);
   const navigate = useNavigate();
@@ -29,7 +38,10 @@ const Sidebar = () => {
 
   const userRole = context?.userData?.role || "USER";
   const isAdmin = userRole === "ADMIN";
-  const isSeller = userRole === "SELLER";
+  const isSeller = isSellerRole(userRole);
+  const isGrocerySeller = userRole === "GROCERY_SELLER";
+  const isRestaurantSeller = userRole === "RESTAURANT_SELLER";
+  const isGeneralSeller = userRole === "SELLER";
 
   const [openGroups, setOpenGroups] = useState({ catalog: false, media: false, banners: false, goMarket: false });
   const toggleGroup = (key) => setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -129,7 +141,7 @@ const Sidebar = () => {
           <div className="mx-3 my-2 px-3 py-2.5 bg-gradient-to-r from-[#eef2ff] to-[#f0f9ff] rounded-xl border border-[#e0e7ff] hover:shadow-sm transition-all flex-shrink-0">
             <p className="text-[10px] uppercase tracking-widest text-[#6366f1] font-[600]">Signed in as</p>
             <p className="text-[13px] font-[700] text-[#1e293b] mt-0.5">
-              {isAdmin ? "🛡️ Admin Panel" : isSeller ? "🏪 Seller Panel" : "👤 Control Panel"}
+               {roleLabels[userRole] || "👤 Control Panel"}
             </p>
           </div>
         </Link>
@@ -195,11 +207,11 @@ const Sidebar = () => {
             <>
               <GroupLabel label="My Store" />
               <CollapseGroup groupKey="goMarket" icon={IoStorefrontOutline} label="Go Market">
-                <SubItem to="/go-market/grocery-shops" label="My Grocery Shops" />
-                <SubItem to="/go-market/restaurants" label="My Restaurants" />
-                <SubItem to="/go-market/products" label="Grocery Products" />
-                <SubItem to="/go-market/menus" label="Menus" />
-                <SubItem to="/go-market/items" label="Restaurant Items" />
+                 {(isGeneralSeller || isGrocerySeller) && <SubItem to="/go-market/grocery-shops" label="My Grocery Shops" />}
+                {(isGeneralSeller || isGrocerySeller) && <SubItem to="/go-market/products" label="Grocery Products" />}
+                {(isGeneralSeller || isRestaurantSeller) && <SubItem to="/go-market/restaurants" label="My Restaurants" />}
+                {(isGeneralSeller || isRestaurantSeller) && <SubItem to="/go-market/menus" label="Menus" />}
+                {(isGeneralSeller || isRestaurantSeller) && <SubItem to="/go-market/items" label="Restaurant Items" />}
               </CollapseGroup>
               <NavItem to="/seller/store-profile" icon={IoStorefrontOutline} label="Store Profile" />
               <NavItem to="/wallet/transactions" icon={IoWalletOutline} label="Wallet & Transactions" />

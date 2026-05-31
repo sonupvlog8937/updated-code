@@ -38,6 +38,9 @@ import BannersHub from "./Pages/BannersHub";
 import CouponsPage from "./Pages/Coupons";
 import GoMarketAdminPage from "./Pages/GoMarket";
 
+const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
+const isSellerRole = (role) => SELLER_ROLES.includes(role);
+
 const MyContext = createContext();
 
 /* ══════════════════════════════════════════
@@ -381,7 +384,7 @@ function App() {
   const isSellerPending = (
     userData !== null &&
     userData?.role !== 'ADMIN' &&
-    userData?.role !== 'SELLER'
+    !isSellerRole(userData?.role)
   );
 
   /* ── Router ── */

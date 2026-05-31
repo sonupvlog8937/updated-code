@@ -14,6 +14,15 @@ import fs from 'fs';
 import ReviewModel from '../models/reviews.model.js';
 import ProductModel from '../models/product.modal.js';
 
+const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
+const ALL_PANEL_ROLES = ['ADMIN', 'USER', ...SELLER_ROLES];
+const isSellerRole = (role) => SELLER_ROLES.includes(role);
+const normalizePanelRole = (role, fallback = 'SELLER') => {
+    const normalized = String(role || fallback).trim().toUpperCase();
+    return ALL_PANEL_ROLES.includes(normalized) ? normalized : fallback;
+};
+
+
 cloudinary.config({
     cloud_name: process.env.cloudinary_Config_Cloud_Name,
     api_key: process.env.cloudinary_Config_api_key,
@@ -529,7 +538,7 @@ export async function verifyPhoneLoginOtpController(request, response) {
 
 export async function createSellerByAdminController(request, response) {
     try {
-        const { name, email, password, mobile } = request.body;
+        const { name, email, password, mobile, role } = request.body;
 
         if (!name || !email || !password) {
             return response.status(400).json({
@@ -550,13 +559,14 @@ export async function createSellerByAdminController(request, response) {
 
         const salt = await bcryptjs.genSalt(10);
         const hashPassword = await bcryptjs.hash(password, salt);
+        const sellerRole = normalizePanelRole(role, 'SELLER');
 
         const seller = await UserModel.create({
             name,
             email,
             mobile: mobile || null,
             password: hashPassword,
-            role: "SELLER",
+            role: sellerRole,
             verify_email: true,
             status: "Active",
         });
@@ -590,7 +600,7 @@ export async function updateUserAccessByAdminController(request, response) {
 
         const payload = {};
         if (status) payload.status = status;
-        if (role) payload.role = role;
+         if (role) payload.role = normalizePanelRole(role, 'USER');
 
         if (!Object.keys(payload).length) {
             return response.status(400).json({
@@ -1069,7 +1079,7 @@ export async function getAllReviews(request, response) {
         let reviewFilter = {};
         let productMeta = [];
 
-        if (request.currentUser?.role === 'SELLER') {
+        if (isSellerRole(request.currentUser?.role)) {
             productMeta = await ProductModel.find({ seller: request.userId })
                 .select('_id name images')
                 .lean();
@@ -1096,7 +1106,7 @@ export async function getAllReviews(request, response) {
             .lean();
 
         const reviewProductIds = [...new Set(reviews.map((item) => item.productId).filter(Boolean))];
-        if (request.currentUser?.role !== 'SELLER' && reviewProductIds.length > 0) {
+        if (!isSellerRole(request.currentUser?.role) && reviewProductIds.length > 0) {
             productMeta = await ProductModel.find({ _id: { $in: reviewProductIds } })
                 .select('_id name images seller')
                 .lean();
@@ -1175,7 +1185,7 @@ export async function getSellerStoreProfile(request, response) {
         const sellerId = request.params.sellerId || request.userId;
         const seller = await UserModel.findById(sellerId).select("name email role storeProfile bankDetails status");
 
-        if (!seller || seller.role !== "SELLER") {
+        if (!seller || !isSellerRole(seller.role)) {
             return response.status(404).json({ error: true, success: false, message: "Seller not found" });
         }
 
@@ -1248,7 +1258,7 @@ export async function approveWalletRequest(request, response) {
         }
 
         const seller = await UserModel.findById(sellerId);
-        if (!seller || seller.role !== "SELLER") {
+        if (!seller || !isSellerRole(seller.role)) {
             return response.status(404).json({ error: true, success: false, message: "Seller not found" });
         }
 
@@ -1417,8 +1427,8 @@ export async function deleteMultiple(request, response) {
 export async function registerSellerController(request, response) {
     try {
         const { 
-            name, email, password, mobile, 
-            storeName, storeLocation, storeContact, storeDescription,
+            name, email, password, mobile, role,
+            storeName, storeLocation, storeContact, storeDescription, storeCategory,
             accountHolderName, bankName, accountNumber, ifscCode 
         } = request.body;
 
@@ -1466,7 +1476,7 @@ export async function registerSellerController(request, response) {
             password: hashPassword,
             name,
             mobile,
-            role: 'USER', // Hardcode role for this specific route
+            role: normalizePanelRole(role, 'SELLER'),
             otp: verifyCode,
             otpExpires: Date.now() + 10 * 60 * 1000,
             verify_email: false,
@@ -1474,7 +1484,8 @@ export async function registerSellerController(request, response) {
                 storeName: storeName || "",
                 location: storeLocation || "",
                 contactNo: storeContact || mobile || "",
-                description: storeDescription || ""
+                description: storeDescription || "",
+                category: storeCategory || ""
             },
             bankDetails: {
                 accountHolderName: accountHolderName || "",

@@ -11,6 +11,9 @@ import 'react-international-phone/style.css';
 import { Collapse } from "react-collapse";
 import Radio from '@mui/material/Radio';
 
+const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER"];
+const isSellerRole = (role) => SELLER_ROLES.includes(role);
+
 const label = { inputProps: { 'aria-label': 'Checkbox demo' } };
 
 
@@ -252,7 +255,7 @@ const Profile = () => {
     }
 
     useEffect(() => {
-        if (context?.userData?.role === "SELLER") {
+         if (isSellerRole(context?.userData?.role)) {
             fetchDataFromApi('/api/user/seller/store-profile').then((res) => {
                 if (res?.success && res?.seller?.storeProfile) {
                     setStoreProfile((prev) => ({ ...prev, ...res.seller.storeProfile }));
@@ -391,7 +394,7 @@ const Profile = () => {
 
             </div>
 
-             {context?.userData?.role === "SELLER" && (
+             {isSellerRole(context?.userData?.role) && (
                 <div className="card my-2 pt-3 w-[100%] sm:w-[100%] lg:w-[65%] shadow-md sm:rounded-lg bg-white px-5 pb-5">
                     <h2 className="text-[18px] font-[600] mb-4">Store Information</h2>
                     <form onSubmit={submitStoreProfile} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
