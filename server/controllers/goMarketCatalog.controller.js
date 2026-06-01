@@ -1,0 +1,611 @@
+import Market from "../models/market.model.js";
+import GroceryShop from "../models/groceryShop.model.js";
+import Restaurant from "../models/restaurant.model.js";
+import GroceryProduct from "../models/groceryProduct.model.js";
+import RestaurantItem from "../models/restaurantItem.model.js";
+import GoMarketCategory from "../models/goMarketCategory.model.js";
+import GoMarketSubCategory from "../models/goMarketSubCategory.model.js";
+import ReviewModel from "../models/reviews.model.js";
+import { buildQuery, isObjectId, paginate } from "../services/goMarket.service.js";
+import {
+  OUTLET_TARGET,
+  enrichOutletWithReviews,
+} from "../services/goMarketReview.service.js";
+import { displayProductTitle, mergeSpecifications } from "../utils/productSpecs.js";
+import { apiBaseFromRequest, resolveMediaUrl } from "../utils/resolveMediaUrl.js";
+import { buildProductOptionsFromSpecs } from "../utils/productOptions.js";
+import { rankSuggestions } from "../utils/searchSuggest.js";
+
+const ok = (res, body) => res.json({ error: false, success: true, ...body });
+
+// Fallback images when shops don't have banners/logos
+const GROCERY_BANNER_FALLBACK = "https://placehold.co/800x160/e8f5e9/2e7d32?text=Grocery+Shop";
+const RESTAURANT_BANNER_FALLBACK = "https://placehold.co/800x160/fff3e0/e65100?text=Restaurant";
+const LOGO_FALLBACK = "https://placehold.co/120x120/f5f5f5/9e9e9e?text=Store+Logo";
+
+const mapProductRow = (p, baseUrl) => {
+  const selling = p.discountPrice > 0 ? p.discountPrice : p.price;
+  return {
+    ...p,
+    image: resolveMediaUrl(p.image, baseUrl),
+    price: selling,
+    discountPrice: p.discountPrice,
+    mrp: p.price,
+    rating: p.rating || 0,
+  };
+};
+
+const sortForCatalogTab = (tab) => {
+  const t = String(tab || "featured").toLowerCase();
+  if (t === "latest") return "-createdAt";
+  if (t === "popular") return "-stock";
+  return { discountPrice: -1, createdAt: -1 };
+};
+
+const buildGroceryCatalogFilter = async (req, shopId) => {
+  const filter = buildQuery({ ...req.query, shopId }, ["name", "description", "title"]);
+  if (req.query.inStock === "true") filter.stock = { $gt: 0 };
+  if (req.query.categoryId && isObjectId(req.query.categoryId)) filter.categoryId = req.query.categoryId;
+  if (req.query.subCategoryId && isObjectId(req.query.subCategoryId)) filter.subCategoryId = req.query.subCategoryId;
+
+  const minPrice = Number(req.query.minPrice || 0);
+  const maxPrice = Number(req.query.maxPrice || 0);
+  if (minPrice > 0 || maxPrice > 0) {
+    filter.price = { ...(filter.price || {}) };
+    if (minPrice > 0) filter.price.$gte = minPrice;
+    if (maxPrice > 0) filter.price.$lte = maxPrice;
+  }
+
+  const minRating = Number(req.query.minRating || 0);
+  if (minRating > 0) {
+    const rated = await ReviewModel.aggregate([
+      { $match: { productId: { $exists: true, $ne: "" } } },
+      { $group: { _id: "$productId", avg: { $avg: { $toDouble: "$rating" } } } },
+      { $match: { avg: { $gte: minRating } } },
+    ]);
+    const ids = rated.map((r) => r._id).filter((id) => isObjectId(id));
+    filter._id = ids.length ? { $in: ids } : { $in: [] };
+  }
+
+  return filter;
+};
+
+const buildShopFilterMeta = async (shopId) => {
+  const rows = await GroceryProduct.find({ shopId })
+    .select("price categoryId subCategoryId")
+    .populate("categoryId subCategoryId")
+    .lean();
+
+  const catMap = new Map();
+  const subMap = new Map();
+  let minPrice = null;
+  let maxPrice = null;
+
+  for (const row of rows) {
+    const price = Number(row.price || 0);
+    if (price > 0) {
+      minPrice = minPrice === null ? price : Math.min(minPrice, price);
+      maxPrice = maxPrice === null ? price : Math.max(maxPrice, price);
+    }
+    if (row.categoryId?._id) {
+      catMap.set(String(row.categoryId._id), {
+        _id: row.categoryId._id,
+        name: row.categoryId.name,
+      });
+    }
+    if (row.subCategoryId?._id) {
+      subMap.set(String(row.subCategoryId._id), {
+        _id: row.subCategoryId._id,
+        name: row.subCategoryId.name,
+        parentId: row.subCategoryId.parentId,
+      });
+    }
+  }
+
+  return {
+    categories: [...catMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    subCategories: [...subMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    priceRange: { min: minPrice ?? 0, max: maxPrice ?? 0 },
+    ratingOptions: [4, 3, 2],
+  };
+};
+const sendError = (res, error, status = 500) =>
+  res.status(status).json({ error: true, success: false, message: error.message || error });
+
+const resolveOutletSort = (sortKey) => {
+  const map = {
+    rating: (a, b) => (b.rating || 0) - (a.rating || 0),
+    rating_asc: (a, b) => (a.rating || 0) - (b.rating || 0),
+    name: (a, b) => String(a.displayName).localeCompare(String(b.displayName)),
+    name_desc: (a, b) => String(b.displayName).localeCompare(String(a.displayName)),
+    followers: (a, b) => (b.followerCount || 0) - (a.followerCount || 0),
+    newest: (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+  };
+  return map[sortKey] || map.rating;
+};
+
+const mapGroceryOutlet = (shop, userId = null, baseUrl = "") => {
+  const followers = Array.isArray(shop.followers) ? shop.followers : [];
+  
+  // Use fallback images if empty
+  const bannerUrl = shop.shopBanner?.trim() ? resolveMediaUrl(shop.shopBanner, baseUrl) : GROCERY_BANNER_FALLBACK;
+  const logoUrl = shop.shopLogo?.trim() ? resolveMediaUrl(shop.shopLogo, baseUrl) : LOGO_FALLBACK;
+  
+  return {
+    _id: shop._id,
+    outletType: "grocery",
+    displayName: shop.shopName,
+    name: shop.shopName,
+    banner: bannerUrl,
+    logo: logoUrl,
+    address: shop.address,
+    rating: shop.rating || 0,
+    reviewCount: shop.reviewCount ?? shop.totalReviews ?? 0,
+    followerCount: followers.length,
+    isFollowing: userId
+      ? followers.some((f) => String(f?._id || f) === String(userId))
+      : false,
+    isOpen: shop.isOpen !== false,
+    totalProducts: shop.totalProducts || 0,
+    meta: `${shop.totalProducts || 0} products`,
+    createdAt: shop.createdAt,
+  };
+};
+
+const mapRestaurantOutlet = (r, userId = null, baseUrl = "") => {
+  const followers = Array.isArray(r.followers) ? r.followers : [];
+  
+  // Use fallback images if empty
+  const bannerUrl = r.restaurantBanner?.trim() ? resolveMediaUrl(r.restaurantBanner, baseUrl) : RESTAURANT_BANNER_FALLBACK;
+  const logoUrl = r.restaurantLogo?.trim() ? resolveMediaUrl(r.restaurantLogo, baseUrl) : LOGO_FALLBACK;
+  
+  return {
+    _id: r._id,
+    outletType: "restaurant",
+    displayName: r.restaurantName,
+    name: r.restaurantName,
+    banner: bannerUrl,
+    logo: logoUrl,
+    address: r.address,
+    rating: r.rating || 0,
+    reviewCount: r.reviewCount ?? r.totalReviews ?? 0,
+    followerCount: followers.length,
+    isFollowing: userId
+      ? followers.some((f) => String(f?._id || f) === String(userId))
+      : false,
+    isOpen: r.isOpen !== false,
+    totalProducts: r.totalItems || 0,
+    meta: `${r.totalMenus || 0} menus · ${r.totalItems || 0} dishes`,
+    createdAt: r.createdAt,
+  };
+};
+
+export const listMarketOutlets = async (req, res) => {
+  try {
+    const { marketId } = req.params;
+    if (!isObjectId(marketId)) return sendError(res, "Invalid market id", 400);
+
+    const market = await Market.findOne({ _id: marketId, status: "active" }).lean();
+    if (!market) return sendError(res, "No Market Available", 404);
+
+    const type = String(req.query.type || "all").toLowerCase();
+    const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || "12", 10), 1), 48);
+    const search = String(req.query.search || req.query.q || "").trim().toLowerCase();
+    const minRating = Number(req.query.minRating || 0);
+    const openOnly = req.query.openOnly === "true" || req.query.isOpen === "true";
+
+    let outlets = [];
+
+    const userId = req.userId || null;
+    const baseUrl = apiBaseFromRequest(req);
+
+    if (type === "all" || type === "grocery") {
+      const groceryFilter = { marketId };
+      if (openOnly) groceryFilter.isOpen = true;
+      const shops = await GroceryShop.find(groceryFilter).populate("ownerId").lean();
+      outlets.push(...shops.map((s) => mapGroceryOutlet(s, userId, baseUrl)));
+    }
+
+    if (type === "all" || type === "restaurant" || type === "restaurants") {
+      const restFilter = { marketId };
+      if (openOnly) restFilter.isOpen = true;
+      const restaurants = await Restaurant.find(restFilter).populate("ownerId").lean();
+      outlets.push(...restaurants.map((r) => mapRestaurantOutlet(r, userId, baseUrl)));
+    }
+
+    if (search) {
+      outlets = outlets.filter(
+        (o) =>
+          o.displayName?.toLowerCase().includes(search) ||
+          o.address?.toLowerCase().includes(search),
+      );
+    }
+    if (minRating > 0) outlets = outlets.filter((o) => (o.rating || 0) >= minRating);
+
+    const outletIds = outlets.map((o) => String(o._id));
+    if (outletIds.length) {
+      const reviewCounts = await ReviewModel.aggregate([
+        {
+          $match: {
+            outletId: { $in: outletIds },
+            targetType: { $in: [OUTLET_TARGET.GROCERY, OUTLET_TARGET.RESTAURANT] },
+          },
+        },
+        { $group: { _id: "$outletId", count: { $sum: 1 } } },
+      ]);
+      const countMap = Object.fromEntries(reviewCounts.map((r) => [r._id, r.count]));
+      outlets = outlets.map((o) => ({
+        ...o,
+        reviewCount: countMap[String(o._id)] ?? o.reviewCount ?? 0,
+      }));
+    }
+
+    outlets.sort(resolveOutletSort(req.query.sort || "rating"));
+
+    const total = outlets.length;
+    const start = (page - 1) * limit;
+    const data = outlets.slice(start, start + limit);
+
+    const marketOut = market
+      ? { ...market, banner: resolveMediaUrl(market.banner, baseUrl) }
+      : market;
+
+    ok(res, {
+      market: marketOut,
+      data,
+      counts: {
+        grocery: type === "restaurant" || type === "restaurants" ? 0 : await GroceryShop.countDocuments({ marketId }),
+        restaurant: type === "grocery" ? 0 : await Restaurant.countDocuments({ marketId }),
+        total: outlets.length,
+      },
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+const productSort = (query) => {
+  const map = {
+    price_asc: "price",
+    price: "price",
+    price_desc: "-price",
+    name: "name",
+    name_desc: "-name",
+    stock: "-stock",
+    newest: "-createdAt",
+  };
+  return map[query.sort] || query.sort || "-createdAt";
+};
+
+const itemSort = (query) => {
+  const map = {
+    price_asc: "price",
+    price: "price",
+    price_desc: "-price",
+    name: "itemName",
+    name_desc: "-itemName",
+    newest: "-createdAt",
+  };
+  return map[query.sort] || query.sort || "-createdAt";
+};
+
+export const listShopProductsCatalog = async (req, res) => {
+  try {
+    const { shopId } = req.params;
+    if (!isObjectId(shopId)) return sendError(res, "Invalid shop id", 400);
+
+    const baseUrl = apiBaseFromRequest(req);
+    const shopDoc = await GroceryShop.findById(shopId).populate("marketId ownerId").lean();
+    if (!shopDoc) return sendError(res, "Grocery shop not found", 404);
+    const shopRaw = await enrichOutletWithReviews(shopDoc, OUTLET_TARGET.GROCERY, req.userId);
+    const shop = {
+      ...shopRaw,
+      shopBanner: shopRaw.shopBanner?.trim() ? resolveMediaUrl(shopRaw.shopBanner, baseUrl) : GROCERY_BANNER_FALLBACK,
+      shopLogo: shopRaw.shopLogo?.trim() ? resolveMediaUrl(shopRaw.shopLogo, baseUrl) : LOGO_FALLBACK,
+    };
+
+    const filter = await buildGroceryCatalogFilter(req, shopId);
+    const tab = String(req.query.tab || "featured").toLowerCase();
+    const sort = req.query.sort ? productSort(req.query) : sortForCatalogTab(tab);
+    const result = await paginate(GroceryProduct, filter, { ...req.query, sort }, "categoryId subCategoryId");
+    const filterMeta = await buildShopFilterMeta(shopId);
+
+    ok(res, {
+      shop,
+      tab,
+      filterMeta,
+      data: (result.data || []).map((p) => mapProductRow(p, baseUrl)),
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const shopProductSearchSuggestions = async (req, res) => {
+  try {
+    const { shopId } = req.params;
+    if (!isObjectId(shopId)) return sendError(res, "Invalid shop id", 400);
+
+    const q = String(req.query.q || req.query.search || "").trim();
+    if (!q) return ok(res, { suggestions: [] });
+
+    const products = await GroceryProduct.find({ shopId })
+      .select("name title")
+      .limit(200)
+      .lean();
+
+    const suggestions = rankSuggestions(q, products, {
+      limit: 8,
+      getLabel: (p) => displayProductTitle(p, p.name),
+    }).map((p) => ({
+      _id: p._id,
+      label: displayProductTitle(p, p.name),
+      type: "product",
+    }));
+
+    ok(res, { suggestions });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const searchShopProducts = async (req, res) => {
+  try {
+    const { shopId } = req.params;
+    if (!isObjectId(shopId)) return sendError(res, "Invalid shop id", 400);
+
+    const baseUrl = apiBaseFromRequest(req);
+    const shopDoc = await GroceryShop.findById(shopId).populate("marketId ownerId").lean();
+    if (!shopDoc) return sendError(res, "Grocery shop not found", 404);
+    const shopRaw = await enrichOutletWithReviews(shopDoc, OUTLET_TARGET.GROCERY, req.userId);
+    const shop = {
+      ...shopRaw,
+      shopBanner: shopRaw.shopBanner?.trim() ? resolveMediaUrl(shopRaw.shopBanner, baseUrl) : GROCERY_BANNER_FALLBACK,
+      shopLogo: shopRaw.shopLogo?.trim() ? resolveMediaUrl(shopRaw.shopLogo, baseUrl) : LOGO_FALLBACK,
+    };
+
+    const filter = await buildGroceryCatalogFilter(req, shopId);
+    const sort = productSort(req.query);
+    const result = await paginate(GroceryProduct, filter, { ...req.query, sort }, "categoryId subCategoryId");
+    const filterMeta = await buildShopFilterMeta(shopId);
+    const queryLabel = String(req.query.q || req.query.search || "").trim();
+
+    ok(res, {
+      shop,
+      query: queryLabel,
+      filterMeta,
+      data: (result.data || []).map((p) => mapProductRow(p, baseUrl)),
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const listRestaurantItemsCatalog = async (req, res) => {
+  try {
+    const { restaurantId } = req.params;
+    if (!isObjectId(restaurantId)) return sendError(res, "Invalid restaurant id", 400);
+
+    const restaurantDoc = await Restaurant.findById(restaurantId).populate("marketId ownerId").lean();
+    if (!restaurantDoc) return sendError(res, "Restaurant not found", 404);
+    const restaurant = await enrichOutletWithReviews(
+      restaurantDoc,
+      OUTLET_TARGET.RESTAURANT,
+      req.userId,
+    );
+
+    const filter = buildQuery({ ...req.query, restaurantId }, ["itemName", "description"]);
+    if (req.query.availableOnly === "true" || req.query.inStock === "true") {
+      filter.isAvailable = { $ne: false };
+    }
+    if (req.query.minPrice) filter.price = { ...(filter.price || {}), $gte: Number(req.query.minPrice) };
+    if (req.query.maxPrice) filter.price = { ...(filter.price || {}), $lte: Number(req.query.maxPrice) };
+
+    const sort = itemSort(req.query);
+    const result = await paginate(RestaurantItem, filter, { ...req.query, sort }, "categoryId subCategoryId menuId");
+
+    ok(res, { restaurant, ...result });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+const reviewStats = async (productId) => {
+  const [totalReviews, statsAgg] = await Promise.all([
+    ReviewModel.countDocuments({ productId: String(productId) }),
+    ReviewModel.aggregate([
+      { $match: { productId: String(productId) } },
+      {
+        $group: {
+          _id: null,
+          sum: { $sum: { $toDouble: "$rating" } },
+          count: { $sum: 1 },
+        },
+      },
+    ]),
+  ]);
+  const s = statsAgg[0];
+  const averageRating = s?.count
+    ? Number((s.sum / s.count).toFixed(1))
+    : 0;
+  return { averageRating, totalReviews };
+};
+
+const buildSpecs = (entity, category, subCategory, extra = []) =>
+  mergeSpecifications(entity.specifications, [
+    category?.name ? { key: "Category", value: category.name } : null,
+    subCategory?.name ? { key: "Sub category", value: subCategory.name } : null,
+    ...extra,
+  ]);
+
+export const getGroceryProductStorefront = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isObjectId(id)) return sendError(res, "Invalid product id", 400);
+
+    const baseUrl = apiBaseFromRequest(req);
+    const product = await GroceryProduct.findById(id)
+      .populate("categoryId subCategoryId")
+      .lean();
+    if (!product) return sendError(res, "Product not found", 404);
+
+    const shop = await GroceryShop.findById(product.shopId).populate("marketId").lean();
+    const { averageRating, totalReviews } = await reviewStats(id);
+    const displayName = displayProductTitle(product, product.name);
+
+    const relatedPage = Math.max(parseInt(req.query.relatedPage || "1", 10), 1);
+    const relatedLimit = Math.min(Math.max(parseInt(req.query.relatedLimit || "8", 10), 1), 24);
+    const relatedSkip = (relatedPage - 1) * relatedLimit;
+
+    const relatedFilter = { shopId: product.shopId, _id: { $ne: product._id } };
+    const [related, relatedTotal] = await Promise.all([
+      GroceryProduct.find(relatedFilter)
+        .sort({ createdAt: -1 })
+        .skip(relatedSkip)
+        .limit(relatedLimit)
+        .lean(),
+      GroceryProduct.countDocuments(relatedFilter),
+    ]);
+
+    const sellingPrice = product.discountPrice > 0 ? product.discountPrice : product.price;
+    const discount =
+      product.discountPrice > 0 && product.price > product.discountPrice
+        ? Math.round(((product.price - product.discountPrice) / product.price) * 100)
+        : 0;
+
+    const mergedSpecs = buildSpecs(product, product.categoryId, product.subCategoryId, [
+      { key: "Sold by", value: shop?.shopName },
+      { key: "Delivery area", value: shop?.marketId?.name || shop?.address },
+      { key: "Stock", value: String(product.stock ?? 0) },
+    ]);
+    const { productOptions, displaySpecs } = buildProductOptionsFromSpecs(mergedSpecs);
+    const imageUrl = resolveMediaUrl(product.image, baseUrl);
+
+    ok(res, {
+      kind: "grocery",
+      product: {
+        _id: product._id,
+        name: displayName,
+        title: displayName,
+        internalName: product.name,
+        description: product.description,
+        image: imageUrl,
+        images: imageUrl ? [imageUrl] : [],
+        price: sellingPrice,
+        oldPrice: product.price,
+        mrp: product.price,
+        discount,
+        stock: product.stock,
+        countInStock: product.stock,
+        rating: averageRating || shop?.rating || 0,
+        brand: shop?.shopName,
+        shopId: shop?._id,
+        marketId: shop?.marketId?._id || shop?.marketId,
+        isGoMarket: true,
+        goMarketKind: "grocery",
+        productOptions,
+      },
+      shop: shop
+        ? {
+            ...shop,
+            shopBanner: shop.shopBanner?.trim() ? resolveMediaUrl(shop.shopBanner, baseUrl) : GROCERY_BANNER_FALLBACK,
+            shopLogo: shop.shopLogo?.trim() ? resolveMediaUrl(shop.shopLogo, baseUrl) : LOGO_FALLBACK,
+          }
+        : shop,
+      specifications: displaySpecs,
+      averageRating,
+      totalReviews,
+      related: related.map((p) => ({
+        _id: p._id,
+        name: displayProductTitle(p, p.name),
+        image: resolveMediaUrl(p.image, baseUrl),
+        price: p.discountPrice > 0 ? p.discountPrice : p.price,
+        oldPrice: p.price,
+        stock: p.stock,
+        goMarketKind: "grocery",
+      })),
+      relatedPagination: {
+        page: relatedPage,
+        limit: relatedLimit,
+        total: relatedTotal,
+        totalPages: Math.ceil(relatedTotal / relatedLimit) || 1,
+      },
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+export const getRestaurantItemStorefront = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isObjectId(id)) return sendError(res, "Invalid item id", 400);
+
+    const item = await RestaurantItem.findById(id)
+      .populate("categoryId subCategoryId menuId")
+      .lean();
+    if (!item) return sendError(res, "Item not found", 404);
+
+    const restaurant = await Restaurant.findById(item.restaurantId).populate("marketId").lean();
+    const { averageRating, totalReviews } = await reviewStats(id);
+    const displayName = displayProductTitle(item, item.itemName);
+
+    const related = await RestaurantItem.find({
+      restaurantId: item.restaurantId,
+      _id: { $ne: item._id },
+      isAvailable: { $ne: false },
+    })
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .lean();
+
+    ok(res, {
+      kind: "restaurant",
+      product: {
+        _id: item._id,
+        name: displayName,
+        title: displayName,
+        internalName: item.itemName,
+        description: item.description,
+        image: item.image,
+        images: item.image ? [item.image] : [],
+        price: item.price,
+        oldPrice: item.price,
+        mrp: item.price,
+        discount: 0,
+        stock: item.isAvailable === false ? 0 : 99,
+        countInStock: item.isAvailable === false ? 0 : 99,
+        isAvailable: item.isAvailable !== false,
+        rating: averageRating || restaurant?.rating || 0,
+        brand: restaurant?.restaurantName,
+        restaurantId: restaurant?._id,
+        marketId: restaurant?.marketId?._id || restaurant?.marketId,
+        isGoMarket: true,
+        goMarketKind: "restaurant",
+      },
+      restaurant,
+      specifications: buildSpecs(item, item.categoryId, item.subCategoryId, [
+        { key: "Restaurant", value: restaurant?.restaurantName },
+        item.menuId?.menuName ? { key: "Menu", value: item.menuId.menuName } : null,
+        { key: "Availability", value: item.isAvailable === false ? "Unavailable" : "Available" },
+      ]),
+      averageRating,
+      totalReviews,
+      related: related.map((p) => ({
+        _id: p._id,
+        name: p.itemName,
+        image: p.image,
+        price: p.price,
+        oldPrice: p.price,
+        isAvailable: p.isAvailable !== false,
+        goMarketKind: "restaurant",
+      })),
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+};

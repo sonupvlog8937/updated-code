@@ -7,6 +7,8 @@ import {
   deleteResource,
   followRestaurant,
   followShop,
+  unfollowRestaurant,
+  unfollowShop,
   getGroceryShopDetail,
   getMarketDetail,
   getResource,
@@ -15,27 +17,66 @@ import {
   nearbyMarkets,
   searchMarkets,
   updateResource,
+  setPreferredMarket,
 } from "../controllers/goMarket.controller.js";
+import {
+  getGroceryProductStorefront,
+  getRestaurantItemStorefront,
+  listMarketOutlets,
+  listRestaurantItemsCatalog,
+  listShopProductsCatalog,
+  searchShopProducts,
+  shopProductSearchSuggestions,
+} from "../controllers/goMarketCatalog.controller.js";
+import {
+  addGroceryShopReview,
+  addRestaurantReview,
+  getGroceryShopReviews,
+  getRestaurantReviews,
+} from "../controllers/goMarketReview.controller.js";
 
 const router = express.Router();
 const canManage = [auth, authorizeRole("ADMIN", "SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER")];
-const crud = (path, key, detailHandler = null) => {
+const adminOnly = [auth, authorizeRole("ADMIN")];
+
+const crud = (path, key, detailHandler = null, writeMiddleware = canManage) => {
   router.get(path, optionalAuth, listResource(key));
-  router.post(path, ...canManage, createResource(key));
+  router.post(path, ...writeMiddleware, createResource(key));
   router.get(`${path}/:id`, detailHandler || getResource(key));
-  router.put(`${path}/:id`, ...canManage, updateResource(key));
-  router.delete(`${path}/:id`, ...canManage, deleteResource(key));
+  router.put(`${path}/:id`, ...writeMiddleware, updateResource(key));
+  router.delete(`${path}/:id`, ...writeMiddleware, deleteResource(key));
 };
 
 router.get("/markets/search", searchMarkets);
 router.get("/markets/nearby", nearbyMarkets);
+router.get("/markets/:marketId/outlets", optionalAuth, listMarketOutlets);
+router.get("/grocery-shops/:shopId/catalog", optionalAuth, listShopProductsCatalog);
+router.get("/grocery-shops/:shopId/search", optionalAuth, searchShopProducts);
+router.get("/grocery-shops/:shopId/search-suggestions", optionalAuth, shopProductSearchSuggestions);
+router.get("/grocery-shops/:shopId/reviews", optionalAuth, getGroceryShopReviews);
+router.post("/grocery-shops/:shopId/reviews", auth, addGroceryShopReview);
+router.get("/restaurants/:restaurantId/catalog", optionalAuth, listRestaurantItemsCatalog);
+router.get("/restaurants/:restaurantId/reviews", optionalAuth, getRestaurantReviews);
+router.post("/restaurants/:restaurantId/reviews", auth, addRestaurantReview);
+router.get("/catalog/grocery-product/:id", optionalAuth, getGroceryProductStorefront);
+router.get("/catalog/restaurant-item/:id", optionalAuth, getRestaurantItemStorefront);
 crud("/markets", "markets", getMarketDetail);
 crud("/owners", "owners");
-crud("/grocery-shops", "grocery-shops", getGroceryShopDetail);
-crud("/restaurants", "restaurants", getRestaurantDetail);
+router.get("/grocery-shops/:id", optionalAuth, getGroceryShopDetail);
+router.get("/restaurants/:id", optionalAuth, getRestaurantDetail);
+router.get("/grocery-shops", optionalAuth, listResource("grocery-shops"));
+router.post("/grocery-shops", ...canManage, createResource("grocery-shops"));
+router.put("/grocery-shops/:id", ...canManage, updateResource("grocery-shops"));
+router.delete("/grocery-shops/:id", ...canManage, deleteResource("grocery-shops"));
+router.get("/restaurants", optionalAuth, listResource("restaurants"));
+router.post("/restaurants", ...canManage, createResource("restaurants"));
+router.put("/restaurants/:id", ...canManage, updateResource("restaurants"));
+router.delete("/restaurants/:id", ...canManage, deleteResource("restaurants"));
 crud("/products", "products");
 crud("/menus", "menus");
 crud("/items", "items");
+crud("/categories", "categories", null, adminOnly);
+crud("/subcategories", "subcategories", null, adminOnly);
 
 router.get("/products/shop/:shopId", (req, res, next) => {
   req.query.shopId = req.params.shopId;
@@ -51,6 +92,70 @@ router.get("/items/menu/:menuId", (req, res, next) => {
 });
 
 router.post("/follow-shop", auth, followShop);
+router.post("/unfollow-shop", auth, unfollowShop);
 router.post("/follow-restaurant", auth, followRestaurant);
+router.post("/unfollow-restaurant", auth, unfollowRestaurant);
+router.post("/set-preferred-market", auth, setPreferredMarket);
+
+// ─── Seller GoMarket Shop Profile ─────────────────────────────────────────
+router.get("/seller/grocery-shop", auth, authorizeRole("GROCERY_SELLER"), async (req, res) => {
+  try {
+    const GroceryShop = (await import("../models/groceryShop.model.js")).default;
+    const shop = await GroceryShop.findOne({ ownerId: req.userId }).lean();
+    if (!shop) return res.json({ success: false, message: "Shop not found" });
+    res.json({ success: true, shop });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.put("/seller/grocery-shop", auth, authorizeRole("GROCERY_SELLER"), async (req, res) => {
+  try {
+    const GroceryShop = (await import("../models/groceryShop.model.js")).default;
+    const { shopName, shopBanner, shopLogo, address, description } = req.body;
+    const shop = await GroceryShop.findOneAndUpdate(
+      { ownerId: req.userId },
+      { shopName, shopBanner, shopLogo, address, description },
+      { new: true, lean: true }
+    );
+    if (!shop) return res.json({ success: false, message: "Shop not found" });
+    res.json({ success: true, message: "Shop updated successfully", shop });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get("/seller/restaurant", auth, authorizeRole("RESTAURANT_SELLER"), async (req, res) => {
+  try {
+    const Restaurant = (await import("../models/restaurant.model.js")).default;
+    const restaurant = await Restaurant.findOne({ ownerId: req.userId }).lean();
+    if (!restaurant) return res.json({ success: false, message: "Restaurant not found" });
+    res.json({ success: true, shop: restaurant });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.put("/seller/restaurant", auth, authorizeRole("RESTAURANT_SELLER"), async (req, res) => {
+  try {
+    const Restaurant = (await import("../models/restaurant.model.js")).default;
+    const { restaurantName, restaurantBanner, restaurantLogo, address, description } = req.body;
+    const restaurant = await Restaurant.findOneAndUpdate(
+      { ownerId: req.userId },
+      {
+        restaurantName: restaurantName || restaurantName,
+        restaurantBanner,
+        restaurantLogo,
+        address,
+        description,
+      },
+      { new: true, lean: true }
+    );
+    if (!restaurant) return res.json({ success: false, message: "Restaurant not found" });
+    res.json({ success: true, message: "Restaurant updated successfully", shop: restaurant });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 export default router;

@@ -15,7 +15,7 @@ import Rating from '@mui/material/Rating';
 import { Link } from 'react-router-dom';
 import SearchBox from '../../Components/SearchBox';
 import { MyContext } from '../../App';
-import { fetchDataFromApi, deleteData, deleteMultipleData } from '../../utils/api';
+import { fetchDataFromApi, deleteData, deleteMultipleData, patchData } from '../../utils/api';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
 import 'react-lazy-load-image-component/src/effects/blur.css';
 import Lightbox from 'yet-another-react-lightbox';
@@ -77,6 +77,12 @@ export const Products = () => {
     const [filtersOpen, setFiltersOpen] = useState(false);
 
     const context = useContext(MyContext);
+    const isGrocerySeller = context?.userData?.role === 'GROCERY_SELLER';
+    const isRestaurantSeller = context?.userData?.role === 'RESTAURANT_SELLER';
+    const isSpecialtySeller = isGrocerySeller || isRestaurantSeller;
+    const tableColumns = columns.map((col) =>
+        col.id === 'stock' && isRestaurantSeller ? { ...col, label: 'AVAILABILITY' } : col
+    );
 
     useEffect(() => { getProducts(page, rowsPerPage); }, [context?.isOpenFullScreenPanel, page, rowsPerPage]);
 
@@ -210,6 +216,7 @@ export const Products = () => {
     const totalCount = productData?.totalCount || (productData?.totalPages * rowsPerPage) || 0;
     const outOfStock = allProds.filter((p) => p.countInStock === 0).length;
     const featuredCount = allProds.filter((p) => p.isFeatured).length;
+    const lowStockCount = allProds.filter((p) => Number(p.countInStock) > 0 && Number(p.countInStock) < 10).length;
 
     const stockColor = (stock) => {
         if (stock === 0) return { color: '#991b1b', bg: '#fee2e2', label: 'Out' };
@@ -217,14 +224,48 @@ export const Products = () => {
         return { color: '#15803d', bg: '#dcfce7', label: stock };
     };
 
+    const quickToggleStock = (product) => {
+        if (!isGrocerySeller) return;
+        const nextStock = product.countInStock > 0 ? 0 : 50;
+        patchData(`/api/product/seller/grocery-stock/${product._id}`, { stock: nextStock }).then((res) => {
+            const body = res?.data;
+            if (body?.success || body?.error === false) {
+                context.alertBox('success', nextStock > 0 ? 'Item back in stock' : 'Marked out of stock');
+                getProducts(page, rowsPerPage);
+            } else {
+                context.alertBox('error', body?.message || 'Could not update stock');
+            }
+        });
+    };
+
+    const quickToggleAvailability = (product) => {
+        if (!isRestaurantSeller) return;
+        const next = product.isAvailable === false;
+        patchData(`/api/product/seller/item-availability/${product._id}`, { isAvailable: next }).then((res) => {
+            const body = res?.data;
+            if (body?.success || body?.error === false) {
+                context.alertBox('success', next ? 'Item is available' : 'Item hidden from menu');
+                getProducts(page, rowsPerPage);
+            } else {
+                context.alertBox('error', body?.message || 'Could not update');
+            }
+        });
+    };
+
     return (
         <>
             {/* ── Page Header ── */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
                 <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827', margin: 0 }}>Products</h1>
+                    <h1 style={{ fontSize: 22, fontWeight: 700, color: isGrocerySeller ? '#064e3b' : isRestaurantSeller ? '#7c2d12' : '#111827', margin: 0 }}>
+                        {isGrocerySeller ? 'My Grocery Products' : isRestaurantSeller ? 'My Menu Items' : 'Products'}
+                    </h1>
                     <p style={{ fontSize: 13, color: '#6b7280', margin: '4px 0 0' }}>
-                        Manage your product catalogue
+                        {isGrocerySeller
+                            ? 'Quick-commerce inventory — stock, pricing, and minutes delivery'
+                            : isRestaurantSeller
+                                ? 'Kitchen menu — availability and prep-ready items'
+                                : 'Manage your product catalogue'}
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
@@ -234,17 +275,32 @@ export const Products = () => {
                     </IconButton></Tooltip>
                     <Button variant="contained" startIcon={<IoMdAdd size={16} />}
                         onClick={() => context.setIsOpenFullScreenPanel({ open: true, model: 'Add Product' })}
-                        style={{ background: '#111827', borderRadius: 8, textTransform: 'none', fontWeight: 600, fontSize: 13, boxShadow: 'none' }}>
-                        Add Product
+                        style={{
+                            background: isGrocerySeller
+                                ? 'linear-gradient(135deg, #10b981, #059669)'
+                                : isRestaurantSeller
+                                    ? 'linear-gradient(135deg, #f97316, #ea580c)'
+                                    : '#111827',
+                            borderRadius: 8, textTransform: 'none', fontWeight: 600, fontSize: 13, boxShadow: 'none',
+                        }}>
+                        {isGrocerySeller ? 'Add Grocery Item' : isRestaurantSeller ? 'Add Menu Item' : 'Add Product'}
                     </Button>
                 </div>
             </div>
 
             {/* ── Stats ── */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 20 }}>
-                <StatCard lbl="Total Products" value={totalCount || '--'} color="#7c3aed" bg="#ede9fe" icon={<TbPackage />} label="Total Products" />
-                <StatCard lbl="Out of Stock" value={outOfStock || 0} color="#dc2626" bg="#fee2e2" icon={<FaBoxOpen />} label="Out of Stock" />
-                <StatCard lbl="Featured" value={featuredCount || 0} color="#0369a1" bg="#e0f2fe" icon={<IoMdAdd />} label="Featured" />
+                <StatCard lbl="Total Items" value={totalCount || '--'} color={isGrocerySeller ? '#059669' : isRestaurantSeller ? '#ea580c' : '#7c3aed'} bg={isGrocerySeller ? '#d1fae5' : isRestaurantSeller ? '#ffedd5' : '#ede9fe'} icon={<TbPackage />} label="Total Items" />
+                {!isRestaurantSeller && (
+                    <StatCard lbl="Out of Stock" value={outOfStock || 0} color="#dc2626" bg="#fee2e2" icon={<FaBoxOpen />} label="Out of Stock" />
+                )}
+                {isGrocerySeller ? (
+                    <StatCard lbl="Low Stock" value={lowStockCount || 0} color="#d97706" bg="#fef3c7" icon={<IoMdAdd />} label="Low Stock" />
+                ) : isRestaurantSeller ? (
+                    <StatCard lbl="On Menu" value={totalCount || 0} color="#ea580c" bg="#ffedd5" icon={<IoMdAdd />} label="On Menu" />
+                ) : (
+                    <StatCard lbl="Featured" value={featuredCount || 0} color="#0369a1" bg="#e0f2fe" icon={<IoMdAdd />} label="Featured" />
+                )}
             </div>
 
             {/* ── Main Card ── */}
@@ -252,10 +308,12 @@ export const Products = () => {
 
                 {/* Filter Bar */}
                 <div style={{ padding: '12px 18px', borderBottom: '1px solid #f3f4f6', background: '#fafafa', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    {!isSpecialtySeller && (
                     <button onClick={() => setFiltersOpen((p) => !p)}
                         style={{ display: 'flex', alignItems: 'center', gap: 6, background: filtersOpen ? '#111827' : '#fff', color: filtersOpen ? '#fff' : '#374151', border: '1px solid #d1d5db', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                         <MdFilterList size={16} /> Filters {(productCat || productSubCat || productThirdLavelCat) ? '●' : ''}
                     </button>
+                    )}
 
                     {sortedIds.length > 0 && (
                         <Fade in>
@@ -278,7 +336,7 @@ export const Products = () => {
                 </div>
 
                 {/* Collapsible Filters */}
-                {filtersOpen && (
+                {!isSpecialtySeller && filtersOpen && (
                     <div style={{ padding: '14px 18px', borderBottom: '1px solid #f3f4f6', background: '#f9fafb', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
                         {[
                             { label: 'Category', value: productCat, onChange: handleChangeProductCat, items: context?.catData?.map((c) => ({ id: c._id, name: c.name })) },
@@ -307,7 +365,7 @@ export const Products = () => {
                                         checked={productData?.products?.length > 0 ? productData?.products?.every((i) => i.checked) : false}
                                         indeterminate={sortedIds.length > 0 && sortedIds.length < (productData?.products?.length || 0)} />
                                 </TableCell>
-                                {columns.map((col) => (
+                                {tableColumns.map((col) => (
                                     <TableCell key={col.id} sx={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb', fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: '0.06em', minWidth: col.minWidth, py: 1.5 }}>
                                         {col.label}
                                     </TableCell>
@@ -319,7 +377,7 @@ export const Products = () => {
                                 Array.from({ length: 8 }).map((_, i) => (
                                     <TableRow key={i}>
                                         <TableCell padding="checkbox" sx={{ pl: 2 }}><Skeleton variant="rectangular" width={16} height={16} sx={{ borderRadius: 1 }} /></TableCell>
-                                        {columns.map((col) => <TableCell key={col.id}><Skeleton variant="text" width="80%" height={20} /></TableCell>)}
+                                        {tableColumns.map((col) => <TableCell key={col.id}><Skeleton variant="text" width="80%" height={20} /></TableCell>)}
                                     </TableRow>
                                 ))
                             ) : productData?.products?.length === 0 ? (
@@ -361,8 +419,8 @@ export const Products = () => {
                                                                 {product?.name}
                                                             </div>
                                                         </Link>
-                                                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{product?.brand}</div>
-                                                        {product?.isFeatured && (
+                                                        {!isSpecialtySeller && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{product?.brand}</div>}
+                                                        {!isSpecialtySeller && product?.isFeatured && (
                                                             <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#92400e', padding: '2px 7px', borderRadius: 10, display: 'inline-block', marginTop: 3 }}>
                                                                 ★ Featured
                                                             </span>
@@ -399,11 +457,30 @@ export const Products = () => {
                                                 <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{product?.sale}</span>
                                             </TableCell>
 
-                                            {/* Stock */}
+                                            {/* Stock / Availability */}
                                             <TableCell>
-                                                <span style={{ fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, padding: '3px 9px', borderRadius: 20, display: 'inline-block' }}>
-                                                    {sc.label === 'Out' ? 'Out of stock' : sc.label}
-                                                </span>
+                                                {isGrocerySeller ? (
+                                                    <button type="button" onClick={() => quickToggleStock(product)}
+                                                        style={{ fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, padding: '3px 9px', borderRadius: 20, border: 'none', cursor: 'pointer' }}
+                                                        title="Tap to toggle in/out of stock">
+                                                        {sc.label === 'Out' ? 'Out of stock' : `${sc.label} in stock`}
+                                                    </button>
+                                                ) : isRestaurantSeller ? (
+                                                    <button type="button" onClick={() => quickToggleAvailability(product)}
+                                                        style={{
+                                                            fontSize: 11, fontWeight: 700,
+                                                            background: product.isAvailable === false ? '#fee2e2' : '#dcfce7',
+                                                            color: product.isAvailable === false ? '#991b1b' : '#15803d',
+                                                            padding: '3px 9px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                                                        }}
+                                                        title="Tap to toggle availability">
+                                                        {product.isAvailable === false ? 'Unavailable' : 'Available'}
+                                                    </button>
+                                                ) : (
+                                                    <span style={{ fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, padding: '3px 9px', borderRadius: 20, display: 'inline-block' }}>
+                                                        {sc.label === 'Out' ? 'Out of stock' : sc.label}
+                                                    </span>
+                                                )}
                                             </TableCell>
 
                                             {/* Rating */}

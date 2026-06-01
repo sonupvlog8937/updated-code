@@ -2,6 +2,11 @@ import crypto from "crypto";
 import OrderModel from "../models/order.model.js";
 import ProductModel from '../models/product.modal.js';
 import UserModel from '../models/user.model.js';
+import GroceryProduct from '../models/groceryProduct.model.js';
+import RestaurantItem from '../models/restaurantItem.model.js';
+import ShopOwner from '../models/shopOwner.model.js';
+import GroceryShop from '../models/groceryShop.model.js';
+import Restaurant from '../models/restaurant.model.js';
 import paypal from "@paypal/checkout-server-sdk";
 import OrderConfirmationEmail from "../utils/orderEmailTemplate.js";
 import sendEmailFun from "../config/sendEmail.js";
@@ -65,12 +70,25 @@ const attachSellerToProducts = async (products = []) => {
     }
 
     const productIds = products.map((item) => item?.productId).filter(Boolean);
-    const dbProducts = await ProductModel.find({ _id: { $in: productIds } }).select("_id seller").lean();
-    const sellerMap = new Map(dbProducts.map((item) => [String(item._id), item?.seller ? String(item.seller) : null]));
+    const [marketProducts, groceryProducts, restaurantItems] = await Promise.all([
+        ProductModel.find({ _id: { $in: productIds } }).select("_id seller").lean(),
+        GroceryProduct.find({ _id: { $in: productIds } }).populate({ path: "shopId", populate: { path: "ownerId", select: "userId email" } }).lean(),
+        RestaurantItem.find({ _id: { $in: productIds } }).populate({ path: "restaurantId", populate: { path: "ownerId", select: "userId email" } }).lean(),
+    ]);
+
+    const sellerMap = new Map(marketProducts.map((item) => [String(item._id), item?.seller ? String(item.seller) : null]));
+    groceryProducts.forEach((item) => {
+        const sellerId = item?.shopId?.ownerId?.userId;
+        if (sellerId) sellerMap.set(String(item._id), String(sellerId));
+    });
+    restaurantItems.forEach((item) => {
+        const sellerId = item?.restaurantId?.ownerId?.userId;
+        if (sellerId) sellerMap.set(String(item._id), String(sellerId));
+    });
 
     return products.map((item) => ({
         ...item,
-        sellerId: sellerMap.get(String(item.productId)) || null,
+        sellerId: sellerMap.get(String(item.productId)) || item?.sellerId || null,
     }));
 };
 
@@ -100,6 +118,23 @@ const queueOrderConfirmationEmail = async (userId, order) => {
     } catch (error) {
         console.error("Order confirmation email error:", error.message);
     }
+};
+
+const countSellerGoMarketProducts = async (sellerId) => {
+    const ownerIds = (await ShopOwner.find({ userId: sellerId }).select("_id").lean()).map((owner) => owner._id);
+    if (!ownerIds.length) return 0;
+
+    const [shopIds, restaurantIds] = await Promise.all([
+        GroceryShop.find({ ownerId: { $in: ownerIds } }).select("_id").lean(),
+        Restaurant.find({ ownerId: { $in: ownerIds } }).select("_id").lean(),
+    ]);
+
+    const [groceryCount, restaurantItemCount] = await Promise.all([
+        GroceryProduct.countDocuments({ shopId: { $in: shopIds.map((shop) => shop._id) } }),
+        RestaurantItem.countDocuments({ restaurantId: { $in: restaurantIds.map((restaurant) => restaurant._id) } }),
+    ]);
+
+    return groceryCount + restaurantItemCount;
 };
 
 const applySellerCommission = async (products = []) => {
@@ -951,7 +986,12 @@ export async function getSellerDashboardStats(request, response) {
         const sellerId = request.userId; // string — same as products.sellerId in DB
 
         // 1. Total products by this seller
-        const totalProducts = await ProductModel.countDocuments({ seller: sellerId });
+        const [totalMarketplaceProducts, goMarketProducts] = await Promise.all([
+            ProductModel.countDocuments({ seller: sellerId }),
+            countSellerGoMarketProducts(sellerId),
+        ]);
+
+        const totalProducts = totalMarketplaceProducts + goMarketProducts;
 
         // 2. Count orders by status — same match as getSellerOrdersController
         const allOrders = await OrderModel.find(

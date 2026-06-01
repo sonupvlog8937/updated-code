@@ -8,7 +8,7 @@ import { FaRegHeart } from "react-icons/fa6";
 import Tooltip from "@mui/material/Tooltip";
 import { useAppContext } from "../../hooks/useAppContext";
 import { Button } from "@mui/material";
-import { IoSearch } from "react-icons/io5";
+import { IoSearch, IoChevronBack } from "react-icons/io5";
 import { FaRegUser } from "react-icons/fa";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -16,6 +16,7 @@ import { IoBagCheckOutline } from "react-icons/io5";
 import { IoMdHeartEmpty } from "react-icons/io";
 import { IoIosLogOut } from "react-icons/io";
 import { fetchDataFromApi } from "../../utils/api";
+import { goBack } from "../../utils/goBack";
 import { LuMapPin } from "react-icons/lu";
 import { HiOutlineMenu } from "react-icons/hi";
 import "./Navigation/style.css";
@@ -234,6 +235,210 @@ const QM_STYLES = `
   @media (max-width: 600px) {
     .qm-panel { right: 8px; left: 8px; width: auto; top: 58px; border-radius: 16px; }
   }
+    /* Mobile Header Layout */
+.mobile-logo-section {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.mobile-logo-section > a:first-child {
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+/* Logo */
+.mobile-logo-section img{
+    height: 28px !important;
+    max-width: 125px !important;
+    width: auto;
+}
+
+/* Go Market Button */
+.go-market-btn {
+    height: 34px;
+    padding: 0 10px;
+    gap: 4px;
+    font-size: 12px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+@media (min-width: 993px) {
+  .go-market-btn {
+    padding: 10px 14px;
+    height: auto;
+    font-size: 14px;
+    gap: 6px;
+    border-radius: 12px;
+    min-width: fit-content;
+  }
+}
+  
+
+.go-market-btn .gm-icon {
+    font-size: 12px;
+}
+
+.go-market-btn .gm-pulse {
+    width: 6px;
+    height: 6px;
+}
+    @media (max-width: 768px) {
+
+    .header .container {
+        padding-left: 8px;
+        padding-right: 8px;
+        gap: 6px;
+    }
+
+    .col3 {
+        gap: 6px !important;
+        padding-left: 0 !important;
+    }
+}
+    .header-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+    color: #111827;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+  }
+  .header-back-btn:hover {
+    background: #ff6b2b;
+    border-color: #ff6b2b;
+    color: #fff;
+    transform: translateX(-2px);
+    box-shadow: 0 4px 14px rgba(255, 107, 43, 0.35);
+  }
+  .header-back-btn:active {
+    transform: translateX(0) scale(0.96);
+  }
+  @media (max-width: 768px) {
+    .header-back-btn {
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+      border-radius: 10px;
+    }
+    .header-back-btn svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+    .logo-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+}
+
+.logo-container > a:first-child {
+    flex-shrink: 0;
+}
+
+.logo-container img {
+    max-width: 170px;
+    height: auto;
+}
+   /* GO MARKET BUTTON */
+.go-market-btn{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  background:#222;
+  color:#fff;
+  text-decoration:none;
+  border-radius:14px;
+  box-shadow:0 4px 12px rgba(0,0,0,.15);
+  flex-shrink:0;
+}
+
+.gm-content{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  line-height:1.1;
+}
+
+.gm-title{
+  font-weight:700;
+  color:#fff;
+  margin:0;
+}
+
+.gm-subtitle{
+  color:rgba(255,255,255,.75);
+  font-size: 7px;
+  margin:0;
+}
+
+.gm-pulse{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#22c55e;
+}
+
+/* MOBILE */
+@media (max-width: 992px){
+
+  .go-market-btn{
+    padding:0px 8px;
+    min-height:34px;
+    gap:6px;
+    border-radius:12px;
+  }
+
+  .gm-title{
+    font-size:12px;
+  }
+
+  .gm-subtitle{
+    font-size:7px;
+  }
+
+  .gm-icon{
+    font-size:13px;
+  }
+}
+
+/* DESKTOP */
+@media (min-width: 993px){
+
+  .go-market-btn{
+    padding: 10px 10px;
+    min-height:46px;
+    gap:10px;
+  }
+
+  .gm-title{
+    font-size:15px;
+  }
+
+  .gm-subtitle{
+    font-size:9px;
+  }
+
+  .gm-icon{
+    font-size:16px;
+  }
+}
 `;
 
 /* ─────────────────────────────────────────
@@ -349,11 +554,19 @@ const Header = () => {
   const [isOpenCatPanel, setIsOpenCatPanel] = useState(false);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
   const [showSearchBar, setShowSearchBar] = useState(false);
+  const [logoUrl, setLogoUrl] = useState(() => {
+    try {
+      return localStorage.getItem("logo") || "";
+    } catch {
+      return "";
+    }
+  });
   const searchInputRef = useRef(null);
 
   const context = useAppContext();
   const location = useLocation();
-  const history = useNavigate();
+  const navigate = useNavigate();
+  const isHomePage = location.pathname === "/";
 
   // Replace with real count from context / API
   const notifCount = 3;
@@ -364,6 +577,15 @@ const Header = () => {
 
   const handleClose = useCallback(() => setAnchorEl(null), []);
   const handleUserClick = useCallback((e) => setAnchorEl(e.currentTarget), []);
+
+  const handleGoBack = useCallback(
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      goBack(navigate, location.pathname);
+    },
+    [navigate, location.pathname]
+  );
 
   // Focus on search input when search bar appears
   useEffect(() => {
@@ -376,10 +598,15 @@ const Header = () => {
   }, [showSearchBar]);
 
   useEffect(() => {
-    if (localStorage.getItem("logo")) return;
-    fetchDataFromApi("/api/logo").then((res) => {
-      if (res?.logo?.[0]?.logo) localStorage.setItem("logo", res.logo[0].logo);
-    });
+    fetchDataFromApi("/api/logo")
+      .then((res) => {
+        const url = res?.logo?.[0]?.logo;
+        if (url) {
+          localStorage.setItem("logo", url);
+          setLogoUrl(url);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const logout = useCallback(() => {
@@ -395,10 +622,10 @@ const Header = () => {
         context.setUserData(null);
         context?.setCartData([]);
         context?.setMyListData([]);
-        history("/");
+        navigate("/");
       }
     });
-  }, [context, history]);
+  }, [context, navigate]);
 
   return (
     <>
@@ -428,8 +655,8 @@ const Header = () => {
         </div> */}
 
         {/* Main bar */}
-        <div className="header py-2 lg:py-2 border-b-[1px] border-gray-250">
-          <div className="container flex items-center justify-between">
+        <div className="header py-1.5 lg:py-1 border-b-[1px]" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
+          <div className="container flex items-center justify-between gap-2">
 
             {/* {!isDesktop && (
               <Button className="!w-[40px] !min-w-[40px] !h-[40px] !rounded-full !text-gray-800 !bg-gray-100 hover:!bg-orange-500 hover:!text-white !transition-all"
@@ -439,12 +666,25 @@ const Header = () => {
             )} */}
 
             {/* Logo - Mobile & Desktop */}
-            <div className={`logo-container flex items-center gap-2 ${!isDesktop ? 'flex-1 px-2' : ''} ${showSearchBar && !isDesktop ? 'hidden' : ''}`}>
+            <div
+              className={`logo-container ${!isDesktop ? "mobile-logo-section" : ""
+                } ${showSearchBar && !isDesktop ? "hidden" : ""}`}
+            >
+              {!isHomePage && (
+                <button
+                  type="button"
+                  className="header-back-btn"
+                  onClick={handleGoBack}
+                  aria-label="Go back"
+                >
+                  <IoChevronBack size={22} />
+                </button>
+              )}
               <Link to="/" className="flex items-center">
                 <div className=" relative group">
-                  {localStorage.getItem("logo") ? (
+                  {logoUrl ? (
                     <img
-                      src={localStorage.getItem("logo")}
+                      src={logoUrl}
                       alt="Logo"
                       className="h-[40px] lg:h-[48px] w-auto"
                       style={{ maxWidth: '160px' }}
@@ -459,12 +699,14 @@ const Header = () => {
                   )}
                 </div>
               </Link>
-              <Link
-                to="/go-market"
-                className="go-market-btn"
-              >
+              <Link to="/go-market" className="go-market-btn">
                 <span className="gm-icon">🛒</span>
-                Go Market
+
+                <span className="gm-content">
+                  <span className="gm-title">Go Market</span>
+                  <span className="gm-subtitle">Quick Delivery</span>
+                </span>
+
                 <span className="gm-pulse" />
               </Link>
             </div>
@@ -507,7 +749,7 @@ const Header = () => {
 
             {/* Right Side Actions */}
             <div className={`col3 lg:w-[42%] flex items-center justify-end gap-2 lg:gap-0 pl-2 lg:pl-7 ${showSearchBar && !isDesktop ? 'hidden' : ''}`}>
-              <ul className="flex items-center justify-end gap-0 lg:gap-3 w-full">
+              <ul className="flex items-center justify-end gap-2 lg:gap-3 w-full">
 
                 {/* Login/Register */}
                 {!context.isLogin && isDesktop && (
@@ -583,8 +825,8 @@ const Header = () => {
                       }}
                       sx={{
                         backgroundColor: "#f8f9fa",
-                        width: "40px",
-                        height: "40px",
+                        width: "36px",
+                        height: "36px",
                         border: '1.5px solid rgba(0,0,0,0.08)',
                         transition: "all 0.3s ease",
                         "&:hover": {
@@ -611,8 +853,8 @@ const Header = () => {
                       aria-expanded={quickMenuOpen}
                       aria-haspopup="dialog"
                       style={{
-                        width: '40px',
-                        height: '40px',
+                        width: '36px',
+                        height: '36px',
                         border: '1.5px solid rgba(0,0,0,0.08)',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
                       }}
@@ -659,4 +901,4 @@ const Header = () => {
   );
 };
 
-export default Header;
+export default Header; 

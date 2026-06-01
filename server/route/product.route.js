@@ -18,6 +18,10 @@ import {
   getAllProductsBanners, filters, sortBy, searchProductController,
   getSellerProducts, getProductsBySellerPublic, getSellerDashboardStats,
 } from '../controllers/product.controller.js';
+import {
+  patchGroceryStock,
+  patchRestaurantAvailability,
+} from '../controllers/quickCommerceSeller.controller.js';
 import { removeImageFromCloudinary } from '../controllers/category.controller.js';
 
 const productRouter = Router();
@@ -51,6 +55,8 @@ productRouter.get('/getAllFeaturedProducts',            getAllFeaturedProducts);
 // ─── SELLER ROUTES (static — must be above /:id) ─────────────────────────────
 productRouter.get('/seller/products',        auth, authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER'), getSellerProducts);
 productRouter.get('/seller/dashboard-stats', auth, authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER'), getSellerDashboardStats);
+productRouter.patch('/seller/grocery-stock/:id', auth, authorizeRole('GROCERY_SELLER'), patchGroceryStock);
+productRouter.patch('/seller/item-availability/:id', auth, authorizeRole('RESTAURANT_SELLER'), patchRestaurantAvailability);
 productRouter.get('/store/:sellerId',        getProductsBySellerPublic);
 
 // ─── REVIEW ROUTES ────────────────────────────────────────────────────────────

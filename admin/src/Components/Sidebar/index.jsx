@@ -41,7 +41,6 @@ const Sidebar = () => {
   const isSeller = isSellerRole(userRole);
   const isGrocerySeller = userRole === "GROCERY_SELLER";
   const isRestaurantSeller = userRole === "RESTAURANT_SELLER";
-  const isGeneralSeller = userRole === "SELLER";
 
   const [openGroups, setOpenGroups] = useState({ catalog: false, media: false, banners: false, goMarket: false });
   const toggleGroup = (key) => setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -150,8 +149,14 @@ const Sidebar = () => {
         <ul className="flex-1 overflow-y-auto px-3 py-1 space-y-0.5">
           <GroupLabel label="Main" />
           <NavItem to="/" icon={RxDashboard} label="Dashboard" />
-          {(isAdmin || isGeneralSeller) && <NavItem to="/products" icon={RiProductHuntLine} label={isSeller ? "My Products" : "Products"} />}
-          {(isAdmin || isGeneralSeller) && <NavItem to="/orders" icon={IoBagCheckOutline} label={isSeller ? "My Orders" : "All Orders"} />}
+          {(isAdmin || isSeller) && (
+            <NavItem
+              to="/products"
+              icon={RiProductHuntLine}
+              label={isGrocerySeller ? "My Grocery Products" : isRestaurantSeller ? "My Menu Items" : isSeller ? "My Products" : "Products"}
+            />
+          )}
+          {(isAdmin || isSeller) && <NavItem to="/orders" icon={IoBagCheckOutline} label={isSeller ? "My Orders" : "All Orders"} />}
           {isAdmin && <NavItem to="/reviews" icon={MdOutlineRateReview} label="All Reviews" />}
           {isSeller && <NavItem to="/reviews" icon={MdOutlineRateReview} label="My Reviews" />}
 
@@ -189,6 +194,8 @@ const Sidebar = () => {
               <GroupLabel label="Go Market" />
               <CollapseGroup groupKey="goMarket" icon={IoStorefrontOutline} label="Go Market">
                 <SubItem to="/go-market/markets" label="Manage Markets" />
+                <SubItem to="/go-market/categories" label="Categories" />
+                <SubItem to="/go-market/subcategories" label="Sub Categories" />
                 <SubItem to="/go-market/grocery-shops" label="Grocery Shops" />
                 <SubItem to="/go-market/restaurants" label="Restaurants" />
                 <SubItem to="/go-market/products" label="Grocery Products" />
@@ -197,7 +204,6 @@ const Sidebar = () => {
                 <SubItem to="/go-market/owners" label="Shop Owners" />
               </CollapseGroup>
 
-
               <GroupLabel label="Finance" />
               <NavItem to="/wallet/transactions" icon={IoWalletOutline} label="Wallet Requests" />
             </>
@@ -205,14 +211,13 @@ const Sidebar = () => {
 
           {isSeller && (
             <>
-              <GroupLabel label="My Store" />
-              <CollapseGroup groupKey="goMarket" icon={IoStorefrontOutline} label="Go Market">
-                 {(isGeneralSeller || isGrocerySeller) && <SubItem to="/go-market/grocery-shops" label="My Grocery Shops" />}
-                {(isGeneralSeller || isGrocerySeller) && <SubItem to="/go-market/products" label="Grocery Products" />}
-                {(isGeneralSeller || isRestaurantSeller) && <SubItem to="/go-market/restaurants" label="My Restaurants" />}
-                {(isGeneralSeller || isRestaurantSeller) && <SubItem to="/go-market/menus" label="Menus" />}
-                {(isGeneralSeller || isRestaurantSeller) && <SubItem to="/go-market/items" label="Restaurant Items" />}
-              </CollapseGroup>
+              <GroupLabel label={isGrocerySeller || isRestaurantSeller ? "Quick Commerce" : "My Store"} />
+              {(isGrocerySeller || isRestaurantSeller) && (
+                <>
+                  <NavItem to="/seller/store-ops" icon={IoStorefrontOutline} label={isGrocerySeller ? "Store Operations" : "Kitchen Operations"} />
+                  <NavItem to={isGrocerySeller ? "/seller/go-market/shop" : "/seller/go-market/restaurant"} icon={IoStorefrontOutline} label={isGrocerySeller ? "Shop Profile (GoMarket)" : "Restaurant Profile (GoMarket)"} />
+                </>
+              )}
               <NavItem to="/seller/store-profile" icon={IoStorefrontOutline} label="Store Profile" />
               <NavItem to="/wallet/transactions" icon={IoWalletOutline} label="Wallet & Transactions" />
             </>

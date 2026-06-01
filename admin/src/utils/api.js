@@ -92,6 +92,20 @@ export const uploadImages = async (url, formData ) => {
 
 
 
+export const patchData = async (url, updatedData) => {
+    const params = {
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json',
+        },
+    };
+    let response;
+    await axios.patch(apiUrl + url, updatedData, params).then((res) => {
+        response = res;
+    });
+    return response;
+};
+
 export const editData = async (url, updatedData ) => {
     const params={
         headers: {

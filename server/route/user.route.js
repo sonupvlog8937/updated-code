@@ -1,5 +1,10 @@
 import { Router } from 'express'
 import {addReview, approveWalletRequest, authWithGoogle, changePasswordController, createSellerByAdminController, createWalletRequest, deleteMultiple, deleteUser, forgotPasswordController, getAllReviews, getAllUsers, getCommissionOverview, getReviews, getSellerStoreProfile, loginUserController, sendPhoneLoginOtpController, verifyPhoneLoginOtpController, logoutController, refreshToken, registerUserController, removeImageFromCloudinary, resetpassword, resendOtpController, updateUserAccessByAdminController, updateUserDetails, upsertSellerStoreProfile, userAvatarController, userDetails, verifyEmailController, verifyForgotPasswordOtp, registerSellerController, deleteMyAccount} from '../controllers/user.controller.js';
+import {
+  getQuickCommerceOutlet,
+  updateQuickCommerceOutlet,
+  getQuickCommerceDashboard,
+} from '../controllers/quickCommerceSeller.controller.js';
 import upload from '../middlewares/multer.js';
 import auth from '../middlewares/auth.js';
 import authorizeRole from '../middlewares/authorizeRole.js';
@@ -35,6 +40,9 @@ userRouter.delete('/deleteUser/:id',auth,authorizeRole('ADMIN'),deleteUser);
 userRouter.put('/seller/store-profile',auth,authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER','USER'),upsertSellerStoreProfile);
 userRouter.get('/seller/store-profile',auth,authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER','USER'),getSellerStoreProfile);
 userRouter.get('/seller/store-profile/:sellerId',getSellerStoreProfile);
+userRouter.get('/seller/quick-commerce/outlet', auth, authorizeRole('GROCERY_SELLER', 'RESTAURANT_SELLER'), getQuickCommerceOutlet);
+userRouter.put('/seller/quick-commerce/outlet', auth, authorizeRole('GROCERY_SELLER', 'RESTAURANT_SELLER'), updateQuickCommerceOutlet);
+userRouter.get('/seller/quick-commerce/dashboard', auth, authorizeRole('GROCERY_SELLER', 'RESTAURANT_SELLER'), getQuickCommerceDashboard);
 userRouter.get('/wallet/overview',auth,authorizeRole('ADMIN','SELLER','GROCERY_SELLER','RESTAURANT_SELLER'),getCommissionOverview);
 userRouter.get('/seller/commission',auth,authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER'),getCommissionOverview);
 userRouter.post('/wallet/request',auth,authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER'),createWalletRequest);

@@ -2,7 +2,14 @@ import mongoose from "mongoose";
 const groceryProductSchema = new mongoose.Schema({
   shopId: { type: mongoose.Schema.Types.ObjectId, ref: "GroceryShop", required: true, index: true },
   name: { type: String, required: true, trim: true, index: true },
+  title: { type: String, default: "", trim: true },
+  specifications: [{
+    key: { type: String, default: "" },
+    value: { type: String, default: "" },
+  }],
   image: { type: String, default: "" },
+  categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "GoMarketCategory", default: null, index: true },
+  subCategoryId: { type: mongoose.Schema.Types.ObjectId, ref: "GoMarketSubCategory", default: null, index: true },
   price: { type: Number, required: true, min: 0 },
   discountPrice: { type: Number, default: 0, min: 0 },
   stock: { type: Number, default: 0, min: 0 },

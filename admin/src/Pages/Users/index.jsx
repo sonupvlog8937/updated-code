@@ -654,7 +654,7 @@ export const Users = () => {
 
                                         {/* Email Verify */}
                                         <TableCell>
-                                            {user?.verify_email === false ? (
+                                            {user?.verify_email !== true ? (
                                                 <span
                                                     style={{
                                                         display: 'inline-flex',

@@ -63,7 +63,7 @@ async function deleteUserAssociatedData(userId) {
     ]);
 }
 
-async function createDefaultGoMarketStore({ seller, role, marketId, storeName, storeLocation, storeContact, storeDescription }) {
+async function createDefaultGoMarketStore({ seller, role, marketId, storeName, storeLocation, storeContact, storeDescription, shopBanner }) {
     if (!marketId) return null;
 
     const market = await Market.findOne({ _id: marketId, status: 'active' });
@@ -102,13 +102,13 @@ async function createDefaultGoMarketStore({ seller, role, marketId, storeName, s
     if (role === 'GROCERY_SELLER') {
         store = await GroceryShop.findOneAndUpdate(
             { ownerId: owner._id },
-            { $setOnInsert: { ...base, shopName: storeName } },
+           { $setOnInsert: { ...base, shopName: storeName, shopBanner: shopBanner || seller.storeProfile?.image || "" } },
             { new: true, upsert: true, setDefaultsOnInsert: true }
         );
     } else if (role === 'RESTAURANT_SELLER') {
         store = await Restaurant.findOneAndUpdate(
             { ownerId: owner._id },
-            { $setOnInsert: { ...base, restaurantName: storeName } },
+            { $setOnInsert: { ...base, restaurantName: storeName, restaurantBanner: shopBanner || seller.storeProfile?.image || "" } },
             { new: true, upsert: true, setDefaultsOnInsert: true }
         );
     }
@@ -120,7 +120,23 @@ async function createDefaultGoMarketStore({ seller, role, marketId, storeName, s
     return { owner, store, market };
 }
 
+const sendVerificationOtpEmail = async ({ email, name, otp, subject }) => {
+    const sent = await sendEmailFun({
+        sendTo: email,
+        subject: subject || `Verify your email – ${process.env.STORE_NAME || 'MyStore'}`,
+        text: `Your OTP is: ${otp}. It expires in 10 minutes.`,
+        html: VerificationEmail(name, otp),
+    });
 
+    if (!sent) {
+        console.error(`Verification email failed for ${email}`);
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`[DEV] OTP for ${email}: ${otp}`);
+        }
+    }
+
+    return sent;
+};
 
 const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
 
@@ -128,7 +144,11 @@ const sendLoginResponse = async (response, userId) => {
     const accesstoken = await generatedAccessToken(userId);
     const refreshToken = await generatedRefreshToken(userId);
 
-    await UserModel.findByIdAndUpdate(userId, { last_login_date: new Date() });
+    const user = await UserModel.findByIdAndUpdate(
+        userId,
+        { last_login_date: new Date() },
+        { new: true }
+    ).select("_id name email role storeProfile avatar status verify_email").lean();
 
     response.cookie('accessToken', accesstoken, cookiesOption);
     response.cookie('refreshToken', refreshToken, cookiesOption);
@@ -137,7 +157,7 @@ const sendLoginResponse = async (response, userId) => {
         message: "Login successfully",
         error: false,
         success: true,
-        data: { accesstoken, refreshToken }
+        data: { accesstoken, refreshToken, role: user?.role, user }
     });
 };
 
@@ -164,12 +184,11 @@ export async function registerUserController(request, response) {
                 existingUser.otpExpires = Date.now() + 10 * 60 * 1000;
                 await existingUser.save();
 
-                sendEmailFun({
-                    sendTo: email,
-                    subject: `Verify your email – ${process.env.STORE_NAME || 'MyStore'}`,
-                    text: `Your OTP is: ${newOtp}. It expires in 10 minutes.`,
-                    html: VerificationEmail(existingUser.name, newOtp)
-                }).catch((err) => console.error('Verification email error:', err));
+                await sendVerificationOtpEmail({
+                    email,
+                    name: existingUser.name,
+                    otp: newOtp,
+                });
 
                 return response.status(200).json({
                     success: true,
@@ -202,18 +221,18 @@ export async function registerUserController(request, response) {
 
         await user.save();
 
-        // Send verification email (non-blocking)
-        sendEmailFun({
-            sendTo: email,
-            subject: `Verify your email – ${process.env.STORE_NAME || 'MyStore'}`,
-            text: `Your OTP is: ${verifyCode}. It expires in 10 minutes.`,
-            html: VerificationEmail(name, verifyCode)
-        }).catch((err) => console.error('Verification email error:', err));
+        const emailSent = await sendVerificationOtpEmail({
+            email,
+            name,
+            otp: verifyCode,
+        });
 
         return response.status(200).json({
             success: true,
             error: false,
-            message: "Registered successfully! Please check your email to verify your account.",
+            message: emailSent
+                ? "Registered successfully! Please check your email to verify your account."
+                : "Registered successfully! OTP email could not be sent — use Resend OTP on the verify page.",
         });
 
     } catch (error) {
@@ -253,7 +272,7 @@ export async function verifyEmailController(request, response) {
             });
         }
 
-        const isCodeValid  = user.otp === otp;
+        const isCodeValid  = String(user.otp) === String(otp).trim();
         const isNotExpired = user.otpExpires > Date.now();
 
         if (isCodeValid && isNotExpired) {
@@ -276,7 +295,18 @@ export async function verifyEmailController(request, response) {
                 error: false,
                 success: true,
                 message: "Email verified successfully! You are now logged in.",
-                data: { accesstoken, refreshToken }
+                data: {
+                    accesstoken,
+                    refreshToken,
+                    role: user.role,
+                    user: {
+                        _id: user._id,
+                        name: user.name,
+                        email: user.email,
+                        role: user.role,
+                        storeProfile: user.storeProfile,
+                    }
+                }
             });
 
         } else if (!isCodeValid) {
@@ -332,12 +362,20 @@ export async function resendOtpController(request, response) {
         user.otpExpires = Date.now() + 10 * 60 * 1000;
         await user.save();
 
-        sendEmailFun({
-            sendTo: email,
+        const emailSent = await sendVerificationOtpEmail({
+            email,
+            name: user.name,
+            otp: newOtp,
             subject: `Your new OTP – ${process.env.STORE_NAME || 'MyStore'}`,
-            text: `Your new OTP is: ${newOtp}. It expires in 10 minutes.`,
-            html: VerificationEmail(user.name, newOtp)
-        }).catch((err) => console.error('Resend OTP email error:', err));
+        });
+
+        if (!emailSent) {
+            return response.status(500).json({
+                error: true,
+                success: false,
+                message: "Could not send OTP email. Please try again in a moment.",
+            });
+        }
 
         return response.status(200).json({
             error: false,
@@ -1494,7 +1532,7 @@ export async function registerSellerController(request, response) {
         
             const {
             name, email, password, mobile, role, marketId,
-            storeName, storeLocation, storeContact, storeDescription,
+            storeName, storeLocation, storeContact, storeDescription, shopBanner,
             accountHolderName, bankName, accountNumber, ifscCode
         } = request.body;
 
@@ -1511,6 +1549,29 @@ export async function registerSellerController(request, response) {
 
         const existingUser = await UserModel.findOne({ email });
         if (existingUser) {
+            if (existingUser.verify_email === false) {
+                const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+                existingUser.otp = newOtp;
+                existingUser.otpExpires = Date.now() + 10 * 60 * 1000;
+                await existingUser.save();
+
+                const emailSent = await sendVerificationOtpEmail({
+                    email,
+                    name: existingUser.name,
+                    otp: newOtp,
+                    subject: `Verify your seller email – ${process.env.STORE_NAME || 'MyStore'}`,
+                });
+
+                return response.status(200).json({
+                    success: true,
+                    error: false,
+                    message: emailSent
+                        ? "OTP resent! Please check your email to verify your account."
+                        : "Account exists but OTP email could not be sent — use Resend OTP on the verify page.",
+                    data: { email: existingUser.email },
+                });
+            }
+
             return response.status(400).json({
                 message: "Email already registered.",
                 error: true,
@@ -1530,6 +1591,7 @@ export async function registerSellerController(request, response) {
         
         const salt = await bcryptjs.genSalt(10);
         const hashPassword = await bcryptjs.hash(password, salt);
+        const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
 
         const seller = new UserModel({
             email,
@@ -1537,13 +1599,16 @@ export async function registerSellerController(request, response) {
             name,
             mobile,
             role: sellerRole,
-            verify_email: true,
+            verify_email: false,
+            otp: verifyCode,
+            otpExpires: Date.now() + 10 * 60 * 1000,
             status: "Active",
             storeProfile: {
                 storeName: storeName || "",
                 location: storeLocation || "",
                 contactNo: contactNumber || "",
                 description: storeDescription || "",
+                image: shopBanner || "",
                 category: "",
                 marketId
             },
@@ -1564,20 +1629,23 @@ export async function registerSellerController(request, response) {
             storeLocation,
             storeContact: contactNumber,
             storeDescription,
+            shopBanner,
         });
 
-        const accesstoken = await generatedAccessToken(seller._id);
-        const refreshToken = await generatedRefreshToken(seller._id);
-        await UserModel.findByIdAndUpdate(seller._id, { last_login_date: new Date() });
-
-        response.cookie('accessToken', accesstoken, cookiesOption);
-        response.cookie('refreshToken', refreshToken, cookiesOption);
+        const emailSent = await sendVerificationOtpEmail({
+            email,
+            name,
+            otp: verifyCode,
+            subject: `Verify your seller email – ${process.env.STORE_NAME || 'MyStore'}`,
+        });
 
         return response.status(200).json({
             success: true,
             error: false,
-            message: "Seller registered successfully. Your panel is ready.",
-            data: { accesstoken, refreshToken, role: sellerRole, seller, goMarket }
+            message: emailSent
+                ? "Seller registered successfully! Please verify your email OTP to open your panel."
+                : "Seller registered! OTP email could not be sent — use Resend OTP on the verify page.",
+            data: { email: seller.email, role: sellerRole, sellerId: seller._id, goMarket }
         });
 
     } catch (error) {

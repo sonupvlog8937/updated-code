@@ -18,9 +18,11 @@ import {
 import {
   fetchGoRestaurantDetail,
   followGoRestaurant,
+  unfollowGoRestaurant,
   useAppDispatch,
   useAppSelector,
 } from "@/src/store";
+import { showToast } from "@/src/utils/toast";
 
 const { width: SW } = Dimensions.get("window");
 const BANNER_H = 220;
@@ -125,12 +127,12 @@ function MenuRow({ item }: { item: any }) {
 }
 
 // ─── Item tile ──────────────────────────────────────────────────────────────
-function ItemTile({ item }: { item: any }) {
+function ItemTile({ item, onPress }: { item: any; onPress?: () => void }) {
   const sc = useRef(new Animated.Value(1)).current;
   const press = () => Animated.spring(sc, { toValue: 0.96, useNativeDriver: true, speed: 40 }).start();
   const release = () => Animated.spring(sc, { toValue: 1, useNativeDriver: true, speed: 20 }).start();
   return (
-    <Pressable onPressIn={press} onPressOut={release}>
+    <Pressable onPressIn={press} onPressOut={release} onPress={onPress}>
       <Animated.View style={[S.tile, { transform: [{ scale: sc }] }]}>
         <Image source={{ uri: item.image || FALLBACK }} style={S.tileImg} />
         <View style={S.tileBody}>
@@ -164,9 +166,17 @@ export default function GoMarketRestaurantDetails() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { restaurantDetail, loading } = useAppSelector((s) => s.goMarket);
+  const { isLogin } = useAppSelector((s: any) => s.app);
   const [tab, setTab] = useState(0);
-  const [followed, setFollowed] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Login protection - redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLogin) {
+      router.replace("/login" as never);
+    }
+  }, [isLogin]);
 
   useEffect(() => { if (id) dispatch(fetchGoRestaurantDetail(id)); }, [dispatch, id]);
 
@@ -195,9 +205,23 @@ export default function GoMarketRestaurantDetails() {
     extrapolate: "clamp",
   });
 
-  const handleFollow = () => {
-    dispatch(followGoRestaurant(restaurant._id));
-    setFollowed((f) => !f);
+  const isFollowing = Boolean(restaurant.isFollowing);
+  const followerCount = restaurant.followerCount ?? restaurant.followers?.length ?? 0;
+  const reviewCount = restaurant.totalReviews ?? 0;
+
+  const handleFollow = async () => {
+    if (followBusy) return;
+    setFollowBusy(true);
+    try {
+      const action = isFollowing ? unfollowGoRestaurant : followGoRestaurant;
+      await dispatch(action(restaurant._id)).unwrap();
+      dispatch(fetchGoRestaurantDetail(id!));
+      showToast("success", isFollowing ? "Unfollowed" : "Following restaurant");
+    } catch {
+      showToast("error", "Could not update follow");
+    } finally {
+      setFollowBusy(false);
+    }
   };
 
   return (
@@ -260,8 +284,9 @@ export default function GoMarketRestaurantDetails() {
             style={{ marginTop: 10 }}
             contentContainerStyle={{ gap: 6 }}
           >
-            <Pill emoji="⭐" label={`${restaurant.rating ?? 0}`} />
-            <Pill emoji="👥" label={`${restaurant.followers?.length ?? 0} followers`} />
+            <Pill emoji="⭐" label={`${Number(restaurant.rating ?? 0).toFixed(1)}`} />
+            <Pill emoji="💬" label={`${reviewCount} reviews`} />
+            <Pill emoji="👥" label={`${followerCount} followers`} />
             <Pill emoji="🍽" label={`${restaurant.totalMenus ?? menus.length} menus`} />
             <Pill emoji="🥘" label={`${restaurant.totalItems ?? items.length} items`} />
           </ScrollView>
@@ -274,12 +299,13 @@ export default function GoMarketRestaurantDetails() {
           {/* Action buttons */}
           <View style={S.actions}>
             <TouchableOpacity
-              style={[S.btnPrimary, followed && S.btnFollowed]}
+              style={[S.btnPrimary, isFollowing && S.btnFollowed]}
               onPress={handleFollow}
               activeOpacity={0.8}
+              disabled={followBusy}
             >
-              <Text style={[S.btnPrimaryText, followed && { color: C.green }]}>
-                {followed ? "✓ Following" : "+ Follow"}
+              <Text style={[S.btnPrimaryText, isFollowing && { color: C.green }]}>
+                {isFollowing ? "✓ Following" : "+ Follow"}
               </Text>
             </TouchableOpacity>
 
@@ -327,13 +353,20 @@ export default function GoMarketRestaurantDetails() {
               ? <Text style={S.empty}>No items yet.</Text>
               : (
                 <View style={S.grid}>
-                  {items.map((i: any) => <ItemTile key={i._id} item={i} />)}
+                  {items.map((i: any) => (
+                    <ItemTile
+                      key={i._id}
+                      item={i}
+                      onPress={() => router.push(`/go-market-product/restaurant/${i._id}` as never)}
+                    />
+                  ))}
                 </View>
               )
             }
           </View>
         )}
       </Animated.ScrollView>
+
     </View>
   );
 }

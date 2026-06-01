@@ -876,7 +876,17 @@ const Orders = () => {
 
   const context = useContext(MyContext);
 const isSellerView = isSellerRole(context?.userData?.role);
+  const isGrocerySeller = context?.userData?.role === "GROCERY_SELLER";
+  const isRestaurantSeller = context?.userData?.role === "RESTAURANT_SELLER";
   const ordersListEndpoint = isSellerView ? "/api/order/seller/orders" : "/api/order/order-list";
+  const ordersTitle = isGrocerySeller ? "Live Grocery Orders" : isRestaurantSeller ? "Live Kitchen Orders" : isSellerView ? "Store Orders" : "Orders";
+  const ordersSubtitle = isGrocerySeller
+    ? "Accept, pack, and dispatch quick-commerce orders"
+    : isRestaurantSeller
+      ? "Accept and prepare orders for minutes delivery"
+      : isSellerView
+        ? "Track orders for your own products"
+        : "Manage and track all customer orders";
   /* toggle expand */
   const toggleOrder = (id) => setOpenOrderId((prev) => (prev === id ? null : id));
 
@@ -982,8 +992,8 @@ const isSellerView = isSellerRole(context?.userData?.role);
         {/* ── Top bar ── */}
         <div className="ao-topbar">
           <div className="ao-topbar-left">
-           <h2 className="ao-topbar-title">{isSellerView ? "Store Orders" : "Orders"}</h2>
-            <p className="ao-topbar-sub">{isSellerView ? "Track orders for your own products" : "Manage and track all customer orders"}</p>
+           <h2 className="ao-topbar-title">{ordersTitle}</h2>
+            <p className="ao-topbar-sub">{ordersSubtitle}</p>
           </div>
           <div className="ao-search-wrap">
             <SearchBox

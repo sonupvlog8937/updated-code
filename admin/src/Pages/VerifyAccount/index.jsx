@@ -18,10 +18,15 @@ const VerifyAccount = () => {
   const userEmail = localStorage.getItem("userEmail") || "";
 
   useEffect(() => {
+    if (!userEmail) {
+      context.alertBox("error", "No email found. Please sign up again.");
+      history("/sign-up");
+      return;
+    }
     fetchDataFromApi("/api/logo").then((res) => {
       localStorage.setItem("logo", res?.logo?.[0]?.logo || "");
     });
-  }, []);
+  }, [userEmail, context, history]);
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -48,12 +53,15 @@ const VerifyAccount = () => {
       const res = await postData(endpoint, { email: userEmail, otp });
 
       if (res?.error === false) {
-        context.alertBox("success", res?.message);
-        if (actionType !== "forgot-password") {
-          localStorage.removeItem("userEmail");
-          history("/login");
-        } else {
+        context.alertBox("success", res?.message || "Email verified! Please login.");
+        localStorage.removeItem("userEmail");
+        localStorage.removeItem("actionType");
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        if (actionType === "forgot-password") {
           history("/change-password");
+        } else {
+          history("/login");
         }
       } else {
         context.alertBox("error", res?.message || "Verification failed. Please try again.");

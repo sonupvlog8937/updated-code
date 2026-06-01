@@ -10,7 +10,10 @@ export const fetchMarketDetail = createAsyncThunk("goMarket/fetchMarketDetail", 
 export const fetchGroceryShopDetail = createAsyncThunk("goMarket/fetchGroceryShopDetail", async (shopId) => fetchDataFromApi(`/api/go-market/grocery-shops/${shopId}`));
 export const fetchRestaurantDetail = createAsyncThunk("goMarket/fetchRestaurantDetail", async (restaurantId) => fetchDataFromApi(`/api/go-market/restaurants/${restaurantId}`));
 export const followGoMarketShop = createAsyncThunk("goMarket/followShop", async (shopId) => postData("/api/go-market/follow-shop", { shopId }));
+export const unfollowGoMarketShop = createAsyncThunk("goMarket/unfollowShop", async (shopId) => postData("/api/go-market/unfollow-shop", { shopId }));
 export const followGoMarketRestaurant = createAsyncThunk("goMarket/followRestaurant", async (restaurantId) => postData("/api/go-market/follow-restaurant", { restaurantId }));
+export const unfollowGoMarketRestaurant = createAsyncThunk("goMarket/unfollowRestaurant", async (restaurantId) => postData("/api/go-market/unfollow-restaurant", { restaurantId }));
+export const savePreferredMarket = createAsyncThunk("goMarket/savePreferredMarket", async (marketId) => postData("/api/go-market/set-preferred-market", { marketId }));
 
 const initialState = {
   markets: [], nearbyMarkets: [], selectedMarket: null,

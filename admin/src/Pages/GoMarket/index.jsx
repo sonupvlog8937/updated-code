@@ -1,12 +1,13 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import React, { useContext, useEffect, useMemo, useState, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { deleteData, editData, fetchDataFromApi, postData } from "../../utils/api";
+import { MyContext } from "../../App";
 import {
   MdStorefront, MdPeople, MdShoppingCart, MdRestaurant,
   MdInventory, MdMenuBook, MdFastfood, MdAdd, MdEdit,
   MdDelete, MdSearch, MdClose, MdRefresh, MdChevronLeft,
-  MdChevronRight, MdSave, MdCheck, MdWarning
+  MdChevronRight, MdSave, MdCheck, MdWarning, MdCategory
 } from "react-icons/md";
 
 /* ─── Config ────────────────────────────────────────────────────── */
@@ -42,6 +43,35 @@ const configs = {
       { key: "rating", label: "Rating",       type: "number" },
     ],
   },
+
+  categories: {
+    title: "Go Market Categories",
+    subtitle: "Admin only — sellers select these when adding products",
+    icon: MdCategory,
+    color: "#14b8a6",
+    endpoint: "/api/go-market/categories",
+    fields: [
+      { key: "name", label: "Category Name", type: "text", required: true },
+      { key: "type", label: "Category Type", type: "select", options: ["grocery", "restaurant"], required: true },
+      { key: "image", label: "Image URL", type: "url" },
+      { key: "description", label: "Description", type: "textarea" },
+      { key: "status", label: "Status", type: "select", options: ["active", "inactive"] },
+    ],
+  },
+  subcategories: {
+    title: "Go Market Sub Categories",
+    subtitle: "Admin only — linked to a parent category",
+    icon: MdCategory,
+    color: "#0d9488",
+    endpoint: "/api/go-market/subcategories",
+    fields: [
+      { key: "parentId", label: "Parent Category", type: "parentCategory", required: true },
+      { key: "name", label: "Sub Category Name", type: "text", required: true },
+      { key: "image", label: "Image URL", type: "url" },
+      { key: "description", label: "Description", type: "textarea" },
+      { key: "status", label: "Status", type: "select", options: ["active", "inactive"] },
+    ],
+  },
   "grocery-shops": {
     title: "Grocery Shops",
     subtitle: "Manage grocery store listings",
@@ -49,8 +79,8 @@ const configs = {
     color: "#10b981",
     endpoint: "/api/go-market/grocery-shops",
     fields: [
-      { key: "marketId",      label: "Market ID",      type: "text",     required: true },
-      { key: "ownerId",       label: "Owner ID",       type: "text",     required: true },
+      { key: "marketId",      label: "Market",         type: "marketSelect",     required: true },
+      { key: "ownerId",       label: "Owner",          type: "ownerSelect",     required: true },
       { key: "shopName",      label: "Shop Name",      type: "text",     required: true },
       { key: "shopBanner",    label: "Banner URL",     type: "url" },
       { key: "shopLogo",      label: "Logo URL",       type: "url" },
@@ -70,8 +100,8 @@ const configs = {
     color: "#ef4444",
     endpoint: "/api/go-market/restaurants",
     fields: [
-      { key: "marketId",        label: "Market ID",     type: "text",     required: true },
-      { key: "ownerId",         label: "Owner ID",      type: "text",     required: true },
+      { key: "marketId",        label: "Market",        type: "marketSelect",     required: true },
+      { key: "ownerId",         label: "Owner",         type: "ownerSelect",     required: true },
       { key: "restaurantName",  label: "Name",          type: "text",     required: true },
       { key: "restaurantBanner",label: "Banner URL",    type: "url" },
       { key: "restaurantLogo",  label: "Logo URL",      type: "url" },
@@ -95,6 +125,7 @@ const configs = {
       { key: "shopId",        label: "Shop ID",       type: "text",   required: true },
       { key: "name",          label: "Product Name",  type: "text",   required: true },
       { key: "image",         label: "Image URL",     type: "url" },
+      { key: "categoryId",    label: "Category ID",  type: "text" },
       { key: "price",         label: "Price",         type: "number", required: true },
       { key: "discountPrice", label: "Discount Price",type: "number" },
       { key: "stock",         label: "Stock",         type: "number" },
@@ -125,6 +156,7 @@ const configs = {
       { key: "menuId",       label: "Menu ID",       type: "text",   required: true },
       { key: "itemName",     label: "Item Name",     type: "text",   required: true },
       { key: "image",        label: "Image URL",     type: "url" },
+      { key: "categoryId",   label: "Category ID",  type: "text" },
       { key: "price",        label: "Price",         type: "number", required: true },
       { key: "description",  label: "Description",   type: "textarea" },
     ],
@@ -138,7 +170,7 @@ const blankFor = (fields) =>
   }), {});
 
 /* ─── Field Input ───────────────────────────────────────────────── */
-const FieldInput = ({ field, value, onChange }) => {
+const FieldInput = ({ field, value, onChange, parentCategoryOptions = [], marketOptions = [], ownerOptions = [] }) => {
   const base =
     "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all bg-white placeholder:text-gray-300";
 
@@ -153,6 +185,40 @@ const FieldInput = ({ field, value, onChange }) => {
       >
         <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${value ? "translate-x-6" : "translate-x-1"}`} />
       </button>
+    );
+  }
+  if (field.type === "marketSelect") {
+    return (
+      <select className={base} value={value ?? ""} onChange={(e) => onChange(e.target.value)} required={field.required}>
+        <option value="">Select market</option>
+        {marketOptions.map((market) => (
+          <option key={market._id} value={market._id}>
+            {market.name} ({market.city})
+          </option>
+        ))}
+      </select>
+    );
+  }
+  if (field.type === "ownerSelect") {
+    return (
+      <select className={base} value={value ?? ""} onChange={(e) => onChange(e.target.value)} required={field.required}>
+        <option value="">Select owner</option>
+        {ownerOptions.map((owner) => (
+          <option key={owner._id} value={owner._id}>
+            {owner.name} ({owner.email})
+          </option>
+        ))}
+      </select>
+    );
+  }
+  if (field.type === "parentCategory") {
+    return (
+      <select className={base} value={value ?? ""} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Select parent category</option>
+        {parentCategoryOptions.map((cat) => (
+          <option key={cat._id} value={cat._id}>{cat.name}</option>
+        ))}
+      </select>
     );
   }
   if (field.type === "select") {
@@ -204,10 +270,25 @@ const DeleteModal = ({ onConfirm, onCancel }) => (
 /* ─── Main Page ──────────────────────────────────────────────────── */
 const GoMarketAdminPage = () => {
   const { resource = "markets" } = useParams();
+  const navigate = useNavigate();
   const config = configs[resource] || configs.markets;
   const Icon = config.icon;
+  const context = useContext(MyContext);
+  const userRole = context?.userData?.role || "";
+  const sellerCategoryType =
+    userRole === "GROCERY_SELLER" ? "grocery" : userRole === "RESTAURANT_SELLER" ? "restaurant" : "";
+  const isSpecialtySeller = Boolean(sellerCategoryType);
+
+  useEffect(() => {
+    if (isSpecialtySeller && (resource === "categories" || resource === "subcategories")) {
+      navigate("/products", { replace: true });
+    }
+  }, [isSpecialtySeller, resource, navigate]);
 
   const [rows, setRows] = useState([]);
+  const [parentCategories, setParentCategories] = useState([]);
+  const [markets, setMarkets] = useState([]);
+  const [owners, setOwners] = useState([]);
   const [form, setForm] = useState(blankFor(config.fields));
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState("");
@@ -228,13 +309,32 @@ const GoMarketAdminPage = () => {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetchDataFromApi(
-      `${config.endpoint}?page=${page}&limit=10&search=${encodeURIComponent(search)}`
-    );
+    let url = `${config.endpoint}?page=${page}&limit=10&search=${encodeURIComponent(search)}`;
+    if (sellerCategoryType && (resource === "categories" || resource === "subcategories")) {
+      url += `&type=${sellerCategoryType}`;
+    }
+    const res = await fetchDataFromApi(url);
     setRows(res?.data || []);
     setPagination(res?.pagination || null);
     setLoading(false);
-  }, [config.endpoint, page, search]);
+  }, [config.endpoint, page, search, resource, sellerCategoryType]);
+
+  useEffect(() => {
+    if (resource !== "subcategories") return;
+    let url = "/api/go-market/categories?limit=100&status=active";
+    if (sellerCategoryType) url += `&type=${sellerCategoryType}`;
+    fetchDataFromApi(url).then((res) => setParentCategories(res?.data || []));
+  }, [resource, sellerCategoryType]);
+
+  useEffect(() => {
+    if (resource !== "grocery-shops" && resource !== "restaurants") return;
+    fetchDataFromApi("/api/go-market/markets?limit=100&status=active").then((res) => 
+      setMarkets(res?.data || [])
+    );
+    fetchDataFromApi("/api/go-market/owners?limit=100").then((res) => 
+      setOwners(res?.data || [])
+    );
+  }, [resource]);
 
   useEffect(() => { load(); }, [resource, page]);
 
@@ -250,6 +350,12 @@ const GoMarketAdminPage = () => {
     const payload = Object.fromEntries(
       Object.entries(form).map(([k, v]) => [k, v === "true" ? true : v === "false" ? false : v])
     );
+    if (sellerCategoryType && resource === "categories") {
+      payload.type = sellerCategoryType;
+    }
+    if (resource === "subcategories" && sellerCategoryType) {
+      payload.type = sellerCategoryType;
+    }
     const res = editingId
       ? await editData(`${config.endpoint}/${editingId}`, payload)
       : await postData(config.endpoint, payload);
@@ -289,7 +395,9 @@ const GoMarketAdminPage = () => {
     load();
   };
 
-  const displayColumns = useMemo(() => config.fields.slice(0, 4), [config.fields]);
+  const visibleFields = useMemo(() => config.fields, [config.fields]);
+
+  const displayColumns = useMemo(() => visibleFields.slice(0, 4), [visibleFields]);
 
   const getCellValue = (row, key) => {
     const v = row[key];
@@ -379,7 +487,7 @@ const GoMarketAdminPage = () => {
 
             <form onSubmit={submit} className="p-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-5">
-                {config.fields.map((field) => (
+                {visibleFields.map((field) => (
                   <label key={field.key} className={`flex flex-col gap-1.5 ${field.type === "textarea" ? "sm:col-span-2" : ""}`}>
                     <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
                       {field.label}
@@ -389,6 +497,9 @@ const GoMarketAdminPage = () => {
                       field={field}
                       value={form[field.key]}
                       onChange={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
+                      parentCategoryOptions={parentCategories}
+                      marketOptions={markets}
+                      ownerOptions={owners}
                     />
                   </label>
                 ))}

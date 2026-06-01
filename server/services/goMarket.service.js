@@ -6,15 +6,19 @@ import Restaurant from "../models/restaurant.model.js";
 import GroceryProduct from "../models/groceryProduct.model.js";
 import RestaurantMenu from "../models/restaurantMenu.model.js";
 import RestaurantItem from "../models/restaurantItem.model.js";
+import GoMarketCategory from "../models/goMarketCategory.model.js";
+import GoMarketSubCategory from "../models/goMarketSubCategory.model.js";
 
 export const resources = {
   markets: { model: Market, label: "Market", searchFields: ["name", "city", "state", "pincode"] },
   owners: { model: ShopOwner, label: "Shop owner", searchFields: ["name", "email", "mobile"] },
   "grocery-shops": { model: GroceryShop, label: "Grocery shop", searchFields: ["shopName", "address", "description"], populate: "marketId ownerId" },
   restaurants: { model: Restaurant, label: "Restaurant", searchFields: ["restaurantName", "address", "description"], populate: "marketId ownerId" },
-  products: { model: GroceryProduct, label: "Grocery product", searchFields: ["name", "description"], populate: "shopId" },
+  products: { model: GroceryProduct, label: "Grocery product", searchFields: ["name", "description"], populate: "shopId categoryId subCategoryId" },
   menus: { model: RestaurantMenu, label: "Restaurant menu", searchFields: ["menuName", "description"], populate: "restaurantId" },
-  items: { model: RestaurantItem, label: "Restaurant item", searchFields: ["itemName", "description"], populate: "restaurantId menuId" },
+  items: { model: RestaurantItem, label: "Restaurant item", searchFields: ["itemName", "description"], populate: "restaurantId menuId categoryId" },
+  categories: { model: GoMarketCategory, label: "Go Market category", searchFields: ["name", "description"] },
+  subcategories: { model: GoMarketSubCategory, label: "Go Market sub category", searchFields: ["name", "description"], populate: "parentId" },
 };
 
 export const isObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -26,6 +30,9 @@ export const buildQuery = (query = {}, searchFields = []) => {
   if (query.restaurantId && isObjectId(query.restaurantId)) filter.restaurantId = query.restaurantId;
   if (query.menuId && isObjectId(query.menuId)) filter.menuId = query.menuId;
   if (query.status) filter.status = query.status;
+  if (query.type) filter.type = query.type;
+  if (query.categoryId && isObjectId(query.categoryId)) filter.categoryId = query.categoryId;
+  if (query.parentId && isObjectId(query.parentId)) filter.parentId = query.parentId;
   if (query.isOpen !== undefined) filter.isOpen = query.isOpen === "true" || query.isOpen === true;
   const term = String(query.search || query.q || "").trim();
   if (term && searchFields.length) {

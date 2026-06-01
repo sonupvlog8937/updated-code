@@ -289,7 +289,17 @@ const Header = () => {
               <IoMdClose className="text-gray-800" />
             </IconButton>
             <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-              <span className="text-gray-800">{context?.isOpenFullScreenPanel?.model}</span>
+              <span className="text-gray-800">
+                {context?.isOpenFullScreenPanel?.model === "Add Product" && context?.userData?.role === "GROCERY_SELLER"
+                  ? "Add Grocery Product"
+                  : context?.isOpenFullScreenPanel?.model === "Add Product" && context?.userData?.role === "RESTAURANT_SELLER"
+                    ? "Add Menu Item"
+                    : context?.isOpenFullScreenPanel?.model === "Edit Product" && context?.userData?.role === "GROCERY_SELLER"
+                      ? "Edit Grocery Item"
+                      : context?.isOpenFullScreenPanel?.model === "Edit Product" && context?.userData?.role === "RESTAURANT_SELLER"
+                        ? "Edit Menu Item"
+                        : context?.isOpenFullScreenPanel?.model}
+              </span>
             </Typography>
 
           </Toolbar>

@@ -4,7 +4,7 @@ import { CgLogIn } from "react-icons/cg";
 import {
   FaRegEye, FaEyeSlash, FaCheckCircle, FaUser, FaStore,
   FaUniversity, FaArrowRight, FaArrowLeft, FaShieldAlt,
-  FaPhone, FaMapMarkerAlt, FaFileAlt, FaLock, FaEnvelope
+  FaPhone, FaMapMarkerAlt, FaFileAlt, FaLock, FaEnvelope, FaImage
 } from "react-icons/fa";
 import CircularProgress from "@mui/material/CircularProgress";
 import { fetchDataFromApi, postData } from "../../utils/api.js";
@@ -27,8 +27,8 @@ const ROLE_OPTIONS = [
 const COMMON_FEATURES = ["All Products", "Add Product", "All Orders", "Manage Orders", "All Reviews", "Store Information", "Wallet Transactions", "More Features"];
 const ROLE_FEATURES = {
   SELLER: COMMON_FEATURES,
-  GROCERY_SELLER: ["Grocery Shops", "Grocery Products", "Stock & Freshness", "Store Information", "Wallet Transactions"],
-  RESTAURANT_SELLER: ["Restaurants", "Menus", "Restaurant Items", "Food Orders", "Store Information", "Wallet Transactions"],
+  GROCERY_SELLER: ["Quick Commerce Dashboard", "Store Operations", "Inventory", "Live Orders", "Wallet"],
+  RESTAURANT_SELLER: ["Quick Commerce Dashboard", "Kitchen Operations", "Menu Items", "Live Orders", "Wallet"],
 };
 
 const getRoleMeta = (role) => ROLE_OPTIONS.find((item) => item.value === role) || ROLE_OPTIONS[0];
@@ -95,7 +95,7 @@ const SellerSignUp = () => {
 
   const [formFields, setFormFields] = useState({
     name: "", email: "", mobile: "", password: "", confirmPassword: "", role: "SELLER",
-    storeName: "", storeLocation: "", storeContact: "", storeDescription: "", marketId: "",
+    storeName: "", storeLocation: "", storeContact: "", storeDescription: "", shopBanner: "", marketId: "",
     accountHolderName: "", bankName: "", accountNumber: "", ifscCode: "",
     agreeTerms: false
   });
@@ -189,6 +189,7 @@ const SellerSignUp = () => {
         storeLocation: formFields.storeLocation,
         storeContact: formFields.storeContact || formFields.mobile,
         storeDescription: formFields.storeDescription,
+        shopBanner: formFields.shopBanner,
         marketId: formFields.marketId,
         accountHolderName: formFields.accountHolderName,
         bankName: formFields.bankName,
@@ -197,11 +198,10 @@ const SellerSignUp = () => {
       };
       const res = await postData("/api/user/register-seller", payload);
       if (res?.error !== true) {
-        context.alertBox("success", res?.message || "Registered! Your panel is ready.");
-        localStorage.setItem("accessToken", res?.data?.accesstoken || "");
-        localStorage.setItem("refreshToken", res?.data?.refreshToken || "");
-        context.setIsLogin(true);
-        history("/");
+        context.alertBox("success", res?.message || "Registered! Please verify your email OTP.");
+        localStorage.setItem("userEmail", formFields.email);
+        localStorage.setItem("actionType", "seller-signup");
+        history("/verify-account");
       } else {
         context.alertBox("error", res?.message);
       }
@@ -494,6 +494,10 @@ const SellerSignUp = () => {
                     value={formFields.storeDescription} onChange={onChangeInput} onBlur={onBlur}
                     style={textareaStyle("storeDescription")} />
                 </Field>
+                <Field label="Shop Banner URL" icon={FaImage} error={touched.shopBanner && errors.shopBanner} hint="Paste a wide banner image URL that will appear on your shop page.">
+                  <input type="url" name="shopBanner" placeholder="https://example.com/banner.jpg" value={formFields.shopBanner}
+                    onChange={onChangeInput} onBlur={onBlur} style={inputStyle("shopBanner")} />
+                </Field>
               </>
             )}
 
@@ -559,6 +563,7 @@ const SellerSignUp = () => {
                   </div>
                   <div style={{ background: "#f9fafb", border: "1px solid rgba(0,0,0,0.06)", borderRadius: 10, padding: "0 14px" }}>
                     <ReviewRow label="Store Name" value={formFields.storeName} />
+                    <ReviewRow label="Shop Banner" value={formFields.shopBanner || "—"} />
                     <ReviewRow label="Market" value={markets.find((market) => market._id === formFields.marketId)?.name || "—"} />
                     <ReviewRow label="Location" value={formFields.storeLocation || "—"} />
                     <ReviewRow label="Contact" value={formFields.storeContact || "—"} />

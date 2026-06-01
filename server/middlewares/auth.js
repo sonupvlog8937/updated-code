@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken'
+import UserModel from '../models/user.model.js'
 
 const auth = async(request,response,next)=>{
     try {
@@ -25,6 +26,23 @@ const auth = async(request,response,next)=>{
         }
 
         request.userId = decode.id
+
+        const user = await UserModel.findById(decode.id).select('role status email name').lean();
+        if (!user) {
+            return response.status(401).json({
+                message: 'User not found',
+                error: true,
+                success: false,
+            });
+        }
+        if (user.status !== 'Active') {
+            return response.status(403).json({
+                message: 'Account is not active',
+                error: true,
+                success: false,
+            });
+        }
+        request.currentUser = user;
 
         next()
 

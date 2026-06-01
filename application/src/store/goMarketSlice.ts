@@ -7,7 +7,10 @@ export const fetchGoMarketDetail = createAsyncThunk<any, string>("goMarket/fetch
 export const fetchGoShopDetail = createAsyncThunk<any, string>("goMarket/fetchShop", async (id) => fetchDataFromApi(`/api/go-market/grocery-shops/${id}`));
 export const fetchGoRestaurantDetail = createAsyncThunk<any, string>("goMarket/fetchRestaurant", async (id) => fetchDataFromApi(`/api/go-market/restaurants/${id}`));
 export const followGoShop = createAsyncThunk<any, string>("goMarket/followShop", async (shopId) => postData("/api/go-market/follow-shop", { shopId }));
+export const unfollowGoShop = createAsyncThunk<any, string>("goMarket/unfollowShop", async (shopId) => postData("/api/go-market/unfollow-shop", { shopId }));
 export const followGoRestaurant = createAsyncThunk<any, string>("goMarket/followRestaurant", async (restaurantId) => postData("/api/go-market/follow-restaurant", { restaurantId }));
+export const unfollowGoRestaurant = createAsyncThunk<any, string>("goMarket/unfollowRestaurant", async (restaurantId) => postData("/api/go-market/unfollow-restaurant", { restaurantId }));
+export const savePreferredMarket = createAsyncThunk<any, string>("goMarket/savePreferred", async (marketId) => postData("/api/go-market/set-preferred-market", { marketId }));
 
 interface GoMarketState { markets: any[]; nearbyMarkets: any[]; selectedMarket: any | null; groceryShops: any[]; restaurants: any[]; shopDetail: any | null; restaurantDetail: any | null; loading: boolean; error: string; activeTab: "grocery" | "restaurants"; }
 const initialState: GoMarketState = { markets: [], nearbyMarkets: [], selectedMarket: null, groceryShops: [], restaurants: [], shopDetail: null, restaurantDetail: null, loading: false, error: "", activeTab: "grocery" };

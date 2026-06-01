@@ -13,6 +13,8 @@ const groceryShopSchema = new mongoose.Schema({
   totalProducts: { type: Number, default: 0 },
   description: { type: String, default: "" },
   isOpen: { type: Boolean, default: true },
+  deliveryMinutes: { type: Number, default: 15, min: 5, max: 120 },
+  minOrderValue: { type: Number, default: 99, min: 0 },
 }, { timestamps: true });
 groceryShopSchema.index({ shopName: "text", address: "text", description: "text" });
 export default mongoose.model("GroceryShop", groceryShopSchema);

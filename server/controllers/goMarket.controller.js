@@ -4,6 +4,14 @@ import Restaurant from "../models/restaurant.model.js";
 import GroceryProduct from "../models/groceryProduct.model.js";
 import RestaurantMenu from "../models/restaurantMenu.model.js";
 import RestaurantItem from "../models/restaurantItem.model.js";
+import GoMarketCategory from "../models/goMarketCategory.model.js";
+import GoMarketSubCategory from "../models/goMarketSubCategory.model.js";
+import {
+  bumpGroceryShopProductCount,
+  getOrCreateDefaultRestaurantMenu,
+  getSellerGroceryShop,
+  getSellerRestaurant,
+} from "../utils/goMarketSellerCatalog.js";
 import { buildQuery, findNearbyMarkets, isObjectId, paginate, resources } from "../services/goMarket.service.js";
 
 const sendError = (res, error, status = 500) => res.status(status).json({ error: true, success: false, message: error.message || error });
@@ -18,11 +26,17 @@ const requiredFields = {
   products: ["shopId", "name", "price"],
   menus: ["restaurantId", "menuName"],
   items: ["restaurantId", "menuId", "itemName", "price"],
+  categories: ["name", "type"],
+  subcategories: ["parentId", "name", "type"],
 };
 
 const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER"];
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
-
+const getSellerCategoryType = (role) => {
+  if (role === "GROCERY_SELLER") return "grocery";
+  if (role === "RESTAURANT_SELLER") return "restaurant";
+  return null;
+};
 const getSellerOwnerIds = async (req) => {
   if (!isSellerRole(req.currentUser?.role)) return null;
   const owners = await resources.owners.model.find({
@@ -35,6 +49,16 @@ const applySellerScope = async (resourceKey, filter, req) => {
   const ownerIds = await getSellerOwnerIds(req);
   if (!ownerIds) return filter;
 
+  if (resourceKey === "categories") {
+    const sellerType = getSellerCategoryType(req.currentUser?.role);
+    if (sellerType) return { ...filter, type: sellerType };
+    return filter;
+  }
+  if (resourceKey === "subcategories") {
+    const sellerType = getSellerCategoryType(req.currentUser?.role);
+    if (sellerType) return { ...filter, type: sellerType };
+    return filter;
+  }
   if (resourceKey === "owners") return { ...filter, _id: { $in: ownerIds } };
   if (["grocery-shops", "restaurants"].includes(resourceKey)) return { ...filter, ownerId: { $in: ownerIds } };
 
@@ -65,14 +89,47 @@ const assertSellerCanWrite = async (resourceKey, body, req) => {
   }
 
   if (resourceKey === "products") {
-    const shop = await GroceryShop.findOne({ _id: body.shopId, ownerId: { $in: ownerIds } }).select("_id");
+    let shopId = body.shopId;
+    if (!shopId && req.currentUser?.role === "GROCERY_SELLER") {
+      const shop = await getSellerGroceryShop(req.userId, req.currentUser.email);
+      shopId = shop?._id;
+    }
+    const shop = await GroceryShop.findOne({ _id: shopId, ownerId: { $in: ownerIds } }).select("_id");
     if (!shop) throw Object.assign(new Error("Please select your own grocery shop"), { statusCode: 403 });
+    return { ...body, shopId: shop._id };
   }
 
   if (["menus", "items"].includes(resourceKey)) {
-    const restaurantId = resourceKey === "menus" ? body.restaurantId : body.restaurantId;
+    let restaurantId = body.restaurantId;
+    if (!restaurantId && req.currentUser?.role === "RESTAURANT_SELLER") {
+      const restaurant = await getSellerRestaurant(req.userId, req.currentUser.email);
+      restaurantId = restaurant?._id;
+    }
     const restaurant = await Restaurant.findOne({ _id: restaurantId, ownerId: { $in: ownerIds } }).select("_id");
     if (!restaurant) throw Object.assign(new Error("Please select your own restaurant"), { statusCode: 403 });
+
+    if (resourceKey === "items") {
+      let menuId = body.menuId;
+      if (!menuId) {
+        const menu = await getOrCreateDefaultRestaurantMenu(restaurant._id);
+        menuId = menu._id;
+      }
+      return {
+        ...body,
+        restaurantId: restaurant._id,
+        menuId,
+        itemName: body.itemName || body.name,
+      };
+    }
+
+    return { ...body, restaurantId: restaurant._id };
+  }
+
+  if (["categories", "subcategories"].includes(resourceKey)) {
+    throw Object.assign(
+      new Error("Only admin can create or edit categories. Please select from categories added by admin."),
+      { statusCode: 403 },
+    );
   }
 
   if (resourceKey === "owners" && body._id && !ownerIdStrings.includes(String(body._id))) {
@@ -105,14 +162,26 @@ export const getResource = (resourceKey) => async (req, res) => {
 
 export const createResource = (resourceKey) => async (req, res) => {
   try {
-    const expectedFields = isSellerRole(req.currentUser?.role) && ["grocery-shops", "restaurants"].includes(resourceKey)
-      ? (requiredFields[resourceKey] || []).filter((field) => field !== "ownerId")
-      : (requiredFields[resourceKey] || []);
+    let expectedFields = requiredFields[resourceKey] || [];
+    if (isSellerRole(req.currentUser?.role)) {
+      if (["grocery-shops", "restaurants"].includes(resourceKey)) {
+        expectedFields = expectedFields.filter((field) => field !== "ownerId");
+      }
+      if (resourceKey === "products" && req.currentUser?.role === "GROCERY_SELLER") {
+        expectedFields = expectedFields.filter((field) => field !== "shopId");
+      }
+      if (resourceKey === "items" && req.currentUser?.role === "RESTAURANT_SELLER") {
+        expectedFields = expectedFields.filter((field) => !["restaurantId", "menuId"].includes(field));
+      }
+    }
     const missing = required(req.body, expectedFields);
     if (missing.length) return sendError(res, `Missing required fields: ${missing.join(", ")}`, 400);
     const resource = resources[resourceKey];
     const payload = await assertSellerCanWrite(resourceKey, req.body, req);
     const data = await resource.model.create(payload);
+    if (resourceKey === "products" && data?.shopId) {
+      await bumpGroceryShopProductCount(data.shopId, 1);
+    }
     ok(res, { message: `${resource.label} created`, data });
   } catch (error) { sendError(res, error, error.statusCode || 400); }
 };
@@ -176,8 +245,10 @@ export const getMarketDetail = async (req, res) => {
 export const getGroceryShopDetail = async (req, res) => {
   try {
     if (!isObjectId(req.params.id)) return sendError(res, "Invalid shop id", 400);
-    const shop = await GroceryShop.findById(req.params.id).populate("marketId ownerId").lean();
-    if (!shop) return sendError(res, "Grocery shop not found", 404);
+    const shopDoc = await GroceryShop.findById(req.params.id).populate("marketId ownerId").lean();
+    if (!shopDoc) return sendError(res, "Grocery shop not found", 404);
+    const { enrichOutletWithReviews, OUTLET_TARGET } = await import("../services/goMarketReview.service.js");
+    const shop = await enrichOutletWithReviews(shopDoc, OUTLET_TARGET.GROCERY, req.userId);
     const products = await GroceryProduct.find({ shopId: req.params.id }).lean();
     ok(res, { data: { shop, products } });
   } catch (error) { sendError(res, error); }
@@ -186,8 +257,10 @@ export const getGroceryShopDetail = async (req, res) => {
 export const getRestaurantDetail = async (req, res) => {
   try {
     if (!isObjectId(req.params.id)) return sendError(res, "Invalid restaurant id", 400);
-    const restaurant = await Restaurant.findById(req.params.id).populate("marketId ownerId").lean();
-    if (!restaurant) return sendError(res, "Restaurant not found", 404);
+    const restaurantDoc = await Restaurant.findById(req.params.id).populate("marketId ownerId").lean();
+    if (!restaurantDoc) return sendError(res, "Restaurant not found", 404);
+    const { enrichOutletWithReviews, OUTLET_TARGET } = await import("../services/goMarketReview.service.js");
+    const restaurant = await enrichOutletWithReviews(restaurantDoc, OUTLET_TARGET.RESTAURANT, req.userId);
     const [menus, items] = await Promise.all([RestaurantMenu.find({ restaurantId: req.params.id }).lean(), RestaurantItem.find({ restaurantId: req.params.id }).lean()]);
     ok(res, { data: { restaurant, menus, items } });
   } catch (error) { sendError(res, error); }
@@ -200,7 +273,32 @@ export const followShop = async (req, res) => {
     if (!userId || !isObjectId(shopId)) return sendError(res, "Valid shopId and login are required", 400);
     const shop = await GroceryShop.findByIdAndUpdate(shopId, { $addToSet: { followers: userId } }, { new: true });
     if (!shop) return sendError(res, "Grocery shop not found", 404);
-    ok(res, { message: "Shop followed", data: shop });
+    ok(res, {
+      message: "Shop followed",
+      data: {
+        shopId: shop._id,
+        followerCount: shop.followers?.length || 0,
+        isFollowing: true,
+      },
+    });
+  } catch (error) { sendError(res, error); }
+};
+
+export const unfollowShop = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { shopId } = req.body;
+    if (!userId || !isObjectId(shopId)) return sendError(res, "Valid shopId and login are required", 400);
+    const shop = await GroceryShop.findByIdAndUpdate(shopId, { $pull: { followers: userId } }, { new: true });
+    if (!shop) return sendError(res, "Grocery shop not found", 404);
+    ok(res, {
+      message: "Unfollowed shop",
+      data: {
+        shopId: shop._id,
+        followerCount: shop.followers?.length || 0,
+        isFollowing: false,
+      },
+    });
   } catch (error) { sendError(res, error); }
 };
 
@@ -211,6 +309,61 @@ export const followRestaurant = async (req, res) => {
     if (!userId || !isObjectId(restaurantId)) return sendError(res, "Valid restaurantId and login are required", 400);
     const restaurant = await Restaurant.findByIdAndUpdate(restaurantId, { $addToSet: { followers: userId } }, { new: true });
     if (!restaurant) return sendError(res, "Restaurant not found", 404);
-    ok(res, { message: "Restaurant followed", data: restaurant });
+    ok(res, {
+      message: "Restaurant followed",
+      data: {
+        restaurantId: restaurant._id,
+        followerCount: restaurant.followers?.length || 0,
+        isFollowing: true,
+      },
+    });
   } catch (error) { sendError(res, error); }
+};
+
+export const unfollowRestaurant = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { restaurantId } = req.body;
+    if (!userId || !isObjectId(restaurantId)) return sendError(res, "Valid restaurantId and login are required", 400);
+    const restaurant = await Restaurant.findByIdAndUpdate(restaurantId, { $pull: { followers: userId } }, { new: true });
+    if (!restaurant) return sendError(res, "Restaurant not found", 404);
+    ok(res, {
+      message: "Unfollowed restaurant",
+      data: {
+        restaurantId: restaurant._id,
+        followerCount: restaurant.followers?.length || 0,
+        isFollowing: false,
+      },
+    });
+  } catch (error) { sendError(res, error); }
+};
+
+export const setPreferredMarket = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { marketId } = req.body;
+    
+    if (!userId) return sendError(res, "Login required", 401);
+    if (!marketId || !isObjectId(marketId)) return sendError(res, "Valid marketId is required", 400);
+    
+    // Verify market exists and is active
+    const market = await Market.findOne({ _id: marketId, status: "active" }).lean();
+    if (!market) return sendError(res, "Market not found or inactive", 404);
+    
+    // Import UserModel dynamically to avoid circular dependency
+    const UserModel = (await import("../models/user.model.js")).default;
+    
+    // Update user's preferred market
+    const user = await UserModel.findByIdAndUpdate(
+      userId,
+      { preferredMarketId: marketId },
+      { new: true }
+    ).select("preferredMarketId");
+    
+    if (!user) return sendError(res, "User not found", 404);
+    
+    ok(res, { message: "Preferred market saved", data: { preferredMarketId: marketId } });
+  } catch (error) {
+    sendError(res, error);
+  }
 };

@@ -124,7 +124,12 @@ const userSchema = mongoose.Schema({
             approvedBy: { type: mongoose.Schema.ObjectId, ref: 'User', default: null },
             createdAt: { type: Date, default: Date.now }
         }
-    ]
+    ],
+    preferredMarketId: {
+        type: mongoose.Schema.ObjectId,
+        ref: 'Market',
+        default: null
+    }
 },
     { timestamps: true }
 )

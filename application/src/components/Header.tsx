@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,14 +7,17 @@ import {
   StatusBar,
   Modal,
   ScrollView,
-  Platform
+  Platform,
+  Image,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useRouter, usePathname } from "expo-router";
 import { useAppSelector } from "@/src/store";
 import { useColors } from "@/hooks/useColors";
 import { SearchModal } from "@/src/components/SearchModal";
+import { fetchDataFromApi } from "@/src/utils/api";
 
 interface HeaderProps {
   showBreadcrumb?: boolean;
@@ -72,9 +75,42 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [logoUri, setLogoUri] = useState<string | null>(null);
 
-  // Check if on home page
-  const isHomePage = pathname === "/" || pathname === "/" || pathname === "/";
+  const isHomePage =
+    pathname === "/" ||
+    pathname === "/(tabs)" ||
+    pathname === "/(tabs)/index";
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadLogo = async () => {
+      try {
+        const res = (await fetchDataFromApi("/api/logo")) as {
+          logo?: { logo?: string }[];
+        };
+        const logo = res?.logo?.[0]?.logo;
+        if (!cancelled && logo) {
+          setLogoUri(logo);
+          await AsyncStorage.setItem("logo", logo);
+          return;
+        }
+      } catch {
+        // fall through to cache
+      }
+
+      if (!cancelled) {
+        const cached = await AsyncStorage.getItem("logo");
+        if (cached) setLogoUri(cached);
+      }
+    };
+
+    loadLogo();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const quickMenuItems = useMemo(() => {
     const destructive = colors.destructive || colors.primary;
     const info = colors.info || colors.primary;
@@ -168,21 +204,44 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
           </Pressable> */}
 
           <View style={styles.leftSection}>
+            {/* Back Button - Only show when not on home page */}
+            {!isHomePage && (
+              <Pressable
+                onPress={() => router.back()}
+                style={[styles.backButton, { backgroundColor: colors.accent }]}
+                hitSlop={8}
+              >
+                <Feather name="arrow-left" size={20} color={colors.foreground} />
+              </Pressable>
+            )}
 
-            {/* ZeeDaddy */}
+            {/* Logo from database */}
             <Pressable
               onPress={() => router.push("/" as never)}
-              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              style={({ pressed }) => [
+                styles.logoPress,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
               hitSlop={6}
             >
-              <View style={styles.wordmarkRow}>
-                <Text style={[styles.wordmarkZee, { color: colors.foreground }]}>Zee</Text>
-                <Text style={[styles.wordmarkDaddy, { color: "#E5333A" }]}>Daddy</Text>
-                <Text style={[styles.starAccent, { color: "#E5333A" }]}>★</Text>
-              </View>
-              <Text style={[styles.logoSubtitle, { color: colors.mutedForeground }]}>
-                ONLINE SHOPPING APP
-              </Text>
+              {logoUri ? (
+                <Image
+                  source={{ uri: logoUri }}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <>
+                  <View style={styles.wordmarkRow}>
+                    <Text style={[styles.wordmarkZee, { color: colors.foreground }]}>Zee</Text>
+                    <Text style={[styles.wordmarkDaddy, { color: "#E5333A" }]}>Daddy</Text>
+                    <Text style={[styles.starAccent, { color: "#E5333A" }]}>★</Text>
+                  </View>
+                  <Text style={[styles.logoSubtitle, { color: colors.mutedForeground }]}>
+                    ONLINE SHOPPING APP
+                  </Text>
+                </>
+              )}
             </Pressable>
 
             {/* Divider */}
@@ -1779,6 +1838,12 @@ const styles = StyleSheet.create({
   },
   logoPress: {
     gap: 2,
+    maxWidth: 130,
+  },
+  logoImage: {
+    height: 36,
+    width: 120,
+    maxWidth: 130,
   },
   // wordmarkRow: {
   //   flexDirection: "row",
@@ -1887,6 +1952,14 @@ leftSection: {
   gap: 8,
   flex: 1,
   minWidth: 0,       // allows inner items to shrink on small screens
+},
+backButton: {
+  width: 36,
+  height: 36,
+  borderRadius: 10,
+  alignItems: "center",
+  justifyContent: "center",
+  marginRight: 4,
 },
 wordmarkRow: {
   flexDirection: "row",

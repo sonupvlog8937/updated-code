@@ -1,4 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
+import GroceryAddProduct from './GroceryAddProduct';
+import RestaurantAddProduct from './RestaurantAddProduct';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Rating from '@mui/material/Rating';
@@ -60,7 +62,10 @@ const Field = ({ label: lbText, children, span }) => (
     </div>
 );
 
-const AddProduct = () => {
+const MarketplaceAddProduct = () => {
+    const context = useContext(MyContext);
+    const userRole = context?.userData?.role || '';
+
     const [formFields, setFormFields] = useState({
         name: '', description: '', images: [], brand: '', keywords: '',
         price: '', oldPrice: '', category: '', catName: '', catId: '',
@@ -88,17 +93,45 @@ const AddProduct = () => {
     const [checkedSwitch, setCheckedSwitch] = useState(false);
 
     const history = useNavigate();
-    const context = useContext(MyContext);
+    const isRestaurantSeller = userRole === 'RESTAURANT_SELLER';
+    const isGoMarketSeller = isRestaurantSeller;
+    const goMarketCategoryType = isRestaurantSeller ? 'restaurant' : '';
+
+    const [goMarketCategories, setGoMarketCategories] = useState([]);
+    const [goMarketSubCategories, setGoMarketSubCategories] = useState([]);
+    const [goMarketCategoryId, setGoMarketCategoryId] = useState('');
+    const [goMarketSubCategoryId, setGoMarketSubCategoryId] = useState('');
+
     const selectedCategory = context?.catData?.find((cat) => cat?._id === productCat);
     const availableSubCategories = selectedCategory?.children || [];
     const selectedSubCategory = availableSubCategories?.find((sc) => sc?._id === productSubCat);
     const availableThirdLevelCategories = selectedSubCategory?.children || [];
 
     useEffect(() => {
-        fetchDataFromApi('/api/product/productRAMS/get').then((res) => { if (res?.error === false) setProductRamsData(res?.data); });
-        fetchDataFromApi('/api/product/productWeight/get').then((res) => { if (res?.error === false) setProductWeightData(res?.data); });
-        fetchDataFromApi('/api/product/productSize/get').then((res) => { if (res?.error === false) setProductSizeData(res?.data); });
-    }, []);
+        if (!isGoMarketSeller) {
+            fetchDataFromApi('/api/product/productRAMS/get').then((res) => { if (res?.error === false) setProductRamsData(res?.data); });
+            fetchDataFromApi('/api/product/productWeight/get').then((res) => { if (res?.error === false) setProductWeightData(res?.data); });
+            fetchDataFromApi('/api/product/productSize/get').then((res) => { if (res?.error === false) setProductSizeData(res?.data); });
+        }
+    }, [isGoMarketSeller]);
+
+    useEffect(() => {
+        if (!isGoMarketSeller || !goMarketCategoryType) return;
+        fetchDataFromApi(`/api/go-market/categories?type=${goMarketCategoryType}&limit=100&status=active`).then((res) => {
+            setGoMarketCategories(res?.data || []);
+        });
+    }, [isGoMarketSeller, goMarketCategoryType]);
+
+    useEffect(() => {
+        if (!goMarketCategoryId) {
+            setGoMarketSubCategories([]);
+            setGoMarketSubCategoryId('');
+            return;
+        }
+        fetchDataFromApi(`/api/go-market/subcategories?parentId=${goMarketCategoryId}&limit=100&status=active`).then((res) => {
+            setGoMarketSubCategories(res?.data || []);
+        });
+    }, [goMarketCategoryId]);
 
     const handleChangeProductCat = (e) => {
         const id = e.target.value;
@@ -165,22 +198,34 @@ const AddProduct = () => {
 
     const handleSubmitg = (e) => {
         e.preventDefault();
-        const checks = [
-            [!formFields.name, 'Please enter product name'],
-            [!formFields.description, 'Please enter product description'],
-            [!formFields.catId, 'Please select product category'],
-            [!formFields.price, 'Please enter product price'],
-            [!formFields.oldPrice, 'Please enter product old price'],
-            [!formFields.countInStock, 'Please enter product stock'],
-            [!formFields.brand, 'Please enter product brand'],
-            [!formFields.discount, 'Please enter product discount'],
-            [!formFields.rating, 'Please enter product rating'],
-            [previews.length === 0, 'Please add product images'],
-        ];
+        const checks = isGoMarketSeller
+            ? [
+                [!formFields.name, 'Please enter product name'],
+                [!formFields.description, 'Please enter product description'],
+                [!goMarketCategoryId, 'Please select Go Market category'],
+                [!formFields.price, 'Please enter product price'],
+                [isRestaurantSeller && !formFields.countInStock, 'Please enter product stock'],
+                [previews.length === 0, 'Please add product images'],
+            ]
+            : [
+                [!formFields.name, 'Please enter product name'],
+                [!formFields.description, 'Please enter product description'],
+                [!formFields.catId, 'Please select product category'],
+                [!formFields.price, 'Please enter product price'],
+                [!formFields.oldPrice, 'Please enter product old price'],
+                [!formFields.countInStock, 'Please enter product stock'],
+                [!formFields.brand, 'Please enter product brand'],
+                [!formFields.discount, 'Please enter product discount'],
+                [!formFields.rating, 'Please enter product rating'],
+                [previews.length === 0, 'Please add product images'],
+            ];
         for (const [cond, msg] of checks) { if (cond) { context.alertBox('error', msg); return false; } }
 
         const payload = {
             ...formFields,
+            goMarketCategoryId: goMarketCategoryId || undefined,
+            goMarketSubCategoryId: goMarketSubCategoryId || undefined,
+            oldPrice: isGoMarketSeller ? (formFields.oldPrice || formFields.price) : formFields.oldPrice,
             colorOptions: (formFields.colorOptions || [])
                 .map((item) => ({ ...item, images: item.images ? item.images.split(',').map((s) => s.trim()).filter(Boolean) : [] }))
                 .filter((item) => item.name),
@@ -224,45 +269,75 @@ const AddProduct = () => {
                     </SectionCard>
 
                     {/* ── Category ── */}
-                    <SectionCard icon={<MdCategory size={15} />} iconBg="#e0f2fe" iconColor="#0369a1" title="Category" subtitle="Assign product to categories">
-                        <div style={g3}>
-                            <Field label="Category *">
-                                <Select size="small" sx={selectSx} value={productCat} onChange={handleChangeProductCat} displayEmpty>
-                                    <MenuItem value="" disabled>Select category</MenuItem>
-                                    {context?.catData?.map((cat) => <MenuItem key={cat._id} value={cat._id}>{cat.name}</MenuItem>)}
-                                </Select>
-                            </Field>
-                            <Field label="Sub Category">
-                                <Select size="small" sx={selectSx} value={productSubCat} onChange={handleChangeProductSubCat} displayEmpty disabled={!productCat}>
-                                    <MenuItem value="">Select sub category</MenuItem>
-                                    {availableSubCategories.map((sc) => <MenuItem key={sc._id} value={sc._id}>{sc.name}</MenuItem>)}
-                                </Select>
-                            </Field>
-                            <Field label="Third Level Category">
-                                <Select size="small" sx={selectSx} value={productThirdLavelCat} onChange={handleChangeProductThirdLavelCat} displayEmpty disabled={!productSubCat}>
-                                    <MenuItem value="">Select third level</MenuItem>
-                                    {availableThirdLevelCategories.map((tc) => <MenuItem key={tc._id} value={tc._id}>{tc.name}</MenuItem>)}
-                                </Select>
-                            </Field>
-                        </div>
+                    <SectionCard icon={<MdCategory size={15} />} iconBg="#e0f2fe" iconColor="#0369a1" title="Category" subtitle={isGoMarketSeller ? "Select category added by admin" : "Assign product to categories"}>
+                        {isGoMarketSeller ? (
+                            <div style={g2}>
+                                <Field label="Go Market Category *">
+                                    <Select size="small" sx={selectSx} value={goMarketCategoryId} onChange={(e) => { setGoMarketCategoryId(e.target.value); setGoMarketSubCategoryId(''); }} displayEmpty>
+                                        <MenuItem value="" disabled>Select category</MenuItem>
+                                        {goMarketCategories.map((cat) => <MenuItem key={cat._id} value={cat._id}>{cat.name}</MenuItem>)}
+                                    </Select>
+                                </Field>
+                                <Field label="Sub Category">
+                                    <Select size="small" sx={selectSx} value={goMarketSubCategoryId} onChange={(e) => setGoMarketSubCategoryId(e.target.value)} displayEmpty disabled={!goMarketCategoryId}>
+                                        <MenuItem value="">Select sub category (optional)</MenuItem>
+                                        {goMarketSubCategories.map((sc) => <MenuItem key={sc._id} value={sc._id}>{sc.name}</MenuItem>)}
+                                    </Select>
+                                </Field>
+                            </div>
+                        ) : (
+                            <div style={g3}>
+                                <Field label="Category *">
+                                    <Select size="small" sx={selectSx} value={productCat} onChange={handleChangeProductCat} displayEmpty>
+                                        <MenuItem value="" disabled>Select category</MenuItem>
+                                        {context?.catData?.map((cat) => <MenuItem key={cat._id} value={cat._id}>{cat.name}</MenuItem>)}
+                                    </Select>
+                                </Field>
+                                <Field label="Sub Category">
+                                    <Select size="small" sx={selectSx} value={productSubCat} onChange={handleChangeProductSubCat} displayEmpty disabled={!productCat}>
+                                        <MenuItem value="">Select sub category</MenuItem>
+                                        {availableSubCategories.map((sc) => <MenuItem key={sc._id} value={sc._id}>{sc.name}</MenuItem>)}
+                                    </Select>
+                                </Field>
+                                <Field label="Third Level Category">
+                                    <Select size="small" sx={selectSx} value={productThirdLavelCat} onChange={handleChangeProductThirdLavelCat} displayEmpty disabled={!productSubCat}>
+                                        <MenuItem value="">Select third level</MenuItem>
+                                        {availableThirdLevelCategories.map((tc) => <MenuItem key={tc._id} value={tc._id}>{tc.name}</MenuItem>)}
+                                    </Select>
+                                </Field>
+                            </div>
+                        )}
                     </SectionCard>
 
                     {/* ── Pricing & Inventory ── */}
                     <SectionCard icon={<MdLocalOffer size={15} />} iconBg="#f0fdf4" iconColor="#15803d" title="Pricing & Inventory" subtitle="Set prices, stock and discount">
                         <div style={g3}>
-                            <Field label="Price (Original) *"><input style={inp} type="number" name="price" value={formFields.price} onChange={onChangeInput} placeholder="0.00" /></Field>
-                            <Field label="Sale Price *"><input style={inp} type="number" name="oldPrice" value={formFields.oldPrice} onChange={onChangeInput} placeholder="0.00" /></Field>
-                            <Field label="Discount % *"><input style={inp} type="number" name="discount" value={formFields.discount} onChange={onChangeInput} placeholder="0" /></Field>
-                            <Field label="Stock Count *"><input style={inp} type="number" name="countInStock" value={formFields.countInStock} onChange={onChangeInput} placeholder="0" /></Field>
-                            <Field label="Sales Count"><input style={inp} type="number" name="sale" value={formFields.sale} onChange={onChangeInput} placeholder="0" /></Field>
-                            <Field label="Brand *"><input style={inp} type="text" name="brand" value={formFields.brand} onChange={onChangeInput} placeholder="e.g. Apple" /></Field>
-                            <Field label="Is Featured?">
-                                <Select size="small" sx={selectSx} value={productFeatured} onChange={handleChangeProductFeatured} displayEmpty>
-                                    <MenuItem value="">Select</MenuItem>
-                                    <MenuItem value={true}>Yes — Featured</MenuItem>
-                                    <MenuItem value={false}>No</MenuItem>
-                                </Select>
-                            </Field>
+                            <Field label="Price *"><input style={inp} type="number" name="price" value={formFields.price} onChange={onChangeInput} placeholder="0.00" /></Field>
+                            {!isGoMarketSeller && (
+                                <>
+                                    <Field label="Sale Price *"><input style={inp} type="number" name="oldPrice" value={formFields.oldPrice} onChange={onChangeInput} placeholder="0.00" /></Field>
+                                    <Field label="Discount % *"><input style={inp} type="number" name="discount" value={formFields.discount} onChange={onChangeInput} placeholder="0" /></Field>
+                                </>
+                            )}
+                            {isGoMarketSeller && (
+                                <Field label="Discount Price"><input style={inp} type="number" name="oldPrice" value={formFields.oldPrice} onChange={onChangeInput} placeholder="Optional discounted price" /></Field>
+                            )}
+                            {(!isGoMarketSeller || isRestaurantSeller) && (
+                                <Field label="Stock Count *"><input style={inp} type="number" name="countInStock" value={formFields.countInStock} onChange={onChangeInput} placeholder="0" /></Field>
+                            )}
+                            {!isGoMarketSeller && (
+                                <>
+                                    <Field label="Sales Count"><input style={inp} type="number" name="sale" value={formFields.sale} onChange={onChangeInput} placeholder="0" /></Field>
+                                    <Field label="Brand *"><input style={inp} type="text" name="brand" value={formFields.brand} onChange={onChangeInput} placeholder="e.g. Apple" /></Field>
+                                    <Field label="Is Featured?">
+                                        <Select size="small" sx={selectSx} value={productFeatured} onChange={handleChangeProductFeatured} displayEmpty>
+                                            <MenuItem value="">Select</MenuItem>
+                                            <MenuItem value={true}>Yes — Featured</MenuItem>
+                                            <MenuItem value={false}>No</MenuItem>
+                                        </Select>
+                                    </Field>
+                                </>
+                            )}
                         </div>
                     </SectionCard>
 
@@ -438,6 +513,14 @@ const AddProduct = () => {
             </form>
         </section>
     );
+};
+
+const AddProduct = () => {
+    const context = useContext(MyContext);
+    const role = context?.userData?.role;
+    if (role === 'GROCERY_SELLER') return <GroceryAddProduct />;
+    if (role === 'RESTAURANT_SELLER') return <RestaurantAddProduct />;
+    return <MarketplaceAddProduct />;
 };
 
 export default AddProduct;

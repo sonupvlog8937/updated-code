@@ -45,8 +45,16 @@ import {
 } from "./store/appSlice";
 import NotificationSettings from "./Pages/NotificationSettings";
 import ScrollToTop from "./components/ScrollToTop";
+import { goBack } from "./utils/goBack";
 import PrivacyPolicy from "./Pages/PrivacyPolicy";
-import { GoMarketHome, GoMarketRestaurantDetails, GoMarketShopDetails } from "./Pages/GoMarket";
+import {
+  GoMarketHome,
+  GoMarketMarket,
+  GoMarketRestaurantDetails,
+  GoMarketShopDetails,
+  GoMarketProduct,
+  GoMarketShopSearch,
+} from "./Pages/GoMarket";
 // import Settings from "./Pages/Settings";
 
 /* ─────────────────────────────────────────
@@ -104,7 +112,7 @@ const GlobalBackButton = () => {
     });
     btn.appendChild(ripple);
     ripple.addEventListener("animationend", () => ripple.remove());
-    window.history.length > 1 ? navigate(-1) : navigate("/");
+    goBack(navigate, location.pathname);
   };
 
   if (location.pathname === "/") return null;
@@ -200,8 +208,12 @@ const AppContent = () => {
         <Route path="/become-seller" exact={true} element={<BecomeSeller />} />
         <Route path="/privacy-policy" exact={true} element={<PrivacyPolicy />} />
         <Route path="/go-market" exact={true} element={<GoMarketHome />} />
+        <Route path="/go-market/market/:marketId" exact={true} element={<GoMarketMarket />} />
         <Route path="/go-market/shop/:id" exact={true} element={<GoMarketShopDetails />} />
+        <Route path="/go-market/shop/:id/search" exact={true} element={<GoMarketShopSearch />} />
         <Route path="/go-market/restaurant/:id" exact={true} element={<GoMarketRestaurantDetails />} />
+        <Route path="/go-market/restaurant/:id/search" exact={true} element={<GoMarketRestaurantDetails />} />
+        <Route path="/go-market/product/:kind/:id" exact={true} element={<GoMarketProduct />} />
        {/* <Route path="/settings" exact={true} element={<Settings />} /> */}
         <Route path="/store/:sellerId" exact={true} element={<StorePage />} />
       </Routes>

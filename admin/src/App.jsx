@@ -37,6 +37,8 @@ import LoadingBar from "react-top-loading-bar";
 import BannersHub from "./Pages/BannersHub";
 import CouponsPage from "./Pages/Coupons";
 import GoMarketAdminPage from "./Pages/GoMarket";
+import GoMarketStoreProfile from "./Pages/GoMarketStoreProfile";
+import StoreOperations from "./Pages/QuickCommerce/StoreOperations";
 
 const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
@@ -550,12 +552,38 @@ function App() {
       ),
     },
 
+    // GoMarket Seller Profiles
+    {
+      path: "/seller/go-market/shop",
+      element: (
+        <PageWrapper {...wp}>
+          <GoMarketStoreProfile />
+        </PageWrapper>
+      ),
+    },
+    {
+      path: "/seller/go-market/restaurant",
+      element: (
+        <PageWrapper {...wp}>
+          <GoMarketStoreProfile />
+        </PageWrapper>
+      ),
+    },
+
     // Seller specific
     {
       path: '/seller/store-profile',
       element: (
         <PageWrapper {...wp}>
           <StoreProfile />
+        </PageWrapper>
+      ),
+    },
+    {
+      path: '/seller/store-ops',
+      element: (
+        <PageWrapper {...wp}>
+          <StoreOperations />
         </PageWrapper>
       ),
     },
@@ -657,3 +685,4 @@ function App() {
 
 export default App;
 export { MyContext };
+

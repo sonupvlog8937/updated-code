@@ -78,8 +78,11 @@ function RootLayoutNav() {
         <Stack.Screen name="privacy-policy" />
         <Stack.Screen name="store/[sellerId]" />
         <Stack.Screen name="go-market" />
+        <Stack.Screen name="go-market-market/[marketId]" />
         <Stack.Screen name="go-market-shop/[id]" />
+        <Stack.Screen name="go-market-shop/[id]/search" />
         <Stack.Screen name="go-market-restaurant/[id]" />
+        <Stack.Screen name="go-market-product/[kind]/[id]" />
       </Stack>
     </Animated.View>
   );

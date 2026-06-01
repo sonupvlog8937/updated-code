@@ -13,6 +13,7 @@ import { MyContext } from "../../App";
 import SearchBox from "../../Components/SearchBox";
 import { fetchDataFromApi, deleteData } from "../../utils/api";
 import Products from "../Products";
+import QuickCommerceDashboard from "../QuickCommerce/QuickCommerceDashboard";
 import { Link } from "react-router-dom";
 
 const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER"];
@@ -556,6 +557,7 @@ const Dashboard = () => {
 
   const context       = useContext(MyContext);
  const isSellerPanel = isSellerRole(context?.userData?.role);
+  const isQuickCommerceSeller = ["GROCERY_SELLER", "RESTAURANT_SELLER"].includes(context?.userData?.role);
 
   useEffect(() => {
     context?.setProgress(30);
@@ -679,6 +681,7 @@ const Dashboard = () => {
   const deliveredCount = orderStats.delivered || allOrders.filter(o => o?.order_status?.toLowerCase() === "delivered").length;
   const totalProducts  = productData?.products?.length || productData?.totalProducts || 0;
 
+  if (isQuickCommerceSeller) return <QuickCommerceDashboard />;
   if (isSellerPanel) return <SellerDashboard context={context} />;
 
   return (
