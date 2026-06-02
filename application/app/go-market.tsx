@@ -36,25 +36,34 @@ export default function GoMarketScreen() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [locBusy, setLocBusy] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const fade = useRef(new Animated.Value(0)).current;
 
   const { markets, nearbyMarkets, loading } = useAppSelector((s: any) => s.goMarket);
   const { isLogin, userData } = useAppSelector((s: any) => s.app);
 
-  // Login protection - redirect to login if not authenticated
+  // Wait for auth to be checked before redirecting
   useEffect(() => {
-    if (!isLogin) {
+    const checkAuth = async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      setAuthChecked(true);
+    };
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if (authChecked && !isLogin) {
       router.replace("/login" as never);
     }
-  }, [isLogin]);
+  }, [isLogin, authChecked]);
 
   // Auto-navigate to preferred market if exists
   useEffect(() => {
-    if (isLogin && userData?.preferredMarketId) {
+    if (authChecked && isLogin && userData?.preferredMarketId) {
       console.log("🎯 Auto-navigating to preferred market:", userData.preferredMarketId);
       router.replace(`/go-market-market/${userData.preferredMarketId}` as never);
     }
-  }, [isLogin, userData?.preferredMarketId]);
+  }, [authChecked, isLogin, userData?.preferredMarketId]);
 
   useEffect(() => {
     dispatch(fetchGoMarkets(""));

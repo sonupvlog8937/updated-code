@@ -2373,12 +2373,7 @@ export async function addReview(request, response) {
       return response.status(400).json({ error: true, message: "Rating must be 1–5" });
     }
 
-    // One review per user per product
-    const existing = await ReviewModel.findOne({ userId, productId });
-    if (existing) {
-      return response.status(409).json({ error: true, message: "You have already reviewed this product" });
-    }
-
+    // Allow multiple reviews per user per product (removed unique constraint check)
     const newReview = await ReviewModel.create({
       image:     image     || "",
       userName:  userName  || "Anonymous",

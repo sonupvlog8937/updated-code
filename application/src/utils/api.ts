@@ -69,15 +69,24 @@ export const fetchDataFromApi = async (
       if (cached && Date.now() <= cached.expireAt) return cached.data;
     }
     const headers = await getAuthHeaders();
-    const { data } = await axios.get(API_URL + url, { headers });
+    const { data, status } = await axios.get(API_URL + url, { headers });
+    
+    // Add status code to response for proper error handling
+    const response = { ...data, status };
+    
     if (useCache) {
       const key = await getCacheKey(url);
-      apiCache.set(key, { data, expireAt: Date.now() + ttl });
+      apiCache.set(key, { data: response, expireAt: Date.now() + ttl });
     }
-    return data;
+    return response;
   } catch (error) {
     const err = error as AxiosError;
-    return err.response?.data ?? { error: true, message: "Network error" };
+    return { 
+      ...(err.response?.data ?? {}), 
+      error: true, 
+      message: (err.response?.data as any)?.message || "Network error",
+      status: err.response?.status 
+    };
   }
 };
 

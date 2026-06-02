@@ -6,6 +6,7 @@ import RestaurantMenu from "../models/restaurantMenu.model.js";
 import RestaurantItem from "../models/restaurantItem.model.js";
 import GoMarketCategory from "../models/goMarketCategory.model.js";
 import GoMarketSubCategory from "../models/goMarketSubCategory.model.js";
+import ReviewModel from "../models/reviews.model.js";
 import {
   bumpGroceryShopProductCount,
   getOrCreateDefaultRestaurantMenu,
@@ -278,6 +279,24 @@ export const getRestaurantDetail = async (req, res) => {
       restaurantLogo: restaurantRaw.restaurantLogo?.trim() ? resolveMediaUrl(restaurantRaw.restaurantLogo, baseUrl) : LOGO_FALLBACK,
     };
     const [menus, items] = await Promise.all([RestaurantMenu.find({ restaurantId: req.params.id }).lean(), RestaurantItem.find({ restaurantId: req.params.id }).lean()]);
+    
+    // Add totalItems and totalMenus counts to restaurant object
+    restaurant.totalItems = items.length;
+    restaurant.totalMenus = menus.length;
+    
+    // Get product rating stats from reviews
+    const itemIds = items.map((i) => String(i._id));
+    if (itemIds.length > 0) {
+      const ratingAgg = await ReviewModel.aggregate([
+        { $match: { productId: { $in: itemIds } } },
+        { $group: { _id: null, averageRating: { $avg: { $toDouble: "$rating" } }, reviewCount: { $sum: 1 } } },
+      ]);
+      if (ratingAgg.length > 0) {
+        restaurant.rating = ratingAgg[0].averageRating ? Number(ratingAgg[0].averageRating.toFixed(1)) : 0;
+        restaurant.totalReviews = ratingAgg[0].reviewCount || 0;
+      }
+    }
+    
     ok(res, { data: { restaurant, menus, items } });
   } catch (error) { sendError(res, error); }
 };

@@ -188,10 +188,14 @@ export const fetchUserDetails = createAsyncThunk(
     try {
       const res = await fetchDataFromApi("/api/user/user-details");
       
-      // Check if there's an auth error
-      if (res?.error === true) {
-        const msg = res?.message || "";
-        if (msg.includes("login") || msg.includes("token") || msg.includes("unauthorized")) {
+      // Check if there's a genuine authentication error (401/403 status)
+      if (res?.error === true && res?.status) {
+        const status = res.status;
+        const msg = (res?.message || "").toLowerCase();
+        
+        // Only logout on actual authentication errors (401, 403)
+        // Don't logout on network errors or other API failures
+        if (status === 401 || status === 403 || msg.includes("token expired") || msg.includes("invalid token")) {
           await AsyncStorage.removeItem("accessToken");
           await AsyncStorage.removeItem("refreshToken");
           dispatch(setIsLogin(false));
@@ -199,9 +203,13 @@ export const fetchUserDetails = createAsyncThunk(
         }
       }
       
+      // Return user data even if there's a non-auth error
+      // This prevents logout on network issues
       return res?.data ?? null;
     } catch (error) {
-      return rejectWithValue(error);
+      // Don't logout on network errors - just return null
+      console.log("User details fetch error:", error);
+      return null;
     }
   },
 );
@@ -269,16 +277,33 @@ export const initAuthFromStorage = createAsyncThunk(
     try {
       const token = await AsyncStorage.getItem("accessToken");
       if (token) {
+        // Set login state immediately - don't wait for API calls
         dispatch(setIsLogin(true));
-        // Fetch all data
-        dispatch(fetchCartItems());
-        dispatch(fetchMyListData());
-        dispatch(fetchUserDetails());
+        
+        // Fetch user data in background - failures won't logout user
+        dispatch(fetchUserDetails()).catch((err) => {
+          console.log("Failed to fetch user details on init:", err);
+          // Don't logout - user is still logged in with valid token
+        });
+        
+        // Fetch cart and wishlist - failures are silent
+        dispatch(fetchCartItems()).catch(() => {});
+        dispatch(fetchMyListData()).catch(() => {});
+        
         return true;
       }
       dispatch(setIsLogin(false));
       return false;
     } catch (error) {
+      console.log("Init auth error:", error);
+      // Check if token exists even if there's an error
+      try {
+        const token = await AsyncStorage.getItem("accessToken");
+        if (token) {
+          dispatch(setIsLogin(true));
+          return true;
+        }
+      } catch {}
       dispatch(setIsLogin(false));
       return false;
     }

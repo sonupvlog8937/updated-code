@@ -7,6 +7,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Image,
   Platform,
   ScrollView,
@@ -213,9 +214,11 @@ export default function GoMarketProductScreen() {
         <View style={S.panel}>
           <Text style={S.brand}>{product.brand}</Text>
           <Text style={S.title}>{product.name}</Text>
-          <Text style={S.rating}>
-            ⭐ {Number(data?.averageRating || product.rating || 0).toFixed(1)} · {data?.totalReviews || 0} reviews
-          </Text>
+          {(data?.averageRating > 0 || product.rating > 0 || data?.totalReviews > 0) && (
+            <Text style={S.rating}>
+              ⭐ {Number(data?.averageRating || product.rating || 0).toFixed(1)} · {data?.totalReviews || 0} reviews
+            </Text>
+          )}
           <Text style={S.desc}>{product.description}</Text>
           <View style={S.priceRow}>
             <Text style={S.price}>₹{product.price}</Text>
@@ -296,8 +299,8 @@ export default function GoMarketProductScreen() {
           productTitle={product.title || product.name}
           isLogin={Boolean(isLogin)}
           userName={userName}
-          initialAverage={data?.averageRating || product.rating}
-          initialTotal={data?.totalReviews || 0}
+          initialAverage={Number(product?.rating) || Number(data?.averageRating) || 0}
+          initialTotal={Number(data?.totalReviews) || 0}
           onLoginRequired={() => router.replace("/login" as never)}
           onStatsChange={(stats) =>
             setData((d: any) => (d ? { ...d, averageRating: stats.averageRating, totalReviews: stats.totalReviews } : d))
@@ -307,10 +310,15 @@ export default function GoMarketProductScreen() {
         {related.length > 0 && (
           <View style={S.block}>
             <Text style={S.blockTitle}>You may also like</Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-              {related.map((r: any) => (
+            <Text style={S.relatedSubtitle}>Similar products you might enjoy</Text>
+            <FlatList
+              data={related}
+              keyExtractor={(item) => item._id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingVertical: 8, gap: 10 }}
+              renderItem={({ item: r }) => (
                 <TouchableOpacity
-                  key={r._id}
                   style={S.relCard}
                   onPress={() => router.replace(`/go-market-product/${r.goMarketKind || kind}/${r._id}` as never)}
                 >
@@ -318,13 +326,26 @@ export default function GoMarketProductScreen() {
                   <Text style={S.relName} numberOfLines={2}>{r.name}</Text>
                   <Text style={S.relPrice}>₹{r.price}</Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-            {relatedPage < relatedTotalPages && (
-              <TouchableOpacity style={S.loadMore} onPress={loadMoreRelated} disabled={loadingRelated}>
-                <Text style={S.loadMoreTxt}>{loadingRelated ? "Loading…" : "Load more"}</Text>
-              </TouchableOpacity>
-            )}
+              )}
+              onEndReached={() => {
+                if (relatedPage < relatedTotalPages && !loadingRelated) {
+                  loadMoreRelated();
+                }
+              }}
+              onEndReachedThreshold={0.5}
+              ListFooterComponent={
+                loadingRelated ? (
+                  <View style={{ width: 130, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator color={T.orange} size="small" />
+                  </View>
+                ) : relatedPage < relatedTotalPages ? (
+                  <TouchableOpacity style={S.loadMoreCard} onPress={loadMoreRelated}>
+                    <Text style={S.loadMoreCardText}>Load{'\n'}More</Text>
+                    <Text style={S.loadMoreCardArrow}>→</Text>
+                  </TouchableOpacity>
+                ) : null
+              }
+            />
           </View>
         )}
         <View style={{ height: 100 }} />
@@ -381,13 +402,53 @@ const S = StyleSheet.create({
   stock: { marginTop: 12, fontSize: 12, fontWeight: "700" },
   block: { backgroundColor: T.white, marginHorizontal: 14, marginBottom: 12, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: T.border },
   blockTitle: { fontSize: 16, fontWeight: "800", marginBottom: 10 },
+  relatedSubtitle: { fontSize: 11, color: T.textSoft, marginBottom: 8, fontWeight: "500" },
   specRow: { flexDirection: "row", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
   specKey: { width: "40%", fontSize: 13, color: T.textSoft, fontWeight: "600" },
   specVal: { flex: 1, fontSize: 13, color: T.text },
   review: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
   muted: { fontSize: 13, color: T.textSoft, marginTop: 4 },
-  relCard: { width: 130, backgroundColor: "#fafafa", borderRadius: 12, padding: 8, borderWidth: 1, borderColor: T.border },
-  relImg: { width: "100%", height: 100, borderRadius: 8 },
-  relName: { fontSize: 12, fontWeight: "600", marginTop: 6, minHeight: 32 },
-  relPrice: { fontSize: 14, fontWeight: "800", marginTop: 4 },
+  relCard: { 
+    width: 130, 
+    backgroundColor: "#fafafa", 
+    borderRadius: 12, 
+    padding: 8, 
+    borderWidth: 1, 
+    borderColor: T.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  relImg: { width: "100%", height: 100, borderRadius: 8, backgroundColor: "#eee" },
+  relName: { fontSize: 12, fontWeight: "600", marginTop: 6, minHeight: 32, color: T.text },
+  relPrice: { fontSize: 14, fontWeight: "800", marginTop: 4, color: T.orange },
+  loadMoreCard: {
+    width: 130,
+    height: 134,
+    backgroundColor: T.orange,
+    borderRadius: 12,
+    padding: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    shadowColor: T.orange,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  loadMoreCardText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#fff",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  loadMoreCardArrow: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#fff",
+  },
 });

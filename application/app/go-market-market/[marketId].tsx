@@ -10,12 +10,18 @@ import {
 } from "@/src/store";
 import { showToast } from "@/src/utils/toast";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Dimensions,
   FlatList,
   Image,
   Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -24,52 +30,246 @@ import {
   View,
 } from "react-native";
 
-const C = {
-  primary: "#2563eb",
-  bg: "#f8fafc",
-  white: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  border: "#e2e8f0",
-  green: "#16a34a",
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const T = {
+  // Brand palette
+  primary: "#1A56DB",
+  primaryLight: "#EBF2FF",
+  primaryMid: "#3B82F6",
+  accent: "#F59E0B",
+
+  // Backgrounds
+  bg: "#F6F8FC",
+  surface: "#FFFFFF",
+  surfaceElevated: "#FAFBFD",
+
+  // Text
+  text: "#111827",
+  textSub: "#374151",
+  muted: "#6B7280",
+  placeholder: "#9CA3AF",
+
+  // Status
+  green: "#059669",
+  greenBg: "#ECFDF5",
+  greenBorder: "#A7F3D0",
+  red: "#DC2626",
+  redBg: "#FEF2F2",
+  redBorder: "#FCA5A5",
+  amber: "#D97706",
+  amberBg: "#FFFBEB",
+
+  // Borders
+  border: "#E5E7EB",
+  borderLight: "#F3F4F6",
+
+  // Type badges
+  restaurantBg: "#FFF3E4",
+  restaurantText: "#B45309",
+  groceryBg: "#EBF5FF",
+  groceryText: "#1D4ED8",
+
+  // Radii
+  r4: 4,
+  r8: 8,
+  r12: 12,
+  r16: 16,
+  r24: 24,
+  r999: 999,
 };
 
+// ─── Skeleton card ─────────────────────────────────────────────────────────────
+function SkeletonCard() {
+  const opacity = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
+  return (
+    <Animated.View style={[S.cardWrap, { opacity }]}>
+      <View style={[S.skeletonBanner, { backgroundColor: T.borderLight }]} />
+      <View style={S.skeletonLogoWrap}>
+        <View style={[S.skeletonLogo, { backgroundColor: T.border }]} />
+      </View>
+      <View style={S.cardBody}>
+        <View style={[S.skeletonLine, { width: "55%", alignSelf: "center" }]} />
+        <View style={[S.skeletonLine, { width: "40%", alignSelf: "center", marginTop: 6 }]} />
+        <View style={{ flexDirection: "row", justifyContent: "center", gap: 8, marginTop: 12 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <View key={i} style={[S.skeletonLine, { width: 44, height: 16 }]} />
+          ))}
+        </View>
+      </View>
+      <View style={[S.cardActions, { gap: 10 }]}>
+        <View style={[S.skeletonLine, { flex: 1, height: 38 }]} />
+        <View style={[S.skeletonLine, { flex: 1, height: 38 }]} />
+      </View>
+    </Animated.View>
+  );
+}
+
+// ─── Follow button with animation ──────────────────────────────────────────────
+function FollowButton({ isFollowing, onPress }: { isFollowing: boolean; onPress: () => void }) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.spring(scale, { toValue: 0.88, useNativeDriver: true, speed: 50 }),
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 30 }),
+    ]).start();
+    onPress();
+  };
+
+  return (
+    <Animated.View style={{ flex: 1, transform: [{ scale }] }}>
+      <TouchableOpacity
+        style={[S.followBtn, isFollowing && S.followBtnOn]}
+        onPress={handlePress}
+        activeOpacity={0.85}
+      >
+        <Text style={[S.followBtnTxt, isFollowing && S.followBtnTxtOn]}>
+          {isFollowing ? "✓  Following" : "♡  Follow"}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// ─── Type badge ────────────────────────────────────────────────────────────────
+function TypeBadge({ type }: { type: string }) {
+  const isRest = type === "restaurant";
+  return (
+    <View style={[S.typeBadge, { backgroundColor: isRest ? T.restaurantBg : T.groceryBg }]}>
+      <Text style={[S.typeBadgeTxt, { color: isRest ? T.restaurantText : T.groceryText }]}>
+        {isRest ? "🍽  Restaurant" : "🛒  Grocery"}
+      </Text>
+    </View>
+  );
+}
+
+// ─── Rating pill ───────────────────────────────────────────────────────────────
+function RatingPill({ value }: { value: number }) {
+  const color = value >= 4 ? T.green : value >= 3 ? T.amber : T.red;
+  const bg = value >= 4 ? T.greenBg : value >= 3 ? T.amberBg : T.redBg;
+  return (
+    <View style={[S.ratingPill, { backgroundColor: bg }]}>
+      <Text style={[S.ratingPillTxt, { color }]}>★ {value.toFixed(1)}</Text>
+    </View>
+  );
+}
+
+// ─── Empty state ───────────────────────────────────────────────────────────────
+function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () => void }) {
+  return (
+    <View style={S.emptyWrap}>
+      <Text style={S.emptyEmoji}>🏪</Text>
+      <Text style={S.emptyTitle}>No shops found</Text>
+      <Text style={S.emptySub}>
+        {hasFilters ? "Try adjusting your filters or clear them to see all shops." : "This market has no shops yet."}
+      </Text>
+      {hasFilters && (
+        <TouchableOpacity style={S.emptyBtn} onPress={onClear}>
+          <Text style={S.emptyBtnTxt}>Clear filters</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+// ─── Main screen ───────────────────────────────────────────────────────────────
 export default function GoMarketMarketScreen() {
   const { marketId } = useLocalSearchParams<{ marketId: string }>();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { isLogin } = useAppSelector((s: any) => s.app);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Wait for auth to be checked before redirecting
+  useEffect(() => {
+    const checkAuth = async () => {
+      // Give time for initAuthFromStorage to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      setAuthChecked(true);
+    };
+    checkAuth();
+  }, []);
 
   useEffect(() => {
-    if (!isLogin) router.replace("/login" as never);
-  }, [isLogin]);
+    if (authChecked && !isLogin) {
+      router.replace("/login" as never);
+    }
+  }, [isLogin, authChecked]);
 
   const [market, setMarket] = useState<any>(null);
   const [outlets, setOutlets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [type, setType] = useState<"all" | "grocery" | "restaurant">("all");
   const [sort, setSort] = useState("rating");
   const [openOnly, setOpenOnly] = useState(false);
   const [minRating, setMinRating] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
 
+  const searchInputRef = useRef<TextInput>(null);
+  const headerOpacity = useRef(new Animated.Value(1)).current;
+  const listScrollY = useRef(new Animated.Value(0)).current;
+
+  // ── Debounce search ──
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(t);
   }, [search]);
 
+  // ── Suggestions ──
+  useEffect(() => {
+    if (search.trim().length < 1) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    setLoadingSuggestions(true);
+    setShowSuggestions(true);
+    const params = new URLSearchParams({ q: search.trim(), type, limit: "8" });
+    fetchDataFromApi(`/api/go-market/markets/${marketId}/shop-suggestions?${params}`)
+      .then((res) => {
+        if (res?.success || res?.error === false) setSuggestions(res.suggestions || []);
+      })
+      .catch(() => setSuggestions([]))
+      .finally(() => setLoadingSuggestions(false));
+  }, [search, marketId, type]);
+
+  // ── Load outlets ──
   const load = useCallback(
     (pageNum: number, append: boolean) => {
       if (!marketId) return;
-      if (append) setLoadingMore(true);
-      else setLoading(true);
+      if (append) {
+        if (loadingMore || !hasMore) return;
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+        setHasMore(true);
+      }
       const params = new URLSearchParams({
-        type,
-        sort,
+        type, sort,
         page: String(pageNum),
         limit: "12",
         search: debouncedSearch,
@@ -80,22 +280,58 @@ export default function GoMarketMarketScreen() {
         .then((res) => {
           if (res?.success || res?.error === false) {
             setMarket(res.market);
-            setOutlets((prev) => (append ? [...prev, ...(res.data || [])] : res.data || []));
+            const newOutlets = res.data || [];
+            setOutlets((prev) => (append ? [...prev, ...newOutlets] : newOutlets));
             setTotalPages(res.pagination?.totalPages || 1);
             setPage(pageNum);
+            const cur = res.pagination?.currentPage || pageNum;
+            const total = res.pagination?.totalPages || 1;
+            setHasMore(cur < total);
           }
         })
+        .catch(() => setHasMore(false))
         .finally(() => {
           setLoading(false);
           setLoadingMore(false);
+          setRefreshing(false);
         });
     },
-    [marketId, type, sort, debouncedSearch, openOnly, minRating],
+    [marketId, type, sort, debouncedSearch, openOnly, minRating, loadingMore, hasMore],
   );
 
   useEffect(() => {
+    setPage(1);
     load(1, false);
-  }, [load]);
+  }, [type, sort, debouncedSearch, openOnly, minRating, marketId]);
+
+  const handleLoadMore = () => {
+    if (!loadingMore && !loading && hasMore && page < totalPages) load(page + 1, true);
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setPage(1);
+    load(1, false);
+  };
+
+  const clearAllFilters = () => {
+    setType("all");
+    setSort("rating");
+    setOpenOnly(false);
+    setMinRating(0);
+    setSearch("");
+    setDebouncedSearch("");
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  const handleSuggestionSelect = (s: any) => {
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setSearch("");
+    if (s.type === "restaurant") router.push(`/go-market-restaurant/${s._id}` as never);
+    else router.push(`/go-market-shop/${s._id}` as never);
+  };
 
   const openOutlet = (o: any) => {
     if (o.outletType === "restaurant") router.push(`/go-market-restaurant/${o._id}` as never);
@@ -108,267 +344,803 @@ export default function GoMarketMarketScreen() {
       router.push("/login" as never);
       return;
     }
+    const isRestaurant = o.outletType === "restaurant";
+    const wasFollowing = o.isFollowing || followingIds.has(o._id);
+    // Optimistic update
+    setFollowingIds((prev) => {
+      const next = new Set(prev);
+      wasFollowing ? next.delete(o._id) : next.add(o._id);
+      return next;
+    });
+    setOutlets((prev) => prev.map((x) => x._id === o._id ? { ...x, isFollowing: !wasFollowing, followerCount: (x.followerCount || 0) + (wasFollowing ? -1 : 1) } : x));
     try {
-      const isRestaurant = o.outletType === "restaurant";
-      const action = o.isFollowing
+      const action = wasFollowing
         ? (isRestaurant ? unfollowGoRestaurant : unfollowGoShop)
         : (isRestaurant ? followGoRestaurant : followGoShop);
       await dispatch(action(o._id)).unwrap();
-      showToast("success", o.isFollowing ? "Unfollowed" : `Following ${o.displayName}`);
-      load(1, false);
+      showToast("success", wasFollowing ? "Unfollowed" : `Following ${o.displayName}`);
     } catch {
+      // Revert on failure
+      setOutlets((prev) => prev.map((x) => x._id === o._id ? { ...x, isFollowing: wasFollowing, followerCount: (x.followerCount || 0) + (wasFollowing ? 1 : -1) } : x));
       showToast("error", "Failed to update follow");
     }
   };
 
-  const renderOutlet = ({ item: o }: { item: any }) => (
-    <View style={S.cardWrap}>
-      <TouchableOpacity onPress={() => openOutlet(o)} activeOpacity={0.92}>
-        <View style={S.bannerBox}>
-          <Image source={{ uri: gmImg(o.banner, GO_MARKET_FALLBACK) }} style={S.cardBanner} />
-          <View style={S.typeBadge}>
-            <Text style={S.typeBadgeTxt}>{o.outletType === "restaurant" ? "🍽 Restaurant" : "🛒 Grocery"}</Text>
-          </View>
-          {o.isOpen && (
-            <View style={S.openBadge}>
-              <Text style={S.openBadgeTxt}>Open</Text>
-            </View>
-          )}
-        </View>
-        <View style={S.logoWrap}>
-          <Image source={{ uri: gmImg(o.logo, GO_MARKET_LOGO_FALLBACK) }} style={S.logo} />
-        </View>
-        <View style={S.cardBody}>
-          <Text style={S.cardTitle}>{o.displayName}</Text>
-          <Text style={S.cardAddr} numberOfLines={1}>{o.address}</Text>
-          <View style={S.statsRow}>
-            <Text style={S.stat}>⭐ {(o.rating || 0).toFixed(1)}</Text>
-            <Text style={S.stat}>❤️ {o.followerCount || 0}</Text>
-            <Text style={S.stat}>💬 {o.reviewCount || 0}</Text>
-            <Text style={S.stat}>📦 {o.totalProducts || 0}</Text>
-          </View>
-          {!!o.meta && <Text style={S.meta}>{o.meta}</Text>}
-        </View>
-      </TouchableOpacity>
-      <View style={S.cardActions}>
-        <TouchableOpacity
-          style={[S.followBtn, o.isFollowing && S.followBtnOn]}
-          onPress={() => handleFollow(o)}
-        >
-          <Text style={[S.followBtnTxt, o.isFollowing && S.followBtnTxtOn]}>
-            {o.isFollowing ? "✓ Following" : "❤️ Follow"}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={S.viewBtn} onPress={() => openOutlet(o)}>
-          <Text style={S.viewBtnTxt}>View shop →</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  const handleShare = async (o: any) => {
+    try {
+      await Share.share({
+        message: `Check out ${o.displayName} on GoMarket!\n${o.address}`,
+        title: o.displayName,
+      });
+    } catch { /* silent */ }
+  };
 
+  const hasActiveFilters = type !== "all" || sort !== "rating" || openOnly || minRating > 0 || !!search;
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Outlet card
+  // ─────────────────────────────────────────────────────────────────────────────
+  const renderOutlet = ({ item: o, index }: { item: any; index: number }) => {
+    const isFollowing = o.isFollowing;
+    return (
+      <View style={S.cardWrap}>
+        {/* Banner */}
+        <TouchableOpacity onPress={() => openOutlet(o)} activeOpacity={0.93}>
+          <View style={S.bannerBox}>
+            <Image
+              source={{ uri: gmImg(o.banner, GO_MARKET_FALLBACK) }}
+              style={S.cardBanner}
+              resizeMode="cover"
+            />
+            {/* Gradient overlay */}
+            <View style={S.bannerGradient} />
+
+            <TypeBadge type={o.outletType} />
+
+            {/* Top-right: Open badge + share */}
+            <View style={{ position: "absolute", top: 10, right: 10, flexDirection: "row", gap: 6 }}>
+              {o.isOpen && (
+                <View style={S.openBadge}>
+                  <View style={S.openDot} />
+                  <Text style={S.openBadgeTxt}>Open</Text>
+                </View>
+              )}
+              <TouchableOpacity style={S.shareIconBtn} onPress={() => handleShare(o)}>
+                <Text style={{ fontSize: 14 }}>↗</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Rating overlay on banner */}
+            <View style={{ position: "absolute", bottom: 10, right: 10 }}>
+              <RatingPill value={o.rating || 0} />
+            </View>
+          </View>
+
+          {/* Logo */}
+          <View style={S.logoWrap}>
+            <Image
+              source={{ uri: gmImg(o.logo, GO_MARKET_LOGO_FALLBACK) }}
+              style={S.logo}
+              resizeMode="cover"
+            />
+          </View>
+
+          {/* Body */}
+          <View style={S.cardBody}>
+            <Text style={S.cardTitle}>{o.displayName}</Text>
+            <Text style={S.cardAddr} numberOfLines={1}>
+              📍 {o.address}
+            </Text>
+
+            {/* Stats row */}
+            <View style={S.statsRow}>
+              <StatChip icon="❤️" value={o.followerCount || 0} label="followers" />
+              <StatChip icon="💬" value={o.reviewCount || 0} label="reviews" />
+              <StatChip icon="📦" value={o.totalProducts || 0} label="items" />
+            </View>
+
+            {!!o.meta && (
+              <View style={S.metaChip}>
+                <Text style={S.metaChipTxt} numberOfLines={1}>{o.meta}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+
+        {/* Actions */}
+        <View style={S.cardActions}>
+          <FollowButton isFollowing={isFollowing} onPress={() => handleFollow(o)} />
+          <TouchableOpacity style={S.viewBtn} onPress={() => openOutlet(o)} activeOpacity={0.85}>
+            <Text style={S.viewBtnTxt}>View →</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // List header
+  // ─────────────────────────────────────────────────────────────────────────────
   const ListHeader = (
     <View>
-      <View style={S.bannerWrap}>
-        <Image source={{ uri: gmImg(market?.banner, GO_MARKET_FALLBACK) }} style={S.banner} />
-        <TouchableOpacity style={S.backBtn} onPress={() => router.back()}>
-          <Text style={{ color: "#fff", fontSize: 18 }}>‹</Text>
-        </TouchableOpacity>
-        <View style={S.bannerOverlay}>
-          <Text style={S.mktTitle}>{market?.name || "Market"}</Text>
-          <Text style={S.mktSub}>
-            {market?.city}, {market?.state}
+      {/* Hero banner */}
+      <View style={S.heroBannerWrap}>
+        <Image
+          source={{ uri: gmImg(market?.banner, GO_MARKET_FALLBACK) }}
+          style={S.heroBanner}
+          resizeMode="cover"
+        />
+        <View style={S.heroOverlay} />
+        <View style={S.heroContent}>
+          {market && (
+            <View style={S.marketTypePill}>
+              <Text style={S.marketTypePillTxt}>🏪 GoMarket</Text>
+            </View>
+          )}
+          <Text style={S.heroTitle}>{market?.name || "Market"}</Text>
+          <Text style={S.heroSub}>
+            {market ? `📍 ${market.city}, ${market.state}` : "Loading…"}
           </Text>
+          {market?.totalShops > 0 && (
+            <Text style={S.heroCount}>{market.totalShops}+ shops available</Text>
+          )}
         </View>
       </View>
 
-      <View style={{ padding: 14 }}>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+      {/* Filters container */}
+      <View style={S.filtersContainer}>
+        {/* Type tabs */}
+        <View style={S.typeTabsRow}>
           {(["all", "grocery", "restaurant"] as const).map((k) => (
-            <TouchableOpacity key={k} style={[S.chip, type === k && S.chipOn]} onPress={() => setType(k)}>
-              <Text style={[S.chipTxt, type === k && S.chipTxtOn]}>
-                {k === "all" ? "All" : k === "grocery" ? "🛒 Grocery" : "🍽 Restaurant"}
+            <TouchableOpacity
+              key={k}
+              style={[S.typeTab, type === k && S.typeTabOn]}
+              onPress={() => setType(k)}
+              activeOpacity={0.8}
+            >
+              <Text style={[S.typeTabTxt, type === k && S.typeTabTxtOn]}>
+                {k === "all" ? "All" : k === "grocery" ? "🛒  Grocery" : "🍽  Restaurants"}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <View style={S.searchRow}>
-          <Text>🔍</Text>
-          <TextInput
-            style={S.searchInput}
-            placeholder="Search shops…"
-            placeholderTextColor="#94a3b8"
-            value={search}
-            onChangeText={setSearch}
-            returnKeyType="search"
-          />
+        {/* Search bar */}
+        <View style={{ position: "relative", zIndex: 100 }}>
+          <View style={[S.searchBar, showSuggestions && suggestions.length > 0 && S.searchBarActive]}>
+            <Text style={{ fontSize: 16, color: T.muted }}>🔍</Text>
+            <TextInput
+              ref={searchInputRef}
+              style={S.searchInput}
+              placeholder={`Search in ${market?.name || "market"}…`}
+              placeholderTextColor={T.placeholder}
+              value={search}
+              onChangeText={setSearch}
+              returnKeyType="search"
+              onFocus={() => search.trim().length > 0 && setShowSuggestions(true)}
+              onSubmitEditing={() => setShowSuggestions(false)}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setSearch("");
+                  setSuggestions([]);
+                  setShowSuggestions(false);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={{ color: T.muted, fontSize: 16, fontWeight: "600" }}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Suggestions dropdown */}
+          {showSuggestions && search.trim().length > 0 && (
+            <View style={S.suggestDrop}>
+              {loadingSuggestions ? (
+                <View style={S.suggestRow}>
+                  <ActivityIndicator color={T.primary} size="small" />
+                  <Text style={S.suggestLoading}>Searching…</Text>
+                </View>
+              ) : suggestions.length > 0 ? (
+                suggestions.map((s, idx) => (
+                  <Pressable
+                    key={`${s._id}-${idx}`}
+                    style={({ pressed }) => [
+                      S.suggestRow,
+                      idx < suggestions.length - 1 && S.suggestBorder,
+                      pressed && { backgroundColor: T.primaryLight },
+                    ]}
+                    onPress={() => handleSuggestionSelect(s)}
+                  >
+                    <View style={S.suggestIconWrap}>
+                      <Text style={{ fontSize: 18 }}>{s.type === "restaurant" ? "🍽️" : "🛒"}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={S.suggestName} numberOfLines={1}>{s.label || s.displayName}</Text>
+                      <Text style={S.suggestAddr} numberOfLines={1}>{s.address}</Text>
+                    </View>
+                    <View style={[S.suggestTypePill, { backgroundColor: s.type === "restaurant" ? T.restaurantBg : T.groceryBg }]}>
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: s.type === "restaurant" ? T.restaurantText : T.groceryText }}>
+                        {s.type === "restaurant" ? "Restaurant" : "Grocery"}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))
+              ) : (
+                <View style={[S.suggestRow, { justifyContent: "center" }]}>
+                  <Text style={{ fontSize: 13, color: T.muted }}>No results for "{search}"</Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+        {/* Filter row header */}
+        <View style={S.filterHeaderRow}>
+          <Text style={S.filterLabel}>SORT & FILTER</Text>
+          {hasActiveFilters && (
+            <TouchableOpacity style={S.clearBtn} onPress={clearAllFilters} activeOpacity={0.8}>
+              <Text style={S.clearBtnTxt}>✕  Clear all</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Sort + filter chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingRight: 16 }}
+          style={{ marginBottom: 12 }}
+        >
           {[
-            { k: "rating", l: "Top rated" },
-            { k: "name", l: "A–Z" },
-            { k: "followers", l: "Popular" },
-            { k: "newest", l: "Newest" },
+            { k: "rating", l: "⭐  Top rated" },
+            { k: "followers", l: "🔥  Popular" },
+            { k: "newest", l: "✨  Newest" },
+            { k: "name", l: "🔤  A–Z" },
           ].map(({ k, l }) => (
-            <TouchableOpacity key={k} style={[S.chip, sort === k && S.chipOn]} onPress={() => setSort(k)}>
+            <TouchableOpacity
+              key={k}
+              style={[S.chip, sort === k && S.chipOn]}
+              onPress={() => setSort(k)}
+              activeOpacity={0.8}
+            >
               <Text style={[S.chipTxt, sort === k && S.chipTxtOn]}>{l}</Text>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity style={[S.chip, openOnly && S.chipOn]} onPress={() => setOpenOnly(!openOnly)}>
-            <Text style={[S.chipTxt, openOnly && S.chipTxtOn]}>Open now</Text>
+
+          <View style={S.chipDivider} />
+
+          <TouchableOpacity
+            style={[S.chip, openOnly && S.chipOn, openOnly && { borderColor: T.green }]}
+            onPress={() => setOpenOnly(!openOnly)}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+              {openOnly && <View style={S.openDot} />}
+              <Text style={[S.chipTxt, openOnly && { color: T.green, fontWeight: "700" }]}>Open now</Text>
+            </View>
           </TouchableOpacity>
+
           {[4, 3].map((r) => (
             <TouchableOpacity
               key={r}
               style={[S.chip, minRating === r && S.chipOn]}
               onPress={() => setMinRating(minRating === r ? 0 : r)}
+              activeOpacity={0.8}
             >
               <Text style={[S.chipTxt, minRating === r && S.chipTxtOn]}>{r}★+</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
+
+        {/* Results summary */}
+        {!loading && (
+          <View style={S.resultsRow}>
+            <Text style={S.resultsTxt}>
+              {outlets.length === 0
+                ? "No shops found"
+                : `${outlets.length} shop${outlets.length !== 1 ? "s" : ""}${hasActiveFilters ? " (filtered)" : ""}`}
+            </Text>
+            {hasActiveFilters && outlets.length > 0 && (
+              <View style={S.activeFilterBadge}>
+                <Text style={S.activeFilterBadgeTxt}>Filters active</Text>
+              </View>
+            )}
+          </View>
+        )}
       </View>
 
-      {loading && !outlets.length && <ActivityIndicator color={C.primary} style={{ marginTop: 24 }} />}
+      {/* Skeleton loading */}
+      {loading && !outlets.length && (
+        <View style={{ paddingHorizontal: 14, paddingTop: 4 }}>
+          {[0, 1, 2].map((i) => <SkeletonCard key={i} />)}
+        </View>
+      )}
     </View>
   );
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
       <FlatList
-        data={outlets}
-        keyExtractor={(o) => `${o.outletType}-${o._id}`}
+        data={loading ? [] : outlets}
+        keyExtractor={(o, idx) => `${o.outletType}-${o._id}-${idx}`}
         renderItem={renderOutlet}
         ListHeaderComponent={ListHeader}
-        contentContainerStyle={{ paddingBottom: 80 }}
-        onEndReached={() => {
-          if (page < totalPages && !loadingMore && !loading) load(page + 1, true);
-        }}
-        onEndReachedThreshold={0.35}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={T.primary}
+            colors={[T.primary]}
+          />
+        }
         ListFooterComponent={
-          loadingMore ? <ActivityIndicator color={C.primary} style={{ marginVertical: 16 }} /> : null
+          loadingMore ? (
+            <View style={S.footerLoader}>
+              <ActivityIndicator color={T.primary} size="small" />
+              <Text style={S.footerLoaderTxt}>Loading more…</Text>
+            </View>
+          ) : !hasMore && outlets.length > 0 ? (
+            <View style={S.footerEnd}>
+              <View style={S.footerEndLine} />
+              <Text style={S.footerEndTxt}>All shops loaded</Text>
+              <View style={S.footerEndLine} />
+            </View>
+          ) : null
         }
         ListEmptyComponent={
-          !loading ? <Text style={S.empty}>No shops match your filters.</Text> : null
+          !loading ? (
+            <View style={{ paddingHorizontal: 14 }}>
+              <EmptyState hasFilters={hasActiveFilters} onClear={clearAllFilters} />
+            </View>
+          ) : null
         }
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       />
     </View>
   );
 }
 
+// ─── Stat chip helper ──────────────────────────────────────────────────────────
+function StatChip({ icon, value, label }: { icon: string; value: number; label: string }) {
+  const display = value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(value);
+  return (
+    <View style={S.statChip}>
+      <Text style={S.statChipIcon}>{icon}</Text>
+      <Text style={S.statChipVal}>{display}</Text>
+    </View>
+  );
+}
+
+// ─── Styles ────────────────────────────────────────────────────────────────────
 const S = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
-  bannerWrap: { position: "relative" },
-  banner: { width: "100%", height: 180 },
+  root: { flex: 1, backgroundColor: T.bg },
+
+  // ── Hero banner ──
+  heroBannerWrap: { position: "relative", height: 220 },
+  heroBanner: { width: "100%", height: "100%" },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.42)",
+  },
+  heroContent: {
+    position: "absolute",
+    bottom: 20,
+    left: 18,
+    right: 18,
+  },
+  marketTypePill: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderRadius: T.r999,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  marketTypePillTxt: { fontSize: 10, color: "#fff", fontWeight: "700", letterSpacing: 0.4 },
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: -0.3,
+    textShadowColor: "rgba(0,0,0,0.4)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
+  },
+  heroSub: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.88)",
+    marginTop: 4,
+    fontWeight: "500",
+  },
+  heroCount: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.7)",
+    marginTop: 5,
+  },
   backBtn: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 54 : 16,
+    top: Platform.OS === "ios" ? 54 : (StatusBar.currentHeight || 24) + 8,
     left: 14,
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "rgba(0,0,0,.45)",
+    width: 38,
+    height: 38,
+    borderRadius: T.r12,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+
+  // ── Filters container ──
+  filtersContainer: {
+    backgroundColor: T.surface,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: T.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 3,
+    zIndex: 50,
+  },
+
+  // ── Type tabs ──
+  typeTabsRow: {
+    flexDirection: "row",
+    backgroundColor: T.surfaceElevated,
+    borderRadius: T.r12,
+    padding: 3,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: T.border,
+  },
+  typeTab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: T.r8,
+  },
+  typeTabOn: {
+    backgroundColor: T.surface,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  typeTabTxt: { fontSize: 12, fontWeight: "600", color: T.muted },
+  typeTabTxtOn: { color: T.primary },
+
+  // ── Search bar ──
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: T.border,
+    borderRadius: T.r12,
+    paddingHorizontal: 14,
+    paddingVertical: Platform.OS === "ios" ? 12 : 10,
+    backgroundColor: T.surfaceElevated,
+    marginBottom: 12,
+  },
+  searchBarActive: {
+    borderColor: T.primary,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    backgroundColor: T.surface,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: T.text,
+    padding: 0,
+  },
+
+  // ── Suggestions dropdown ──
+  suggestDrop: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    backgroundColor: T.surface,
+    borderWidth: 1.5,
+    borderColor: T.primary,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: T.r12,
+    borderBottomRightRadius: T.r12,
+    maxHeight: 300,
+    zIndex: 2000,
+    shadowColor: T.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 12,
+    overflow: "hidden",
+  },
+  suggestRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  suggestBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: T.borderLight,
+  },
+  suggestIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: T.r8,
+    backgroundColor: T.bg,
     alignItems: "center",
     justifyContent: "center",
   },
-  bannerOverlay: { position: "absolute", bottom: 16, left: 16, right: 16 },
-  mktTitle: { fontSize: 22, fontWeight: "900", color: "#fff" },
-  mktSub: { fontSize: 12, color: "rgba(255,255,255,.9)", marginTop: 4 },
+  suggestName: { fontSize: 13, fontWeight: "700", color: T.text },
+  suggestAddr: { fontSize: 11, color: T.muted, marginTop: 2 },
+  suggestTypePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: T.r999,
+  },
+  suggestLoading: { fontSize: 13, color: T.muted, marginLeft: 8 },
+
+  // ── Filter chips ──
+  filterHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  filterLabel: { fontSize: 10, fontWeight: "800", color: T.placeholder, letterSpacing: 0.8 },
+  clearBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: T.r999,
+    backgroundColor: T.redBg,
+    borderWidth: 1,
+    borderColor: T.redBorder,
+  },
+  clearBtnTxt: { fontSize: 11, fontWeight: "700", color: T.red },
   chip: {
     borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: C.white,
+    borderColor: T.border,
+    borderRadius: T.r999,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: T.surface,
   },
-  chipOn: { backgroundColor: C.text, borderColor: C.text },
-  chipTxt: { fontSize: 11, fontWeight: "700", color: C.muted },
-  chipTxtOn: { color: C.white },
-  searchRow: {
+  chipOn: { backgroundColor: T.text, borderColor: T.text },
+  chipTxt: { fontSize: 12, fontWeight: "600", color: T.muted },
+  chipTxtOn: { color: "#fff" },
+  chipDivider: { width: 1, height: 30, backgroundColor: T.border, alignSelf: "center" },
+
+  // ── Results summary ──
+  resultsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: C.white,
-    marginBottom: 10,
+    paddingBottom: 10,
   },
-  searchInput: { flex: 1, fontSize: 14, color: C.text },
+  resultsTxt: { fontSize: 12, color: T.muted, fontWeight: "500" },
+  activeFilterBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: T.r999,
+    backgroundColor: T.primaryLight,
+  },
+  activeFilterBadgeTxt: { fontSize: 10, fontWeight: "700", color: T.primary },
+
+  // ── Cards ──
   cardWrap: {
-    backgroundColor: C.white,
-    borderRadius: 16,
+    backgroundColor: T.surface,
+    borderRadius: T.r16,
     marginHorizontal: 14,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: T.border,
     overflow: "hidden",
+    shadowColor: "#1A56DB",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  bannerBox: { height: 130, position: "relative" },
+  bannerBox: { height: 140, position: "relative" },
   cardBanner: { width: "100%", height: "100%" },
+  bannerGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+    backgroundColor: "rgba(0,0,0,0.25)",
+  },
   typeBadge: {
     position: "absolute",
     top: 10,
     left: 10,
-    backgroundColor: "rgba(15,23,42,.85)",
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingVertical: 5,
+    borderRadius: T.r8,
   },
-  typeBadgeTxt: { color: "#fff", fontSize: 10, fontWeight: "700" },
+  typeBadgeTxt: { fontSize: 10, fontWeight: "800" },
   openBadge: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    backgroundColor: "#dcfce7",
-    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: T.greenBg,
+    borderWidth: 1,
+    borderColor: T.greenBorder,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: T.r999,
   },
-  openBadgeTxt: { color: C.green, fontSize: 10, fontWeight: "700" },
+  openBadgeTxt: { color: T.green, fontSize: 10, fontWeight: "800" },
+  openDot: {
+    width: 6,
+    height: 6,
+    borderRadius: T.r999,
+    backgroundColor: T.green,
+  },
+  shareIconBtn: {
+  width: 40,
+  height: 30,
+  borderRadius: 10,
+
+  backgroundColor: "#FFFFFF",
+
+  alignItems: "center",
+  justifyContent: "center",
+
+  shadowColor: "#000",
+  shadowOffset: {
+    width: 0,
+    height: 6,
+  },
+  shadowOpacity: 0.15,
+  shadowRadius: 12,
+
+  elevation: 8,
+},
+  ratingPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: T.r999,
+  },
+  ratingPillTxt: { fontSize: 11, fontWeight: "800" },
   logoWrap: {
     alignSelf: "center",
-    marginTop: -36,
-    padding: 4,
-    backgroundColor: C.white,
-    borderRadius: 16,
+    marginTop: -30,
+    padding: 3,
+    backgroundColor: T.surface,
+    borderRadius: T.r16,
     borderWidth: 3,
-    borderColor: C.white,
+    borderColor: T.surface,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  logo: { width: 72, height: 72, borderRadius: 14 },
-  cardBody: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10 },
-  cardTitle: { fontSize: 16, fontWeight: "800", color: C.text, textAlign: "center" },
-  cardAddr: { fontSize: 12, color: C.muted, marginTop: 4, textAlign: "center" },
-  statsRow: { flexDirection: "row", justifyContent: "center", flexWrap: "wrap", gap: 10, marginTop: 10 },
-  stat: { fontSize: 11, fontWeight: "700", color: "#475569" },
-  meta: { fontSize: 11, color: C.muted, textAlign: "center", marginTop: 6 },
-  cardActions: { flexDirection: "row", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: "#f1f5f9" },
+  logo: { width: 60, height: 60, borderRadius: T.r12 },
+  cardBody: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
+  cardTitle: { fontSize: 16, fontWeight: "800", color: T.text, textAlign: "center", letterSpacing: -0.2 },
+  cardAddr: { fontSize: 12, color: T.muted, marginTop: 3, textAlign: "center" },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 10,
+    flexWrap: "wrap",
+  },
+  statChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: T.bg,
+    borderRadius: T.r999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: T.border,
+  },
+  statChipIcon: { fontSize: 11 },
+  statChipVal: { fontSize: 11, fontWeight: "700", color: T.textSub },
+  metaChip: {
+    alignSelf: "center",
+    backgroundColor: T.primaryLight,
+    borderRadius: T.r999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginTop: 8,
+  },
+  metaChipTxt: { fontSize: 11, color: T.primary, fontWeight: "600" },
+  cardActions: {
+    flexDirection: "row",
+    gap: 8,
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: T.borderLight,
+  },
   followBtn: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: "#fef2f2",
+    borderRadius: T.r12,
+    backgroundColor: T.redBg,
     borderWidth: 1,
-    borderColor: "#fecaca",
+    borderColor: T.redBorder,
     alignItems: "center",
   },
-  followBtnOn: { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" },
-  followBtnTxt: { fontSize: 12, fontWeight: "700", color: "#dc2626" },
-  followBtnTxtOn: { color: C.green },
+  followBtnOn: { backgroundColor: T.greenBg, borderColor: T.greenBorder },
+  followBtnTxt: { fontSize: 12, fontWeight: "700", color: T.red },
+  followBtnTxtOn: { color: T.green },
   viewBtn: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: "#eff6ff",
+    borderRadius: T.r12,
+    backgroundColor: T.primaryLight,
     borderWidth: 1,
-    borderColor: "#dbeafe",
+    borderColor: "#BFDBFE",
     alignItems: "center",
   },
-  viewBtnTxt: { fontSize: 12, fontWeight: "700", color: C.primary },
-  empty: { textAlign: "center", color: C.muted, padding: 32 },
+  viewBtnTxt: { fontSize: 12, fontWeight: "700", color: T.primary },
+
+  // ── Skeleton ──
+  skeletonBanner: { height: 140 },
+  skeletonLogoWrap: { alignSelf: "center", marginTop: -28 },
+  skeletonLogo: { width: 60, height: 60, borderRadius: T.r12 },
+  skeletonLine: { height: 12, borderRadius: T.r999, backgroundColor: T.border },
+
+  // ── Footer ──
+  footerLoader: {
+    paddingVertical: 24,
+    alignItems: "center",
+    gap: 8,
+  },
+  footerLoaderTxt: { fontSize: 12, color: T.muted },
+  footerEnd: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  footerEndLine: { flex: 1, height: 1, backgroundColor: T.border },
+  footerEndTxt: { fontSize: 11, color: T.placeholder, fontWeight: "500" },
+
+  // ── Empty state ──
+  emptyWrap: {
+    paddingVertical: 48,
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  emptyEmoji: { fontSize: 52, marginBottom: 12 },
+  emptyTitle: { fontSize: 18, fontWeight: "800", color: T.text, marginBottom: 6 },
+  emptySub: { fontSize: 13, color: T.muted, textAlign: "center", lineHeight: 20 },
+  emptyBtn: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: T.r12,
+    backgroundColor: T.primaryLight,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+  },
+  emptyBtnTxt: { fontSize: 13, fontWeight: "700", color: T.primary },
 });

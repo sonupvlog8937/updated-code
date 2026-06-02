@@ -4,6 +4,8 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   FlatList,
   Image,
   ScrollView,
@@ -13,6 +15,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SortModal, SORT_OPTIONS } from "./SortModal";
+import { AddToCartDialog } from "./AddToCartDialog";
+import { showToast } from "@/src/utils/toast";
 
 const TABS = [
   { key: "featured", label: "Featured" },
@@ -33,7 +38,8 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
   const [search, setSearch] = useState(initialQuery);
   const [debouncedSearch, setDebouncedSearch] = useState(initialQuery);
   const [tab, setTab] = useState<TabKey>("featured");
-  const [sort, setSort] = useState("");
+  const [sort, setSort] = useState("latest");
+  const [sortModalVisible, setSortModalVisible] = useState(false);
   const [inStock, setInStock] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [subCategoryId, setSubCategoryId] = useState("");
@@ -48,9 +54,12 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const flatListRef = useRef<FlatList>(null);
 
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [cartDialogVisible, setCartDialogVisible] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -71,8 +80,8 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
         page: String(pageNum),
         limit: "16",
         tab,
-        ...(sort ? { sort } : {}),
         search: debouncedSearch,
+        ...(sort && sort !== "latest" ? { sort } : {}),
         ...(inStock ? { inStock: "true" } : {}),
         ...(categoryId ? { categoryId } : {}),
         ...(subCategoryId ? { subCategoryId } : {}),
@@ -147,48 +156,131 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
     [filterMeta, categoryId],
   );
 
+  const handleAddToCart = (product: any) => {
+    setSelectedProduct(product);
+    setCartDialogVisible(true);
+  };
+
+  const handleConfirmAddToCart = async (product: any, selectedOption: any, quantity: number) => {
+    try {
+      // TODO: Integrate with your cart API
+      console.log("Adding to cart:", { product, selectedOption, quantity });
+      showToast("success", `${quantity}x ${product.name} added to cart!`);
+    } catch (error) {
+      showToast("error", "Failed to add to cart");
+      throw error;
+    }
+  };
+
   const renderProduct = ({ item: p }: { item: any }) => {
     const price = p.discountPrice > 0 ? p.discountPrice : p.price;
+    const hasDiscount = p.discountPrice > 0 && p.discountPrice < p.price;
+    const discountPercent = hasDiscount ? Math.round(((p.price - p.discountPrice) / p.price) * 100) : 0;
+    const rating = p.rating || p.averageRating || 0;
+    const isOutOfStock = p.stock === 0 || p.inStock === false;
+    
     return (
       <TouchableOpacity
         style={S.tile}
         onPress={() => router.push(`/go-market-product/grocery/${p._id}` as never)}
+        activeOpacity={0.7}
       >
-        <Image source={{ uri: gmImg(p.image, GO_MARKET_FALLBACK) }} style={S.tileImg} />
-        <Text style={S.tileName} numberOfLines={2}>{p.name}</Text>
-        <Text style={S.tilePrice}>₹{price}</Text>
+        <View style={S.tileImageWrap}>
+          <Image source={{ uri: gmImg(p.image, GO_MARKET_FALLBACK) }} style={S.tileImg} />
+          {hasDiscount && (
+            <View style={S.discountBadge}>
+              <Text style={S.discountText}>{discountPercent}% OFF</Text>
+            </View>
+          )}
+          {isOutOfStock && (
+            <View style={S.outOfStockOverlay}>
+              <Text style={S.outOfStockText}>Out of Stock</Text>
+            </View>
+          )}
+          <TouchableOpacity style={S.wishlistBtn} activeOpacity={0.7}>
+            <Text style={S.wishlistIcon}>♡</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <View style={S.tileContent}>
+          <Text style={S.tileName} numberOfLines={2}>{p.name}</Text>
+          
+          {p.description && (
+            <Text style={S.tileDesc} numberOfLines={1}>{p.description}</Text>
+          )}
+          
+          {p.weight && (
+            <Text style={S.tileWeight}>{p.weight}</Text>
+          )}
+          
+          {rating > 0 && (
+            <View style={S.ratingRow}>
+              <Text style={S.ratingStar}>⭐</Text>
+              <Text style={S.ratingText}>{rating.toFixed(1)}</Text>
+              {p.reviewCount > 0 && (
+                <Text style={S.reviewCount}>({p.reviewCount})</Text>
+              )}
+            </View>
+          )}
+          
+          <View style={S.priceRow}>
+            <View style={S.priceCol}>
+              <Text style={S.tilePrice}>₹{price}</Text>
+              {hasDiscount && (
+                <Text style={S.originalPrice}>₹{p.price}</Text>
+              )}
+            </View>
+            
+            {!isOutOfStock && (
+              <TouchableOpacity 
+                style={S.addBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleAddToCart(p);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={S.addBtnText}>+</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </TouchableOpacity>
     );
   };
 
   const ListHeader = (
     <View>
-      <View style={S.searchRow}>
-        <Text>🔍</Text>
-        <TextInput
-          style={S.searchInput}
-          placeholder="Search products…"
-          value={search}
-          onChangeText={(v) => {
-            setSearch(v);
-            setShowSuggestions(true);
-          }}
-          onSubmitEditing={() => goSearch()}
-          returnKeyType="search"
-        />
-        <TouchableOpacity style={S.searchBtn} onPress={() => goSearch()}>
-          <Text style={S.searchBtnTxt}>Go</Text>
-        </TouchableOpacity>
-      </View>
-
-      {showSuggestions && suggestions.length > 0 && (
-        <View style={S.suggestBox}>
-          {suggestions.map((s) => (
-            <TouchableOpacity key={s._id} style={S.suggestRow} onPress={() => goSearch(s.label)}>
-              <Text style={S.suggestTxt}>{s.label}</Text>
+      {!searchMode && (
+        <>
+          <View style={S.searchRow}>
+            <Text>🔍</Text>
+            <TextInput
+              style={S.searchInput}
+              placeholder="Search products…"
+              value={search}
+              onChangeText={(v) => {
+                setSearch(v);
+                setShowSuggestions(true);
+              }}
+              onSubmitEditing={() => goSearch()}
+              returnKeyType="search"
+            />
+            <TouchableOpacity style={S.searchBtn} onPress={() => goSearch()}>
+              <Text style={S.searchBtnTxt}>Go</Text>
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
+
+          {showSuggestions && suggestions.length > 0 && (
+            <View style={S.suggestBox}>
+              {suggestions.map((s) => (
+                <TouchableOpacity key={s._id} style={S.suggestRow} onPress={() => goSearch(s.label)}>
+                  <Text style={S.suggestTxt}>{s.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </>
       )}
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.chips}>
@@ -201,6 +293,14 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
             <Text style={[S.chipTxt, tab === t.key && S.chipTxtOn]}>{t.label}</Text>
           </TouchableOpacity>
         ))}
+        <TouchableOpacity 
+          style={[S.chip, sort !== "latest" && S.chipOn]} 
+          onPress={() => setSortModalVisible(true)}
+        >
+          <Text style={[S.chipTxt, sort !== "latest" && S.chipTxtOn]}>
+            {sort === "latest" ? "Sort" : `Sort: ${SORT_OPTIONS.find(o => o.key === sort)?.label || "Sort"}`}
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity style={[S.chip, filtersOpen && S.chipOn]} onPress={() => setFiltersOpen(!filtersOpen)}>
           <Text style={[S.chipTxt, filtersOpen && S.chipTxtOn]}>Filters</Text>
         </TouchableOpacity>
@@ -268,25 +368,49 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
   );
 
   return (
-    <FlatList
-      data={products}
-      keyExtractor={(p) => p._id}
-      numColumns={2}
-      columnWrapperStyle={{ gap: 10, paddingHorizontal: 14 }}
-      contentContainerStyle={{ paddingBottom: 80 }}
-      ListHeaderComponent={ListHeader}
-      renderItem={renderProduct}
-      onEndReached={() => {
-        if (page < totalPages && !loadingMore && !loading) loadPage(page + 1, true);
-      }}
-      onEndReachedThreshold={0.3}
-      ListFooterComponent={
-        loadingMore ? <ActivityIndicator color="#2563eb" style={{ marginVertical: 16 }} /> : null
-      }
-      ListEmptyComponent={
-        !loading ? <Text style={S.empty}>No products found.</Text> : null
-      }
-    />
+    <>
+      <FlatList
+        ref={flatListRef}
+        data={products}
+        keyExtractor={(p) => p._id}
+        numColumns={2}
+        columnWrapperStyle={{ gap: 10, paddingHorizontal: 14 }}
+        contentContainerStyle={{ paddingBottom: 80 }}
+        ListHeaderComponent={ListHeader}
+        renderItem={renderProduct}
+        onEndReached={() => {
+          if (page < totalPages && !loadingMore && !loading) {
+            loadPage(page + 1, true);
+          }
+        }}
+        onEndReachedThreshold={0.3}
+        scrollEventThrottle={16}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={16}
+        ListFooterComponent={
+          loadingMore ? <ActivityIndicator color="#2563eb" style={{ marginVertical: 16 }} /> : null
+        }
+        ListEmptyComponent={
+          !loading ? <Text style={S.empty}>No products found.</Text> : null
+        }
+      />
+      <SortModal
+        visible={sortModalVisible}
+        selectedSort={sort}
+        onSelect={(sortKey) => setSort(sortKey)}
+        onClose={() => setSortModalVisible(false)}
+      />
+      <AddToCartDialog
+        visible={cartDialogVisible}
+        product={selectedProduct}
+        onClose={() => {
+          setCartDialogVisible(false);
+          setSelectedProduct(null);
+        }}
+        onAddToCart={handleConfirmAddToCart}
+      />
+    </>
   );
 }
 
@@ -323,12 +447,12 @@ const S = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#e2e8f0",
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     backgroundColor: "#fff",
   },
   chipOn: { backgroundColor: "#0f172a", borderColor: "#0f172a" },
-  chipTxt: { fontSize: 11, fontWeight: "700", color: "#64748b" },
+  chipTxt: { fontSize: 13, fontWeight: "700", color: "#64748b" },
   chipTxtOn: { color: "#fff" },
   filterPanel: { paddingBottom: 8 },
   miniInput: {
@@ -342,15 +466,163 @@ const S = StyleSheet.create({
   },
   tile: {
     flex: 1,
+    maxWidth: '48%',
     backgroundColor: "#fff",
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: "#e2e8f0",
     overflow: "hidden",
     marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  tileImg: { width: "100%", height: 120 },
-  tileName: { fontSize: 12, fontWeight: "800", padding: 8, color: "#0f172a" },
-  tilePrice: { fontSize: 14, fontWeight: "900", color: "#FF6B2C", paddingHorizontal: 8, paddingBottom: 10 },
+  tileImageWrap: {
+    position: "relative",
+    width: "100%",
+    height: 140,
+    backgroundColor: "#f8fafc",
+  },
+  tileImg: { 
+    width: "100%", 
+    height: "100%",
+    resizeMode: "cover",
+  },
+  discountBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    backgroundColor: "#FF3B30",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  discountText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.3,
+  },
+  outOfStockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  outOfStockText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  wishlistBtn: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  wishlistIcon: {
+    fontSize: 16,
+    color: "#FF3B30",
+  },
+  tileContent: {
+    padding: 10,
+  },
+  tileName: { 
+    fontSize: 13, 
+    fontWeight: "700", 
+    color: "#0f172a",
+    lineHeight: 17,
+    marginBottom: 4,
+  },
+  tileDesc: {
+    fontSize: 10,
+    color: "#64748b",
+    lineHeight: 13,
+    marginBottom: 4,
+  },
+  tileWeight: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#64748b",
+    marginBottom: 6,
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginBottom: 8,
+  },
+  ratingStar: {
+    fontSize: 11,
+  },
+  ratingText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  reviewCount: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#94a3b8",
+  },
+  priceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  priceCol: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  tilePrice: { 
+    fontSize: 16, 
+    fontWeight: "900", 
+    color: "#2D5016",
+    letterSpacing: -0.3,
+  },
+  originalPrice: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#94a3b8",
+    textDecorationLine: "line-through",
+  },
+  addBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#2D5016",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#2D5016",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  addBtnText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
   empty: { textAlign: "center", color: "#94a3b8", padding: 32 },
 });

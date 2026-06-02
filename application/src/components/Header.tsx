@@ -211,7 +211,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                 style={[styles.backButton, { backgroundColor: colors.accent }]}
                 hitSlop={8}
               >
-                <Feather name="arrow-left" size={20} color={colors.foreground} />
+                <Feather name="arrow-left" size={18} color={colors.foreground} />
               </Pressable>
             )}
 
@@ -254,7 +254,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
               hitSlop={6}
             >
               <View style={styles.goMarketIconBox}>
-                <Feather name="shopping-bag" size={11} color="#FFFFFF" />
+                <Feather name="shopping-bag" size={12} color="#FFFFFF" />
               </View>
               <View style={styles.goMarketTextStack}>
                 <View style={styles.goMarketTitleRow}>
@@ -1839,11 +1839,13 @@ const styles = StyleSheet.create({
   logoPress: {
     gap: 2,
     maxWidth: 130,
+    flexShrink: 1,     // logo can shrink if needed
+    minWidth: 0,       // allows flex to work properly
   },
   logoImage: {
-    height: 36,
-    width: 120,
-    maxWidth: 130,
+    height: 32,        // slightly smaller to fit better
+    width: 100,        // reduced from 120
+    maxWidth: 110,     // reduced from 130
   },
   // wordmarkRow: {
   //   flexDirection: "row",
@@ -1949,17 +1951,17 @@ const styles = StyleSheet.create({
 leftSection: {
   flexDirection: "row",
   alignItems: "center",
-  gap: 8,
+  gap: 6,             // reduced from 8 for tighter spacing
   flex: 1,
   minWidth: 0,       // allows inner items to shrink on small screens
 },
 backButton: {
-  width: 36,
-  height: 36,
-  borderRadius: 10,
+  width: 34,          // slightly smaller from 36
+  height: 34,         // slightly smaller from 36
+  borderRadius: 9,    // adjusted for smaller size
   alignItems: "center",
   justifyContent: "center",
-  marginRight: 4,
+  marginRight: 2,     // reduced from 4
 },
 wordmarkRow: {
   flexDirection: "row",
@@ -1967,35 +1969,35 @@ wordmarkRow: {
 },
 wordmarkZee: {
   fontFamily: Platform.select({ ios: "Georgia", android: "serif", default: "serif" }),
-  fontSize: 17,
+  fontSize: 15,       // slightly smaller from 17
   fontWeight: "800",
   letterSpacing: -0.5,
-  lineHeight: 20,
+  lineHeight: 18,     // reduced from 20
 },
 wordmarkDaddy: {
   fontFamily: Platform.select({ ios: "Georgia", android: "serif", default: "serif" }),
-  fontSize: 17,
+  fontSize: 15,       // slightly smaller from 17
   fontWeight: "800",
   letterSpacing: -0.5,
-  lineHeight: 20,
+  lineHeight: 18,     // reduced from 20
 },
 starAccent: {
-  fontSize: 7,
+  fontSize: 6,        // slightly smaller from 7
   fontWeight: "700",
   marginTop: 2,
   marginLeft: 1,
-  lineHeight: 9,
+  lineHeight: 8,      // reduced from 9
 },
 logoSubtitle: {
-  fontSize: 6,
+  fontSize: 5.5,      // slightly smaller from 6
   fontWeight: "700",
-  letterSpacing: 0.9,
+  letterSpacing: 0.8, // slightly reduced from 0.9
   textTransform: "uppercase",
   marginTop: 1,
 },
 divider: {
   width: 1,
-  height: 26,
+  height: 24,         // reduced from 26 for better proportion
   opacity: 0.3,
   flexShrink: 0,
 },
@@ -2004,19 +2006,19 @@ divider: {
 goMarketPill: {
   flexDirection: "row",
   alignItems: "center",
-  gap: 5,
+  gap: 6,             // increased for better spacing
   backgroundColor: "#111111",
-  borderRadius: 9,
-  paddingVertical: 5,
-  paddingRight: 8,
-  paddingLeft: 5,
+  borderRadius: 10,   // slightly larger radius
+  paddingVertical: 6, // increased padding
+  paddingRight: 10,   // increased padding
+  paddingLeft: 6,     // increased padding
   flexShrink: 1,     // pill shrinks before icons disappear on narrow screens
   minWidth: 0,
 },
 goMarketIconBox: {
-  width: 22,
-  height: 22,
-  borderRadius: 6,
+  width: 24,          // increased size
+  height: 24,         // increased size
+  borderRadius: 6,    // adjusted for larger size
   backgroundColor: "rgba(255,255,255,0.10)",
   borderWidth: 0.5,
   borderColor: "rgba(255,255,255,0.14)",
@@ -2035,7 +2037,7 @@ goMarketTitleRow: {
 },
 goMarketTitle: {
   color: "#FFFFFF",
-  fontSize: 11,
+  fontSize: 11.5,     // slightly increased for better readability
   fontWeight: "700",
   letterSpacing: -0.1,
   lineHeight: 14,
@@ -2049,7 +2051,7 @@ liveDot: {
 },
 goMarketSub: {
   color: "rgba(255,255,255,0.45)",
-  fontSize: 8,
+  fontSize: 8.5,      // slightly increased
   fontWeight: "500",
   letterSpacing: 0.1,
   lineHeight: 11,

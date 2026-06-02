@@ -3,6 +3,7 @@ import GroceryShop from "../models/groceryShop.model.js";
 import Restaurant from "../models/restaurant.model.js";
 import GroceryProduct from "../models/groceryProduct.model.js";
 import RestaurantItem from "../models/restaurantItem.model.js";
+import RestaurantMenu from "../models/restaurantMenu.model.js";
 import GoMarketCategory from "../models/goMarketCategory.model.js";
 import GoMarketSubCategory from "../models/goMarketSubCategory.model.js";
 import ReviewModel from "../models/reviews.model.js";
@@ -463,6 +464,10 @@ export const listShopProductsCatalog = async (req, res) => {
     shop.productAverageRating = productStats.rating;
     shop.productReviewCount = productStats.reviewCount;
 
+    // Count total products for this shop
+    const totalProducts = await GroceryProduct.countDocuments({ shopId });
+    shop.totalProducts = totalProducts;
+
     const filter = await buildGroceryCatalogFilter(req, shopId);
     const tab = String(req.query.tab || "featured").toLowerCase();
     const sort = req.query.sort ? productSort(req.query) : sortForCatalogTab(tab);
@@ -601,6 +606,14 @@ export const listRestaurantItemsCatalog = async (req, res) => {
     restaurant.rating = productStats.rating || restaurant.rating || 0;
     restaurant.productAverageRating = productStats.rating;
     restaurant.productReviewCount = productStats.reviewCount;
+
+    // Count total items and menus for this restaurant
+    const [totalItems, totalMenus] = await Promise.all([
+      RestaurantItem.countDocuments({ restaurantId }),
+      RestaurantMenu.countDocuments({ restaurantId }),
+    ]);
+    restaurant.totalItems = totalItems;
+    restaurant.totalMenus = totalMenus;
 
     const filter = buildRestaurantCatalogFilter(req, restaurantId);
     const tab = String(req.query.tab || "featured").toLowerCase();
