@@ -1,11 +1,10 @@
-import { fetchDataFromApi } from "@/src/utils/api";
+import { addToCart, fetchMyListData, setCartData, useAppDispatch, useAppSelector } from "@/src/store";
+import { fetchDataFromApi, postData } from "@/src/utils/api";
 import { gmImg, GO_MARKET_FALLBACK } from "@/src/utils/goMarketMedia";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
-  Easing,
   FlatList,
   Image,
   ScrollView,
@@ -35,6 +34,8 @@ type Props = {
 
 export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery = "" }: Props) {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const { isLogin, userData, myListData, cartData } = useAppSelector((s: any) => s.app);
   const [search, setSearch] = useState(initialQuery);
   const [debouncedSearch, setDebouncedSearch] = useState(initialQuery);
   const [tab, setTab] = useState<TabKey>("featured");
@@ -47,6 +48,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
   const [maxPrice, setMaxPrice] = useState("");
   const [minRating, setMinRating] = useState(0);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [gridColumns, setGridColumns] = useState<1 | 2>(2);
 
   const [products, setProducts] = useState<any[]>([]);
   const [filterMeta, setFilterMeta] = useState<any>(null);
@@ -157,31 +159,97 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
   );
 
   const handleAddToCart = (product: any) => {
-    setSelectedProduct(product);
-    setCartDialogVisible(true);
+    // Check if product has options
+    const hasOptions = (product.options?.length > 0) || (product.productOptions?.some((opt: any) => opt.values?.length > 0));
+    
+    if (hasOptions) {
+      // Product has options, show dialog
+      setSelectedProduct(product);
+      setCartDialogVisible(true);
+    } else {
+      // Product has no options, add directly to cart
+      handleConfirmAddToCart(product, null, 1);
+    }
   };
 
   const handleConfirmAddToCart = async (product: any, selectedOption: any, quantity: number) => {
-    try {
-      // TODO: Integrate with your cart API
-      console.log("Adding to cart:", { product, selectedOption, quantity });
-      showToast("success", `${quantity}x ${product.name} added to cart!`);
-    } catch (error) {
-      showToast("error", "Failed to add to cart");
-      throw error;
+    const cartProduct = {
+      _id: product._id,
+      name: product.name || product.itemName || product.productName,
+      price: product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price,
+      oldPrice: product.oldPrice || product.originalPrice || product.price,
+      images: product.images || (product.image ? [product.image] : []),
+      countInStock: product.countInStock ?? product.stock ?? 999,
+      rating: product.rating || product.averageRating || 0,
+      brand: product.brand,
+      discount: product.discount,
+      weight: selectedOption?.name || product.weight,
+    };
+
+    if (isLogin && (userData?._id || userData?.id)) {
+      await dispatch(addToCart({ product: cartProduct, userId: userData?._id || userData?.id, quantity }) as any).unwrap();
+      return;
+    }
+
+    const localItem = {
+      _id: `${product._id}-${selectedOption?._id || "default"}`,
+      productId: product._id,
+      productTitle: cartProduct.name,
+      image: cartProduct.images[0],
+      rating: cartProduct.rating,
+      price: cartProduct.price,
+      oldPrice: cartProduct.oldPrice,
+      quantity,
+      subTotal: Math.round(cartProduct.price * quantity),
+      countInStock: cartProduct.countInStock,
+      brand: cartProduct.brand,
+      weight: cartProduct.weight,
+    };
+    dispatch(setCartData([...cartData.filter((item: any) => item._id !== localItem._id), localItem]) as any);
+    showToast("success", `${quantity}x ${cartProduct.name} added to cart`);
+  };
+
+  const handleWishlist = async (product: any) => {
+    const title = product.name || product.itemName || product.productName || "Product";
+    if (!isLogin) {
+      showToast("error", "Please login first to save wishlist");
+      return;
+    }
+    const exists = myListData?.some((item: any) => item?.productId === product._id);
+    if (exists) {
+      showToast("success", `${title} is already in wishlist`);
+      return;
+    }
+    const res = await postData("/api/myList/add", {
+      productTitle: title,
+      image: product.images?.[0] || product.image,
+      rating: product.rating || product.averageRating || 0,
+      price: product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price,
+      oldPrice: product.oldPrice || product.originalPrice || product.price,
+      productId: product._id,
+      brand: product.brand || product.shopName || product.restaurantName || "GoMarket",
+      discount: product.discount,
+    });
+    if (res?.error === false) {
+      showToast("success", "Added to wishlist");
+      dispatch(fetchMyListData() as any);
+    } else {
+      showToast("error", res?.message || "Failed to add wishlist");
     }
   };
 
   const renderProduct = ({ item: p }: { item: any }) => {
     const price = p.discountPrice > 0 ? p.discountPrice : p.price;
-    const hasDiscount = p.discountPrice > 0 && p.discountPrice < p.price;
-    const discountPercent = hasDiscount ? Math.round(((p.price - p.discountPrice) / p.price) * 100) : 0;
+    const oldPrice = p.oldPrice || p.originalPrice || p.price;
+    const hasDiscount = (p.discountPrice > 0 && p.discountPrice < oldPrice) || (p.discount > 0);
+    const discountPercent = p.discount || (hasDiscount ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0);
+    const inWishlist = myListData?.some((item: any) => item?.productId === p._id);
     const rating = p.rating || p.averageRating || 0;
     const isOutOfStock = p.stock === 0 || p.inStock === false;
     
     return (
       <TouchableOpacity
-        style={S.tile}
+        style={[S.tile, gridColumns === 1 && S.tileFull]}
         onPress={() => router.push(`/go-market-product/grocery/${p._id}` as never)}
         activeOpacity={0.7}
       >
@@ -197,13 +265,20 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
               <Text style={S.outOfStockText}>Out of Stock</Text>
             </View>
           )}
-          <TouchableOpacity style={S.wishlistBtn} activeOpacity={0.7}>
-            <Text style={S.wishlistIcon}>♡</Text>
+          <TouchableOpacity
+            style={[S.wishlistBtn, inWishlist && S.wishlistBtnActive]}
+            activeOpacity={0.7}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleWishlist(p);
+            }}
+          >
+            <Text style={[S.wishlistIcon, inWishlist && S.wishlistIconActive]}>{inWishlist ? "♥" : "♡"}</Text>
           </TouchableOpacity>
         </View>
         
         <View style={S.tileContent}>
-          <Text style={S.tileName} numberOfLines={2}>{p.name}</Text>
+           <Text style={S.tileName} numberOfLines={1}>{p.name}</Text>
           
           {p.description && (
             <Text style={S.tileDesc} numberOfLines={1}>{p.description}</Text>
@@ -227,7 +302,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
             <View style={S.priceCol}>
               <Text style={S.tilePrice}>₹{price}</Text>
               {hasDiscount && (
-                <Text style={S.originalPrice}>₹{p.price}</Text>
+                <Text style={S.originalPrice}>₹{oldPrice}</Text>
               )}
             </View>
             
@@ -304,6 +379,9 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
         <TouchableOpacity style={[S.chip, filtersOpen && S.chipOn]} onPress={() => setFiltersOpen(!filtersOpen)}>
           <Text style={[S.chipTxt, filtersOpen && S.chipTxtOn]}>Filters</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={S.gridToggle} onPress={() => setGridColumns(gridColumns === 2 ? 1 : 2)}>
+          <Text style={S.gridToggleText}>{gridColumns === 2 ? "▤ 1 row" : "▦ 2 row"}</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {filtersOpen && (
@@ -371,10 +449,11 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
     <>
       <FlatList
         ref={flatListRef}
+        key={gridColumns}
         data={products}
         keyExtractor={(p) => p._id}
-        numColumns={2}
-        columnWrapperStyle={{ gap: 10, paddingHorizontal: 14 }}
+        numColumns={gridColumns}
+        columnWrapperStyle={gridColumns === 2 ? { gap: 10, paddingHorizontal: 14 } : undefined}
         contentContainerStyle={{ paddingBottom: 80 }}
         ListHeaderComponent={ListHeader}
         renderItem={renderProduct}
@@ -455,6 +534,19 @@ const S = StyleSheet.create({
   chipTxt: { fontSize: 13, fontWeight: "700", color: "#64748b" },
   chipTxtOn: { color: "#fff" },
   filterPanel: { paddingBottom: 8 },
+  gridToggle: {
+    borderWidth: 1.5,
+    borderColor: "#2D5016",
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#E8F5E1",
+  },
+  gridToggleText: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#2D5016",
+  },
   miniInput: {
     borderWidth: 1,
     borderColor: "#e2e8f0",
@@ -478,6 +570,10 @@ const S = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+  },
+  tileFull: {
+    maxWidth: "100%",
+    marginHorizontal: 14,
   },
   tileImageWrap: {
     position: "relative",
@@ -538,12 +634,19 @@ const S = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+    wishlistBtnActive: {
+    backgroundColor: "#FF3B30",
+  },
   wishlistIcon: {
     fontSize: 16,
     color: "#FF3B30",
   },
+  wishlistIconActive: {
+    color: "#fff",
+  },
   tileContent: {
     padding: 10,
+    minHeight: 132,
   },
   tileName: { 
     fontSize: 13, 

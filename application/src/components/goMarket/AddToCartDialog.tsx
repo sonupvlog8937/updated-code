@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import { showToast } from "@/src/utils/toast";
+import { useRouter } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   View,
@@ -25,10 +27,19 @@ type Product = {
   itemName?: string;
   productName?: string;
   image: string;
+  images?: string[];
   price: number;
+  oldPrice?: number;
+  originalPrice?: number;
+  discount?: number;
   discountPrice?: number;
   description?: string;
+  rating?: number;
+  averageRating?: number;
+  reviewCount?: number;
+  totalReviews?: number;
   options?: ProductOption[];
+  productOptions?: { name?: string; label?: string; values?: string[] }[];
 };
 
 type AddToCartDialogProps = {
@@ -39,21 +50,46 @@ type AddToCartDialogProps = {
 };
 
 export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddToCartDialogProps) {
+  const router = useRouter();
   const [selectedOption, setSelectedOption] = useState<ProductOption | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
 
+  const normalizedOptions = useMemo(() => {
+    if (product?.options?.length) return product.options;
+
+    return (product?.productOptions || []).flatMap((option, optionIndex) =>
+      (option.values || []).map((value, valueIndex) => ({
+        _id: `${option.name || option.label || optionIndex}-${value}-${valueIndex}`,
+        name: `${option.name || option.label || "Option"}: ${value}`,
+        price: 0,
+        isDefault: optionIndex === 0 && valueIndex === 0,
+      })),
+    );
+  }, [product]);
+
+  useEffect(() => {
+    if (visible && normalizedOptions.length) {
+      setSelectedOption(normalizedOptions.find((o) => o.isDefault) || null);
+    }
+  }, [visible, product?._id, normalizedOptions]);
+
   if (!product) return null;
 
   const productName = product.name || product.itemName || product.productName || "Product";
-  const hasOptions = product.options && product.options.length > 0;
+  const hasOptions = normalizedOptions.length > 0;
   const price = product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price;
+  const oldPrice = product.oldPrice || product.originalPrice;
+  const discount = product.discount || (oldPrice && oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0);
+  const rating = Number(product.averageRating || product.rating || 0);
+  const reviews = Number(product.reviewCount || product.totalReviews || 0);
   const optionPrice = selectedOption ? selectedOption.price : 0;
   const totalPrice = (price + optionPrice) * quantity;
 
   const handleAddToCart = async () => {
     if (hasOptions && !selectedOption) {
-      return; // Don't add if options exist but none selected
+      showToast("error", "Please select a product option");
+      return;
     }
     setAdding(true);
     try {
@@ -62,8 +98,8 @@ export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddT
       setSelectedOption(null);
       setQuantity(1);
       onClose();
-    } catch (error) {
-      // Handle error
+    } catch {
+      // Parent handler shows the user-facing error toast.
     } finally {
       setAdding(false);
     }
@@ -100,11 +136,16 @@ export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddT
                 style={S.productImage}
               />
               <View style={S.productDetails}>
-                <Text style={S.productName} numberOfLines={2}>{productName}</Text>
+                <Text style={S.productName}>{productName}</Text>
                 {product.description && (
-                  <Text style={S.productDesc} numberOfLines={2}>{product.description}</Text>
+                  <Text style={S.productDesc}>{product.description}</Text>
                 )}
-                <Text style={S.productPrice}>₹{price}</Text>
+                <View style={S.metaRow}>
+                  <Text style={S.productPrice}>₹{price}</Text>
+                  {oldPrice && oldPrice > price ? <Text style={S.oldPrice}>₹{oldPrice}</Text> : null}
+                  {discount ? <Text style={S.discountPill}>{discount}% OFF</Text> : null}
+                </View>
+                <Text style={S.ratingLine}>⭐ {rating.toFixed(1)} · {reviews} reviews</Text>
               </View>
             </View>
 
@@ -112,7 +153,7 @@ export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddT
             {hasOptions && (
               <View style={S.section}>
                 <Text style={S.sectionTitle}>Select Option *</Text>
-                {product.options!.map((option) => {
+                {normalizedOptions.map((option) => {
                   const isSelected = selectedOption?._id === option._id;
                   return (
                     <TouchableOpacity
@@ -169,9 +210,16 @@ export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddT
               <Text style={S.footerPrice}>₹{totalPrice.toFixed(2)}</Text>
             </View>
             <TouchableOpacity
+              style={S.viewCartButton}
+              onPress={() => { handleClose(); router.push("/cart" as never); }}
+              activeOpacity={0.8}
+            >
+              <Text style={S.viewCartButtonText}>View Cart</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[S.addButton, (hasOptions && !selectedOption) && S.addButtonDisabled]}
               onPress={handleAddToCart}
-              disabled={adding || (hasOptions && !selectedOption)}
+              disabled={adding}
               activeOpacity={0.8}
             >
               {adding ? (
@@ -229,8 +277,8 @@ const S = StyleSheet.create({
     gap: 14,
   },
   productImage: {
-    width: 90,
-    height: 90,
+    width: 96,
+    height: 96,
     borderRadius: 12,
     backgroundColor: "#f5f5f5",
   },
@@ -248,6 +296,32 @@ const S = StyleSheet.create({
     fontSize: 12,
     color: "#666",
     lineHeight: 16,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  oldPrice: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#999",
+    textDecorationLine: "line-through",
+  },
+  discountPill: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: "#D32F2F",
+    backgroundColor: "#FFF1F1",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  ratingLine: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#5A6B4D",
   },
   productPrice: {
     fontSize: 17,
@@ -360,6 +434,21 @@ const S = StyleSheet.create({
     fontSize: 20,
     fontWeight: "900",
     color: "#1a1a1a",
+  },
+  viewCartButton: {
+    height: 50,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    backgroundColor: "#F0F7ED",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#CFE4C4",
+  },
+  viewCartButtonText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#2D5016",
   },
   addButton: {
     flex: 1,

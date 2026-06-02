@@ -21,14 +21,17 @@ import {
   Easing,
 } from "react-native";
 import {
+  addToCart,
   fetchGoRestaurantDetail,
+  fetchMyListData,
   followGoRestaurant,
   unfollowGoRestaurant,
   useAppDispatch,
+  setCartData,
   useAppSelector,
 } from "@/src/store";
 import { showToast } from "@/src/utils/toast";
-import { fetchDataFromApi } from "@/src/utils/api";
+import { fetchDataFromApi, postData } from "@/src/utils/api";
 import { SortModal, SORT_OPTIONS } from "@/src/components/goMarket/SortModal";
 import { AddToCartDialog } from "@/src/components/goMarket/AddToCartDialog";
 import { CartViewDialog } from "@/src/components/goMarket/CartViewDialog";
@@ -194,7 +197,7 @@ function MenuRow({ item, index }: { item: any; index: number }) {
   );
 }
 
-function ItemTile({ item, index, onAddToCart }: { item: any; index: number; onAddToCart: (item: any) => void }) {
+function ItemTile({ item, index, columns, onAddToCart, onWishlist, inWishlist }: { item: any; index: number; columns: 1 | 2; onAddToCart: (item: any) => void; onWishlist: (item: any) => void; inWishlist: boolean }) {
   const router = useRouter();
   const sc = useRef(new Animated.Value(1)).current;
   const imgOp = useRef(new Animated.Value(0)).current;
@@ -216,7 +219,7 @@ function ItemTile({ item, index, onAddToCart }: { item: any; index: number; onAd
         onPressOut={release}
         onPress={() => router.push(`/go-market-product/restaurant/${item._id}` as never)}
       >
-        <Animated.View style={[S.tile, { transform: [{ scale: sc }] }]}>
+        <Animated.View style={[S.tile, columns === 1 && S.tileFull, { transform: [{ scale: sc }] }]}>
           <View style={{ position: "relative" }}>
             <Animated.Image source={{ uri: item.image || FALLBACK }} style={[S.tileImg, { opacity: imgOp }]} onLoad={onImgLoad} />
             {discount ? (
@@ -234,8 +237,15 @@ function ItemTile({ item, index, onAddToCart }: { item: any; index: number; onAd
                 <View style={[S.vegDotInner, { backgroundColor: isVeg ? C.green : C.accent }]} />
               </View>
             )}
-            <TouchableOpacity style={S.wishlistBtn} activeOpacity={0.7}>
-              <Text style={S.wishlistIcon}>♡</Text>
+            <TouchableOpacity
+              style={[S.wishlistBtn, inWishlist && S.wishlistBtnActive]}
+              activeOpacity={0.7}
+              onPress={(e) => {
+                e.stopPropagation();
+                onWishlist(item);
+              }}
+            >
+              <Text style={[S.wishlistIcon, inWishlist && S.wishlistIconActive]}>{inWishlist ? "♥" : "♡"}</Text>
             </TouchableOpacity>
           </View>
 
@@ -325,13 +335,14 @@ export default function GoMarketRestaurantDetails() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { restaurantDetail, loading } = useAppSelector((s) => s.goMarket);
-  const { isLogin } = useAppSelector((s: any) => s.app);
+  const { isLogin, userData, myListData, cartData } = useAppSelector((s: any) => s.app);
   const [authChecked, setAuthChecked] = useState(false);
   const [tab, setTab] = useState<"featured" | "popular" | "latest">("featured");
   const [catalogItems, setCatalogItems] = useState<any[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [sort, setSort] = useState("latest");
   const [sortModalVisible, setSortModalVisible] = useState(false);
+  const [gridColumns, setGridColumns] = useState<1 | 2>(2);
   const [search, setSearch] = useState("");
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -444,19 +455,83 @@ export default function GoMarketRestaurantDetails() {
   };
 
   const handleAddToCart = (product: any) => {
-    setSelectedProduct(product);
-    setCartDialogVisible(true);
+    // Check if product has options
+    const hasOptions = (product.options?.length > 0) || (product.productOptions?.some((opt: any) => opt.values?.length > 0));
+    
+    if (hasOptions) {
+      // Product has options, show dialog
+      setSelectedProduct(product);
+      setCartDialogVisible(true);
+    } else {
+      // Product has no options, add directly to cart
+      handleConfirmAddToCart(product, null, 1);
+    }
   };
 
   const handleConfirmAddToCart = async (product: any, selectedOption: any, quantity: number) => {
-    try {
-      // TODO: Integrate with your cart API
-      console.log("Adding to cart:", { product, selectedOption, quantity });
-      const itemName = product.name || product.itemName || product.productName;
-      showToast("success", `${quantity}x ${itemName} added to cart!`);
-    } catch (error) {
-      showToast("error", "Failed to add to cart");
-      throw error;
+    const name = product.name || product.itemName || product.productName;
+    const cartProduct = {
+      _id: product._id,
+      name,
+      price: product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price,
+      oldPrice: product.oldPrice || product.originalPrice || product.price,
+      images: product.images || (product.image ? [product.image] : []),
+      countInStock: product.countInStock ?? product.stock ?? 999,
+      rating: product.rating || product.averageRating || 0,
+      brand: product.brand,
+      discount: product.discount || product.discountPercentage,
+      weight: selectedOption?.name || product.weight,
+    };
+
+    if (isLogin && (userData?._id || userData?.id)) {
+      await dispatch(addToCart({ product: cartProduct, userId: userData?._id || userData?.id, quantity }) as any).unwrap();
+      return;
+    }
+
+    const localItem = {
+      _id: `${product._id}-${selectedOption?._id || "default"}`,
+      productId: product._id,
+      productTitle: name,
+      image: cartProduct.images[0],
+      rating: cartProduct.rating,
+      price: cartProduct.price,
+      oldPrice: cartProduct.oldPrice,
+      quantity,
+      subTotal: Math.round(cartProduct.price * quantity),
+      countInStock: cartProduct.countInStock,
+      brand: cartProduct.brand,
+      weight: cartProduct.weight,
+    };
+    dispatch(setCartData([...cartData.filter((item: any) => item._id !== localItem._id), localItem]) as any);
+    showToast("success", `${quantity}x ${name} added to cart`);
+  };
+
+  const handleWishlist = async (product: any) => {
+    const title = product.name || product.itemName || product.productName || "Product";
+    if (!isLogin) {
+      showToast("error", "Please login first to save wishlist");
+      return;
+    }
+    const exists = myListData?.some((item: any) => item?.productId === product._id);
+    if (exists) {
+      showToast("success", `${title} is already in wishlist`);
+      return;
+    }
+    const res = await postData("/api/myList/add", {
+      productTitle: title,
+      image: product.images?.[0] || product.image,
+      rating: product.rating || product.averageRating || 0,
+      price: product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price,
+      oldPrice: product.oldPrice || product.originalPrice || product.price,
+      productId: product._id,
+      brand: product.brand || product.shopName || product.restaurantName || "GoMarket",
+      discount: product.discount || product.discountPercentage,
+    });
+    if (res?.error === false) {
+      showToast("success", "Added to wishlist");
+      dispatch(fetchMyListData() as any);
+    } else {
+      showToast("error", res?.message || "Failed to add wishlist");
     }
   };
 
@@ -631,6 +706,9 @@ export default function GoMarketRestaurantDetails() {
               ⇅ {sort === "latest" ? "Sort" : SORT_OPTIONS.find(o => o.key === sort)?.label ?? "Sort"}
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity style={S.gridToggle} onPress={() => setGridColumns(gridColumns === 2 ? 1 : 2)} activeOpacity={0.8}>
+            <Text style={S.gridToggleText}>{gridColumns === 2 ? "▤ One per row" : "▦ Two per row"}</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={{ paddingHorizontal: 12 }}>
@@ -649,9 +727,17 @@ export default function GoMarketRestaurantDetails() {
           ) : catalogItems.length === 0 ? (
             <EmptyState query={search} />
           ) : (
-            <View style={S.grid}>
+           <View style={[S.grid, gridColumns === 1 && S.gridOne]}>
               {catalogItems.map((item: any, i: number) => (
-                <ItemTile key={item._id} item={item} index={i} onAddToCart={handleAddToCart} />
+               <ItemTile
+                  key={item._id}
+                  item={item}
+                  index={i}
+                  columns={gridColumns}
+                  onAddToCart={handleAddToCart}
+                  onWishlist={handleWishlist}
+                  inWishlist={myListData?.some((w: any) => w?.productId === item._id)}
+                />
               ))}
             </View>
           )}
@@ -977,6 +1063,9 @@ const S = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
+  tileFull: {
+    width: "100%",
+  },
   tileImg: { width: "100%", height: 120, backgroundColor: C.border, resizeMode: "cover" },
   tileBody: { padding: 10, gap: 2 },
   tileName: { fontSize: 11, fontWeight: "800", color: C.text, lineHeight: 15 },
@@ -1027,9 +1116,15 @@ const S = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  wishlistBtnActive: {
+    backgroundColor: C.accent,
+  },
   wishlistIcon: {
     fontSize: 14,
     color: C.accent,
+  },
+  wishlistIconActive: {
+    color: "#fff",
   },
   vegDot: {
     position: "absolute",
@@ -1068,6 +1163,23 @@ const S = StyleSheet.create({
     fontSize: 9,
     fontWeight: "600",
     color: C.muted,
+  },
+
+  gridOne: {
+    flexDirection: "column",
+  },
+  gridToggle: {
+    backgroundColor: C.accentLight,
+    borderWidth: 1,
+    borderColor: C.accentBorder,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  gridToggleText: {
+    color: C.accent,
+    fontSize: 11,
+    fontWeight: "900",
   },
 
   addBtn: {

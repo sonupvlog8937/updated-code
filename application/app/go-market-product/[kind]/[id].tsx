@@ -7,6 +7,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
   FlatList,
   Image,
   Platform,
@@ -41,9 +42,9 @@ export default function GoMarketProductScreen() {
   const { kind, id } = useLocalSearchParams<{ kind: string; id: string }>();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const userId = useAppSelector((s: any) => s.app.user?._id);
-  const userName = useAppSelector((s: any) => s.app.userData?.name);
-  const isLogin = useAppSelector((s: any) => s.app.isLogin);
+  const { isLogin, userData } = useAppSelector((s: any) => s.app);
+  const userId = userData?._id || userData?.id;
+  const userName = userData?.name;
 
   // Login protection - redirect to login if not authenticated
   useEffect(() => {
@@ -62,6 +63,7 @@ export default function GoMarketProductScreen() {
   const [relatedPage, setRelatedPage] = useState(1);
   const [relatedTotalPages, setRelatedTotalPages] = useState(1);
   const [loadingRelated, setLoadingRelated] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const loadProduct = useCallback(() => {
     const endpoint =
@@ -95,6 +97,11 @@ export default function GoMarketProductScreen() {
 
   const product = data?.product;
   const specs = data?.specifications || [];
+  
+  // Only show options if:
+  // 1. productOptions array exists and has items
+  // 2. After normalization, there are valid options with multiple values
+  // 3. Options were added intentionally by seller (not test/dummy data)
   const productOptions: any[] = normalizeProductOptions(product?.productOptions || []);
 
   const optionsComplete =
@@ -134,7 +141,7 @@ export default function GoMarketProductScreen() {
     : null;
 
   const addCart = async () => {
-    if (!isLogin) {
+    if (!isLogin || !userId) {
       showToast("error", "Please login first");
       router.push("/login" as never);
       return;
@@ -149,17 +156,18 @@ export default function GoMarketProductScreen() {
     }
     setBusy(true);
     try {
-      const res = await dispatch(addToCart({ product: cartProduct, userId, quantity: qty })).unwrap();
-      showToast("success", res?.message || "Added to cart");
+      await dispatch(addToCart({ product: cartProduct, userId, quantity: qty })).unwrap();
+      // Toast is shown by Redux action
     } catch (e: any) {
-      showToast("error", e?.message || "Failed to add");
+      // Error toast is shown by Redux action
+      console.error("Add to cart failed:", e);
     } finally {
       setBusy(false);
     }
   };
 
   const buyNow = () => {
-    if (!isLogin) {
+    if (!isLogin || !userId) {
       showToast("error", "Please login first");
       router.push("/login" as never);
       return;
@@ -172,6 +180,7 @@ export default function GoMarketProductScreen() {
       showToast("error", "Out of stock");
       return;
     }
+    showToast("success", "Ready for checkout");
     const buyNowItem = {
       productId: product._id,
       productTitle: product.name,
@@ -204,12 +213,49 @@ export default function GoMarketProductScreen() {
   return (
     <View style={S.root}>
       <StatusBar barStyle="dark-content" />
-      <TouchableOpacity style={S.backBtn} onPress={() => router.back()}>
-        <Text style={{ fontSize: 18 }}>‹</Text>
-      </TouchableOpacity>
 
       <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
-        <Image source={{ uri: gmImg(product.image || product.images?.[0], FALLBACK) }} style={S.heroImg} />
+        {/* Image Slider */}
+        <View style={S.imageSliderContainer}>
+          <FlatList
+            data={product.images && product.images.length > 0 ? product.images : [product.image]}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(e.nativeEvent.contentOffset.x / Dimensions.get("window").width);
+              setActiveImageIndex(index);
+            }}
+            scrollEventThrottle={16}
+            decelerationRate="fast"
+            snapToInterval={Dimensions.get("window").width}
+            snapToAlignment="center"
+            keyExtractor={(item, index) => `image-${index}`}
+            renderItem={({ item }) => (
+              <View style={{ width: Dimensions.get("window").width }}>
+                <Image 
+                  source={{ uri: gmImg(item, FALLBACK) }} 
+                  style={S.heroImg} 
+                  resizeMode="cover"
+                />
+              </View>
+            )}
+          />
+          {/* Pagination Dots */}
+          {((product.images && product.images.length > 1) || (!product.images && product.image)) && (
+            <View style={S.paginationDots}>
+              {(product.images && product.images.length > 0 ? product.images : [product.image]).map((_: any, index: number) => (
+                <View 
+                  key={`dot-${index}`} 
+                  style={[
+                    S.dot, 
+                    activeImageIndex === index && S.dotActive
+                  ]} 
+                />
+              ))}
+            </View>
+          )}
+        </View>
 
         <View style={S.panel}>
           <Text style={S.brand}>{product.brand}</Text>
@@ -237,7 +283,7 @@ export default function GoMarketProductScreen() {
             </View>
           )}
 
-          {productOptions.map((opt: any) => {
+          {productOptions.length > 0 && productOptions.map((opt: any) => {
             const key = opt.name || opt.label;
             return (
               <View key={key} style={{ marginTop: 14 }}>
@@ -269,13 +315,6 @@ export default function GoMarketProductScreen() {
             <Text style={{ fontWeight: "800", minWidth: 24, textAlign: "center" }}>{qty}</Text>
             <TouchableOpacity style={S.qtyBtn} onPress={() => setQty((q) => q + 1)}><Text>+</Text></TouchableOpacity>
           </View>
-
-          <TouchableOpacity style={S.cartBtn} onPress={addCart} disabled={busy || !optionsComplete}>
-            <Text style={S.cartBtnTxt}>{busy ? "Adding…" : "🛒 Add to cart"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={S.buyBtn} onPress={buyNow} disabled={busy || !optionsComplete}>
-            <Text style={S.buyBtnTxt}>⚡ Buy now</Text>
-          </TouchableOpacity>
 
           <Text style={[S.stock, { color: product.countInStock > 0 ? T.green : "#DC2626" }]}>
             {product.countInStock > 0 ? `✓ ${product.countInStock} available` : "Currently unavailable"}
@@ -351,27 +390,77 @@ export default function GoMarketProductScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
+      {/* Sticky Footer with Action Buttons */}
+      <View style={S.stickyFooter}>
+        <TouchableOpacity style={[S.cartBtn, busy && S.actionDisabled]} onPress={addCart} disabled={busy}>
+          <Text style={S.cartBtnTxt}>{busy ? "Adding…" : "🛒 Add to cart"}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[S.buyBtn, busy && S.actionDisabled]} onPress={buyNow} disabled={busy}>
+          <Text style={S.buyBtnTxt}>⚡ Buy now</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const S = StyleSheet.create({
-  root: { flex: 1, backgroundColor: T.bg },
-  backBtn: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 54 : 16,
-    left: 14,
-    zIndex: 10,
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: T.white,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: T.border,
+  actionDisabled: {
+    opacity: 0.7,
   },
-  scroll: { paddingBottom: 40 },
+  root: { flex: 1, backgroundColor: T.bg },
+  scroll: { paddingBottom: 120 },
+  imageSliderContainer: {
+    position: "relative",
+    width: "100%",
+  },
+  heroImg: { 
+    width: "100%",
+    aspectRatio: 1, 
+    backgroundColor: "#eee" 
+  },
+  paginationDots: {
+    position: "absolute",
+    bottom: 16,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.1)",
+  },
+  dotActive: {
+    width: 24,
+    backgroundColor: T.white,
+    borderColor: T.orange,
+    borderWidth: 1.5,
+  },
+  stickyFooter: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: T.white,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    paddingBottom: Platform.OS === "ios" ? 28 : 12,
+    borderTopWidth: 1,
+    borderTopColor: T.border,
+    flexDirection: "row",
+    gap: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 10,
+  },
   heroImg: { width: "100%", aspectRatio: 1, backgroundColor: "#eee" },
   panel: { backgroundColor: T.white, margin: 14, marginTop: -20, borderRadius: 20, padding: 18, borderWidth: 1, borderColor: T.border },
   brand: { fontSize: 11, fontWeight: "700", color: T.textSoft, textTransform: "uppercase" },
@@ -395,10 +484,22 @@ const S = StyleSheet.create({
   loadMoreTxt: { fontWeight: "800", color: T.text },
   qtyRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 16 },
   qtyBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: T.border, alignItems: "center", justifyContent: "center" },
-  cartBtn: { backgroundColor: T.black, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 16 },
+  cartBtn: { 
+    flex: 1,
+    backgroundColor: T.black, 
+    borderRadius: 12, 
+    paddingVertical: 14, 
+    alignItems: "center",
+  },
   cartBtnTxt: { color: T.white, fontWeight: "800", fontSize: 15 },
-  buyBtn: { borderWidth: 1.5, borderColor: T.border, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 10 },
-  buyBtnTxt: { fontWeight: "800", fontSize: 15 },
+  buyBtn: { 
+    flex: 1,
+    backgroundColor: "#DC2626",
+    borderRadius: 12, 
+    paddingVertical: 14, 
+    alignItems: "center",
+  },
+  buyBtnTxt: { color: T.white, fontWeight: "800", fontSize: 15 },
   stock: { marginTop: 12, fontSize: 12, fontWeight: "700" },
   block: { backgroundColor: T.white, marginHorizontal: 14, marginBottom: 12, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: T.border },
   blockTitle: { fontSize: 16, fontWeight: "800", marginBottom: 10 },

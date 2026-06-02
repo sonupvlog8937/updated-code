@@ -241,11 +241,6 @@ export function ProductReviewsSection({
             </>
           )}
           
-          {/* Debug info - remove after testing */}
-          <Text style={{ fontSize: 10, color: '#999', marginTop: 8 }}>
-            Debug: hasMore={String(hasMore)} | page={page} | totalPages={totalPages} | total={reviews.length}
-          </Text>
-          
           {hasMore && (
             <TouchableOpacity
               style={S.loadMoreBtn}
