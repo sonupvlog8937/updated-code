@@ -878,11 +878,20 @@ const Orders = () => {
 
   const context = useContext(MyContext);
 const isSellerView = isSellerRole(context?.userData?.role);
+  const isDeliveryRider = context?.userData?.role === "DELIVERY_RIDER";
   const isGrocerySeller = context?.userData?.role === "GROCERY_SELLER";
   const isRestaurantSeller = context?.userData?.role === "RESTAURANT_SELLER";
-  const ordersListEndpoint = isSellerView ? "/api/order/seller/orders" : "/api/order/order-list";
-  const ordersTitle = isGrocerySeller ? "Live Grocery Orders" : isRestaurantSeller ? "Live Kitchen Orders" : isSellerView ? "Store Orders" : "Orders";
-  const ordersSubtitle = isGrocerySeller
+  const ordersListEndpoint = isDeliveryRider 
+    ? "/api/order/rider/assigned-orders" 
+    : isSellerView 
+      ? "/api/order/seller/orders" 
+      : "/api/order/order-list";
+  const ordersTitle = isDeliveryRider
+    ? "My Assigned Orders"
+    : isGrocerySeller ? "Live Grocery Orders" : isRestaurantSeller ? "Live Kitchen Orders" : isSellerView ? "Store Orders" : "Orders";
+  const ordersSubtitle = isDeliveryRider
+    ? "Orders assigned to you for delivery"
+    : isGrocerySeller
     ? "Accept, pack, and dispatch quick-commerce orders"
     : isRestaurantSeller
       ? "Accept and prepare orders for minutes delivery"

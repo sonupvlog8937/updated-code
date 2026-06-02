@@ -247,6 +247,131 @@ const ReviewsSection = ({ reviews, loading, onRefresh, refreshing }) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// DELIVERY RIDER DASHBOARD
+// ═══════════════════════════════════════════════════════════════════════════════
+const DeliveryRiderDashboard = ({ context }) => {
+  const [greeting, setGreeting] = useState("Hello");
+  const [stats, setStats] = useState(null);
+  const [wallet, setWallet] = useState(null);
+  const [recentDeliveries, setRecentDeliveries] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const h = new Date().getHours();
+    setGreeting(h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening");
+  }, []);
+
+  const fetchRiderData = () => {
+    setLoading(true);
+    Promise.all([
+      fetchDataFromApi('/api/order/rider/stats'),
+      fetchDataFromApi('/api/user/wallet/overview'),
+      fetchDataFromApi('/api/order/rider/recent-deliveries?limit=5'),
+    ]).then(([statsRes, walletRes, deliveriesRes]) => {
+      setStats(statsRes?.stats || statsRes || { totalDelivered: 0, pending: 0, today: 0 });
+      setWallet(walletRes?.wallet || { availableBalance: 0 });
+      setRecentDeliveries(deliveriesRes?.deliveries || deliveriesRes?.data || []);
+    }).catch(err => {
+      console.error('Rider data fetch error:', err);
+      setStats({ totalDelivered: 0, pending: 0, today: 0 });
+      setWallet({ availableBalance: 0 });
+      setRecentDeliveries([]);
+    }).finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchRiderData();
+    const interval = setInterval(fetchRiderData, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
+
+  return (
+    <>
+      <style>{`
+        .rider-hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#0891b2 0%,#06b6d4 55%,#0891b2 100%);border-radius:18px;padding:32px 36px;margin-bottom:22px;}
+        .rider-hero::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 55% 70% at 85% 50%,#ffffff30 0%,transparent 70%);}
+        .rider-hero__name{font-size:26px;font-weight:800;color:#fff;margin-bottom:5px;}
+        .rider-hero__sub{font-size:13px;color:#cffafe;line-height:1.6;}
+        .rider-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;}
+        .rider-stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:20px;transition:transform .2s,box-shadow .2s;}
+        .rider-stat-card:hover{transform:translateY(-4px);box-shadow:0 12px 24px rgba(0,0,0,.1);}
+        .rider-stat-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:24px;}
+        .rider-stat-value{font-size:28px;font-weight:800;color:#0f172a;margin-bottom:4px;}
+        .rider-stat-label{font-size:13px;color:#64748b;font-weight:600;}
+        .rider-deliveries{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:20px;}
+        .rider-delivery-item{padding:16px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;}
+        .rider-delivery-item:last-child{border-bottom:none;}
+        .rider-delivery-id{font-weight:700;color:#0f172a;font-size:13px;}
+        .rider-delivery-date{font-size:11px;color:#94a3b8;margin-top:2px;}
+        .rider-delivery-amount{font-size:16px;font-weight:700;color:#10b981;}
+        .rider-skeleton{background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:shimmer 1.3s infinite;border-radius:8px;height:24px;}
+        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+      `}</style>
+
+      <div className="rider-hero">
+        <h1 className="rider-hero__name">{greeting}, {context?.userData?.name?.split(" ")[0]} 🚴</h1>
+        <p className="rider-hero__sub">Your delivery dashboard • Real-time stats</p>
+      </div>
+
+      <div className="rider-stats">
+        <div className="rider-stat-card">
+          <div className="rider-stat-icon" style={{background:'#dcfce7',color:'#16a34a'}}>📦</div>
+          {loading ? <div className="rider-skeleton" /> : <div className="rider-stat-value">{fmt(stats?.totalDelivered || 0)}</div>}
+          <div className="rider-stat-label">Total Deliveries</div>
+        </div>
+        <div className="rider-stat-card">
+          <div className="rider-stat-icon" style={{background:'#fef9c3',color:'#ca8a04'}}>⏳</div>
+          {loading ? <div className="rider-skeleton" /> : <div className="rider-stat-value">{fmt(stats?.pending || 0)}</div>}
+          <div className="rider-stat-label">Pending Pickups</div>
+        </div>
+        <div className="rider-stat-card">
+          <div className="rider-stat-icon" style={{background:'#dbeafe',color:'#2563eb'}}>🗓️</div>
+          {loading ? <div className="rider-skeleton" /> : <div className="rider-stat-value">{fmt(stats?.today || 0)}</div>}
+          <div className="rider-stat-label">Delivered Today</div>
+        </div>
+        <div className="rider-stat-card">
+          <div className="rider-stat-icon" style={{background:'#cffafe',color:'#0891b2'}}>💰</div>
+          {loading ? <div className="rider-skeleton" /> : <div className="rider-stat-value">₹{fmt(wallet?.availableBalance || 0)}</div>}
+          <div className="rider-stat-label">Wallet Balance</div>
+        </div>
+      </div>
+
+      <div className="rider-deliveries">
+        <h3 style={{fontSize:16,fontWeight:700,color:'#0f172a',marginBottom:16}}>Recent Deliveries</h3>
+        {loading ? (
+          <>
+            {[1,2,3].map(i => (
+              <div key={i} className="rider-delivery-item">
+                <div style={{flex:1}}><div className="rider-skeleton" style={{width:'60%',marginBottom:8}}/><div className="rider-skeleton" style={{width:'40%',height:14}}/></div>
+                <div className="rider-skeleton" style={{width:80}}/>
+              </div>
+            ))}
+          </>
+        ) : recentDeliveries.length === 0 ? (
+          <div style={{textAlign:'center',padding:'40px 20px',color:'#94a3b8'}}>
+            <div style={{fontSize:48,marginBottom:12}}>📭</div>
+            <div style={{fontSize:14,fontWeight:600}}>No deliveries yet</div>
+            <div style={{fontSize:12,marginTop:4}}>Check Available Orders to start delivering</div>
+          </div>
+        ) : (
+          recentDeliveries.map((d, i) => (
+            <div key={i} className="rider-delivery-item">
+              <div>
+                <div className="rider-delivery-id">Order #{d.orderId || d._id?.slice(-8) || 'N/A'}</div>
+                <div className="rider-delivery-date">{d.deliveredAt ? new Date(d.deliveredAt).toLocaleDateString('en-IN') : 'Recently'}</div>
+              </div>
+              <div className="rider-delivery-amount">+₹{Number(d.riderEarning || d.amount || 50).toFixed(0)}</div>
+            </div>
+          ))
+        )}
+      </div>
+    </>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // SELLER DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════════
 const SBox = ({ icon, label, value, accent, sub, loading, delay = 0 }) => (

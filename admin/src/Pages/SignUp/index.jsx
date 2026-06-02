@@ -22,6 +22,7 @@ const ROLE_OPTIONS = [
   { value: "SELLER", label: "Seller", tone: "#2874f0", description: "General marketplace seller with complete catalog controls." },
   { value: "GROCERY_SELLER", label: "Grocery Seller", tone: "#10b981", description: "Creates a grocery shop in your selected Go Market instantly." },
   { value: "RESTAURANT_SELLER", label: "Restaurant Seller", tone: "#f97316", description: "Creates a restaurant in your selected Go Market instantly." },
+  { value: "DELIVERY_RIDER", label: "Delivery Rider", tone: "#8b5cf6", description: "Join as a delivery partner to pick up and deliver orders." },
 ];
 
 const COMMON_FEATURES = ["All Products", "Add Product", "All Orders", "Manage Orders", "All Reviews", "Store Information", "Wallet Transactions", "More Features"];
@@ -29,6 +30,7 @@ const ROLE_FEATURES = {
   SELLER: COMMON_FEATURES,
   GROCERY_SELLER: ["Quick Commerce Dashboard", "Store Operations", "Inventory", "Live Orders", "Wallet"],
   RESTAURANT_SELLER: ["Quick Commerce Dashboard", "Kitchen Operations", "Menu Items", "Live Orders", "Wallet"],
+  DELIVERY_RIDER: ["Delivery Dashboard", "Available Orders", "My Deliveries", "Earnings", "Route Navigation", "Performance Stats"],
 };
 
 const getRoleMeta = (role) => ROLE_OPTIONS.find((item) => item.value === role) || ROLE_OPTIONS[0];

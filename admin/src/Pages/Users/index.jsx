@@ -28,7 +28,7 @@ import {
 } from '@mui/material';
 import { MdLocalPhone, MdOutlineMarkEmailRead, MdSearch, MdRefresh, MdClose } from 'react-icons/md';
 import { SlCalender } from 'react-icons/sl';
-import { FaCheckDouble, FaUserShield, FaStore, FaUsers, FaUserPlus } from 'react-icons/fa6';
+import { FaCheckDouble, FaUserShield, FaStore, FaUsers, FaUserPlus, FaTruckFast } from 'react-icons/fa6';
 import { MdDeleteOutline, MdPersonOff, MdWarning } from 'react-icons/md';
 import { HiOutlineEye, HiOutlineEyeOff } from 'react-icons/hi';
 import SearchBox from '../../Components/SearchBox';
@@ -66,6 +66,7 @@ const ROLE_OPTIONS = [
     { value: 'SELLER', label: 'SELLER' },
     { value: 'GROCERY_SELLER', label: 'GROCERY SELLER' },
     { value: 'RESTAURANT_SELLER', label: 'RESTAURANT SELLER' },
+    { value: 'DELIVERY_RIDER', label: 'DELIVERY RIDER' },
     { value: 'ADMIN', label: 'ADMIN' },
 ];
 const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
@@ -76,6 +77,7 @@ const roleConfig = {
     SELLER: { color: '#0369a1', bg: '#e0f2fe', icon: <FaStore size={11} /> },
     GROCERY_SELLER: { color: '#047857', bg: '#d1fae5', icon: <FaStore size={11} /> },
     RESTAURANT_SELLER: { color: '#c2410c', bg: '#ffedd5', icon: <FaStore size={11} /> },
+    DELIVERY_RIDER: { color: '#0891b2', bg: '#cffafe', icon: <FaTruckFast size={11} /> },
     USER: { color: '#374151', bg: '#f3f4f6', icon: <FaUsers size={11} /> },
 };
 

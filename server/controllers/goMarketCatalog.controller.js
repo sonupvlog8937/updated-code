@@ -249,14 +249,70 @@ export const listMarketOutlets = async (req, res) => {
       const groceryFilter = { marketId };
       if (openOnly) groceryFilter.isOpen = true;
       const shops = await GroceryShop.find(groceryFilter).populate("ownerId").lean();
-      outlets.push(...shops.map((s) => mapGroceryOutlet(s, userId, baseUrl)));
+      
+      // Count products and get ratings for each grocery shop
+      const shopIds = shops.map(s => s._id);
+      const productCounts = await GroceryProduct.aggregate([
+        { $match: { shopId: { $in: shopIds } } },
+        { $group: { _id: "$shopId", count: { $sum: 1 } } },
+      ]);
+      const productCountMap = Object.fromEntries(productCounts.map(pc => [String(pc._id), pc.count]));
+      
+      // Get product ratings for each shop
+      const ratingStatsPromises = shops.map(async (s) => {
+        const stats = await outletProductRatingStats("grocery", s._id);
+        return { shopId: String(s._id), ...stats };
+      });
+      const ratingStats = await Promise.all(ratingStatsPromises);
+      const ratingMap = Object.fromEntries(ratingStats.map(rs => [rs.shopId, rs]));
+      
+      outlets.push(...shops.map((s) => {
+        const mapped = mapGroceryOutlet(s, userId, baseUrl);
+        const productCount = productCountMap[String(s._id)] || 0;
+        const stats = ratingMap[String(s._id)] || { rating: 0, reviewCount: 0 };
+        return {
+          ...mapped,
+          rating: stats.rating || mapped.rating || 0,
+          reviewCount: stats.reviewCount || 0,
+          totalProducts: productCount,
+          meta: `${productCount} products`,
+        };
+      }));
     }
 
     if (type === "all" || type === "restaurant" || type === "restaurants") {
       const restFilter = { marketId };
       if (openOnly) restFilter.isOpen = true;
       const restaurants = await Restaurant.find(restFilter).populate("ownerId").lean();
-      outlets.push(...restaurants.map((r) => mapRestaurantOutlet(r, userId, baseUrl)));
+      
+      // Count items and get ratings for each restaurant
+      const restaurantIds = restaurants.map(r => r._id);
+      const itemCounts = await RestaurantItem.aggregate([
+        { $match: { restaurantId: { $in: restaurantIds } } },
+        { $group: { _id: "$restaurantId", count: { $sum: 1 } } },
+      ]);
+      const itemCountMap = Object.fromEntries(itemCounts.map(ic => [String(ic._id), ic.count]));
+      
+      // Get product ratings for each restaurant
+      const ratingStatsPromises = restaurants.map(async (r) => {
+        const stats = await outletProductRatingStats("restaurant", r._id);
+        return { restaurantId: String(r._id), ...stats };
+      });
+      const ratingStats = await Promise.all(ratingStatsPromises);
+      const ratingMap = Object.fromEntries(ratingStats.map(rs => [rs.restaurantId, rs]));
+      
+      outlets.push(...restaurants.map((r) => {
+        const mapped = mapRestaurantOutlet(r, userId, baseUrl);
+        const itemCount = itemCountMap[String(r._id)] || 0;
+        const stats = ratingMap[String(r._id)] || { rating: 0, reviewCount: 0 };
+        return {
+          ...mapped,
+          rating: stats.rating || mapped.rating || 0,
+          reviewCount: stats.reviewCount || 0,
+          totalProducts: itemCount,
+          meta: `${itemCount} dishes`,
+        };
+      }));
     }
 
     if (search) {

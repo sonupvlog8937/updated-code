@@ -29,6 +29,7 @@ const roleLabels = {
   SELLER: '🏪 Seller Panel',
   GROCERY_SELLER: '🛒 Grocery Seller Panel',
   RESTAURANT_SELLER: '🍽️ Restaurant Seller Panel',
+  DELIVERY_RIDER: '🚴 Delivery Rider Panel',
 };
 
 const Sidebar = () => {
@@ -41,6 +42,7 @@ const Sidebar = () => {
   const isSeller = isSellerRole(userRole);
   const isGrocerySeller = userRole === "GROCERY_SELLER";
   const isRestaurantSeller = userRole === "RESTAURANT_SELLER";
+  const isDeliveryRider = userRole === "DELIVERY_RIDER";
 
   const [openGroups, setOpenGroups] = useState({ catalog: false, media: false, banners: false, goMarket: false });
   const toggleGroup = (key) => setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -222,6 +224,15 @@ const Sidebar = () => {
               )}
               <NavItem to="/seller/store-profile" icon={IoStorefrontOutline} label="Store Profile" />
               <NavItem to="/wallet/transactions" icon={IoWalletOutline} label="Wallet & Transactions" />
+            </>
+          )}
+
+          {isDeliveryRider && (
+            <>
+              <GroupLabel label="Delivery" />
+              <NavItem to="/orders" icon={IoBagCheckOutline} label="Available Orders" />
+              <NavItem to="/wallet/transactions" icon={IoWalletOutline} label="Earnings & Wallet" />
+              <NavItem to="/profile" icon={FiUsers} label="My Profile" />
             </>
           )}
         </ul>

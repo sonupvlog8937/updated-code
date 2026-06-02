@@ -43,6 +43,8 @@ import RidersPage from "./Pages/Riders";
 
 const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
+const ALLOWED_ROLES = ['ADMIN', 'SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER', 'DELIVERY_RIDER'];
+const isAllowedRole = (role) => ALLOWED_ROLES.includes(role);
 
 const MyContext = createContext();
 
@@ -380,14 +382,13 @@ function App() {
   /* ── Routes that DON'T need seller/admin role check ── */
   const publicRoutes = ['/login', '/sign-up', '/forgot-password', '/verify-account', '/change-password'];
 
-  /* ── Seller guard: user signed up but not yet given SELLER role ── */
-  // A user is "pending seller" when they are logged in, role is NOT ADMIN, NOT SELLER
+  /* ── Seller guard: user signed up but not yet given proper role ── */
+  // A user is "pending seller" when they are logged in but don't have an allowed role
   // i.e. they used the sign-up flow but admin hasn't approved them yet.
   // We only show the pending screen on protected (dashboard) routes.
   const isSellerPending = (
     userData !== null &&
-    userData?.role !== 'ADMIN' &&
-    !isSellerRole(userData?.role)
+    !isAllowedRole(userData?.role)
   );
 
   /* ── Router ── */
