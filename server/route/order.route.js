@@ -1,7 +1,7 @@
 import { Router } from "express";
 import auth from "../middlewares/auth.js";
 import authorizeRole from "../middlewares/authorizeRole.js";
-import {  captureOrderPaypalController, createOrderController, createOrderPaypalController, deleteOrder, getOrderDetailsController, getTotalOrdersCountController, getUserOrderDetailsController, totalSalesController, totalUsersController, updateOrderStatusController, getSellerOrdersController, getSellerDashboardStats, requestOrderReturnController, updateReturnRefundStatusController } from "../controllers/order.controller.js";
+import {  captureOrderPaypalController, createOrderController, createOrderPaypalController, deleteOrder, getOrderDetailsController, getTotalOrdersCountController, getUserOrderDetailsController, totalSalesController, totalUsersController, updateOrderStatusController, getSellerOrdersController, getSellerDashboardStats, requestOrderReturnController, updateReturnRefundStatusController, listDeliveryRidersController, assignOrderToRiderController, getRiderOrdersController, confirmRiderOrderController, sendDeliveryOtpController, deliverRiderOrderController, payRiderWalletController } from "../controllers/order.controller.js";
 const orderRouter = Router();
 
 orderRouter.post('/create',auth,createOrderController)
@@ -19,5 +19,12 @@ orderRouter.post('/return-request/:id',auth,requestOrderReturnController)
 orderRouter.put('/return-refund-status/:id',auth,authorizeRole('ADMIN','SELLER','GROCERY_SELLER','RESTAURANT_SELLER'),updateReturnRefundStatusController)
 
 orderRouter.get('/seller/dashboard-stats', auth, authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER'), getSellerDashboardStats)
+orderRouter.get('/delivery-riders', auth, authorizeRole('ADMIN','GROCERY_SELLER','RESTAURANT_SELLER'), listDeliveryRidersController)
+orderRouter.put('/assign-rider/:id', auth, authorizeRole('ADMIN','GROCERY_SELLER','RESTAURANT_SELLER'), assignOrderToRiderController)
+orderRouter.get('/rider/orders', auth, authorizeRole('DELIVERY_RIDER'), getRiderOrdersController)
+orderRouter.put('/rider/orders/:id/confirm', auth, authorizeRole('DELIVERY_RIDER'), confirmRiderOrderController)
+orderRouter.post('/rider/orders/:id/send-otp', auth, authorizeRole('DELIVERY_RIDER'), sendDeliveryOtpController)
+orderRouter.put('/rider/orders/:id/deliver', auth, authorizeRole('DELIVERY_RIDER'), deliverRiderOrderController)
+orderRouter.post('/admin/rider-payout', auth, authorizeRole('ADMIN'), payRiderWalletController)
 
 export default orderRouter;

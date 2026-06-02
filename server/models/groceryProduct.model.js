@@ -19,6 +19,8 @@ const groceryProductSchema = new mongoose.Schema({
   discountPrice: { type: Number, default: 0, min: 0 },
   stock: { type: Number, default: 0, min: 0 },
   description: { type: String, default: "" },
+  isFeatured: { type: Boolean, default: false, index: true },
+  soldCount: { type: Number, default: 0, min: 0, index: true },
 }, { timestamps: true });
 groceryProductSchema.index({ name: "text", description: "text" });
 export default mongoose.model("GroceryProduct", groceryProductSchema);

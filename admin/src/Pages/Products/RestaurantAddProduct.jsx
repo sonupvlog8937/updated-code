@@ -41,6 +41,7 @@ const RestaurantAddProduct = () => {
     name: '',
     title: '',
     description: '',
+    isFeatured: 'no',
     price: '',
     oldPrice: '',
     foodType: '',
@@ -127,6 +128,7 @@ const RestaurantAddProduct = () => {
       image: previews[0],
       categoryId: categoryId || undefined,
       subCategoryId: subCategoryId || undefined,
+      isFeatured: form.isFeatured === 'yes',
     };
 
     setIsLoading(true);
@@ -268,6 +270,13 @@ const RestaurantAddProduct = () => {
                 <div>
                   <label style={labelStyle}>Display title (product page)</label>
                   <input style={inputStyle} name="title" value={form.title} onChange={onChange} placeholder="Leave blank to use dish name" />
+                </div>
+                 <div>
+                  <label style={labelStyle}>Featured dish</label>
+                  <Select size="small" sx={selectSx} name="isFeatured" value={form.isFeatured} onChange={onChange}>
+                    <MenuItem value="no">No</MenuItem>
+                    <MenuItem value="yes">Yes</MenuItem>
+                  </Select>
                 </div>
                 <div>
                   <label style={labelStyle}>Description *</label>

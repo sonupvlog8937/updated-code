@@ -20,6 +20,8 @@ const restaurantItemSchema = new mongoose.Schema({
   discountPrice: { type: Number, default: 0, min: 0 },
   description: { type: String, default: "" },
   isAvailable: { type: Boolean, default: true, index: true },
+  isFeatured: { type: Boolean, default: false, index: true },
+  soldCount: { type: Number, default: 0, min: 0, index: true },
 }, { timestamps: true });
 restaurantItemSchema.index({ itemName: "text", description: "text" });
 export default mongoose.model("RestaurantItem", restaurantItemSchema);

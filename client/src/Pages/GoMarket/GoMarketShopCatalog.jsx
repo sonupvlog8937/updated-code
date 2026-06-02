@@ -6,6 +6,7 @@ import { useDebouncedValue, SkeletonGrid, ResultBar } from "./shared";
 import { useInfiniteScroll } from "./hooks/useInfiniteScroll";
 
 const SORT_OPTIONS = [
+  { value: "", label: "Smart tab order" },
   { value: "newest", label: "Newest" },
   { value: "price_asc", label: "Price: Low to High" },
   { value: "price_desc", label: "Price: High to Low" },
@@ -24,7 +25,7 @@ const buildParams = (state, page) => {
     page: String(page),
     limit: "16",
     tab: state.tab,
-    sort: state.sort,
+    ...(state.sort ? { sort: state.sort } : {}),
     search: state.debouncedSearch,
     ...(state.inStock ? { inStock: "true" } : {}),
     ...(state.categoryId ? { categoryId: state.categoryId } : {}),
@@ -49,7 +50,7 @@ export const GoMarketShopCatalog = ({
   const [search, setSearch] = useState(initialQuery);
   const debouncedSearch = useDebouncedValue(search, 350);
   const [tab, setTab] = useState("featured");
-  const [sort, setSort] = useState("newest");
+  const [sort, setSort] = useState("");
   const [inStock, setInStock] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [subCategoryId, setSubCategoryId] = useState("");

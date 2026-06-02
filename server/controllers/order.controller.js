@@ -92,6 +92,23 @@ const attachSellerToProducts = async (products = []) => {
     }));
 };
 
+const updateGoMarketSales = async (products = []) => {
+    const groceryOps = [];
+    const restaurantOps = [];
+    for (const item of products || []) {
+        if (!item?.productId || Number(item?.quantity || 0) <= 0) continue;
+        const op = {
+            updateOne: {
+                filter: { _id: item.productId },
+                update: { $inc: { soldCount: Number(item.quantity) } },
+            },
+        };
+        groceryOps.push(op);
+        restaurantOps.push(op);
+    }
+    if (groceryOps.length) await GroceryProduct.bulkWrite(groceryOps, { ordered: false }).catch(() => {});
+    if (restaurantOps.length) await RestaurantItem.bulkWrite(restaurantOps, { ordered: false }).catch(() => {});
+};
 
 const queueOrderConfirmationEmail = async (userId, order) => {
     try {
@@ -201,6 +218,7 @@ export const createOrderController = async (request, response) => {
         order = await order.save();
 
         await updateProductsInventory(productsWithSeller);
+        await updateGoMarketSales(productsWithSeller);
         await applySellerCommission(productsWithSeller);
 
         void queueOrderConfirmationEmail(request.body.userId, order);
@@ -230,7 +248,7 @@ export async function getOrderDetailsController(request, response) {
 
         const { page, limit } = request.query;
 
-        const orderlist = await OrderModel.find().sort({ createdAt: -1 }).populate('delivery_address userId').skip((page - 1) * limit).limit(parseInt(limit));
+        const orderlist = await OrderModel.find().sort({ createdAt: -1 }).populate('delivery_address userId deliveryAssignment.riderId').skip((page - 1) * limit).limit(parseInt(limit));
 
         const total = await OrderModel.countDocuments(orderlist);
 
@@ -258,9 +276,9 @@ export async function getUserOrderDetailsController(request, response) {
 
         const { page, limit } = request.query;
 
-        const orderlist = await OrderModel.find({ userId: userId }).sort({ createdAt: -1 }).populate('delivery_address userId').skip((page - 1) * limit).limit(parseInt(limit));
+        const orderlist = await OrderModel.find({ userId: userId }).sort({ createdAt: -1 }).populate('delivery_address userId deliveryAssignment.riderId').skip((page - 1) * limit).limit(parseInt(limit));
 
-        const orderTotal = await OrderModel.find({ userId: userId }).sort({ createdAt: -1 }).populate('delivery_address userId');
+        const orderTotal = await OrderModel.find({ userId: userId }).sort({ createdAt: -1 }).populate('delivery_address userId deliveryAssignment.riderId');
 
         const total = await orderTotal?.length;
 
@@ -383,6 +401,7 @@ export const captureOrderPaypalController = async (request, response) => {
         await order.save();
 
         await updateProductsInventory(productsWithSeller);
+        await updateGoMarketSales(productsWithSeller);
         await applySellerCommission(productsWithSeller);
 
             void queueOrderConfirmationEmail(request.body.userId, order);
@@ -564,7 +583,7 @@ export async function getSellerOrdersController(request, response) {
 
         const orders = await OrderModel.find({ "products.sellerId": request.userId })
             .sort({ createdAt: -1 })
-            .populate('delivery_address userId products.sellerId')
+            .populate('delivery_address userId products.sellerId deliveryAssignment.riderId')
             .skip(skip)
             .limit(Number(limit));
 
@@ -1042,3 +1061,171 @@ export async function getSellerDashboardStats(request, response) {
         });
     }
 }
+const RIDER_DELIVERY_FEE = 20;
+
+const getSellerMarketIds = async (sellerId, sellerEmail = "") => {
+  const ownerQuery = sellerEmail ? { $or: [{ userId: sellerId }, { email: sellerEmail }] } : { userId: sellerId };
+  const ownerIds = (await ShopOwner.find(ownerQuery).select("_id").lean()).map((o) => o._id);
+  const [shops, restaurants] = await Promise.all([
+    GroceryShop.find({ ownerId: { $in: ownerIds } }).select("marketId").lean(),
+    Restaurant.find({ ownerId: { $in: ownerIds } }).select("marketId").lean(),
+  ]);
+  return [...shops, ...restaurants].map((o) => o.marketId).filter(Boolean).map(String);
+};
+
+export const listDeliveryRidersController = async (request, response) => {
+  try {
+    const marketIds = request.currentUser?.role === "ADMIN"
+      ? []
+      : await getSellerMarketIds(request.userId, request.currentUser?.email);
+    const filter = { role: "DELIVERY_RIDER", status: "Active" };
+    if (marketIds.length) filter["riderProfile.marketId"] = { $in: marketIds };
+    const riders = await UserModel.find(filter)
+      .select("name email mobile wallet riderProfile status createdAt")
+      .populate("riderProfile.marketId", "name city")
+      .sort({ name: 1 })
+      .lean();
+    return response.json({ success: true, error: false, riders, data: riders });
+  } catch (error) {
+    return response.status(500).json({ success: false, error: true, message: error.message || error });
+  }
+};
+
+export const assignOrderToRiderController = async (request, response) => {
+  try {
+    const { riderId } = request.body || {};
+    if (!riderId) return response.status(400).json({ success: false, error: true, message: "Select a delivery rider" });
+
+    const order = await OrderModel.findOne({ _id: request.params.id, "products.sellerId": request.userId });
+    if (!order && request.currentUser?.role !== "ADMIN") {
+      return response.status(404).json({ success: false, error: true, message: "Seller order not found" });
+    }
+    const targetOrder = order || await OrderModel.findById(request.params.id);
+    if (!targetOrder) return response.status(404).json({ success: false, error: true, message: "Order not found" });
+
+    const rider = await UserModel.findOne({ _id: riderId, role: "DELIVERY_RIDER", status: "Active" });
+    if (!rider) return response.status(404).json({ success: false, error: true, message: "Delivery rider not found" });
+
+    targetOrder.deliveryAssignment = {
+      ...(targetOrder.deliveryAssignment || {}),
+      riderId: rider._id,
+      assignedBy: request.userId,
+      assignedAt: new Date(),
+      earningAmount: RIDER_DELIVERY_FEE,
+      status: "assigned",
+    };
+    targetOrder.order_status = "assigned_to_rider";
+    await targetOrder.save();
+
+    return response.json({ success: true, error: false, message: "Order assigned to rider", data: targetOrder });
+  } catch (error) {
+    return response.status(500).json({ success: false, error: true, message: error.message || error });
+  }
+};
+
+export const getRiderOrdersController = async (request, response) => {
+  try {
+    const status = String(request.query.status || "");
+    const filter = { "deliveryAssignment.riderId": request.userId };
+    if (status) filter["deliveryAssignment.status"] = status;
+    const orders = await OrderModel.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("delivery_address userId products.sellerId")
+      .lean();
+    return response.json({ success: true, error: false, data: orders, orders });
+  } catch (error) {
+    return response.status(500).json({ success: false, error: true, message: error.message || error });
+  }
+};
+
+export const confirmRiderOrderController = async (request, response) => {
+  try {
+    const order = await OrderModel.findOne({ _id: request.params.id, "deliveryAssignment.riderId": request.userId });
+    if (!order) return response.status(404).json({ success: false, error: true, message: "Assigned order not found" });
+    order.deliveryAssignment.status = "confirmed";
+    order.deliveryAssignment.confirmedAt = new Date();
+    order.order_status = "out_for_delivery";
+    await order.save();
+    return response.json({ success: true, error: false, message: "Order confirmed", data: order });
+  } catch (error) {
+    return response.status(500).json({ success: false, error: true, message: error.message || error });
+  }
+};
+
+export const sendDeliveryOtpController = async (request, response) => {
+  try {
+    const order = await OrderModel.findOne({ _id: request.params.id, "deliveryAssignment.riderId": request.userId }).populate("userId", "name email");
+    if (!order) return response.status(404).json({ success: false, error: true, message: "Assigned order not found" });
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    order.deliveryAssignment.deliveryOtp = otp;
+    order.deliveryAssignment.deliveryOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    order.deliveryAssignment.status = "otp_sent";
+    await order.save();
+    if (order.userId?.email) {
+      await sendEmailFun({
+        sendTo: order.userId.email,
+        subject: "Delivery OTP for your order",
+        text: `Your delivery OTP is ${otp}. It is valid for 10 minutes.`,
+        html: `<p>Hi ${order.userId.name || "Customer"},</p><p>Your delivery OTP is <b>${otp}</b>. It is valid for 10 minutes.</p>`,
+      });
+    }
+    return response.json({ success: true, error: false, message: "Delivery OTP sent to customer email" });
+  } catch (error) {
+    return response.status(500).json({ success: false, error: true, message: error.message || error });
+  }
+};
+
+export const deliverRiderOrderController = async (request, response) => {
+  try {
+    const otp = String(request.body?.otp || "").trim();
+    const order = await OrderModel.findOne({ _id: request.params.id, "deliveryAssignment.riderId": request.userId });
+    if (!order) return response.status(404).json({ success: false, error: true, message: "Assigned order not found" });
+    if (!otp || otp !== order.deliveryAssignment.deliveryOtp || new Date(order.deliveryAssignment.deliveryOtpExpires || 0) < new Date()) {
+      return response.status(400).json({ success: false, error: true, message: "Invalid or expired delivery OTP" });
+    }
+    order.deliveryAssignment.status = "delivered";
+    order.deliveryAssignment.deliveredAt = new Date();
+    order.order_status = "delivered";
+
+    if (!order.deliveryAssignment.earningCredited) {
+      const amount = Number(order.deliveryAssignment.earningAmount || RIDER_DELIVERY_FEE);
+      await UserModel.findByIdAndUpdate(request.userId, {
+        $inc: {
+          "wallet.availableBalance": amount,
+          "riderProfile.totalDelivered": 1,
+          "riderProfile.totalEarnings": amount,
+        },
+        $push: { walletTransactions: { type: "RIDER_EARNING", amount, status: "APPROVED", note: `Delivery earning for order ${order._id}` } },
+      });
+      order.deliveryAssignment.earningCredited = true;
+    }
+    await order.save();
+    return response.json({ success: true, error: false, message: "Order delivered", data: order });
+  } catch (error) {
+    return response.status(500).json({ success: false, error: true, message: error.message || error });
+  }
+};
+
+export const payRiderWalletController = async (request, response) => {
+  try {
+    const { riderId, amount, note = "Rider wallet payout" } = request.body || {};
+    const payout = Number(amount || 0);
+    if (!riderId || payout <= 0) return response.status(400).json({ success: false, error: true, message: "Select rider and valid amount" });
+    const admin = await UserModel.findById(request.userId);
+    const rider = await UserModel.findOne({ _id: riderId, role: "DELIVERY_RIDER" });
+    if (!rider) return response.status(404).json({ success: false, error: true, message: "Rider not found" });
+    if (Number(admin.wallet?.availableBalance || 0) < payout) return response.status(400).json({ success: false, error: true, message: "Admin wallet balance is low" });
+    if (Number(rider.wallet?.availableBalance || 0) < payout) return response.status(400).json({ success: false, error: true, message: "Rider wallet balance is low" });
+
+    admin.wallet.availableBalance -= payout;
+    admin.wallet.totalWithdrawn = Number(admin.wallet.totalWithdrawn || 0) + payout;
+    admin.walletTransactions.push({ type: "ADMIN_TRANSFER", amount: payout, status: "APPROVED", note, createdBy: request.userId, approvedBy: request.userId });
+    rider.wallet.availableBalance -= payout;
+    rider.wallet.totalWithdrawn = Number(rider.wallet.totalWithdrawn || 0) + payout;
+    rider.walletTransactions.push({ type: "RIDER_PAYOUT", amount: payout, status: "APPROVED", note, createdBy: request.userId, approvedBy: request.userId });
+    await Promise.all([admin.save(), rider.save()]);
+    return response.json({ success: true, error: false, message: "Rider payout recorded", data: { riderBalance: rider.wallet.availableBalance, adminBalance: admin.wallet.availableBalance } });
+  } catch (error) {
+    return response.status(500).json({ success: false, error: true, message: error.message || error });
+  }
+};

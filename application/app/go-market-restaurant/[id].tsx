@@ -13,6 +13,8 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
   View,
 } from "react-native";
 import {
@@ -23,6 +25,7 @@ import {
   useAppSelector,
 } from "@/src/store";
 import { showToast } from "@/src/utils/toast";
+import { fetchDataFromApi } from "@/src/utils/api";
 
 const { width: SW } = Dimensions.get("window");
 const BANNER_H = 220;
@@ -167,7 +170,12 @@ export default function GoMarketRestaurantDetails() {
   const dispatch = useAppDispatch();
   const { restaurantDetail, loading } = useAppSelector((s) => s.goMarket);
   const { isLogin } = useAppSelector((s: any) => s.app);
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState<"featured" | "popular" | "latest">("featured");
+  const [catalogItems, setCatalogItems] = useState<any[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -179,6 +187,37 @@ export default function GoMarketRestaurantDetails() {
   }, [isLogin]);
 
   useEffect(() => { if (id) dispatch(fetchGoRestaurantDetail(id)); }, [dispatch, id]);
+
+  useEffect(() => {
+    if (!id) return;
+    setCatalogLoading(true);
+    const params = new URLSearchParams({ tab, limit: "24", search });
+    fetchDataFromApi(`/api/go-market/restaurants/${id}/catalog?${params}`)
+      .then((res) => setCatalogItems((res?.success || res?.error === false) ? (res.data || []) : []))
+      .finally(() => setCatalogLoading(false));
+  }, [id, tab]);
+
+  useEffect(() => {
+    if (!id || !search.trim()) { setSuggestions([]); return; }
+    const t = setTimeout(() => {
+      fetchDataFromApi(`/api/go-market/restaurants/${id}/search-suggestions?q=${encodeURIComponent(search.trim())}`)
+        .then((res) => setSuggestions((res?.success || res?.error === false) ? (res.suggestions || []) : []));
+    }, 200);
+    return () => clearTimeout(t);
+  }, [id, search]);
+
+  const submitSearch = (query = search) => {
+    const q = query.trim();
+    setSearch(q);
+    setShowSuggestions(false);
+    if (!id) return;
+    setCatalogLoading(true);
+    const params = new URLSearchParams({ tab, limit: "24", search: q, q });
+    fetchDataFromApi(`/api/go-market/restaurants/${id}/search?${params}`)
+      .then((res) => setCatalogItems((res?.success || res?.error === false) ? (res.data || []) : []))
+      .finally(() => setCatalogLoading(false));
+  };
+
 
   if (loading || !restaurantDetail) return <SkeletonScreen />;
 
@@ -330,41 +369,31 @@ export default function GoMarketRestaurantDetails() {
         {/* Thick divider */}
         <View style={S.divider} />
 
-        {/* Tabs */}
-        <TabBar
-          tabs={[`Menus  ${menus.length}`, `Items  ${items.length}`]}
-          active={tab}
-          onChange={setTab}
-        />
-
-        {/* Content */}
-        {tab === 0 ? (
-          <View style={{ paddingHorizontal: 14, paddingTop: 2 }}>
-            <SectionHead title="All Menus" count={menus.length} />
-            {menus.length === 0
-              ? <Text style={S.empty}>No menus yet.</Text>
-              : menus.map((m: any) => <MenuRow key={m._id} item={m} />)
-            }
-          </View>
-        ) : (
-          <View style={{ paddingHorizontal: 14, paddingTop: 2 }}>
-            <SectionHead title="All Items" count={items.length} />
-            {items.length === 0
-              ? <Text style={S.empty}>No items yet.</Text>
-              : (
-                <View style={S.grid}>
-                  {items.map((i: any) => (
-                    <ItemTile
-                      key={i._id}
-                      item={i}
-                      onPress={() => router.push(`/go-market-product/restaurant/${i._id}` as never)}
-                    />
-                  ))}
-                </View>
-              )
-            }
-          </View>
+        <View style={S.searchBox}>
+          <TextInput
+            style={S.searchInput}
+            placeholder="Search dishes…"
+            value={search}
+            onChangeText={(v) => { setSearch(v); setShowSuggestions(true); }}
+            onSubmitEditing={() => submitSearch()}
+            returnKeyType="search"
+          />
+          <TouchableOpacity style={S.searchBtn} onPress={() => submitSearch()}><Text style={S.searchBtnText}>Search</Text></TouchableOpacity>
+        </View>
+        {showSuggestions && suggestions.length > 0 && (
+          <View style={S.suggestBox}>{suggestions.map((s: any) => (
+            <TouchableOpacity key={s._id} style={S.suggestRow} onPress={() => submitSearch(s.label)}><Text style={S.suggestText}>{s.label}</Text></TouchableOpacity>
+          ))}</View>
         )}
+         <TabBar tabs={["Featured", "Popular", "Latest"]} active={["featured", "popular", "latest"].indexOf(tab)} onChange={(i) => setTab((["featured", "popular", "latest"] as const)[i])} />
+
+        <View style={{ paddingHorizontal: 14, paddingTop: 2 }}>
+          <SectionHead title={`${tab[0].toUpperCase()}${tab.slice(1)} dishes`} count={catalogItems.length} />
+          {menus.length > 0 && tab === "featured" && !search ? menus.slice(0, 3).map((m: any) => <MenuRow key={m._id} item={m} />) : null}
+          {catalogLoading ? <ActivityIndicator color={C.accent} style={{ marginVertical: 20 }} /> : catalogItems.length === 0
+            ? <Text style={S.empty}>No dishes found.</Text>
+            : <View style={S.grid}>{catalogItems.map((i: any) => <ItemTile key={i._id} item={i} onPress={() => router.push(`/go-market-product/restaurant/${i._id}` as never)} />)}</View>}
+        </View>
       </Animated.ScrollView>
 
     </View>
@@ -509,4 +538,11 @@ const S = StyleSheet.create({
 
   // Empty
   empty: { textAlign: "center", color: C.muted, fontSize: 12, paddingVertical: 28 },
+  searchBox: { flexDirection: "row", gap: 8, marginHorizontal: 14, marginTop: 10, marginBottom: 4 },
+  searchInput: { flex: 1, height: 40, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, borderRadius: 10, paddingHorizontal: 12, fontSize: 12 },
+  searchBtn: { height: 40, borderRadius: 10, paddingHorizontal: 14, alignItems: "center", justifyContent: "center", backgroundColor: C.ink },
+  searchBtnText: { color: "#fff", fontSize: 12, fontWeight: "800" },
+  suggestBox: { marginHorizontal: 14, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 12, overflow: "hidden" },
+  suggestRow: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.border },
+  suggestText: { fontSize: 12, fontWeight: "700", color: C.text },
 });

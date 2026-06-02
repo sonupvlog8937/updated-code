@@ -873,6 +873,8 @@ const Orders = () => {
   const [totalOrdersData,  setTotalOrdersData]    = useState({});
   const [selectedProduct,  setSelectedProduct]    = useState(null);
   const [receiptOrder,     setReceiptOrder]       = useState(null);
+  const [riders,           setRiders]             = useState([]);
+  const [assigningOrderId, setAssigningOrderId]   = useState(null);
 
   const context = useContext(MyContext);
 const isSellerView = isSellerRole(context?.userData?.role);
@@ -897,6 +899,25 @@ const isSellerView = isSellerRole(context?.userData?.role);
     editData(`/api/order/order-status/${id}`, { id, order_status: val }).then((res) => {
       if (res?.data?.error === false) context.alertBox("success", res?.data?.message);
     });
+  };
+
+  useEffect(() => {
+    if (isGrocerySeller || isRestaurantSeller || context?.userData?.role === "ADMIN") {
+      fetchDataFromApi('/api/order/delivery-riders').then((res) => setRiders(res?.riders || res?.data || []));
+    }
+  }, [isGrocerySeller, isRestaurantSeller, context?.userData?.role]);
+
+  const assignRider = (orderId, riderId) => {
+    if (!riderId) return;
+    setAssigningOrderId(orderId);
+    editData(`/api/order/assign-rider/${orderId}`, { riderId }).then((res) => {
+      if (res?.data?.success || res?.data?.error === false) {
+        context.alertBox('success', res?.data?.message || 'Order assigned');
+        fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=5`).then((next) => {
+          if (next?.error === false) setOrdersData(next?.data || []);
+        });
+      } else context.alertBox('error', res?.data?.message || 'Could not assign order');
+    }).finally(() => setAssigningOrderId(null));
   };
 
   const handleReturnRefundUpdate = (id, mode) => {
@@ -1159,6 +1180,13 @@ const isSellerView = isSellerRole(context?.userData?.role);
                             >
                               🧾 Receipt
                             </button>
+                            {(isGrocerySeller || isRestaurantSeller || context?.userData?.role === "ADMIN") && order?.order_status !== "delivered" && (
+                              <Select size="small" displayEmpty value={order?.deliveryAssignment?.riderId?._id || order?.deliveryAssignment?.riderId || ""} onChange={(e) => assignRider(order._id, e.target.value)} disabled={assigningOrderId === order._id} sx={{ minWidth: 150, fontSize: 11, background: '#eef2ff', borderRadius: '8px' }}>
+                                <MenuItem value="" disabled>{order?.deliveryAssignment?.riderId ? 'Assigned rider' : 'Assign rider'}</MenuItem>
+                                {riders.map((r) => <MenuItem key={r._id} value={r._id}>{r.name} · ₹{Number(r.wallet?.availableBalance || 0).toFixed(0)}</MenuItem>)}
+                              </Select>
+                            )}
+                            {order?.deliveryAssignment?.status && <span className="ao-badge ao-badge-online">Rider: {order.deliveryAssignment.status}</span>}
                             {order?.returnRequest?.requested && order?.refund?.status !== "processed" && (
                               <>
                                 <button className="ao-receipt-btn" onClick={() => handleReturnRefundUpdate(order._id, "approve")}>↩️ Approve Return</button>

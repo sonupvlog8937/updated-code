@@ -70,7 +70,8 @@ const GoMarketShop = () => {
 
   const marketId = shop?.marketId?._id || shop?.marketId;
   const followerCount = shop?.followerCount ?? 0;
-  const reviewTotal = shop?.totalReviews ?? 0;
+  const productRating = shop?.productAverageRating ?? shop?.rating ?? 0;
+  const reviewTotal = shop?.productReviewCount ?? shop?.totalReviews ?? 0;
 
   return (
     <div className="gmp-root">
@@ -93,10 +94,10 @@ const GoMarketShop = () => {
             <div className="gmp-meta-row">
               <span className="gmp-meta-chip">📍 {shop?.address}</span>
               <span className="gmp-meta-chip">
-                <StarRating value={shop?.rating} /> {Number(shop?.rating || 0).toFixed(1)}
+                <StarRating value={productRating} /> {Number(productRating || 0).toFixed(1)} avg product rating
               </span>
               <span className="gmp-meta-chip">👥 {followerCount} followers</span>
-              <span className="gmp-meta-chip">💬 {reviewTotal} reviews</span>
+              <span className="gmp-meta-chip">💬 {reviewTotal} product reviews</span>
               <span className="gmp-meta-chip">📦 {shop?.totalProducts || 0} products</span>
               <span className={`gmp-status ${shop?.isOpen ? "open" : "closed"}`}>
                 {shop?.isOpen ? "Open" : "Closed"}

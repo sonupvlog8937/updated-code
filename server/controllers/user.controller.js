@@ -20,7 +20,7 @@ import Restaurant from '../models/restaurant.model.js';
 
 const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
 const ALL_PANEL_ROLES = ['ADMIN', 'USER', ...SELLER_ROLES];
-const PUBLIC_SIGNUP_SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
+const PUBLIC_SIGNUP_SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER', 'DELIVERY_RIDER'];
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
 const normalizePanelRole = (role, fallback = 'SELLER') => {
     const normalized = String(role || fallback).trim().toUpperCase();
@@ -1539,9 +1539,9 @@ export async function registerSellerController(request, response) {
         const sellerRole = normalizePublicSellerRole(role);
         const contactNumber = storeContact || mobile;
 
-        if (!name || !email || !password || !storeName || !contactNumber || !marketId) {
+        if (!name || !email || !password || !marketId || (sellerRole !== 'DELIVERY_RIDER' && (!storeName || !contactNumber))) {
             return response.status(400).json({
-                message: "Please provide essential basic and store details.",
+                message: sellerRole === 'DELIVERY_RIDER' ? "Please provide basic details and market." : "Please provide essential basic and store details.",
                 error: true,
                 success: false
             });
@@ -1603,7 +1603,7 @@ export async function registerSellerController(request, response) {
             otp: verifyCode,
             otpExpires: Date.now() + 10 * 60 * 1000,
             status: "Active",
-            storeProfile: {
+            storeProfile: sellerRole === 'DELIVERY_RIDER' ? undefined : {
                 storeName: storeName || "",
                 location: storeLocation || "",
                 contactNo: contactNumber || "",
@@ -1612,6 +1612,11 @@ export async function registerSellerController(request, response) {
                 category: "",
                 marketId
             },
+            riderProfile: sellerRole === 'DELIVERY_RIDER' ? {
+                marketId,
+                drivingLicense: request.body.drivingLicense || "",
+                isAvailable: true,
+            } : undefined,
             bankDetails: {
                 accountHolderName: accountHolderName || "",
                 bankName: bankName || "",
@@ -1621,7 +1626,7 @@ export async function registerSellerController(request, response) {
         });
 
         await seller.save();
-        const goMarket = await createDefaultGoMarketStore({
+        const goMarket = sellerRole === 'DELIVERY_RIDER' ? null : await createDefaultGoMarketStore({
             seller,
             role: sellerRole,
             marketId,

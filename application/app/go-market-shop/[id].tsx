@@ -94,6 +94,8 @@ export default function GoMarketShopDetails() {
   }
 
   const followersN = shop.followerCount ?? 0;
+  const productRating = shop.productAverageRating ?? shop.rating ?? 0;
+  const productReviews = shop.productReviewCount ?? shop.totalReviews ?? 0;
 
   return (
     <View style={S.root}>
@@ -110,8 +112,9 @@ export default function GoMarketShopDetails() {
         <Text style={S.shopName}>{shop.shopName}</Text>
         <Text style={S.shopAddr} numberOfLines={2}>{shop.address}</Text>
         <View style={S.statsRow}>
-          <Text style={S.stat}>⭐ {Number(shop.rating || 0).toFixed(1)}</Text>
+          <Text style={S.stat}>⭐ {Number(productRating || 0).toFixed(1)} avg</Text>
           <Text style={S.stat}>👥 {followersN}</Text>
+          <Text style={S.stat}>💬 {productReviews}</Text>
           <Text style={S.stat}>📦 {shop.totalProducts || 0}</Text>
         </View>
         {!!shop.description && <Text style={S.desc}>{shop.description}</Text>}

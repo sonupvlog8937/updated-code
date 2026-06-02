@@ -164,6 +164,7 @@ const Sidebar = () => {
             <>
               <GroupLabel label="Management" />
               <NavItem to="/users" icon={FiUsers} label="Users & Sellers" />
+              <NavItem to="/riders" icon={FiUsers} label="Delivery Riders" />
               <NavItem to="/coupons" icon={MdLocalOffer} label="Coupons" />
 
               <CollapseGroup groupKey="catalog" icon={TbCategory} label="Catalog">

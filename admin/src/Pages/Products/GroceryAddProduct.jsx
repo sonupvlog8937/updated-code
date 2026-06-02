@@ -47,6 +47,7 @@ const GroceryAddProduct = () => {
     oldPrice: '',
     countInStock: '',
     unit: 'piece',
+    isFeatured: 'no',
   });
   const [specifications, setSpecifications] = useState([{ key: '', value: '' }]);
   const [productOptions, setProductOptions] = useState([{ name: '', label: '', values: [] }]);
@@ -131,6 +132,7 @@ const GroceryAddProduct = () => {
       image: previews[0],
       categoryId: categoryId || undefined,
       subCategoryId: subCategoryId || undefined,
+      isFeatured: form.isFeatured === 'yes',
     };
 
     setIsLoading(true);
@@ -279,6 +281,13 @@ const GroceryAddProduct = () => {
                 <div>
                   <label style={labelStyle}>Display title (product page)</label>
                   <input style={inputStyle} name="title" value={form.title} onChange={onChange} placeholder="Leave blank to use product name" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Featured product</label>
+                  <Select size="small" sx={selectSx} name="isFeatured" value={form.isFeatured} onChange={onChange}>
+                    <MenuItem value="no">No</MenuItem>
+                    <MenuItem value="yes">Yes</MenuItem>
+                  </Select>
                 </div>
                 <div>
                   <label style={labelStyle}>Description *</label>

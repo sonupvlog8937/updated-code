@@ -125,9 +125,34 @@ const GoMarketProduct = () => {
     setBusy(false);
   };
 
-  const handleBuyNow = async () => {
-    await handleAddToCart();
-    navigate("/cart");
+  const handleBuyNow = () => {
+    if (!isLogin) {
+      toast.error("Please login to continue");
+      navigate("/login");
+      return;
+    }
+    if (!optionsComplete) {
+      toast.error("Please select all product options");
+      return;
+    }
+    if (!cartProduct?.countInStock) {
+      toast.error("This item is out of stock");
+      return;
+    }
+    navigate("/checkout", {
+      state: {
+        buyNowItem: {
+          productId: product._id,
+          productTitle: product.name,
+          image: product.image || product.images?.[0],
+          price: product.price,
+          quantity,
+          subTotal: product.price * quantity,
+          selectedOptions,
+          sellerId: product.sellerId || null,
+        },
+      },
+    });
   };
 
   if (loading) {

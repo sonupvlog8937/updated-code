@@ -105,6 +105,22 @@ const orderSchema = new mongoose.Schema(
         default: "none",
       },
     },
+    deliveryAssignment: {
+      riderId: { type: mongoose.Schema.ObjectId, ref: "User", default: null },
+      assignedBy: { type: mongoose.Schema.ObjectId, ref: "User", default: null },
+      assignedAt: { type: Date, default: null },
+      confirmedAt: { type: Date, default: null },
+      deliveredAt: { type: Date, default: null },
+      deliveryOtp: { type: String, default: "" },
+      deliveryOtpExpires: { type: Date, default: null },
+      earningAmount: { type: Number, default: 20 },
+      earningCredited: { type: Boolean, default: false },
+      status: {
+        type: String,
+        enum: ["unassigned", "assigned", "confirmed", "otp_sent", "delivered"],
+        default: "unassigned",
+      },
+    },
     refund: {
       status: {
         type: String,

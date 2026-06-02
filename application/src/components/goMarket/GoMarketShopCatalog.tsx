@@ -33,7 +33,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
   const [search, setSearch] = useState(initialQuery);
   const [debouncedSearch, setDebouncedSearch] = useState(initialQuery);
   const [tab, setTab] = useState<TabKey>("featured");
-  const [sort, setSort] = useState("newest");
+  const [sort, setSort] = useState("");
   const [inStock, setInStock] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [subCategoryId, setSubCategoryId] = useState("");
@@ -71,7 +71,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
         page: String(pageNum),
         limit: "16",
         tab,
-        sort,
+        ...(sort ? { sort } : {}),
         search: debouncedSearch,
         ...(inStock ? { inStock: "true" } : {}),
         ...(categoryId ? { categoryId } : {}),

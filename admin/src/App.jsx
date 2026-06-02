@@ -39,6 +39,7 @@ import CouponsPage from "./Pages/Coupons";
 import GoMarketAdminPage from "./Pages/GoMarket";
 import GoMarketStoreProfile from "./Pages/GoMarketStoreProfile";
 import StoreOperations from "./Pages/QuickCommerce/StoreOperations";
+import RidersPage from "./Pages/Riders";
 
 const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
@@ -467,6 +468,14 @@ function App() {
       element: (
         <PageWrapper {...wp}>
           <Users />
+        </PageWrapper>
+      ),
+    },
+    {
+      path: '/riders',
+      element: (
+        <PageWrapper {...wp}>
+          <RidersPage />
         </PageWrapper>
       ),
     },

@@ -27,6 +27,7 @@ import {
   listShopProductsCatalog,
   searchShopProducts,
   shopProductSearchSuggestions,
+  restaurantItemSearchSuggestions,
 } from "../controllers/goMarketCatalog.controller.js";
 import {
   addGroceryShopReview,
@@ -57,6 +58,8 @@ router.get("/grocery-shops/:shopId/search-suggestions", optionalAuth, shopProduc
 router.get("/grocery-shops/:shopId/reviews", optionalAuth, getGroceryShopReviews);
 router.post("/grocery-shops/:shopId/reviews", auth, addGroceryShopReview);
 router.get("/restaurants/:restaurantId/catalog", optionalAuth, listRestaurantItemsCatalog);
+router.get("/restaurants/:restaurantId/search", optionalAuth, listRestaurantItemsCatalog);
+router.get("/restaurants/:restaurantId/search-suggestions", optionalAuth, restaurantItemSearchSuggestions);
 router.get("/restaurants/:restaurantId/reviews", optionalAuth, getRestaurantReviews);
 router.post("/restaurants/:restaurantId/reviews", auth, addRestaurantReview);
 router.get("/catalog/grocery-product/:id", optionalAuth, getGroceryProductStorefront);

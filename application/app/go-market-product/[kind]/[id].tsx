@@ -157,9 +157,31 @@ export default function GoMarketProductScreen() {
     }
   };
 
-  const buyNow = async () => {
-    await addCart();
-    router.push("/(tabs)/cart" as never);
+  const buyNow = () => {
+    if (!isLogin) {
+      showToast("error", "Please login first");
+      router.push("/login" as never);
+      return;
+    }
+    if (!optionsComplete) {
+      showToast("error", "Please select all product options");
+      return;
+    }
+    if (!cartProduct?.countInStock) {
+      showToast("error", "Out of stock");
+      return;
+    }
+    const buyNowItem = {
+      productId: product._id,
+      productTitle: product.name,
+      image: product.image || product.images?.[0],
+      price: product.price,
+      quantity: qty,
+      subTotal: product.price * qty,
+      selectedOptions,
+      sellerId: product.sellerId || null,
+    };
+    router.push({ pathname: "/checkout", params: { isBuyNow: "true", buyNowItem: JSON.stringify(buyNowItem) } } as never);
   };
 
   if (loading) {
