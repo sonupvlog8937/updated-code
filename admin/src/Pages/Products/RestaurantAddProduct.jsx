@@ -13,6 +13,7 @@ import { deleteImages, fetchDataFromApi, postData } from '../../utils/api';
 import { useNavigate } from 'react-router-dom';
 import UploadBox from '../../Components/UploadBox';
 import ProductSpecsEditor from '../../Components/ProductSpecsEditor';
+import ProductOptionsEditor, { normalizeProductOptionsForSubmit } from '../../Components/ProductOptionsEditor';
 
 const FOOD_TYPES = [
   { value: '', label: 'Not specified' },
@@ -41,9 +42,11 @@ const RestaurantAddProduct = () => {
     title: '',
     description: '',
     price: '',
+    oldPrice: '',
     foodType: '',
   });
   const [specifications, setSpecifications] = useState([{ key: '', value: '' }]);
+  const [productOptions, setProductOptions] = useState([{ name: '', label: '', values: [] }]);
 
   useEffect(() => {
     Promise.all([
@@ -118,7 +121,9 @@ const RestaurantAddProduct = () => {
       title: (form.title || form.name).trim(),
       description: form.description.trim(),
       specifications: specRows,
+      productOptions: normalizeProductOptionsForSubmit(productOptions),
       price: Number(form.price),
+      discountPrice: form.oldPrice ? Number(form.oldPrice) : 0,
       image: previews[0],
       categoryId: categoryId || undefined,
       subCategoryId: subCategoryId || undefined,
@@ -283,6 +288,9 @@ const RestaurantAddProduct = () => {
                   </Select>
                 </div>
                 <ProductSpecsEditor value={specifications} onChange={setSpecifications} accent="#ea580c" />
+                <div style={{ marginTop: 16 }}>
+                  <ProductOptionsEditor value={productOptions} onChange={setProductOptions} accent="#ea580c" />
+                </div>
               </div>
             </div>
 
@@ -359,9 +367,15 @@ const RestaurantAddProduct = () => {
                   <div style={{ fontSize: 12, color: '#6b7280' }}>Selling price for this dish</div>
                 </div>
               </div>
-              <div style={{ maxWidth: 200 }}>
-                <label style={labelStyle}>Price (₹) *</label>
-                <input style={inputStyle} type="number" name="price" value={form.price} onChange={onChange} placeholder="199" min="0" />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(160px, 220px))', gap: 14 }}>
+                <div>
+                  <label style={labelStyle}>MRP / Base price (₹) *</label>
+                  <input style={inputStyle} type="number" name="price" value={form.price} onChange={onChange} placeholder="199" min="0" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Offer price (₹)</label>
+                  <input style={inputStyle} type="number" name="oldPrice" value={form.oldPrice} onChange={onChange} placeholder="Optional discount price" min="0" />
+                </div>
               </div>
             </div>
 

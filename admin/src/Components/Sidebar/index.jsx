@@ -216,6 +216,7 @@ const Sidebar = () => {
                 <>
                   <NavItem to="/seller/store-ops" icon={IoStorefrontOutline} label={isGrocerySeller ? "Store Operations" : "Kitchen Operations"} />
                   <NavItem to={isGrocerySeller ? "/seller/go-market/shop" : "/seller/go-market/restaurant"} icon={IoStorefrontOutline} label={isGrocerySeller ? "Shop Profile (GoMarket)" : "Restaurant Profile (GoMarket)"} />
+                  <NavItem to="/coupons" icon={MdLocalOffer} label="Coupons & Offers" />
                 </>
               )}
               <NavItem to="/seller/store-profile" icon={IoStorefrontOutline} label="Store Profile" />

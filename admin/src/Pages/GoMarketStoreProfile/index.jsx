@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { MyContext } from "../../App";
-import { editData, fetchDataFromApi } from "../../utils/api";
+import { editData, fetchDataFromApi, uploadImages } from "../../utils/api";
 import {
   FiPhone, FiMapPin, FiImage, FiFileText, FiInfo,
   FiSave, FiClock, FiExternalLink, FiEdit2, FiX,
@@ -72,7 +72,7 @@ function Field({ icon: Icon, label, required, error, children }) {
   );
 }
 
-function ImageUploadField({ label, value, onChange, isUploading }) {
+function ImageUploadField({ label, value, onChange, isUploading, setIsUploading }) {
   const fileInputRef = React.useRef(null);
   const [preview, setPreview] = useState(value || "");
 
@@ -94,25 +94,25 @@ function ImageUploadField({ label, value, onChange, isUploading }) {
 
     // Create FormData and upload
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("images", file);
 
     try {
+      setIsUploading?.(true);
       const toastId = toast.loading("Uploading image...");
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const result = await response.json();
-      if (result.success && result.url) {
-        setPreview(result.url);
-        onChange(result.url);
+      const response = await uploadImages("/api/product/uploadImages", formData);
+      const urls = response?.data?.images || response?.data?.imageUrls || response?.data?.urls || [];
+      const url = response?.data?.url || urls?.[0];
+      if (response?.data?.success !== false && url) {
+        setPreview(url);
+        onChange(url);
         toast.success("Image uploaded successfully!", { id: toastId });
       } else {
-        toast.error(result.message || "Upload failed", { id: toastId });
+        toast.error(response?.data?.message || "Upload failed", { id: toastId });
       }
     } catch (error) {
       toast.error("Upload failed: " + error.message);
+      } finally {
+      setIsUploading?.(false);
     }
   };
 
@@ -269,15 +269,16 @@ const GoMarketStoreProfile = () => {
     try {
       const endpoint = isGrocerySeller ? "/api/go-market/seller/grocery-shop" : "/api/go-market/seller/restaurant";
       const res = await editData(endpoint, editForm);
-      const isSuccess = res?.success === true || res?.error === false;
+      const payload = res?.data || res;
+      const isSuccess = payload?.success === true || payload?.error === false;
       
       if (isSuccess) {
         setForm({ ...editForm });
         setIsEditMode(false);
         setErrors({});
-        context?.alertBox("success", res?.message || "Shop profile updated successfully!");
+        context?.alertBox("success", payload?.message || "Shop profile updated successfully!");
       } else {
-        context?.alertBox("error", res?.message || "Unable to update shop profile.");
+        context?.alertBox("error", payload?.message || "Unable to update shop profile.");
       }
     } catch (error) {
       context?.alertBox("error", "Something went wrong.");
@@ -416,12 +417,14 @@ const GoMarketStoreProfile = () => {
                   value={editForm.shopBanner}
                   onChange={(url) => onImageChange("shopBanner", url)}
                   isUploading={isUploading}
+                  setIsUploading={setIsUploading}
                 />
                 <ImageUploadField
                   label="Shop Logo"
                   value={editForm.shopLogo}
                   onChange={(url) => onImageChange("shopLogo", url)}
                   isUploading={isUploading}
+                  setIsUploading={setIsUploading}
                 />
               </div>
             ) : (

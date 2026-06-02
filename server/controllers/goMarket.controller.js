@@ -13,8 +13,12 @@ import {
   getSellerRestaurant,
 } from "../utils/goMarketSellerCatalog.js";
 import { buildQuery, findNearbyMarkets, isObjectId, paginate, resources } from "../services/goMarket.service.js";
+import { apiBaseFromRequest, resolveMediaUrl } from "../utils/resolveMediaUrl.js";
 
 const sendError = (res, error, status = 500) => res.status(status).json({ error: true, success: false, message: error.message || error });
+const GROCERY_BANNER_FALLBACK = "https://placehold.co/800x160/e8f5e9/2e7d32?text=Grocery+Shop";
+const RESTAURANT_BANNER_FALLBACK = "https://placehold.co/800x160/fff3e0/e65100?text=Restaurant";
+const LOGO_FALLBACK = "https://placehold.co/120x120/f5f5f5/9e9e9e?text=Store+Logo";
 const ok = (res, body) => res.json({ error: false, success: true, ...body });
 const required = (body, fields) => fields.filter((field) => body[field] === undefined || body[field] === null || body[field] === "");
 
@@ -248,7 +252,13 @@ export const getGroceryShopDetail = async (req, res) => {
     const shopDoc = await GroceryShop.findById(req.params.id).populate("marketId ownerId").lean();
     if (!shopDoc) return sendError(res, "Grocery shop not found", 404);
     const { enrichOutletWithReviews, OUTLET_TARGET } = await import("../services/goMarketReview.service.js");
-    const shop = await enrichOutletWithReviews(shopDoc, OUTLET_TARGET.GROCERY, req.userId);
+    const baseUrl = apiBaseFromRequest(req);
+    const shopRaw = await enrichOutletWithReviews(shopDoc, OUTLET_TARGET.GROCERY, req.userId);
+    const shop = {
+      ...shopRaw,
+      shopBanner: shopRaw.shopBanner?.trim() ? resolveMediaUrl(shopRaw.shopBanner, baseUrl) : GROCERY_BANNER_FALLBACK,
+      shopLogo: shopRaw.shopLogo?.trim() ? resolveMediaUrl(shopRaw.shopLogo, baseUrl) : LOGO_FALLBACK,
+    };
     const products = await GroceryProduct.find({ shopId: req.params.id }).lean();
     ok(res, { data: { shop, products } });
   } catch (error) { sendError(res, error); }
@@ -260,7 +270,13 @@ export const getRestaurantDetail = async (req, res) => {
     const restaurantDoc = await Restaurant.findById(req.params.id).populate("marketId ownerId").lean();
     if (!restaurantDoc) return sendError(res, "Restaurant not found", 404);
     const { enrichOutletWithReviews, OUTLET_TARGET } = await import("../services/goMarketReview.service.js");
-    const restaurant = await enrichOutletWithReviews(restaurantDoc, OUTLET_TARGET.RESTAURANT, req.userId);
+    const baseUrl = apiBaseFromRequest(req);
+    const restaurantRaw = await enrichOutletWithReviews(restaurantDoc, OUTLET_TARGET.RESTAURANT, req.userId);
+    const restaurant = {
+      ...restaurantRaw,
+      restaurantBanner: restaurantRaw.restaurantBanner?.trim() ? resolveMediaUrl(restaurantRaw.restaurantBanner, baseUrl) : RESTAURANT_BANNER_FALLBACK,
+      restaurantLogo: restaurantRaw.restaurantLogo?.trim() ? resolveMediaUrl(restaurantRaw.restaurantLogo, baseUrl) : LOGO_FALLBACK,
+    };
     const [menus, items] = await Promise.all([RestaurantMenu.find({ restaurantId: req.params.id }).lean(), RestaurantItem.find({ restaurantId: req.params.id }).lean()]);
     ok(res, { data: { restaurant, menus, items } });
   } catch (error) { sendError(res, error); }

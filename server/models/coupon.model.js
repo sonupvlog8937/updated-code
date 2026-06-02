@@ -61,6 +61,38 @@ const couponSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    audience: {
+      type: String,
+      enum: ["global", "grocery", "restaurant"],
+      default: "global",
+      index: true,
+    },
+    shopId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "GroceryShop",
+      default: null,
+      index: true,
+    },
+    restaurantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Restaurant",
+      default: null,
+      index: true,
+    },
+    productIds: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "GroceryProduct",
+    }],
+    restaurantItemIds: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "RestaurantItem",
+    }],
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true }
 );

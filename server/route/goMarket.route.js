@@ -34,6 +34,7 @@ import {
   getGroceryShopReviews,
   getRestaurantReviews,
 } from "../controllers/goMarketReview.controller.js";
+import { getSellerGroceryShop, getSellerOwnerIds, getSellerRestaurant } from "../utils/goMarketSellerCatalog.js";
 
 const router = express.Router();
 const canManage = [auth, authorizeRole("ADMIN", "SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER")];
@@ -98,10 +99,16 @@ router.post("/unfollow-restaurant", auth, unfollowRestaurant);
 router.post("/set-preferred-market", auth, setPreferredMarket);
 
 // ─── Seller GoMarket Shop Profile ─────────────────────────────────────────
+const sellerOwnerFilter = async (req) => {
+  const ownerIds = await getSellerOwnerIds(req.userId, req.currentUser?.email);
+  return ownerIds.length ? { ownerId: { $in: ownerIds } } : { ownerId: req.userId };
+};
+
+const pickDefined = (payload) =>
+  Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
 router.get("/seller/grocery-shop", auth, authorizeRole("GROCERY_SELLER"), async (req, res) => {
   try {
-    const GroceryShop = (await import("../models/groceryShop.model.js")).default;
-    const shop = await GroceryShop.findOne({ ownerId: req.userId }).lean();
+    const shop = await getSellerGroceryShop(req.userId, req.currentUser?.email);
     if (!shop) return res.json({ success: false, message: "Shop not found" });
     res.json({ success: true, shop });
   } catch (error) {
@@ -114,9 +121,9 @@ router.put("/seller/grocery-shop", auth, authorizeRole("GROCERY_SELLER"), async 
     const GroceryShop = (await import("../models/groceryShop.model.js")).default;
     const { shopName, shopBanner, shopLogo, address, description } = req.body;
     const shop = await GroceryShop.findOneAndUpdate(
-      { ownerId: req.userId },
-      { shopName, shopBanner, shopLogo, address, description },
-      { new: true, lean: true }
+      await sellerOwnerFilter(req),
+      pickDefined({ shopName, shopBanner, shopLogo, address, description }),
+      { new: true, lean: true, runValidators: true }
     );
     if (!shop) return res.json({ success: false, message: "Shop not found" });
     res.json({ success: true, message: "Shop updated successfully", shop });
@@ -127,10 +134,17 @@ router.put("/seller/grocery-shop", auth, authorizeRole("GROCERY_SELLER"), async 
 
 router.get("/seller/restaurant", auth, authorizeRole("RESTAURANT_SELLER"), async (req, res) => {
   try {
-    const Restaurant = (await import("../models/restaurant.model.js")).default;
-    const restaurant = await Restaurant.findOne({ ownerId: req.userId }).lean();
+    const restaurant = await getSellerRestaurant(req.userId, req.currentUser?.email);
     if (!restaurant) return res.json({ success: false, message: "Restaurant not found" });
-    res.json({ success: true, shop: restaurant });
+    res.json({
+      success: true,
+      shop: {
+        ...restaurant,
+        shopName: restaurant.restaurantName,
+        shopBanner: restaurant.restaurantBanner,
+        shopLogo: restaurant.restaurantLogo,
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -139,20 +153,29 @@ router.get("/seller/restaurant", auth, authorizeRole("RESTAURANT_SELLER"), async
 router.put("/seller/restaurant", auth, authorizeRole("RESTAURANT_SELLER"), async (req, res) => {
   try {
     const Restaurant = (await import("../models/restaurant.model.js")).default;
-    const { restaurantName, restaurantBanner, restaurantLogo, address, description } = req.body;
+    const { shopName, shopBanner, shopLogo, restaurantName, restaurantBanner, restaurantLogo, address, description } = req.body;
     const restaurant = await Restaurant.findOneAndUpdate(
-      { ownerId: req.userId },
-      {
-        restaurantName: restaurantName || restaurantName,
-        restaurantBanner,
-        restaurantLogo,
+      await sellerOwnerFilter(req),
+      pickDefined({
+        restaurantName: restaurantName || shopName,
+        restaurantBanner: restaurantBanner ?? shopBanner,
+        restaurantLogo: restaurantLogo ?? shopLogo,
         address,
         description,
-      },
-      { new: true, lean: true }
+      }),
+      { new: true, lean: true, runValidators: true }
     );
     if (!restaurant) return res.json({ success: false, message: "Restaurant not found" });
-    res.json({ success: true, message: "Restaurant updated successfully", shop: restaurant });
+    res.json({
+      success: true,
+      message: "Restaurant updated successfully",
+      shop: {
+        ...restaurant,
+        shopName: restaurant.restaurantName,
+        shopBanner: restaurant.restaurantBanner,
+        shopLogo: restaurant.restaurantLogo,
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

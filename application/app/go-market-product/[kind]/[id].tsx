@@ -36,11 +36,6 @@ const normalizeProductOptions = (options: any[] = []) =>
     .filter(Boolean)
     .filter((opt: any) => Array.isArray(opt.values) && opt.values.length > 1);
 
-const allOptionsSelected = (options: any[], selected: Record<string, string>) => {
-  if (!options.length) return true;
-  return options.every((opt: any) => cleanText(selected[opt.name || opt.label]));
-};
-
 export default function GoMarketProductScreen() {
   const { kind, id } = useLocalSearchParams<{ kind: string; id: string }>();
   const router = useRouter();
@@ -61,6 +56,7 @@ export default function GoMarketProductScreen() {
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [offers, setOffers] = useState<any[]>([]);
   const [related, setRelated] = useState<any[]>([]);
   const [relatedPage, setRelatedPage] = useState(1);
   const [relatedTotalPages, setRelatedTotalPages] = useState(1);
@@ -78,6 +74,15 @@ export default function GoMarketProductScreen() {
         setRelatedPage(1);
         setRelatedTotalPages(res.relatedPagination?.totalPages || 1);
         setSelectedOptions({});
+        const offerParams = new URLSearchParams({
+          audience: kind === "restaurant" ? "restaurant" : "grocery",
+          ...(kind === "restaurant"
+            ? { restaurantId: String(res.product?.restaurantId || ""), restaurantItemId: String(id || "") }
+            : { shopId: String(res.product?.shopId || ""), productId: String(id || "") }),
+        });
+        fetchDataFromApi(`/api/coupon/active?${offerParams}`).then((offerRes) => {
+          if (offerRes?.success) setOffers(offerRes.data || []);
+        });
       }
     });
   }, [kind, id]);
@@ -89,7 +94,7 @@ export default function GoMarketProductScreen() {
 
   const product = data?.product;
   const specs = data?.specifications || [];
-  const productOptions: any[] = product?.productOptions || [];
+  const productOptions: any[] = normalizeProductOptions(product?.productOptions || []);
 
   const optionsComplete =
     !productOptions.length ||
@@ -195,6 +200,17 @@ export default function GoMarketProductScreen() {
             {product.oldPrice > product.price && <Text style={S.mrp}>₹{product.oldPrice}</Text>}
             {product.discount > 0 && <Text style={S.off}>{product.discount}% off</Text>}
           </View>
+
+          {offers.length > 0 && (
+            <View style={{ marginTop: 12, gap: 8 }}>
+              {offers.slice(0, 3).map((offer: any) => (
+                <View key={offer._id || offer.code} style={S.offerBox}>
+                  <Text style={S.offerCode}>{offer.code}</Text>
+                  <Text style={S.offerTitle}>{offer.title}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
           {productOptions.map((opt: any) => {
             const key = opt.name || opt.label;
@@ -323,6 +339,9 @@ const S = StyleSheet.create({
   mrp: { fontSize: 14, color: T.textSoft, textDecorationLine: "line-through" },
   off: { fontSize: 11, fontWeight: "700", color: T.green, backgroundColor: "#DCFCE7", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   desc: { fontSize: 14, color: "#555", lineHeight: 21, marginTop: 10 },
+  offerBox: { borderWidth: 1, borderStyle: "dashed", borderColor: "#FB923C", backgroundColor: "#FFF7ED", borderRadius: 12, padding: 10 },
+  offerCode: { color: "#C2410C", fontSize: 13, fontWeight: "900" },
+  offerTitle: { color: "#7C2D12", fontSize: 12, fontWeight: "600", marginTop: 2 },
   optLabel: { fontSize: 11, fontWeight: "800", color: "#64748b", textTransform: "uppercase", marginBottom: 8 },
   optRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   optChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, borderColor: T.border },

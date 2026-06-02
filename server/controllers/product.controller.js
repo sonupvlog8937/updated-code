@@ -415,6 +415,7 @@ export async function createProduct(request, response) {
         name: request.body.name,
         title: request.body.title || request.body.name || "",
         specifications: normalizeSpecifications(request.body.specifications),
+        productOptions: request.body.productOptions || [],
         image: imageUrl,
         categoryId: request.body.goMarketCategoryId || request.body.categoryId || null,
         subCategoryId: request.body.goMarketSubCategoryId || request.body.subCategoryId || null,
@@ -451,10 +452,12 @@ export async function createProduct(request, response) {
         itemName: request.body.name,
         title: request.body.title || request.body.name || "",
         specifications: normalizeSpecifications(request.body.specifications),
+        productOptions: request.body.productOptions || [],
         image: imageUrl,
         categoryId: request.body.goMarketCategoryId || request.body.categoryId || null,
         subCategoryId: request.body.goMarketSubCategoryId || request.body.subCategoryId || null,
         price: Number(request.body.price || 0),
+        discountPrice: Number(request.body.oldPrice || request.body.discountPrice || 0),
         description: request.body.description || "",
       });
       imagesArr = [];
@@ -1403,6 +1406,7 @@ export async function updateProduct(request, response) {
           specifications: request.body.specifications !== undefined
             ? normalizeSpecifications(request.body.specifications)
             : owned.product.specifications,
+            productOptions: request.body.productOptions !== undefined ? request.body.productOptions : owned.product.productOptions,
           description: request.body.description,
           image: imageUrl || owned.product.image,
           categoryId: request.body.goMarketCategoryId || request.body.categoryId || owned.product.categoryId,
@@ -1440,11 +1444,13 @@ export async function updateProduct(request, response) {
           specifications: request.body.specifications !== undefined
             ? normalizeSpecifications(request.body.specifications)
             : owned.item.specifications,
+            productOptions: request.body.productOptions !== undefined ? request.body.productOptions : owned.item.productOptions,
           description: request.body.description,
           image: imageUrl || owned.item.image,
           categoryId: request.body.goMarketCategoryId || request.body.categoryId || owned.item.categoryId,
           subCategoryId: request.body.goMarketSubCategoryId || request.body.subCategoryId || owned.item.subCategoryId,
           price: Number(request.body.price ?? owned.item.price),
+          discountPrice: Number(request.body.oldPrice ?? request.body.discountPrice ?? owned.item.discountPrice),
           isAvailable: request.body.isAvailable !== undefined
             ? Boolean(request.body.isAvailable)
             : owned.item.isAvailable,

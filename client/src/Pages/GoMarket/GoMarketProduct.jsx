@@ -25,6 +25,7 @@ const GoMarketProduct = () => {
   const [quantity, setQuantity] = useState(1);
   const [busy, setBusy] = useState(false);
   const [selectedOptions, setSelectedOptions] = useState({});
+  const [offers, setOffers] = useState([]);
 
   const [related, setRelated] = useState([]);
   const [relatedPage, setRelatedPage] = useState(1);
@@ -43,6 +44,13 @@ const GoMarketProduct = () => {
         setRelatedPage(1);
         setRelatedTotalPages(res.relatedPagination?.totalPages || 1);
         setSelectedOptions({});
+        const offerParams = new URLSearchParams({
+          audience: kind === "restaurant" ? "restaurant" : "grocery",
+          ...(kind === "restaurant" ? { restaurantId: res.product?.restaurantId, restaurantItemId: id } : { shopId: res.product?.shopId, productId: id }),
+        });
+        fetchDataFromApi(`/api/coupon/active?${offerParams}`).then((offerRes) => {
+          if (offerRes?.success) setOffers(offerRes.data || []);
+        });
       }
     });
   }, [kind, id]);
@@ -212,6 +220,17 @@ const GoMarketProduct = () => {
                 </span>
               )}
             </div>
+
+            {offers.length > 0 && (
+              <div style={{ margin: "12px 0", display: "grid", gap: 8 }}>
+                {offers.slice(0, 3).map((offer) => (
+                  <div key={offer._id || offer.code} style={{ border: "1px dashed #f97316", background: "#fff7ed", borderRadius: 12, padding: 10 }}>
+                    <b style={{ color: "#c2410c", fontSize: 13 }}>{offer.code}</b>
+                    <span style={{ marginLeft: 8, fontSize: 12, color: "#7c2d12" }}>{offer.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <GoMarketProductOptions
               options={productOptions}

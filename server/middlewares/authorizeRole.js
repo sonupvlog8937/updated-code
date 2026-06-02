@@ -13,7 +13,7 @@ const authorizeRole = (...allowedRoles) => {
         });
       }
 
-      const user = await UserModel.findById(userId).select("role status");
+      const user = await UserModel.findById(userId).select("role status email name").lean();
 
       if (!user) {
         return response.status(401).json({
@@ -39,7 +39,7 @@ const authorizeRole = (...allowedRoles) => {
         });
       }
 
-      request.currentUser = user;
+      request.currentUser = { ...(request.currentUser || {}), ...user };
       return next();
     } catch (error) {
       return response.status(500).json({

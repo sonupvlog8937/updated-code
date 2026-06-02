@@ -13,6 +13,7 @@ import { deleteImages, fetchDataFromApi, postData } from '../../utils/api';
 import { useNavigate } from 'react-router-dom';
 import UploadBox from '../../Components/UploadBox';
 import ProductSpecsEditor from '../../Components/ProductSpecsEditor';
+import ProductOptionsEditor, { normalizeProductOptionsForSubmit } from '../../Components/ProductOptionsEditor';
 
 const UNITS = [
   { value: 'piece', label: 'Per Piece' },
@@ -48,6 +49,7 @@ const GroceryAddProduct = () => {
     unit: 'piece',
   });
   const [specifications, setSpecifications] = useState([{ key: '', value: '' }]);
+  const [productOptions, setProductOptions] = useState([{ name: '', label: '', values: [] }]);
 
   useEffect(() => {
     Promise.all([
@@ -122,6 +124,7 @@ const GroceryAddProduct = () => {
       title: (form.title || form.name).trim(),
       description: form.description.trim(),
       specifications: specRows,
+      productOptions: normalizeProductOptionsForSubmit(productOptions),
       price: Number(form.price),
       discountPrice: Number(sellingPrice),
       stock: Number(form.countInStock),
@@ -296,6 +299,9 @@ const GroceryAddProduct = () => {
                   </Select>
                 </div>
                 <ProductSpecsEditor value={specifications} onChange={setSpecifications} accent="#059669" />
+                <div style={{ marginTop: 16 }}>
+                  <ProductOptionsEditor value={productOptions} onChange={setProductOptions} accent="#059669" />
+                </div>
               </div>
             </div>
 

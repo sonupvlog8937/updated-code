@@ -8,10 +8,16 @@ const restaurantItemSchema = new mongoose.Schema({
     key: { type: String, default: "" },
     value: { type: String, default: "" },
   }],
+  productOptions: [{
+    name: { type: String, default: "", trim: true },
+    label: { type: String, default: "", trim: true },
+    values: [{ type: String, trim: true }],
+  }],
   image: { type: String, default: "" },
   categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "GoMarketCategory", default: null, index: true },
   subCategoryId: { type: mongoose.Schema.Types.ObjectId, ref: "GoMarketSubCategory", default: null, index: true },
   price: { type: Number, required: true, min: 0 },
+  discountPrice: { type: Number, default: 0, min: 0 },
   description: { type: String, default: "" },
   isAvailable: { type: Boolean, default: true, index: true },
 }, { timestamps: true });

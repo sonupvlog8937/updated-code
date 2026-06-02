@@ -13,6 +13,7 @@ const initialForm = {
   maxDiscountAmount: "",
   usageLimit: "",
   isActive: true,
+  audience: "global",
 };
 
 const CouponsPage = () => {
@@ -22,10 +23,13 @@ const CouponsPage = () => {
   const [editingId, setEditingId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const userRole = localStorage.getItem("userRole") || context?.userData?.role || "";
+  const isSellerCoupon = ["GROCERY_SELLER", "RESTAURANT_SELLER"].includes(userRole);
+  const endpointBase = isSellerCoupon ? "/api/coupon/seller" : "/api/coupon/admin";
 
   const fetchCoupons = () => {
     setLoading(true);
-    fetchDataFromApi("/api/coupon/admin").then((res) => {
+    fetchDataFromApi(endpointBase).then((res) => {
       if (res?.success) setCoupons(res.data || []);
       setLoading(false);
     });
@@ -33,7 +37,7 @@ const CouponsPage = () => {
 
   useEffect(() => {
     fetchCoupons();
-  }, []);
+   }, [endpointBase]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -49,8 +53,8 @@ const CouponsPage = () => {
     };
 
     const res = editingId
-      ? await editData(`/api/coupon/admin/${editingId}`, payload)
-      : await postData("/api/coupon/admin", payload);
+      ? await editData(`${endpointBase}/${editingId}`, payload)
+      : await postData(endpointBase, payload);
 
     setSaving(false);
 
@@ -77,11 +81,12 @@ const CouponsPage = () => {
       maxDiscountAmount: coupon.maxDiscountAmount ?? "",
       usageLimit: coupon.usageLimit ?? "",
       isActive: coupon.isActive,
+      audience: coupon.audience || "global",
     });
   };
 
   const onDelete = async (id) => {
-    await deleteData(`/api/coupon/admin/${id}`);
+    await deleteData(`${endpointBase}/${id}`);
     context.alertBox("success", "Coupon deleted");
     fetchCoupons();
   };
@@ -90,7 +95,7 @@ const CouponsPage = () => {
     <section className="p-5">
       <div className="card bg-white rounded-md shadow-md p-5 mb-5">
         <h2 className="text-[22px] font-[700] mb-1">Coupon Management</h2>
-        <p className="text-[13px] text-gray-500 mb-4">Create, edit and manage dynamic offers for customers.</p>
+        <p className="text-[13px] text-gray-500 mb-4">{isSellerCoupon ? "Create shop-specific coupons and product offers for GoMarket customers." : "Create, edit and manage dynamic offers for customers."}</p>
         <form className="grid grid-cols-1 md:grid-cols-3 gap-3" onSubmit={onSubmit}>
           <TextField label="Code" size="small" value={form.code} onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))} required />
           <TextField label="Title" size="small" value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} required />
@@ -100,6 +105,7 @@ const CouponsPage = () => {
           <TextField label="Min Order Amount" type="number" size="small" value={form.minOrderAmount} onChange={(e) => setForm((p) => ({ ...p, minOrderAmount: e.target.value }))} />
           <TextField label="Max Discount Amount" type="number" size="small" value={form.maxDiscountAmount} onChange={(e) => setForm((p) => ({ ...p, maxDiscountAmount: e.target.value }))} />
           <TextField label="Usage Limit" type="number" size="small" value={form.usageLimit} onChange={(e) => setForm((p) => ({ ...p, usageLimit: e.target.value }))} />
+          {!isSellerCoupon && <TextField label="Audience (global/grocery/restaurant)" size="small" value={form.audience} onChange={(e) => setForm((p) => ({ ...p, audience: e.target.value }))} />}
           <TextField label="Active (true/false)" size="small" value={String(form.isActive)} onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.value === "true" }))} />
           <div className="md:col-span-3 flex gap-2">
             <Button type="submit" variant="contained" disabled={saving}>{saving ? <CircularProgress size={18} color="inherit" /> : editingId ? "Update Coupon" : "Create Coupon"}</Button>
@@ -115,13 +121,14 @@ const CouponsPage = () => {
             <table className="w-full text-left text-[13px]">
               <thead>
                 <tr className="border-b">
-                  <th className="py-2">Code</th><th>Type</th><th>Value</th><th>Min Order</th><th>Status</th><th>Actions</th>
+                  <th className="py-2">Code</th><th>Scope</th><th>Type</th><th>Value</th><th>Min Order</th><th>Status</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {coupons.map((coupon) => (
                   <tr key={coupon._id} className="border-b">
                     <td className="py-2 font-[700]">{coupon.code}</td>
+                    <td>{coupon.audience || (coupon.shopId ? "grocery" : coupon.restaurantId ? "restaurant" : "global")}</td>
                     <td>{coupon.type}</td>
                     <td>{coupon.type === "percentage" ? `${coupon.value}%` : `₹${coupon.value}`}</td>
                     <td>₹{coupon.minOrderAmount || 0}</td>
