@@ -4,7 +4,7 @@ import { CgLogIn } from "react-icons/cg";
 import {
   FaRegEye, FaEyeSlash, FaCheckCircle, FaUser, FaStore,
   FaUniversity, FaArrowRight, FaArrowLeft, FaShieldAlt,
-  FaPhone, FaMapMarkerAlt, FaFileAlt, FaLock, FaEnvelope, FaImage
+  FaPhone, FaMapMarkerAlt, FaFileAlt, FaLock, FaEnvelope, FaImage, FaMotorcycle
 } from "react-icons/fa";
 import CircularProgress from "@mui/material/CircularProgress";
 import { fetchDataFromApi, postData } from "../../utils/api.js";
@@ -13,7 +13,7 @@ import { MyContext } from "../../App.jsx";
 // ─── Step Config ──────────────────────────────────────────────────────────────
 const STEPS = [
   { id: 1, label: "Personal",  icon: FaUser,      color: "#6ee7b7" },
-  { id: 2, label: "Store",     icon: FaStore,     color: "#93c5fd" },
+  { id: 2, label: "Profile",   icon: FaStore,     color: "#93c5fd" },
   { id: 3, label: "Bank",      icon: FaUniversity,color: "#fbbf24" },
   { id: 4, label: "Review",    icon: FaShieldAlt, color: "#f9a8d4" },
 ];
@@ -97,7 +97,7 @@ const SellerSignUp = () => {
 
   const [formFields, setFormFields] = useState({
     name: "", email: "", mobile: "", password: "", confirmPassword: "", role: "SELLER",
-    storeName: "", storeLocation: "", storeContact: "", storeDescription: "", shopBanner: "", marketId: "",
+    storeName: "", storeLocation: "", storeContact: "", storeDescription: "", shopBanner: "", marketId: "", drivingLicense: "",
     accountHolderName: "", bankName: "", accountNumber: "", ifscCode: "",
     agreeTerms: false
   });
@@ -143,9 +143,11 @@ const SellerSignUp = () => {
       else if (formFields.password !== formFields.confirmPassword) e.confirmPassword = "Passwords do not match";
     }
     if (s === 2) {
-      if (!formFields.storeName.trim()) e.storeName = "Store name is required";
       if (!formFields.marketId) e.marketId = "Please select a Go Market";
-      if (!(formFields.storeContact || formFields.mobile)) e.storeContact = "Store contact or mobile number is required";
+      if (formFields.role !== "DELIVERY_RIDER") {
+        if (!formFields.storeName.trim()) e.storeName = "Store name is required";
+        if (!(formFields.storeContact || formFields.mobile)) e.storeContact = "Store contact or mobile number is required";
+      }
     }
     if (s === 4) {
       if (!formFields.agreeTerms) e.agreeTerms = "You must agree to the terms";
@@ -193,6 +195,7 @@ const SellerSignUp = () => {
         storeDescription: formFields.storeDescription,
         shopBanner: formFields.shopBanner,
         marketId: formFields.marketId,
+        drivingLicense: formFields.drivingLicense,
         accountHolderName: formFields.accountHolderName,
         bankName: formFields.bankName,
         accountNumber: formFields.accountNumber,
@@ -236,6 +239,7 @@ const SellerSignUp = () => {
   });
 
   const selectedRole = getRoleMeta(formFields.role);
+  const isRiderSignup = formFields.role === "DELIVERY_RIDER";
 
   // ─── Review row ──────────────────────────────────────────────────────────────
   const ReviewRow = ({ label, value }) => value ? (
@@ -380,12 +384,12 @@ const SellerSignUp = () => {
               </div>
               <div>
                 <h2 style={{ fontSize: 17, fontWeight: 700, color: "#111827", margin: "0 0 2px" }}>
-                  {step === 1 ? "Personal Information" : step === 2 ? "Store Details" : step === 3 ? "Bank Details" : "Review & Submit"}
+                  {step === 1 ? "Personal Information" : step === 2 ? (isRiderSignup ? "Delivery Rider Details" : "Store Details") : step === 3 ? "Bank Details" : "Review & Submit"}
                 </h2>
                 <p style={{ fontSize: 12, color: "rgba(0,0,0,0.4)", margin: 0 }}>
                   {step === 1 ? "Your account credentials & contact info"
-                  : step === 2 ? "Tell customers about your store"
-                  : step === 3 ? "For receiving payments (optional)"
+                  : step === 2 ? (isRiderSignup ? "Choose your service market and optional licence" : "Tell customers about your store")
+                  : step === 3 ? "For receiving payouts (optional)"
                   : "Verify all details before submitting"}
                 </p>
               </div>
@@ -463,12 +467,14 @@ const SellerSignUp = () => {
             {/* ── STEP 2: STORE ─────────────────────────────────────────── */}
             {step === 2 && (
               <>
-                <Field label="Store Name" icon={FaStore} error={touched.storeName && errors.storeName}>
-                  <input type="text" name="storeName" placeholder="My Awesome Store" value={formFields.storeName}
-                    onChange={onChangeInput} onBlur={onBlur} style={inputStyle("storeName")} />
-                </Field>
+                {!isRiderSignup && (
+                  <Field label="Store Name" icon={FaStore} error={touched.storeName && errors.storeName}>
+                    <input type="text" name="storeName" placeholder="My Awesome Store" value={formFields.storeName}
+                      onChange={onChangeInput} onBlur={onBlur} style={inputStyle("storeName")} />
+                  </Field>
+                )}
 
-                <Field label="Go Market" icon={FaMapMarkerAlt} error={touched.marketId && errors.marketId} hint="Your shop will be created inside this market instantly.">
+                <Field label={isRiderSignup ? "Delivery Market" : "Go Market"} icon={FaMapMarkerAlt} error={touched.marketId && errors.marketId} hint={isRiderSignup ? "Only orders from this selected market will be assigned to you." : "Your shop will be created inside this market instantly."}>
                   <select name="marketId" value={formFields.marketId}
                     onChange={onChangeInput} onBlur={onBlur} style={selectStyle("marketId")}>
                     <option value="">Select market…</option>
@@ -480,26 +486,36 @@ const SellerSignUp = () => {
                   </select>
                 </Field>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  <Field label="Store Contact" icon={FaPhone} error={touched.storeContact && errors.storeContact}>
-                    <input type="tel" name="storeContact" placeholder="Business Phone" value={formFields.storeContact}
-                      onChange={onChangeInput} onBlur={onBlur} style={inputStyle("storeContact")} />
+                {isRiderSignup ? (
+                  <Field label="Driving Licence (Optional)" icon={FaMotorcycle} hint="You can add or update licence details later from your profile.">
+                    <input type="text" name="drivingLicense" placeholder="DL number (optional)" value={formFields.drivingLicense}
+                      onChange={onChangeInput} onBlur={onBlur} style={inputStyle("drivingLicense")} />
                   </Field>
-                  <Field label="City / Location" icon={FaMapMarkerAlt}>
-                    <input type="text" name="storeLocation" placeholder="e.g. Mumbai" value={formFields.storeLocation}
-                      onChange={onChangeInput} onBlur={onBlur} style={inputStyle("storeLocation")} />
-                  </Field>
-                </div>
+                
+                ) : (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                      <Field label="Store Contact" icon={FaPhone} error={touched.storeContact && errors.storeContact}>
+                        <input type="tel" name="storeContact" placeholder="Business Phone" value={formFields.storeContact}
+                          onChange={onChangeInput} onBlur={onBlur} style={inputStyle("storeContact")} />
+                      </Field>
+                      <Field label="City / Location" icon={FaMapMarkerAlt}>
+                        <input type="text" name="storeLocation" placeholder="e.g. Mumbai" value={formFields.storeLocation}
+                          onChange={onChangeInput} onBlur={onBlur} style={inputStyle("storeLocation")} />
+                      </Field>
+                    </div>
 
                 <Field label="Store Description" icon={FaFileAlt} hint="What do you sell? (optional)">
-                  <textarea name="storeDescription" placeholder="Describe your store and what you sell..."
-                    value={formFields.storeDescription} onChange={onChangeInput} onBlur={onBlur}
-                    style={textareaStyle("storeDescription")} />
-                </Field>
-                <Field label="Shop Banner URL" icon={FaImage} error={touched.shopBanner && errors.shopBanner} hint="Paste a wide banner image URL that will appear on your shop page.">
-                  <input type="url" name="shopBanner" placeholder="https://example.com/banner.jpg" value={formFields.shopBanner}
-                    onChange={onChangeInput} onBlur={onBlur} style={inputStyle("shopBanner")} />
-                </Field>
+                      <textarea name="storeDescription" placeholder="Describe your store and what you sell..."
+                        value={formFields.storeDescription} onChange={onChangeInput} onBlur={onBlur}
+                        style={textareaStyle("storeDescription")} />
+                    </Field>
+                    <Field label="Shop Banner URL" icon={FaImage} error={touched.shopBanner && errors.shopBanner} hint="Paste a wide banner image URL that will appear on your shop page.">
+                      <input type="url" name="shopBanner" placeholder="https://example.com/banner.jpg" value={formFields.shopBanner}
+                        onChange={onChangeInput} onBlur={onBlur} style={inputStyle("shopBanner")} />
+                    </Field>
+                  </>
+                )}
               </>
             )}
 
@@ -561,16 +577,17 @@ const SellerSignUp = () => {
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                     <FaStore size={12} color="#93c5fd" />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#93c5fd", fontFamily: "'Space Mono', monospace", letterSpacing: "0.08em" }}>STORE</span>
+                     <span style={{ fontSize: 11, fontWeight: 700, color: "#93c5fd", fontFamily: "'Space Mono', monospace", letterSpacing: "0.08em" }}>{isRiderSignup ? "DELIVERY" : "STORE"}</span>
                   </div>
                   <div style={{ background: "#f9fafb", border: "1px solid rgba(0,0,0,0.06)", borderRadius: 10, padding: "0 14px" }}>
-                    <ReviewRow label="Store Name" value={formFields.storeName} />
-                    <ReviewRow label="Shop Banner" value={formFields.shopBanner || "—"} />
+                     {!isRiderSignup && <ReviewRow label="Store Name" value={formFields.storeName} />}
+                    {!isRiderSignup && <ReviewRow label="Shop Banner" value={formFields.shopBanner || "—"} />}
                     <ReviewRow label="Market" value={markets.find((market) => market._id === formFields.marketId)?.name || "—"} />
-                    <ReviewRow label="Location" value={formFields.storeLocation || "—"} />
-                    <ReviewRow label="Contact" value={formFields.storeContact || "—"} />
+                    {isRiderSignup && <ReviewRow label="Driving Licence" value={formFields.drivingLicense || "Optional / not added"} />}
+                    {!isRiderSignup && <ReviewRow label="Location" value={formFields.storeLocation || "—"} />}
+                    {!isRiderSignup && <ReviewRow label="Contact" value={formFields.storeContact || "—"} />}
                     <ReviewRow label="Enabled Features" value={(ROLE_FEATURES[formFields.role] || COMMON_FEATURES).join(", ")} />
-                    {formFields.storeDescription && <ReviewRow label="Description" value={formFields.storeDescription} />}
+                    {!isRiderSignup && formFields.storeDescription && <ReviewRow label="Description" value={formFields.storeDescription} />}
                   </div>
                 </div>
 
@@ -627,7 +644,7 @@ const SellerSignUp = () => {
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                   transition: "all 0.2s", fontFamily: "'Outfit', sans-serif"
                 }}>
-                  {step === 1 ? "Continue to Store Details" : step === 2 ? "Continue to Bank Details" : "Review & Submit"}
+                  {step === 1 ? (isRiderSignup ? "Continue to Rider Details" : "Continue to Store Details") : step === 2 ? "Continue to Bank Details" : "Review & Submit"}
                   <FaArrowRight size={12} />
                 </button>
               ) : (

@@ -9,6 +9,7 @@ import GroceryShop from '../models/groceryShop.model.js';
 import Restaurant from '../models/restaurant.model.js';
 import paypal from "@paypal/checkout-server-sdk";
 import OrderConfirmationEmail from "../utils/orderEmailTemplate.js";
+import getOtpEmailHtml from "../utils/emailTemplates.js";
 import sendEmailFun from "../config/sendEmail.js";
 import { getRazorpayCredentials } from "./payment.controller.js";
 
@@ -106,8 +107,8 @@ const updateGoMarketSales = async (products = []) => {
         groceryOps.push(op);
         restaurantOps.push(op);
     }
-    if (groceryOps.length) await GroceryProduct.bulkWrite(groceryOps, { ordered: false }).catch(() => {});
-    if (restaurantOps.length) await RestaurantItem.bulkWrite(restaurantOps, { ordered: false }).catch(() => {});
+    if (groceryOps.length) await GroceryProduct.bulkWrite(groceryOps, { ordered: false }).catch(() => { });
+    if (restaurantOps.length) await RestaurantItem.bulkWrite(restaurantOps, { ordered: false }).catch(() => { });
 };
 
 const queueOrderConfirmationEmail = async (userId, order) => {
@@ -186,7 +187,7 @@ const applySellerCommission = async (products = []) => {
 export const createOrderController = async (request, response) => {
     try {
 
-         if (isRazorpaySignaturePayload(request.body) && !verifyRazorpayPaymentSignature(request.body)) {
+        if (isRazorpaySignaturePayload(request.body) && !verifyRazorpayPaymentSignature(request.body)) {
             return response.status(400).json({
                 message: "Razorpay payment verification failed.",
                 error: true,
@@ -404,7 +405,7 @@ export const captureOrderPaypalController = async (request, response) => {
         await updateGoMarketSales(productsWithSeller);
         await applySellerCommission(productsWithSeller);
 
-            void queueOrderConfirmationEmail(request.body.userId, order);
+        void queueOrderConfirmationEmail(request.body.userId, order);
 
 
         return response.status(200).json(
@@ -1018,22 +1019,22 @@ export async function getSellerDashboardStats(request, response) {
             { order_status: 1, totalAmt: 1 }  // only fetch needed fields
         ).lean();
 
-        let totalOrders     = allOrders.length;
-        let pendingOrders   = 0;
+        let totalOrders = allOrders.length;
+        let pendingOrders = 0;
         let confirmedOrders = 0;
-        let shippedOrders   = 0;
+        let shippedOrders = 0;
         let deliveredOrders = 0;
         let cancelledOrders = 0;
-        let totalEarning    = 0;
-        let pendingEarning  = 0;
+        let totalEarning = 0;
+        let pendingEarning = 0;
 
         for (const order of allOrders) {
             const status = (order.order_status || "").toLowerCase();
-            const amt    = Number(order.totalAmt || 0);
+            const amt = Number(order.totalAmt || 0);
 
-            if (status === "pending")   pendingOrders++;
+            if (status === "pending") pendingOrders++;
             if (status === "confirmed") confirmedOrders++;
-            if (status === "shipped")   shippedOrders++;
+            if (status === "shipped") shippedOrders++;
             if (status === "delivered") { deliveredOrders++; totalEarning += amt; }
             if (status === "cancelled") cancelledOrders++;
             if (status === "confirmed" || status === "shipped") pendingEarning += amt;
@@ -1064,168 +1065,271 @@ export async function getSellerDashboardStats(request, response) {
 const RIDER_DELIVERY_FEE = 20;
 
 const getSellerMarketIds = async (sellerId, sellerEmail = "") => {
-  const ownerQuery = sellerEmail ? { $or: [{ userId: sellerId }, { email: sellerEmail }] } : { userId: sellerId };
-  const ownerIds = (await ShopOwner.find(ownerQuery).select("_id").lean()).map((o) => o._id);
-  const [shops, restaurants] = await Promise.all([
-    GroceryShop.find({ ownerId: { $in: ownerIds } }).select("marketId").lean(),
-    Restaurant.find({ ownerId: { $in: ownerIds } }).select("marketId").lean(),
-  ]);
-  return [...shops, ...restaurants].map((o) => o.marketId).filter(Boolean).map(String);
+    const ownerQuery = sellerEmail ? { $or: [{ userId: sellerId }, { email: sellerEmail }] } : { userId: sellerId };
+    const ownerIds = (await ShopOwner.find(ownerQuery).select("_id").lean()).map((o) => o._id);
+    const [shops, restaurants] = await Promise.all([
+        GroceryShop.find({ ownerId: { $in: ownerIds } }).select("marketId").lean(),
+        Restaurant.find({ ownerId: { $in: ownerIds } }).select("marketId").lean(),
+    ]);
+    return [...shops, ...restaurants].map((o) => o.marketId).filter(Boolean).map(String);
 };
 
 export const listDeliveryRidersController = async (request, response) => {
-  try {
-    const marketIds = request.currentUser?.role === "ADMIN"
-      ? []
-      : await getSellerMarketIds(request.userId, request.currentUser?.email);
-    const filter = { role: "DELIVERY_RIDER", status: "Active" };
-    if (marketIds.length) filter["riderProfile.marketId"] = { $in: marketIds };
-    const riders = await UserModel.find(filter)
-      .select("name email mobile wallet riderProfile status createdAt")
-      .populate("riderProfile.marketId", "name city")
-      .sort({ name: 1 })
-      .lean();
-    return response.json({ success: true, error: false, riders, data: riders });
-  } catch (error) {
-    return response.status(500).json({ success: false, error: true, message: error.message || error });
-  }
+    try {
+        const marketIds = request.currentUser?.role === "ADMIN"
+            ? []
+            : await getSellerMarketIds(request.userId, request.currentUser?.email);
+        const filter = { role: "DELIVERY_RIDER", status: "Active" };
+        if (marketIds.length) filter["riderProfile.marketId"] = { $in: marketIds };
+        const riders = await UserModel.find(filter)
+            .select("name email mobile wallet riderProfile status createdAt")
+            .populate("riderProfile.marketId", "name city")
+            .sort({ name: 1 })
+            .lean();
+        return response.json({ success: true, error: false, riders, data: riders });
+    } catch (error) {
+        return response.status(500).json({ success: false, error: true, message: error.message || error });
+    }
 };
 
 export const assignOrderToRiderController = async (request, response) => {
-  try {
-    const { riderId } = request.body || {};
-    if (!riderId) return response.status(400).json({ success: false, error: true, message: "Select a delivery rider" });
+    try {
+        const { riderId } = request.body || {};
+        if (!riderId) return response.status(400).json({ success: false, error: true, message: "Select a delivery rider" });
 
-    const order = await OrderModel.findOne({ _id: request.params.id, "products.sellerId": request.userId });
-    if (!order && request.currentUser?.role !== "ADMIN") {
-      return response.status(404).json({ success: false, error: true, message: "Seller order not found" });
+        const order = await OrderModel.findOne({ _id: request.params.id, "products.sellerId": request.userId });
+        if (!order && request.currentUser?.role !== "ADMIN") {
+            return response.status(404).json({ success: false, error: true, message: "Seller order not found" });
+        }
+        const targetOrder = order || await OrderModel.findById(request.params.id);
+        if (!targetOrder) return response.status(404).json({ success: false, error: true, message: "Order not found" });
+
+        const rider = await UserModel.findOne({ _id: riderId, role: "DELIVERY_RIDER", status: "Active" });
+        if (!rider) return response.status(404).json({ success: false, error: true, message: "Delivery rider not found" });
+
+        if (request.currentUser?.role !== "ADMIN") {
+            const marketIds = await getSellerMarketIds(request.userId, request.currentUser?.email);
+            const riderMarketId = rider.riderProfile?.marketId ? String(rider.riderProfile.marketId) : "";
+            if (!riderMarketId || !marketIds.includes(riderMarketId)) {
+                return response.status(400).json({ success: false, error: true, message: "This rider is not active in your selected market" });
+            }
+        }
+
+        targetOrder.deliveryAssignment = {
+            ...(targetOrder.deliveryAssignment || {}),
+            riderId: rider._id,
+            assignedBy: request.userId,
+            assignedAt: new Date(),
+            earningAmount: RIDER_DELIVERY_FEE,
+            status: "assigned",
+        };
+        targetOrder.order_status = "assigned_to_rider";
+        await targetOrder.save();
+
+        return response.json({ success: true, error: false, message: "Order assigned to rider", data: targetOrder });
+    } catch (error) {
+        return response.status(500).json({ success: false, error: true, message: error.message || error });
     }
-    const targetOrder = order || await OrderModel.findById(request.params.id);
-    if (!targetOrder) return response.status(404).json({ success: false, error: true, message: "Order not found" });
-
-    const rider = await UserModel.findOne({ _id: riderId, role: "DELIVERY_RIDER", status: "Active" });
-    if (!rider) return response.status(404).json({ success: false, error: true, message: "Delivery rider not found" });
-
-    targetOrder.deliveryAssignment = {
-      ...(targetOrder.deliveryAssignment || {}),
-      riderId: rider._id,
-      assignedBy: request.userId,
-      assignedAt: new Date(),
-      earningAmount: RIDER_DELIVERY_FEE,
-      status: "assigned",
-    };
-    targetOrder.order_status = "assigned_to_rider";
-    await targetOrder.save();
-
-    return response.json({ success: true, error: false, message: "Order assigned to rider", data: targetOrder });
-  } catch (error) {
-    return response.status(500).json({ success: false, error: true, message: error.message || error });
-  }
 };
 
 export const getRiderOrdersController = async (request, response) => {
-  try {
-    const status = String(request.query.status || "");
-    const filter = { "deliveryAssignment.riderId": request.userId };
-    if (status) filter["deliveryAssignment.status"] = status;
-    const orders = await OrderModel.find(filter)
-      .sort({ createdAt: -1 })
-      .populate("delivery_address userId products.sellerId")
-      .lean();
-    return response.json({ success: true, error: false, data: orders, orders });
-  } catch (error) {
-    return response.status(500).json({ success: false, error: true, message: error.message || error });
-  }
+    try {
+        const status = String(request.query.status || "");
+        const filter = { "deliveryAssignment.riderId": request.userId };
+        if (status) filter["deliveryAssignment.status"] = status;
+        const orders = await OrderModel.find(filter)
+            .sort({ createdAt: -1 })
+            .populate("delivery_address userId products.sellerId")
+            .lean();
+        return response.json({ success: true, error: false, data: orders, orders });
+    } catch (error) {
+        return response.status(500).json({ success: false, error: true, message: error.message || error });
+    }
+};
+
+export const getRiderStatsController = async (request, response) => {
+    try {
+        const riderId = request.userId;
+        
+        // Get rider profile data
+        const rider = await UserModel.findById(riderId).select('wallet riderProfile');
+        
+        // Get order stats
+        const allOrders = await OrderModel.find({ "deliveryAssignment.riderId": riderId }).lean();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const todayOrders = allOrders.filter(o => {
+            const deliveredAt = o.deliveryAssignment?.deliveredAt;
+            return deliveredAt && new Date(deliveredAt) >= today;
+        });
+        
+        const pending = allOrders.filter(o => 
+            o.deliveryAssignment?.status === "assigned" || 
+            o.deliveryAssignment?.status === "confirmed"
+        ).length;
+        
+        const stats = {
+            totalDelivered: rider?.riderProfile?.totalDelivered || 0,
+            totalEarnings: rider?.riderProfile?.totalEarnings || 0,
+            pending: pending,
+            today: todayOrders.length,
+            availableBalance: rider?.wallet?.availableBalance || 0
+        };
+        
+        return response.json({ success: true, error: false, stats });
+    } catch (error) {
+        return response.status(500).json({ success: false, error: true, message: error.message || error });
+    }
+};
+
+export const getRiderRecentDeliveriesController = async (request, response) => {
+    try {
+        const limit = parseInt(request.query.limit) || 5;
+        const deliveries = await OrderModel.find({ 
+            "deliveryAssignment.riderId": request.userId,
+            "deliveryAssignment.status": "delivered"
+        })
+        .sort({ "deliveryAssignment.deliveredAt": -1 })
+        .limit(limit)
+        .select('_id deliveryAssignment.deliveredAt deliveryAssignment.earningAmount totalAmt')
+        .lean();
+        
+        const formattedDeliveries = deliveries.map(d => ({
+            orderId: d._id,
+            deliveredAt: d.deliveryAssignment?.deliveredAt,
+            riderEarning: d.deliveryAssignment?.earningAmount || RIDER_DELIVERY_FEE,
+            amount: d.totalAmt
+        }));
+        
+        return response.json({ success: true, error: false, deliveries: formattedDeliveries, data: formattedDeliveries });
+    } catch (error) {
+        return response.status(500).json({ success: false, error: true, message: error.message || error });
+    }
 };
 
 export const confirmRiderOrderController = async (request, response) => {
-  try {
-    const order = await OrderModel.findOne({ _id: request.params.id, "deliveryAssignment.riderId": request.userId });
-    if (!order) return response.status(404).json({ success: false, error: true, message: "Assigned order not found" });
-    order.deliveryAssignment.status = "confirmed";
-    order.deliveryAssignment.confirmedAt = new Date();
-    order.order_status = "out_for_delivery";
-    await order.save();
-    return response.json({ success: true, error: false, message: "Order confirmed", data: order });
-  } catch (error) {
-    return response.status(500).json({ success: false, error: true, message: error.message || error });
-  }
+    try {
+        const order = await OrderModel.findOne({ _id: request.params.id, "deliveryAssignment.riderId": request.userId });
+        if (!order) return response.status(404).json({ success: false, error: true, message: "Assigned order not found" });
+        order.deliveryAssignment.status = "confirmed";
+        order.deliveryAssignment.confirmedAt = new Date();
+        order.order_status = "out_for_delivery";
+        await order.save();
+        return response.json({ success: true, error: false, message: "Order confirmed", data: order });
+    } catch (error) {
+        return response.status(500).json({ success: false, error: true, message: error.message || error });
+    }
 };
 
 export const sendDeliveryOtpController = async (request, response) => {
-  try {
-    const order = await OrderModel.findOne({ _id: request.params.id, "deliveryAssignment.riderId": request.userId }).populate("userId", "name email");
-    if (!order) return response.status(404).json({ success: false, error: true, message: "Assigned order not found" });
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
-    order.deliveryAssignment.deliveryOtp = otp;
-    order.deliveryAssignment.deliveryOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
-    order.deliveryAssignment.status = "otp_sent";
-    await order.save();
-    if (order.userId?.email) {
-      await sendEmailFun({
-        sendTo: order.userId.email,
-        subject: "Delivery OTP for your order",
-        text: `Your delivery OTP is ${otp}. It is valid for 10 minutes.`,
-        html: `<p>Hi ${order.userId.name || "Customer"},</p><p>Your delivery OTP is <b>${otp}</b>. It is valid for 10 minutes.</p>`,
-      });
+    try {
+        const order = await OrderModel.findOne({ _id: request.params.id, "deliveryAssignment.riderId": request.userId }).populate("userId", "name email");
+        if (!order) return response.status(404).json({ success: false, error: true, message: "Assigned order not found" });
+        const otp = String(Math.floor(100000 + Math.random() * 900000));
+        order.deliveryAssignment.deliveryOtp = otp;
+        order.deliveryAssignment.deliveryOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+        order.deliveryAssignment.status = "otp_sent";
+        await order.save();
+        if (order.userId?.email) {
+            await sendEmailFun({
+                sendTo: order.userId.email,
+                subject: `🔐 Delivery OTP for Order #${order._id}`,
+                text: `Your delivery OTP is ${otp}. Valid for 10 minutes. Never share it with anyone.`,
+                html: getOtpEmailHtml({
+                    customerName: order.userId.name,
+                    otp,
+                    orderId: `#${order._id}`,
+                    trackingUrl: `https://zeedaddy.in/my-orders`,
+                    supportUrl: "https://zeedaddy.in/support",
+                    customerEmail: order.userId.email,
+                }),
+            });
+        }
+        return response.json({ success: true, error: false, message: "Delivery OTP sent to customer email" });
+    } catch (error) {
+        return response.status(500).json({ success: false, error: true, message: error.message || error });
     }
-    return response.json({ success: true, error: false, message: "Delivery OTP sent to customer email" });
-  } catch (error) {
-    return response.status(500).json({ success: false, error: true, message: error.message || error });
-  }
 };
 
 export const deliverRiderOrderController = async (request, response) => {
-  try {
-    const otp = String(request.body?.otp || "").trim();
-    const order = await OrderModel.findOne({ _id: request.params.id, "deliveryAssignment.riderId": request.userId });
-    if (!order) return response.status(404).json({ success: false, error: true, message: "Assigned order not found" });
-    if (!otp || otp !== order.deliveryAssignment.deliveryOtp || new Date(order.deliveryAssignment.deliveryOtpExpires || 0) < new Date()) {
-      return response.status(400).json({ success: false, error: true, message: "Invalid or expired delivery OTP" });
-    }
-    order.deliveryAssignment.status = "delivered";
-    order.deliveryAssignment.deliveredAt = new Date();
-    order.order_status = "delivered";
+    try {
+        const otp = String(request.body?.otp || "").trim();
+        const order = await OrderModel.findOne({ _id: request.params.id, "deliveryAssignment.riderId": request.userId });
+        if (!order) return response.status(404).json({ success: false, error: true, message: "Assigned order not found" });
+        if (!otp || otp !== order.deliveryAssignment.deliveryOtp || new Date(order.deliveryAssignment.deliveryOtpExpires || 0) < new Date()) {
+            return response.status(400).json({ success: false, error: true, message: "Invalid or expired delivery OTP" });
+        }
+        order.deliveryAssignment.status = "delivered";
+        order.deliveryAssignment.deliveredAt = new Date();
+        order.order_status = "delivered";
 
-    if (!order.deliveryAssignment.earningCredited) {
-      const amount = Number(order.deliveryAssignment.earningAmount || RIDER_DELIVERY_FEE);
-      await UserModel.findByIdAndUpdate(request.userId, {
-        $inc: {
-          "wallet.availableBalance": amount,
-          "riderProfile.totalDelivered": 1,
-          "riderProfile.totalEarnings": amount,
-        },
-        $push: { walletTransactions: { type: "RIDER_EARNING", amount, status: "APPROVED", note: `Delivery earning for order ${order._id}` } },
-      });
-      order.deliveryAssignment.earningCredited = true;
+        if (!order.deliveryAssignment.earningCredited) {
+            const amount = Number(order.deliveryAssignment.earningAmount || RIDER_DELIVERY_FEE);
+            console.log(`💰 Crediting ${amount} to rider ${request.userId} for order ${order._id}`);
+            
+            const updatedUser = await UserModel.findByIdAndUpdate(
+                request.userId, 
+                {
+                    $inc: {
+                        "wallet.availableBalance": amount,
+                        "riderProfile.totalDelivered": 1,
+                        "riderProfile.totalEarnings": amount,
+                    },
+                    $push: { 
+                        walletTransactions: { 
+                            type: "RIDER_EARNING", 
+                            amount, 
+                            status: "APPROVED", 
+                            note: `Delivery earning for order ${order._id}`,
+                            createdAt: new Date()
+                        } 
+                    },
+                },
+                { new: true } // Return updated document
+            );
+            
+            order.deliveryAssignment.earningCredited = true;
+            console.log(`✅ Wallet updated! New balance: ₹${updatedUser?.wallet?.availableBalance || 0}`);
+        }
+        await order.save();
+        
+        // Fetch updated rider data to return in response
+        const riderData = await UserModel.findById(request.userId).select('wallet riderProfile');
+        
+        return response.json({ 
+            success: true, 
+            error: false, 
+            message: `Order delivered successfully! ₹${order.deliveryAssignment.earningAmount || RIDER_DELIVERY_FEE} credited to your wallet.`, 
+            data: order,
+            wallet: riderData?.wallet,
+            riderProfile: riderData?.riderProfile
+        });
+    } catch (error) {
+        return response.status(500).json({ success: false, error: true, message: error.message || error });
     }
-    await order.save();
-    return response.json({ success: true, error: false, message: "Order delivered", data: order });
-  } catch (error) {
-    return response.status(500).json({ success: false, error: true, message: error.message || error });
-  }
 };
 
 export const payRiderWalletController = async (request, response) => {
-  try {
-    const { riderId, amount, note = "Rider wallet payout" } = request.body || {};
-    const payout = Number(amount || 0);
-    if (!riderId || payout <= 0) return response.status(400).json({ success: false, error: true, message: "Select rider and valid amount" });
-    const admin = await UserModel.findById(request.userId);
-    const rider = await UserModel.findOne({ _id: riderId, role: "DELIVERY_RIDER" });
-    if (!rider) return response.status(404).json({ success: false, error: true, message: "Rider not found" });
-    if (Number(admin.wallet?.availableBalance || 0) < payout) return response.status(400).json({ success: false, error: true, message: "Admin wallet balance is low" });
-    if (Number(rider.wallet?.availableBalance || 0) < payout) return response.status(400).json({ success: false, error: true, message: "Rider wallet balance is low" });
+    try {
+        const { riderId, amount, note = "Rider wallet payout" } = request.body || {};
+        const payout = Number(amount || 0);
+        if (!riderId || payout <= 0) return response.status(400).json({ success: false, error: true, message: "Select rider and valid amount" });
+        const admin = await UserModel.findById(request.userId);
+        const rider = await UserModel.findOne({ _id: riderId, role: "DELIVERY_RIDER" });
+        if (!rider) return response.status(404).json({ success: false, error: true, message: "Rider not found" });
+        if (Number(admin.wallet?.availableBalance || 0) < payout) return response.status(400).json({ success: false, error: true, message: "Admin wallet balance is low" });
+        if (Number(rider.wallet?.availableBalance || 0) < payout) return response.status(400).json({ success: false, error: true, message: "Rider wallet balance is low" });
 
-    admin.wallet.availableBalance -= payout;
-    admin.wallet.totalWithdrawn = Number(admin.wallet.totalWithdrawn || 0) + payout;
-    admin.walletTransactions.push({ type: "ADMIN_TRANSFER", amount: payout, status: "APPROVED", note, createdBy: request.userId, approvedBy: request.userId });
-    rider.wallet.availableBalance -= payout;
-    rider.wallet.totalWithdrawn = Number(rider.wallet.totalWithdrawn || 0) + payout;
-    rider.walletTransactions.push({ type: "RIDER_PAYOUT", amount: payout, status: "APPROVED", note, createdBy: request.userId, approvedBy: request.userId });
-    await Promise.all([admin.save(), rider.save()]);
-    return response.json({ success: true, error: false, message: "Rider payout recorded", data: { riderBalance: rider.wallet.availableBalance, adminBalance: admin.wallet.availableBalance } });
-  } catch (error) {
-    return response.status(500).json({ success: false, error: true, message: error.message || error });
-  }
+        admin.wallet.availableBalance -= payout;
+        admin.wallet.totalWithdrawn = Number(admin.wallet.totalWithdrawn || 0) + payout;
+        admin.walletTransactions.push({ type: "ADMIN_TRANSFER", amount: payout, status: "APPROVED", note, createdBy: request.userId, approvedBy: request.userId });
+        rider.wallet.availableBalance -= payout;
+        rider.wallet.totalWithdrawn = Number(rider.wallet.totalWithdrawn || 0) + payout;
+        rider.walletTransactions.push({ type: "RIDER_PAYOUT", amount: payout, status: "APPROVED", note, createdBy: request.userId, approvedBy: request.userId });
+        await Promise.all([admin.save(), rider.save()]);
+        return response.json({ success: true, error: false, message: "Rider payout recorded", data: { riderBalance: rider.wallet.availableBalance, adminBalance: admin.wallet.availableBalance } });
+    } catch (error) {
+        return response.status(500).json({ success: false, error: true, message: error.message || error });
+    }
 };

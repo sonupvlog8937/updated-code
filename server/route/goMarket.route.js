@@ -28,6 +28,7 @@ import {
   searchShopProducts,
   shopProductSearchSuggestions,
   restaurantItemSearchSuggestions,
+  marketShopSearchSuggestions,
 } from "../controllers/goMarketCatalog.controller.js";
 import {
   addGroceryShopReview,
@@ -52,6 +53,7 @@ const crud = (path, key, detailHandler = null, writeMiddleware = canManage) => {
 router.get("/markets/search", searchMarkets);
 router.get("/markets/nearby", nearbyMarkets);
 router.get("/markets/:marketId/outlets", optionalAuth, listMarketOutlets);
+router.get("/markets/:marketId/shop-suggestions", optionalAuth, marketShopSearchSuggestions);
 router.get("/grocery-shops/:shopId/catalog", optionalAuth, listShopProductsCatalog);
 router.get("/grocery-shops/:shopId/search", optionalAuth, searchShopProducts);
 router.get("/grocery-shops/:shopId/search-suggestions", optionalAuth, shopProductSearchSuggestions);

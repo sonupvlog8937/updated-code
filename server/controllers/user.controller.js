@@ -17,6 +17,8 @@ import Market from '../models/market.model.js';
 import ShopOwner from '../models/shopOwner.model.js';
 import GroceryShop from '../models/groceryShop.model.js';
 import Restaurant from '../models/restaurant.model.js';
+import GroceryProduct from '../models/groceryProduct.model.js';
+import RestaurantItem from '../models/restaurantItem.model.js';
 
 const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
 const ALL_PANEL_ROLES = ['ADMIN', 'USER', ...SELLER_ROLES];
@@ -281,24 +283,15 @@ export async function verifyEmailController(request, response) {
             user.otpExpires   = null;
             await user.save();
 
-            // Auto-login after verification
-            const accesstoken    = await generatedAccessToken(user._id);
-            const refreshToken   = await generatedRefreshToken(user._id);
-
-            await UserModel.findByIdAndUpdate(user._id, { last_login_date: new Date() });
-
-            const cookiesOption = { httpOnly: true, secure: true, sameSite: "None" };
-            response.cookie('accessToken', accesstoken, cookiesOption);
-            response.cookie('refreshToken', refreshToken, cookiesOption);
+            
 
             return response.status(200).json({
                 error: false,
                 success: true,
-                message: "Email verified successfully! You are now logged in.",
+                memessage: "Email verified successfully! Please login to continue.",
                 data: {
-                    accesstoken,
-                    refreshToken,
                     role: user.role,
+                    redirectTo: "/login",
                     user: {
                         _id: user._id,
                         name: user.name,
@@ -1183,9 +1176,45 @@ export async function getAllReviews(request, response) {
         let productMeta = [];
 
         if (isSellerRole(request.currentUser?.role)) {
-            productMeta = await ProductModel.find({ seller: request.userId })
-                .select('_id name images')
-                .lean();
+            const userRole = request.currentUser?.role;
+            
+            // Get seller's product IDs based on their role
+            if (userRole === 'SELLER') {
+                // Regular marketplace products
+                productMeta = await ProductModel.find({ seller: request.userId })
+                    .select('_id name images')
+                    .lean();
+            } else if (userRole === 'GROCERY_SELLER') {
+                // Get grocery shop owner IDs
+                const ownerIds = (await ShopOwner.find({ userId: request.userId }).select("_id").lean()).map((owner) => owner._id);
+                
+                if (ownerIds.length > 0) {
+                    // Get shop IDs
+                    const shopIds = (await GroceryShop.find({ ownerId: { $in: ownerIds } }).select("_id").lean()).map((shop) => shop._id);
+                    
+                    if (shopIds.length > 0) {
+                        // Get grocery products
+                        productMeta = await GroceryProduct.find({ shopId: { $in: shopIds } })
+                            .select('_id name images')
+                            .lean();
+                    }
+                }
+            } else if (userRole === 'RESTAURANT_SELLER') {
+                // Get restaurant owner IDs
+                const ownerIds = (await ShopOwner.find({ userId: request.userId }).select("_id").lean()).map((owner) => owner._id);
+                
+                if (ownerIds.length > 0) {
+                    // Get restaurant IDs
+                    const restaurantIds = (await Restaurant.find({ ownerId: { $in: ownerIds } }).select("_id").lean()).map((restaurant) => restaurant._id);
+                    
+                    if (restaurantIds.length > 0) {
+                        // Get restaurant items
+                        productMeta = await RestaurantItem.find({ restaurantId: { $in: restaurantIds } })
+                            .select('_id name images')
+                            .lean();
+                    }
+                }
+            }
 
             const sellerProductIds = productMeta.map((product) => String(product._id));
 
@@ -1209,10 +1238,16 @@ export async function getAllReviews(request, response) {
             .lean();
 
         const reviewProductIds = [...new Set(reviews.map((item) => item.productId).filter(Boolean))];
+        
+        // If admin, fetch all product types
         if (!isSellerRole(request.currentUser?.role) && reviewProductIds.length > 0) {
-            productMeta = await ProductModel.find({ _id: { $in: reviewProductIds } })
-                .select('_id name images seller')
-                .lean();
+            const [marketProducts, groceryProducts, restaurantItems] = await Promise.all([
+                ProductModel.find({ _id: { $in: reviewProductIds } }).select('_id name images seller').lean(),
+                GroceryProduct.find({ _id: { $in: reviewProductIds } }).select('_id name images').lean(),
+                RestaurantItem.find({ _id: { $in: reviewProductIds } }).select('_id name images').lean()
+            ]);
+            
+            productMeta = [...marketProducts, ...groceryProducts, ...restaurantItems];
         }
 
         const productMap = new Map(productMeta.map((item) => [String(item._id), item]));
@@ -1532,7 +1567,7 @@ export async function registerSellerController(request, response) {
         
             const {
             name, email, password, mobile, role, marketId,
-            storeName, storeLocation, storeContact, storeDescription, shopBanner,
+            storeName, storeLocation, storeContact, storeDescription, shopBanner, drivingLicense,
             accountHolderName, bankName, accountNumber, ifscCode
         } = request.body;
 
@@ -1614,7 +1649,7 @@ export async function registerSellerController(request, response) {
             },
             riderProfile: sellerRole === 'DELIVERY_RIDER' ? {
                 marketId,
-                drivingLicense: request.body.drivingLicense || "",
+                drivingLicense: drivingLicense || "",
                 isAvailable: true,
             } : undefined,
             bankDetails: {

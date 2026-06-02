@@ -225,6 +225,53 @@ const mapRestaurantOutlet = (r, userId = null, baseUrl = "") => {
   };
 };
 
+export const marketShopSearchSuggestions = async (req, res) => {
+  try {
+    const { marketId } = req.params;
+    if (!isObjectId(marketId)) return sendError(res, "Invalid market id", 400);
+
+    const q = String(req.query.q || req.query.search || "").trim();
+    if (!q) return ok(res, { suggestions: [] });
+
+    // Fetch all shops and restaurants in this market
+    const [groceryShops, restaurants] = await Promise.all([
+      GroceryShop.find({ marketId }).select("shopName address").lean(),
+      Restaurant.find({ marketId }).select("restaurantName address").lean(),
+    ]);
+
+    // Combine outlets with normalized structure
+    const outlets = [
+      ...groceryShops.map(s => ({ 
+        _id: s._id, 
+        name: s.shopName, 
+        address: s.address,
+        type: "grocery" 
+      })),
+      ...restaurants.map(r => ({ 
+        _id: r._id, 
+        name: r.restaurantName, 
+        address: r.address,
+        type: "restaurant" 
+      })),
+    ];
+
+    // Use fuzzy search with typo tolerance
+    const suggestions = rankSuggestions(q, outlets, {
+      limit: 8,
+      getLabel: (o) => o.name,
+    }).map((o) => ({
+      _id: o._id,
+      label: o.name,
+      address: o.address,
+      type: o.type === "restaurant" ? "restaurant" : "shop",
+    }));
+
+    ok(res, { suggestions });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
 export const listMarketOutlets = async (req, res) => {
   try {
     const { marketId } = req.params;
@@ -315,12 +362,13 @@ export const listMarketOutlets = async (req, res) => {
       }));
     }
 
+    // Apply fuzzy search if query exists
     if (search) {
-      outlets = outlets.filter(
-        (o) =>
-          o.displayName?.toLowerCase().includes(search) ||
-          o.address?.toLowerCase().includes(search),
-      );
+      // Use fuzzy matching with typo tolerance
+      outlets = rankSuggestions(search, outlets, {
+        limit: 999, // Don't limit here, we'll paginate later
+        getLabel: (o) => `${o.displayName} ${o.address}`, // Search in both name and address
+      });
     }
     if (minRating > 0) outlets = outlets.filter((o) => (o.rating || 0) >= minRating);
 

@@ -16,6 +16,7 @@ import {
   createProductSize, deleteProductSize, updateProductSize,
   getProductSize, getProductSizeById, uploadBannerImages,
   getAllProductsBanners, filters, sortBy, searchProductController,
+  productSearchSuggestions,
   getSellerProducts, getProductsBySellerPublic, getSellerDashboardStats,
 } from '../controllers/product.controller.js';
 import {
@@ -68,6 +69,7 @@ productRouter.delete('/reviews/:id',     auth, authorizeRole('ADMIN'), deleteRev
 productRouter.post('/filters',    filters);
 productRouter.post('/sortBy',     sortBy);
 productRouter.post('/search/get', searchProductController);
+productRouter.get('/search/suggestions', productSearchSuggestions);
 
 // ─── PRODUCT RAM ──────────────────────────────────────────────────────────────
 productRouter.post('/productRAMS/create', auth, authorizeRole('ADMIN','SELLER','GROCERY_SELLER','RESTAURANT_SELLER'), createProductRAMS);

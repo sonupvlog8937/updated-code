@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import Search from "../Search";
+import SearchModal from "../SearchModal";
 import Badge from "@mui/material/Badge";
 import { styled } from "@mui/material/styles";
 import IconButton from "@mui/material/IconButton";
@@ -554,6 +555,7 @@ const Header = () => {
   const [isOpenCatPanel, setIsOpenCatPanel] = useState(false);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
   const [showSearchBar, setShowSearchBar] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false);
   const [logoUrl, setLogoUrl] = useState(() => {
     try {
       return localStorage.getItem("logo") || "";
@@ -630,6 +632,13 @@ const Header = () => {
   return (
     <>
       <style>{QM_STYLES}</style>
+
+      {/* Search Modal */}
+      <SearchModal
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
+        logoUrl={logoUrl}
+      />
 
       <header className="bg-white fixed lg:sticky left-0 w-full top-0 z-[101]" style={{ backgroundColor: '#fff' }}>
 
@@ -816,13 +825,7 @@ const Header = () => {
                   <Tooltip title="Search Products" arrow>
                     <IconButton
                       aria-label="search"
-                      onClick={() => {
-                        if (isDesktop) {
-                          context?.setOpenSearchPanel(true);
-                        } else {
-                          setShowSearchBar(true);
-                        }
-                      }}
+                      onClick={() => setShowSearchModal(true)}
                       sx={{
                         backgroundColor: "#f8f9fa",
                         width: "36px",

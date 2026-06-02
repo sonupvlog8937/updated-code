@@ -17,6 +17,7 @@ import {
   mapRestaurantItemToAdminProduct,
 } from "../utils/goMarketSellerCatalog.js";
 import { normalizeSpecifications } from "../utils/productSpecs.js";
+import { rankSuggestions } from "../utils/searchSuggest.js";
 
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
@@ -2035,6 +2036,62 @@ export async function sortBy(request, response) {
   const { products, sortBy, order } = request.body;
   const sortedItems = sortItems([...products?.products], sortBy, order);
   return response.status(200).json({ error: false, success: true, products: sortedItems, totalPages: 0, page: 0 });
+}
+
+// Product search suggestions with fuzzy matching
+export async function productSearchSuggestions(request, response) {
+  try {
+    const { q } = request.query;
+    const query = String(q || "").trim();
+
+    if (!query || query.length < 2) {
+      return response.status(200).json({ 
+        error: false, 
+        success: true, 
+        suggestions: [] 
+      });
+    }
+
+    // Fetch products with basic search
+    const products = await ProductModel.find({
+      $or: [
+        { name: new RegExp(query, "i") },
+        { brand: new RegExp(query, "i") },
+        { keywords: new RegExp(query, "i") },
+        { catName: new RegExp(query, "i") },
+        { subCat: new RegExp(query, "i") },
+      ]
+    })
+    .select("name brand catName subCat image price discount")
+    .limit(200)
+    .lean();
+
+    // Use fuzzy matching to rank suggestions
+    const suggestions = rankSuggestions(query, products, {
+      limit: 8,
+      getLabel: (p) => p.name,
+    }).map((p) => ({
+      _id: p._id,
+      name: p.name,
+      brand: p.brand,
+      category: p.catName || p.subCat,
+      image: p.image,
+      price: p.price,
+      discount: p.discount,
+    }));
+
+    return response.status(200).json({
+      error: false,
+      success: true,
+      suggestions,
+    });
+  } catch (error) {
+    return response.status(500).json({ 
+      message: error.message || error, 
+      error: true, 
+      success: false 
+    });
+  }
 }
 
 export async function searchProductController(request, response) {

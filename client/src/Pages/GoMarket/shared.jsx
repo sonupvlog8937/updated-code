@@ -143,19 +143,96 @@ export const useMyLocation = (onCoords) => {
 
 export const CatalogToolbar = ({
   search, setSearch, onSearch, sort, setSort, sortOptions,
-  filters, children,
+  filters, children, searchRef, suggestions, showSuggestions, suggestionsLoading, onSuggestionClick,
+  activeFiltersCount,
 }) => (
   <div className="gmp-toolbar">
-    <form onSubmit={onSearch} style={{ display: "flex", flex: 1, gap: 8, minWidth: 200 }}>
-      <div className="gmp-input-wrap" style={{ flex: 1 }}>
+    <form onSubmit={onSearch} style={{ display: "flex", flex: 1, gap: 8, minWidth: 200, position: "relative" }}>
+      <div ref={searchRef} className="gmp-input-wrap" style={{ flex: 1, position: "relative" }}>
         <span className="gmp-input-icon">🔍</span>
-        <input className="gmp-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" />
+        <input 
+          className="gmp-input" 
+          value={search} 
+          onChange={(e) => setSearch(e.target.value)} 
+          placeholder="Search shops & restaurants…"
+          autoComplete="off"
+        />
+        
+        {/* Suggestions Dropdown */}
+        {showSuggestions && (suggestions.length > 0 || suggestionsLoading) && (
+          <div style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            borderRadius: "12px",
+            marginTop: "4px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+            zIndex: 1000,
+            maxHeight: "320px",
+            overflowY: "auto",
+          }}>
+            {suggestionsLoading ? (
+              <div style={{ padding: "12px 16px", color: "#94a3b8", fontSize: "13px" }}>
+                Searching...
+              </div>
+            ) : (
+              suggestions.map((s) => (
+                <div
+                  key={s._id}
+                  onClick={() => onSuggestionClick && onSuggestionClick(s)}
+                  style={{
+                    padding: "10px 16px",
+                    cursor: "pointer",
+                    borderBottom: "1px solid #f1f5f9",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "#f8fafc"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "#fff"}
+                >
+                  <div style={{ fontSize: "14px", fontWeight: 600, color: "#0f172a" }}>
+                    {s.type === "restaurant" ? "🍽️" : "🛒"} {s.label}
+                  </div>
+                  {s.address && (
+                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                      {s.address}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
       <button type="submit" className="gmp-btn gmp-btn-primary">Search</button>
     </form>
-    <select className="gmp-select" style={{ width: "auto", minWidth: 160, paddingLeft: 12 }} value={sort} onChange={(e) => setSort(e.target.value)}>
-      {sortOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
+    <div style={{ position: "relative" }}>
+      <select className="gmp-select" style={{ width: "auto", minWidth: 160, paddingLeft: 12 }} value={sort} onChange={(e) => setSort(e.target.value)}>
+        {sortOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      {activeFiltersCount > 0 && (
+        <span style={{
+          position: "absolute",
+          top: -6,
+          right: -6,
+          background: "#dc2626",
+          color: "#fff",
+          fontSize: 10,
+          fontWeight: 700,
+          width: 18,
+          height: 18,
+          borderRadius: "50%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "2px solid #fff",
+        }}>
+          {activeFiltersCount}
+        </span>
+      )}
+    </div>
     {filters}
     {children}
   </div>

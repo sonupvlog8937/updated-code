@@ -22,20 +22,73 @@ const GoMarketMarket = () => {
   const dispatch = useDispatch();
   const isLogin = useSelector((s) => s.app.isLogin);
   
+  // Get URL search params to restore filters
+  const [searchParams, setSearchParams] = React.useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      type: params.get("type") || "all",
+      sort: params.get("sort") || "rating",
+      openOnly: params.get("openOnly") === "true",
+      minRating: Number(params.get("minRating") || 0),
+      search: params.get("search") || "",
+    };
+  });
+  
   const [market, setMarket] = useState(null);
   const [outlets, setOutlets] = useState([]);
   const [counts, setCounts] = useState({ grocery: 0, restaurant: 0 });
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.search);
   const debouncedSearch = useDebouncedValue(search, 350);
-  const [sort, setSort] = useState("rating");
-  const [type, setType] = useState("all");
-  const [openOnly, setOpenOnly] = useState(false);
-  const [minRating, setMinRating] = useState(0);
+  const [sort, setSort] = useState(searchParams.sort);
+  const [type, setType] = useState(searchParams.type);
+  const [openOnly, setOpenOnly] = useState(searchParams.openOnly);
+  const [minRating, setMinRating] = useState(searchParams.minRating);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ totalPages: 1, total: 0 });
   const [loadingMore, setLoadingMore] = useState(false);
   const limit = 12;
+
+  // Shop suggestions state
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const searchRef = React.useRef(null);
+
+  // Update URL params when filters change
+  React.useEffect(() => {
+    const params = new URLSearchParams();
+    if (type !== "all") params.set("type", type);
+    if (sort !== "rating") params.set("sort", sort);
+    if (openOnly) params.set("openOnly", "true");
+    if (minRating > 0) params.set("minRating", String(minRating));
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    
+    const newSearch = params.toString();
+    const currentSearch = window.location.search.slice(1);
+    if (newSearch !== currentSearch) {
+      navigate(`/go-market/market/${marketId}${newSearch ? `?${newSearch}` : ""}`, { replace: true });
+    }
+  }, [type, sort, openOnly, minRating, debouncedSearch, marketId, navigate]);
+
+  // Count active filters
+  const activeFiltersCount = React.useMemo(() => {
+    let count = 0;
+    if (type !== "all") count++;
+    if (openOnly) count++;
+    if (minRating > 0) count++;
+    if (debouncedSearch) count++;
+    return count;
+  }, [type, openOnly, minRating, debouncedSearch]);
+
+  // Clear all filters
+  const clearFilters = () => {
+    setType("all");
+    setOpenOnly(false);
+    setMinRating(0);
+    setSearch("");
+    setSort("rating");
+  };
 
   // Redirect to login if not logged in
   useEffect(() => {
@@ -81,6 +134,45 @@ const GoMarketMarket = () => {
     load(1, false);
   }, [load]);
 
+  // Fetch shop suggestions with debounced search
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (!search.trim() || search.length < 2) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+
+      setSuggestionsLoading(true);
+      try {
+        const params = new URLSearchParams({ q: search });
+        const url = `/api/go-market/markets/${marketId}/shop-suggestions?${params}`;
+        const res = await fetchDataFromApi(url);
+        if (res?.success) {
+          setSuggestions(res.suggestions || []);
+          setShowSuggestions(true);
+        }
+      } catch (error) {
+        console.error("Failed to fetch suggestions:", error);
+      } finally {
+        setSuggestionsLoading(false);
+      }
+    };
+
+    fetchSuggestions();
+  }, [search, marketId]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const hasMore = page < (pagination.totalPages || 1);
   const marketSentinel = useInfiniteScroll({
     enabled: true,
@@ -91,7 +183,19 @@ const GoMarketMarket = () => {
 
   const onSearch = (e) => {
     e.preventDefault();
+    setShowSuggestions(false);
     load(1, false);
+  };
+
+  const handleSuggestionClick = (suggestion) => {
+    setSearch(suggestion.label);
+    setShowSuggestions(false);
+    
+    // Navigate to the shop
+    const path = suggestion.type === "restaurant"
+      ? `/go-market/restaurant/${suggestion._id}`
+      : `/go-market/shop/${suggestion._id}`;
+    navigate(path);
   };
 
   const handleFollow = async (e, outlet) => {
@@ -155,6 +259,23 @@ const GoMarketMarket = () => {
               {t.l}
             </button>
           ))}
+          
+          {/* Clear filters button */}
+          {activeFiltersCount > 0 && (
+            <button
+              type="button"
+              className="gmp-chip"
+              style={{ 
+                background: "#fee2e2", 
+                color: "#dc2626", 
+                borderColor: "#fecaca",
+                fontWeight: 700 
+              }}
+              onClick={clearFilters}
+            >
+              ✕ Clear {activeFiltersCount} filter{activeFiltersCount > 1 ? "s" : ""}
+            </button>
+          )}
         </div>
 
         <CatalogToolbar
@@ -164,6 +285,12 @@ const GoMarketMarket = () => {
           sort={sort}
           setSort={(v) => { setSort(v); }}
           sortOptions={SORT_OPTIONS}
+          searchRef={searchRef}
+          suggestions={suggestions}
+          showSuggestions={showSuggestions}
+          suggestionsLoading={suggestionsLoading}
+          onSuggestionClick={handleSuggestionClick}
+          activeFiltersCount={activeFiltersCount}
           filters={(
             <>
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600 }}>

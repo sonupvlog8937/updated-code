@@ -333,7 +333,7 @@ const styles = `
   }
 `;
 
-const Search = () => {
+const Search = ({ onSearchComplete, inputRef: externalInputRef }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -350,7 +350,7 @@ const Search = () => {
   const STORAGE_KEY = "recent_searches_v1";
   const searchWrapperRef = useRef(null);
   const debounceTimeoutRef = useRef(null);
-  const inputRef = useRef(null);
+  const inputRef = externalInputRef || useRef(null);
 
   const normalizedSuggestions = useMemo(() => {
     return querySuggestions
@@ -388,6 +388,7 @@ const Search = () => {
       setTimeout(() => {
         setIsLoading(false);
         context?.setOpenSearchPanel(false);
+        onSearchComplete?.(); // Call callback if provided
         history(`/search?query=${encodeURIComponent(trimmedQuery)}&page=1`);
       }, 500);
     });
@@ -444,13 +445,20 @@ const Search = () => {
       return;
     }
     debounceTimeoutRef.current = setTimeout(() => {
-      postData(`/api/product/search/get`, { page: 1, limit: 8, query: searchQuery.trim() }).then((res) => {
-        setQuerySuggestions(res?.suggestions || []);
-        setSuggestedProducts(res?.suggestionProducts || []);
-        setSuggestedCorrection(res?.correctedQuery || "");
-        setAiHintSummary(res?.aiInsights?.summary || "");
-        setAiHintHighlights((res?.aiInsights?.highlights || []).slice(0, 2));
-      });
+      // Use lightweight suggestions endpoint with fuzzy matching
+      fetch(`/api/product/search/suggestions?q=${encodeURIComponent(searchQuery.trim())}`)
+        .then(res => res.json())
+        .then((data) => {
+          if (data.success && data.suggestions) {
+            // Extract product names for quick suggestions
+            const productNames = data.suggestions.map(s => s.name);
+            setQuerySuggestions(productNames || []);
+            setSuggestedProducts(data.suggestions || []);
+          }
+        })
+        .catch((err) => {
+          console.error("Suggestion fetch error:", err);
+        });
     }, 300);
     return () => clearTimeout(debounceTimeoutRef.current);
   }, [searchQuery]);

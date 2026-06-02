@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import SearchBox from '../../Components/SearchBox';
-import { deleteData, editData, fetchDataFromApi } from '../../utils/api';
+import { deleteData, editData, fetchDataFromApi, postData } from '../../utils/api';
 import Pagination from "@mui/material/Pagination";
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
@@ -41,6 +41,44 @@ const STYLES = `
 }
 .ao-topbar-sub { font-size: 12px; color: #9ca3af; font-weight: 500; margin: 0; }
 .ao-search-wrap { flex: 1; max-width: 320px; min-width: 200px; }
+.ao-refresh-btn {
+  background: #f0f0f7;
+  border: 1px solid #e0e0e7;
+  border-radius: 10px;
+  padding: 10px 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ao-refresh-btn:hover {
+  background: #e8e8ef;
+  border-color: #d0d0d7;
+  transform: translateY(-1px);
+}
+.ao-refresh-btn:active {
+  transform: translateY(0);
+}
+.ao-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+.ao-refresh-icon {
+  font-size: 16px;
+  display: inline-flex;
+}
+.ao-refresh-icon.spinning {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
 
 /* ── Stats strip ── */
 .ao-stats {
@@ -881,8 +919,8 @@ const isSellerView = isSellerRole(context?.userData?.role);
   const isDeliveryRider = context?.userData?.role === "DELIVERY_RIDER";
   const isGrocerySeller = context?.userData?.role === "GROCERY_SELLER";
   const isRestaurantSeller = context?.userData?.role === "RESTAURANT_SELLER";
-  const ordersListEndpoint = isDeliveryRider 
-    ? "/api/order/rider/assigned-orders" 
+  const ordersListEndpoint = isDeliveryRider
+    ? "/api/order/rider/orders"
     : isSellerView 
       ? "/api/order/seller/orders" 
       : "/api/order/order-list";
@@ -927,6 +965,44 @@ const isSellerView = isSellerRole(context?.userData?.role);
         });
       } else context.alertBox('error', res?.data?.message || 'Could not assign order');
     }).finally(() => setAssigningOrderId(null));
+  };
+
+  const refreshOrders = () => {
+    fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=5`).then((res) => {
+      if (res?.error === false) { setOrdersData(res?.data || []); setOrders(res); }
+    });
+    fetchDataFromApi(`${ordersListEndpoint}`).then((res) => {
+      if (res?.error === false) setTotalOrdersData(res);
+    });
+  };
+
+  const confirmAssignedOrder = (orderId) => {
+    editData(`/api/order/rider/orders/${orderId}/confirm`, {}).then((res) => {
+      if (res?.data?.success || res?.data?.error === false) {
+        context.alertBox('success', res?.data?.message || 'Order confirmed for delivery');
+        refreshOrders();
+      } else context.alertBox('error', res?.data?.message || 'Could not confirm order');
+    });
+  };
+
+  const sendOtpAndDeliver = async (orderId) => {
+    const sent = await postData(`/api/order/rider/orders/${orderId}/send-otp`, {});
+    if (sent?.error === true) return context.alertBox('error', sent?.message || 'Could not send delivery OTP');
+    context.alertBox('success', sent?.message || 'OTP sent to customer email');
+    const otp = window.prompt('Enter the OTP received by customer to mark this order delivered');
+    if (!otp) return;
+    editData(`/api/order/rider/orders/${orderId}/deliver`, { otp }).then((res) => {
+      if (res?.data?.success || res?.data?.error === false) {
+        context.alertBox('success', res?.data?.message || 'Order delivered and ₹20 earning credited');
+        refreshOrders();
+      } else context.alertBox('error', res?.data?.message || 'Delivery OTP verification failed');
+    });
+  };
+
+  const callCustomer = (order) => {
+    const phone = order?.delivery_address?.mobile || order?.userId?.mobile;
+    if (!phone) return context.alertBox('error', 'Customer phone number is not available');
+    window.location.href = `tel:${phone}`;
   };
 
   const handleReturnRefundUpdate = (id, mode) => {
@@ -1025,6 +1101,15 @@ const isSellerView = isSellerRole(context?.userData?.role);
            <h2 className="ao-topbar-title">{ordersTitle}</h2>
             <p className="ao-topbar-sub">{ordersSubtitle}</p>
           </div>
+          <button 
+            className="ao-refresh-btn" 
+            onClick={refreshOrders}
+            disabled={false}
+            title="Refresh orders"
+          >
+            <span className="ao-refresh-icon">🔄</span>
+            Refresh
+          </button>
           <div className="ao-search-wrap">
             <SearchBox
               searchQuery={searchQuery}
@@ -1146,6 +1231,7 @@ const isSellerView = isSellerRole(context?.userData?.role);
                             value={order?.order_status || "pending"}
                             size="small"
                             className="ao-status-sel"
+                            disabled={isDeliveryRider}
                             onChange={(e) => handleChange(e, order._id)}
                             sx={{
                               minWidth: 120,
@@ -1192,19 +1278,33 @@ const isSellerView = isSellerRole(context?.userData?.role);
                             {(isGrocerySeller || isRestaurantSeller || context?.userData?.role === "ADMIN") && order?.order_status !== "delivered" && (
                               <Select size="small" displayEmpty value={order?.deliveryAssignment?.riderId?._id || order?.deliveryAssignment?.riderId || ""} onChange={(e) => assignRider(order._id, e.target.value)} disabled={assigningOrderId === order._id} sx={{ minWidth: 150, fontSize: 11, background: '#eef2ff', borderRadius: '8px' }}>
                                 <MenuItem value="" disabled>{order?.deliveryAssignment?.riderId ? 'Assigned rider' : 'Assign rider'}</MenuItem>
-                                {riders.map((r) => <MenuItem key={r._id} value={r._id}>{r.name} · ₹{Number(r.wallet?.availableBalance || 0).toFixed(0)}</MenuItem>)}
+                                {riders.map((r) => <MenuItem key={r._id} value={r._id}>{r.name}</MenuItem>)}
                               </Select>
                             )}
                             {order?.deliveryAssignment?.status && <span className="ao-badge ao-badge-online">Rider: {order.deliveryAssignment.status}</span>}
+                            {isDeliveryRider && (
+                              <>
+                                <button className="ao-receipt-btn" onClick={() => callCustomer(order)}>📞 Call Customer</button>
+                                {order?.deliveryAssignment?.status === "assigned" && (
+                                  <button className="ao-receipt-btn" onClick={() => confirmAssignedOrder(order._id)}>✅ Confirm Order</button>
+                                )}
+                                {order?.deliveryAssignment?.status !== "delivered" && order?.deliveryAssignment?.status !== "assigned" && (
+                                  <button className="ao-receipt-btn" onClick={() => sendOtpAndDeliver(order._id)}>📬 Deliver with OTP</button>
+                                )}
+                                <span className="ao-badge ao-badge-online">Earning: ₹{Number(order?.deliveryAssignment?.earningAmount || 20).toFixed(0)}</span>
+                              </>
+                            )}
                             {order?.returnRequest?.requested && order?.refund?.status !== "processed" && (
                               <>
                                 <button className="ao-receipt-btn" onClick={() => handleReturnRefundUpdate(order._id, "approve")}>↩️ Approve Return</button>
                                 <button className="ao-receipt-btn" onClick={() => handleReturnRefundUpdate(order._id, "refund")}>💸 Mark Refund</button>
                               </>
                             )}
-                            <button className="ao-del" onClick={() => deleteOrder(order._id)}>
-                              🗑 Delete
-                            </button>
+                            {context?.userData?.role === "ADMIN" && (
+                              <button className="ao-del" onClick={() => deleteOrder(order._id)}>
+                                🗑 Delete
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
