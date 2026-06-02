@@ -27,6 +27,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import { fetchDataFromApi } from "./utils/api";
 import Profile from "./Pages/Profile";
 import ProductDetails from "./Pages/Products/productDetails";
+import ProductViewer from "./Pages/Products/ProductViewer";
 import AddRAMS from "./Pages/Products/addRAMS";
 import AddWeight from "./Pages/Products/addWeight";
 import AddSize from "./Pages/Products/addSize";
@@ -296,14 +297,13 @@ function App() {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [sidebarWidth, setSidebarWidth] = useState(18);
   const [progress, setProgress] = useState(0);
-  const [isAppLoading, setIsAppLoading] = useState(true); // ← global loader state
+  const [isAppLoading, setIsAppLoading] = useState(true);
 
   const [isOpenFullScreenPanel, setIsOpenFullScreenPanel] = useState({
     open: false,
     id: '',
   });
 
-  /* ── Window resize ── */
   useEffect(() => {
     localStorage.removeItem('userEmail');
     if (windowWidth < 992) {
@@ -314,7 +314,6 @@ function App() {
     }
   }, [windowWidth]);
 
-  /* ── Disable right-click for non-admins ── */
   useEffect(() => {
     if (userData?.role !== 'ADMIN') {
       const handler = (e) => e.preventDefault();
@@ -323,20 +322,18 @@ function App() {
     }
   }, [userData]);
 
-  /* ── Toast helper ── */
   const alertBox = (type, msg) => {
     if (type === 'success') toast.success(msg);
     if (type === 'error') toast.error(msg);
   };
 
-  /* ── Auth check + user fetch ── */
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (token) {
       setIsLogin(true);
       fetchDataFromApi('/api/user/user-details').then((res) => {
         setUserData(res.data);
-        setIsAppLoading(false); // ← hide loader after user data arrives
+        setIsAppLoading(false);
         if (res?.response?.data?.message === 'You have not login') {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
@@ -346,11 +343,10 @@ function App() {
       });
     } else {
       setIsLogin(false);
-      setIsAppLoading(false); // ← no token → hide loader immediately
+      setIsAppLoading(false);
     }
   }, [isLogin]);
 
-  /* ── Category fetch + resize listener ── */
   useEffect(() => {
     getCat();
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -362,7 +358,6 @@ function App() {
     fetchDataFromApi('/api/category').then((res) => setCatData(res?.data));
   };
 
-  /* ── Context values ── */
   const values = {
     isSidebarOpen, setisSidebarOpen,
     isLogin, setIsLogin,
@@ -376,32 +371,22 @@ function App() {
     setProgress, progress,
   };
 
-  /* ── Shared layout props ── */
   const wp = { isSidebarOpen, windowWidth, sidebarWidth };
 
-  /* ── Routes that DON'T need seller/admin role check ── */
   const publicRoutes = ['/login', '/sign-up', '/forgot-password', '/verify-account', '/change-password'];
 
-  /* ── Seller guard: user signed up but not yet given proper role ── */
-  // A user is "pending seller" when they are logged in but don't have an allowed role
-  // i.e. they used the sign-up flow but admin hasn't approved them yet.
-  // We only show the pending screen on protected (dashboard) routes.
   const isSellerPending = (
     userData !== null &&
     !isAllowedRole(userData?.role)
   );
 
-  /* ── Router ── */
   const router = createBrowserRouter([
-    // ── Public / auth routes ──
     { path: '/login', element: <Login /> },
     { path: '/sign-up', element: <SignUp /> },
     { path: '/forgot-password', element: <ForgotPassword /> },
     { path: '/verify-account', element: <VerifyAccount /> },
     { path: '/change-password', element: <ChangePassword /> },
 
-    // ── Protected routes — wrapped in PageWrapper ──
-    // Dashboard (accessible to all roles that pass the guard)
     {
       path: '/',
       element: (
@@ -411,7 +396,6 @@ function App() {
       ),
     },
 
-    // Products — SELLER & ADMIN
     {
       path: '/products',
       element: (
@@ -425,6 +409,14 @@ function App() {
       element: (
         <PageWrapper {...wp}>
           <ProductDetails />
+        </PageWrapper>
+      ),
+    },
+    {
+      path: '/product-viewer/:id',
+      element: (
+        <PageWrapper {...wp}>
+          <ProductViewer />
         </PageWrapper>
       ),
     },
@@ -453,7 +445,6 @@ function App() {
       ),
     },
 
-    // Orders — SELLER & ADMIN
     {
       path: '/orders',
       element: (
@@ -463,7 +454,6 @@ function App() {
       ),
     },
 
-    // Users — ADMIN only (the Users component itself handles the guard internally)
     {
       path: '/users',
       element: (
@@ -481,7 +471,6 @@ function App() {
       ),
     },
 
-    // Reviews
     {
       path: '/reviews',
       element: (
@@ -491,7 +480,6 @@ function App() {
       ),
     },
 
-    //Coupon
     {
       path: '/coupons',
       element: (
@@ -501,7 +489,6 @@ function App() {
       ),
     },
 
-    // Categories
     {
       path: '/category/list',
       element: (
@@ -519,7 +506,6 @@ function App() {
       ),
     },
 
-    // Banners
     {
       path: '/homeSlider/list',
       element: (
@@ -562,7 +548,6 @@ function App() {
       ),
     },
 
-    // GoMarket Seller Profiles
     {
       path: "/seller/go-market/shop",
       element: (
@@ -580,7 +565,6 @@ function App() {
       ),
     },
 
-    // Seller specific
     {
       path: '/seller/store-profile',
       element: (
@@ -606,7 +590,6 @@ function App() {
       ),
     },
 
-    // Blog
     {
       path: '/blog/list',
       element: (
@@ -624,7 +607,6 @@ function App() {
       ),
     },
 
-    // Profile
     {
       path: '/profile',
       element: (
@@ -634,7 +616,6 @@ function App() {
       ),
     },
 
-    // Logo / Manage
     {
       path: '/manageLogo',
       element: (
@@ -653,19 +634,15 @@ function App() {
     },
   ]);
 
-  /* ── Render ── */
   return (
     <MyContext.Provider value={values}>
 
-      {/* ── 1. Global App Loader ── */}
       {isAppLoading && <GlobalLoader />}
 
-      {/* ── 2. Seller Pending Guard ── */}
       {!isAppLoading && isSellerPending && isLogin && (
         <SellerPendingScreen userData={userData} />
       )}
 
-      {/* ── 3. Normal App ── */}
       {!isAppLoading && (!isLogin || !isSellerPending) && (
         <RouterProvider router={router} />
       )}
@@ -695,4 +672,3 @@ function App() {
 
 export default App;
 export { MyContext };
-

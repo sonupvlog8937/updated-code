@@ -1186,7 +1186,7 @@ export async function getAllReviews(request, response) {
                     .lean();
             } else if (userRole === 'GROCERY_SELLER') {
                 // Get grocery shop owner IDs
-                const ownerIds = (await ShopOwner.find({ userId: request.userId }).select("_id").lean()).map((owner) => owner._id);
+                const ownerIds = (await ShopOwner.find({ $or: [{ userId: request.userId }, { email: request.currentUser?.email }] }).select("_id").lean()).map((owner) => owner._id);
                 
                 if (ownerIds.length > 0) {
                     // Get shop IDs
@@ -1195,13 +1195,13 @@ export async function getAllReviews(request, response) {
                     if (shopIds.length > 0) {
                         // Get grocery products
                         productMeta = await GroceryProduct.find({ shopId: { $in: shopIds } })
-                            .select('_id name images')
+                             .select('_id name image images')
                             .lean();
                     }
                 }
             } else if (userRole === 'RESTAURANT_SELLER') {
                 // Get restaurant owner IDs
-                const ownerIds = (await ShopOwner.find({ userId: request.userId }).select("_id").lean()).map((owner) => owner._id);
+                const ownerIds = (await ShopOwner.find({ $or: [{ userId: request.userId }, { email: request.currentUser?.email }] }).select("_id").lean()).map((owner) => owner._id);
                 
                 if (ownerIds.length > 0) {
                     // Get restaurant IDs
@@ -1210,7 +1210,7 @@ export async function getAllReviews(request, response) {
                     if (restaurantIds.length > 0) {
                         // Get restaurant items
                         productMeta = await RestaurantItem.find({ restaurantId: { $in: restaurantIds } })
-                            .select('_id name images')
+                            .select('_id itemName image images')
                             .lean();
                     }
                 }
@@ -1243,8 +1243,8 @@ export async function getAllReviews(request, response) {
         if (!isSellerRole(request.currentUser?.role) && reviewProductIds.length > 0) {
             const [marketProducts, groceryProducts, restaurantItems] = await Promise.all([
                 ProductModel.find({ _id: { $in: reviewProductIds } }).select('_id name images seller').lean(),
-                GroceryProduct.find({ _id: { $in: reviewProductIds } }).select('_id name images').lean(),
-                RestaurantItem.find({ _id: { $in: reviewProductIds } }).select('_id name images').lean()
+                GroceryProduct.find({ _id: { $in: reviewProductIds } }).select('_id name image images').lean(),
+                RestaurantItem.find({ _id: { $in: reviewProductIds } }).select('_id itemName image images').lean()
             ]);
             
             productMeta = [...marketProducts, ...groceryProducts, ...restaurantItems];
@@ -1253,8 +1253,8 @@ export async function getAllReviews(request, response) {
         const productMap = new Map(productMeta.map((item) => [String(item._id), item]));
         const reviewsWithProduct = reviews.map((item) => ({
             ...item,
-            productName: productMap.get(item.productId)?.name || 'Product',
-            productImage: productMap.get(item.productId)?.images?.[0] || ''
+            productName: productMap.get(item.productId)?.name || productMap.get(item.productId)?.itemName || 'Product',
+            productImage: productMap.get(item.productId)?.images?.[0] || productMap.get(item.productId)?.image || ''
         }));
 
         return response.status(200).json({

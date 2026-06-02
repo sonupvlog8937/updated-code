@@ -399,7 +399,10 @@ export async function uploadBannerImages(request, response) {
 export async function createProduct(request, response) {
   try {
     const role = await resolveRequestRole(request);
-    const imageUrl = imagesArr[0] || request.body.images?.[0] || request.body.image || "";
+    const requestImages = Array.isArray(request.body.images) ? request.body.images.filter(Boolean) : [];
+    const uploadedImages = Array.isArray(imagesArr) ? imagesArr.filter(Boolean) : [];
+    const imageList = [...new Set([...uploadedImages, ...requestImages, request.body.image].filter(Boolean))];
+    const imageUrl = imageList[0] || "";
 
     if (role === "GROCERY_SELLER") {
       const shop = await getSellerGroceryShop(request.userId, request.currentUser.email);
@@ -418,6 +421,7 @@ export async function createProduct(request, response) {
         specifications: normalizeSpecifications(request.body.specifications),
         productOptions: request.body.productOptions || [],
         image: imageUrl,
+        images: imageList,
         categoryId: request.body.goMarketCategoryId || request.body.categoryId || null,
         subCategoryId: request.body.goMarketSubCategoryId || request.body.subCategoryId || null,
         price: Number(request.body.price || 0),
@@ -455,6 +459,7 @@ export async function createProduct(request, response) {
         specifications: normalizeSpecifications(request.body.specifications),
         productOptions: request.body.productOptions || [],
         image: imageUrl,
+        images: imageList,
         categoryId: request.body.goMarketCategoryId || request.body.categoryId || null,
         subCategoryId: request.body.goMarketSubCategoryId || request.body.subCategoryId || null,
         price: Number(request.body.price || 0),
@@ -1387,7 +1392,8 @@ export async function removeImageFromCloudinary(request, response) {
 //updated product
 export async function updateProduct(request, response) {
   try {
-    const imageUrl = request.body.images?.[0] || request.body.image || "";
+    const incomingImages = Array.isArray(request.body.images) ? request.body.images.filter(Boolean) : [];
+    const imageUrl = incomingImages[0] || request.body.image || "";
 
     if (request.currentUser?.role === "GROCERY_SELLER") {
       const owned = await assertSellerOwnsGroceryProduct(
@@ -1410,6 +1416,7 @@ export async function updateProduct(request, response) {
             productOptions: request.body.productOptions !== undefined ? request.body.productOptions : owned.product.productOptions,
           description: request.body.description,
           image: imageUrl || owned.product.image,
+          images: incomingImages.length ? incomingImages : (owned.product.images || (owned.product.image ? [owned.product.image] : [])),
           categoryId: request.body.goMarketCategoryId || request.body.categoryId || owned.product.categoryId,
           subCategoryId: request.body.goMarketSubCategoryId || request.body.subCategoryId || owned.product.subCategoryId,
           price: Number(request.body.price ?? owned.product.price),
@@ -1448,6 +1455,7 @@ export async function updateProduct(request, response) {
             productOptions: request.body.productOptions !== undefined ? request.body.productOptions : owned.item.productOptions,
           description: request.body.description,
           image: imageUrl || owned.item.image,
+          images: incomingImages.length ? incomingImages : (owned.item.images || (owned.item.image ? [owned.item.image] : [])),
           categoryId: request.body.goMarketCategoryId || request.body.categoryId || owned.item.categoryId,
           subCategoryId: request.body.goMarketSubCategoryId || request.body.subCategoryId || owned.item.subCategoryId,
           price: Number(request.body.price ?? owned.item.price),

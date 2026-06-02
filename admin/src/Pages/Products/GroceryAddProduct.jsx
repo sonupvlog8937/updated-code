@@ -130,6 +130,7 @@ const GroceryAddProduct = () => {
       discountPrice: Number(sellingPrice),
       stock: Number(form.countInStock),
       image: previews[0],
+      images: previews,
       categoryId: categoryId || undefined,
       subCategoryId: subCategoryId || undefined,
       isFeatured: form.isFeatured === 'yes',

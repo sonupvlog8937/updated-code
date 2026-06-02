@@ -414,7 +414,7 @@ export const Products = () => {
                                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     </div>
                                                     <div style={{ maxWidth: 180 }}>
-                                                        <Link to={`/product/${product._id}`}>
+                                                        <Link to={`/product-viewer/${product._id}`}>
                                                             <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                                                                 {product?.name}
                                                             </div>
@@ -502,7 +502,7 @@ export const Products = () => {
                                                         </IconButton>
                                                     </Tooltip>
                                                     <Tooltip title="View" arrow>
-                                                        <Link to={`/product/${product._id}`}>
+                                                        <Link to={`/product-viewer/${product._id}`}>
                                                             <IconButton size="small"
                                                                 sx={{ background: '#eff6ff', color: '#2563eb', borderRadius: 1.5, width: 30, height: 30, '&:hover': { background: '#dbeafe' } }}>
                                                                 <FaRegEye size={13} />

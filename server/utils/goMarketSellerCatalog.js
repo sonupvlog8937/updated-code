@@ -6,6 +6,12 @@ import Restaurant from "../models/restaurant.model.js";
 import RestaurantMenu from "../models/restaurantMenu.model.js";
 import RestaurantItem from "../models/restaurantItem.model.js";
 
+const normalizedImages = (entity = {}) => {
+  const list = Array.isArray(entity.images) ? entity.images.filter(Boolean) : [];
+  if (entity.image && !list.includes(entity.image)) list.unshift(entity.image);
+  return [...new Set(list)];
+};
+
 export const getSellerOwnerIds = async (userId, email) => {
   const owners = await ShopOwner.find({
     $or: [{ userId }, { email }],
@@ -44,10 +50,11 @@ export const mapGroceryProductToAdminProduct = (product) => ({
   specifications: normalizeSpecifications(product.specifications),
   productOptions: product.productOptions || [],
   description: product.description || "",
-  images: product.image ? [product.image] : [],
+  images: normalizedImages(product),
   price: product.price,
   oldPrice: product.discountPrice || product.price,
   countInStock: product.stock ?? 0,
+  isFeatured: product.isFeatured || false,
   categoryId: product.categoryId?._id || product.categoryId || null,
   subCategoryId: product.subCategoryId?._id || product.subCategoryId || null,
   shopId: product.shopId?._id || product.shopId,
@@ -62,11 +69,12 @@ export const mapRestaurantItemToAdminProduct = (item) => ({
   specifications: normalizeSpecifications(item.specifications),
   productOptions: item.productOptions || [],
   description: item.description || "",
-  images: item.image ? [item.image] : [],
+  images: normalizedImages(item),
   price: item.price,
   oldPrice: item.discountPrice || item.price,
   countInStock: item.isAvailable === false ? 0 : 999,
   isAvailable: item.isAvailable !== false,
+  isFeatured: item.isFeatured || false,
   categoryId: item.categoryId?._id || item.categoryId || null,
   subCategoryId: item.subCategoryId?._id || item.subCategoryId || null,
   restaurantId: item.restaurantId?._id || item.restaurantId,

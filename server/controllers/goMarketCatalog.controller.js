@@ -66,6 +66,7 @@ const mapProductRow = (p, baseUrl, reviewStats = null) => {
   return {
     ...p,
     image: resolveMediaUrl(p.image, baseUrl),
+    images: (Array.isArray(p.images) && p.images.length ? p.images : (p.image ? [p.image] : [])).map((image) => resolveMediaUrl(image, baseUrl)).filter(Boolean),
     price: selling,
     discountPrice: p.discountPrice,
     mrp: p.price,
@@ -693,6 +694,12 @@ const buildSpecs = (entity, category, subCategory, extra = []) =>
     ...extra,
   ]);
 
+  const resolveProductImages = (entity, baseUrl) => {
+  const raw = Array.isArray(entity?.images) ? entity.images.filter(Boolean) : [];
+  if (entity?.image && !raw.includes(entity.image)) raw.unshift(entity.image);
+  return [...new Set(raw)].map((image) => resolveMediaUrl(image, baseUrl)).filter(Boolean);
+};
+
 export const getGroceryProductStorefront = async (req, res) => {
   try {
     const { id } = req.params;
@@ -730,11 +737,11 @@ export const getGroceryProductStorefront = async (req, res) => {
 
     const mergedSpecs = buildSpecs(product, product.categoryId, product.subCategoryId, [
       { key: "Sold by", value: shop?.shopName },
-      { key: "Delivery area", value: shop?.marketId?.name || shop?.address },
       { key: "Stock", value: String(product.stock ?? 0) },
     ]);
     const { productOptions, displaySpecs } = buildProductOptionsFromSpecs(mergedSpecs, product.productOptions);
-    const imageUrl = resolveMediaUrl(product.image, baseUrl);
+    const productImages = resolveProductImages(product, baseUrl);
+    const imageUrl = productImages[0] || resolveMediaUrl(product.image, baseUrl);
 
     ok(res, {
       kind: "grocery",
@@ -745,7 +752,7 @@ export const getGroceryProductStorefront = async (req, res) => {
         internalName: product.name,
         description: product.description,
         image: imageUrl,
-        images: imageUrl ? [imageUrl] : [],
+        images: productImages.length ? productImages : (imageUrl ? [imageUrl] : []),
         price: sellingPrice,
         oldPrice: product.price,
         mrp: product.price,
@@ -770,13 +777,18 @@ export const getGroceryProductStorefront = async (req, res) => {
       specifications: displaySpecs,
       averageRating,
       totalReviews,
-      related: related.map((p) => ({
+      related: (await applyProductReviewStats(related, baseUrl)).map((p) => ({
         _id: p._id,
-        name: displayProductTitle(p, p.name),
-        image: resolveMediaUrl(p.image, baseUrl),
-        price: p.discountPrice > 0 ? p.discountPrice : p.price,
-        oldPrice: p.price,
-        stock: p.stock,
+        name: displayProductTitle({ name: p.name, title: p.title }, p.name),
+        image: p.image,
+        images: p.images,
+        price: p.price,
+        oldPrice: p.oldPrice,
+        mrp: p.mrp,
+        discount: p.discount,
+        stock: p.stock || p.countInStock,
+        description: p.description,
+        rating: p.averageRating || p.rating || 0,
         goMarketKind: "grocery",
       })),
       relatedPagination: {
@@ -806,14 +818,22 @@ export const getRestaurantItemStorefront = async (req, res) => {
     const { averageRating, totalReviews } = await reviewStats(id);
     const displayName = displayProductTitle(item, item.itemName);
 
-    const related = await RestaurantItem.find({
+    const relatedPage = Math.max(parseInt(req.query.relatedPage || "1", 10), 1);
+    const relatedLimit = Math.min(Math.max(parseInt(req.query.relatedLimit || "8", 10), 1), 24);
+    const relatedSkip = (relatedPage - 1) * relatedLimit;
+    const relatedFilter = {
       restaurantId: item.restaurantId,
       _id: { $ne: item._id },
       isAvailable: { $ne: false },
-    })
-      .sort({ createdAt: -1 })
-      .limit(8)
-      .lean();
+    };
+    const [related, relatedTotal] = await Promise.all([
+      RestaurantItem.find(relatedFilter)
+        .sort({ createdAt: -1 })
+        .skip(relatedSkip)
+        .limit(relatedLimit)
+        .lean(),
+      RestaurantItem.countDocuments(relatedFilter),
+    ]);
 
       const sellingPrice = item.discountPrice > 0 ? item.discountPrice : item.price;
     const discount = item.discountPrice > 0 && item.price > item.discountPrice
@@ -825,7 +845,9 @@ export const getRestaurantItemStorefront = async (req, res) => {
       { key: "Availability", value: item.isAvailable === false ? "Unavailable" : "Available" },
     ]);
     const { productOptions, displaySpecs } = buildProductOptionsFromSpecs(mergedSpecs, item.productOptions);
-    const imageUrl = resolveMediaUrl(item.image, baseUrl);
+    const productImages = resolveProductImages(item, baseUrl);
+    const imageUrl = productImages[0] || resolveMediaUrl(item.image, baseUrl);
+
 
     ok(res, {
       kind: "restaurant",
@@ -836,7 +858,7 @@ export const getRestaurantItemStorefront = async (req, res) => {
         internalName: item.itemName,
         description: item.description,
         image: imageUrl,
-        images: imageUrl ? [imageUrl] : [],
+        images: productImages.length ? productImages : (imageUrl ? [imageUrl] : []),
         price: sellingPrice,
         oldPrice: item.price,
         mrp: item.price,
@@ -862,15 +884,34 @@ export const getRestaurantItemStorefront = async (req, res) => {
       specifications: displaySpecs,
       averageRating,
       totalReviews,
-      related: related.map((p) => ({
-        _id: p._id,
-        name: p.itemName,
-        image: resolveMediaUrl(p.image, baseUrl),
-        price: p.discountPrice > 0 ? p.discountPrice : p.price,
-        oldPrice: p.price,
-        isAvailable: p.isAvailable !== false,
-        goMarketKind: "restaurant",
-      })),
+      related: await (async () => {
+        const statsMap = await productReviewStatsForIds(related.map((p) => p._id));
+        return related.map((p) => {
+          const stats = statsMap.get(String(p._id));
+          const selling = p.discountPrice > 0 ? p.discountPrice : p.price;
+          const discount = p.discountPrice > 0 && p.price > p.discountPrice 
+            ? Math.round(((p.price - p.discountPrice) / p.price) * 100) 
+            : 0;
+          return {
+            _id: p._id,
+            name: p.itemName,
+            image: resolveProductImages(p, baseUrl)[0] || resolveMediaUrl(p.image, baseUrl),
+            price: selling,
+            oldPrice: p.price,
+            discount,
+            isAvailable: p.isAvailable !== false,
+            description: p.description,
+            rating: stats?.averageRating || 0,
+            goMarketKind: "restaurant",
+          };
+        });
+      })(),
+      relatedPagination: {
+        page: relatedPage,
+        limit: relatedLimit,
+        total: relatedTotal,
+        totalPages: Math.ceil(relatedTotal / relatedLimit) || 1,
+      },
     });
   } catch (error) {
     sendError(res, error);

@@ -53,6 +53,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
   const [products, setProducts] = useState<any[]>([]);
   const [filterMeta, setFilterMeta] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [tabLoading, setTabLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -98,9 +99,10 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
   );
 
   const loadPage = useCallback(
-    async (pageNum: number, append: boolean) => {
+    async (pageNum: number, append: boolean, isTabChange: boolean = false) => {
       if (!shopId) return;
       if (append) setLoadingMore(true);
+      else if (isTabChange) setTabLoading(true);
       else setLoading(true);
       try {
         const res = await fetchDataFromApi(`${apiPath}?${buildParams(pageNum)}`);
@@ -113,6 +115,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
         }
       } finally {
         setLoading(false);
+        setTabLoading(false);
         setLoadingMore(false);
       }
     },
@@ -363,7 +366,14 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
           <TouchableOpacity
             key={t.key}
             style={[S.chip, tab === t.key && S.chipOn]}
-            onPress={() => setTab(t.key)}
+            onPress={() => {
+              if (tab !== t.key) {
+                setProducts([]); // Clear products immediately
+                setTab(t.key);
+                loadPage(1, false, true);
+              }
+            }}
+            disabled={tabLoading}
           >
             <Text style={[S.chipTxt, tab === t.key && S.chipTxtOn]}>{t.label}</Text>
           </TouchableOpacity>
@@ -383,6 +393,13 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
           <Text style={S.gridToggleText}>{gridColumns === 2 ? "▤ 1 row" : "▦ 2 row"}</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {tabLoading && (
+        <View style={S.tabLoadingContainer}>
+          <ActivityIndicator color="#2563eb" size="small" />
+          <Text style={S.tabLoadingText}>Loading products...</Text>
+        </View>
+      )}
 
       {filtersOpen && (
         <View style={S.filterPanel}>
@@ -533,6 +550,22 @@ const S = StyleSheet.create({
   chipOn: { backgroundColor: "#0f172a", borderColor: "#0f172a" },
   chipTxt: { fontSize: 13, fontWeight: "700", color: "#64748b" },
   chipTxtOn: { color: "#fff" },
+  tabLoadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 12,
+    marginHorizontal: 14,
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  tabLoadingText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#2563eb",
+  },
   filterPanel: { paddingBottom: 8 },
   gridToggle: {
     borderWidth: 1.5,

@@ -97,6 +97,8 @@ export default function GoMarketProductScreen() {
 
   const product = data?.product;
   const specs = data?.specifications || [];
+
+  const productImages = product ? ((Array.isArray(product.images) && product.images.length > 0 ? product.images : [product.image]).filter(Boolean)) : [];
   
   // Only show options if:
   // 1. productOptions array exists and has items
@@ -109,7 +111,7 @@ export default function GoMarketProductScreen() {
     productOptions.every((opt: any) => String(selectedOptions[opt.name || opt.label] || "").trim());
 
   const loadMoreRelated = async () => {
-    if (kind !== "grocery" || relatedPage >= relatedTotalPages) return;
+    if (relatedPage >= relatedTotalPages || loadingRelated) return;
     setLoadingRelated(true);
     const next = relatedPage + 1;
     try {
@@ -131,11 +133,13 @@ export default function GoMarketProductScreen() {
         name: product.name,
         price: product.price,
         oldPrice: product.oldPrice,
+        description: product.description,
+        discount: product.discount,
+        totalReviews: data?.totalReviews || product.totalReviews || 0,
         images: product.images || (product.image ? [product.image] : []),
         countInStock: product.countInStock ?? product.stock ?? 0,
         rating: data?.averageRating || product.rating,
         brand: product.brand,
-        discount: product.discount,
         selectedOptions,
       }
     : null;
@@ -186,6 +190,10 @@ export default function GoMarketProductScreen() {
       productTitle: product.name,
       image: product.image || product.images?.[0],
       price: product.price,
+      oldPrice: product.oldPrice,
+      description: product.description,
+      rating: data?.averageRating || product.rating,
+      discount: product.discount,
       quantity: qty,
       subTotal: product.price * qty,
       selectedOptions,
@@ -214,11 +222,19 @@ export default function GoMarketProductScreen() {
     <View style={S.root}>
       <StatusBar barStyle="dark-content" />
 
-      <ScrollView contentContainerStyle={S.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={S.scroll}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={400}
+        onScroll={({ nativeEvent }) => {
+          const remaining = nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height - nativeEvent.contentOffset.y;
+          if (remaining < 500 && relatedPage < relatedTotalPages && !loadingRelated) loadMoreRelated();
+        }}
+      >
         {/* Image Slider */}
         <View style={S.imageSliderContainer}>
           <FlatList
-            data={product.images && product.images.length > 0 ? product.images : [product.image]}
+            data={productImages.length ? productImages : [FALLBACK]}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
@@ -233,24 +249,24 @@ export default function GoMarketProductScreen() {
             keyExtractor={(item, index) => `image-${index}`}
             renderItem={({ item }) => (
               <View style={{ width: Dimensions.get("window").width }}>
-                <Image 
-                  source={{ uri: gmImg(item, FALLBACK) }} 
-                  style={S.heroImg} 
+                <Image
+                  source={{ uri: gmImg(item, FALLBACK) }}
+                  style={S.heroImg}
                   resizeMode="cover"
                 />
               </View>
             )}
           />
           {/* Pagination Dots */}
-          {((product.images && product.images.length > 1) || (!product.images && product.image)) && (
+          {productImages.length > 1 && (
             <View style={S.paginationDots}>
-              {(product.images && product.images.length > 0 ? product.images : [product.image]).map((_: any, index: number) => (
-                <View 
-                  key={`dot-${index}`} 
+              {productImages.map((_: any, index: number) => (
+                <View
+                  key={`dot-${index}`}
                   style={[
-                    S.dot, 
+                    S.dot,
                     activeImageIndex === index && S.dotActive
-                  ]} 
+                  ]}
                 />
               ))}
             </View>
@@ -356,25 +372,40 @@ export default function GoMarketProductScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingVertical: 8, gap: 10 }}
+              onEndReached={() => {
+                if (kind === "grocery" && relatedPage < relatedTotalPages && !loadingRelated) {
+                  loadMoreRelated();
+                }
+              }}
+              onEndReachedThreshold={0.5}
               renderItem={({ item: r }) => (
                 <TouchableOpacity
                   style={S.relCard}
                   onPress={() => router.replace(`/go-market-product/${r.goMarketKind || kind}/${r._id}` as never)}
                 >
                   <Image source={{ uri: gmImg(r.image, FALLBACK) }} style={S.relImg} />
-                  <Text style={S.relName} numberOfLines={2}>{r.name}</Text>
-                  <Text style={S.relPrice}>₹{r.price}</Text>
+                  <View style={S.relBody}>
+                    <Text style={S.relName} numberOfLines={2}>{r.name}</Text>
+                    {r.description && (
+                      <Text style={S.relDesc} numberOfLines={1}>{r.description}</Text>
+                    )}
+                    {r.rating > 0 && (
+                      <View style={S.relRatingRow}>
+                        <Text style={S.relRatingStar}>⭐</Text>
+                        <Text style={S.relRatingText}>{r.rating.toFixed(1)}</Text>
+                      </View>
+                    )}
+                    <View style={S.relMetaRow}>
+                      <Text style={S.relPrice}>₹{r.price}</Text>
+                      {r.oldPrice > r.price && <Text style={S.relMrp}>₹{r.oldPrice}</Text>}
+                    </View>
+                    {r.discount > 0 && <Text style={S.relDiscount}>{r.discount}% off</Text>}
+                  </View>
                 </TouchableOpacity>
               )}
-              onEndReached={() => {
-                if (relatedPage < relatedTotalPages && !loadingRelated) {
-                  loadMoreRelated();
-                }
-              }}
-              onEndReachedThreshold={0.5}
               ListFooterComponent={
                 loadingRelated ? (
-                  <View style={{ width: 130, justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ width: 140, justifyContent: 'center', alignItems: 'center' }}>
                     <ActivityIndicator color={T.orange} size="small" />
                   </View>
                 ) : relatedPage < relatedTotalPages ? (
@@ -413,10 +444,10 @@ const S = StyleSheet.create({
     position: "relative",
     width: "100%",
   },
-  heroImg: { 
+  heroImg: {
     width: "100%",
-    aspectRatio: 1, 
-    backgroundColor: "#eee" 
+    aspectRatio: 1,
+    backgroundColor: "#eee"
   },
   paginationDots: {
     position: "absolute",
@@ -461,7 +492,6 @@ const S = StyleSheet.create({
     shadowRadius: 8,
     elevation: 10,
   },
-  heroImg: { width: "100%", aspectRatio: 1, backgroundColor: "#eee" },
   panel: { backgroundColor: T.white, margin: 14, marginTop: -20, borderRadius: 20, padding: 18, borderWidth: 1, borderColor: T.border },
   brand: { fontSize: 11, fontWeight: "700", color: T.textSoft, textTransform: "uppercase" },
   title: { fontSize: 20, fontWeight: "900", marginTop: 4, color: T.text },
@@ -484,19 +514,19 @@ const S = StyleSheet.create({
   loadMoreTxt: { fontWeight: "800", color: T.text },
   qtyRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 16 },
   qtyBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: T.border, alignItems: "center", justifyContent: "center" },
-  cartBtn: { 
+  cartBtn: {
     flex: 1,
-    backgroundColor: T.black, 
-    borderRadius: 12, 
-    paddingVertical: 14, 
+    backgroundColor: T.black,
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: "center",
   },
   cartBtnTxt: { color: T.white, fontWeight: "800", fontSize: 15 },
-  buyBtn: { 
+  buyBtn: {
     flex: 1,
     backgroundColor: "#DC2626",
-    borderRadius: 12, 
-    paddingVertical: 14, 
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: "center",
   },
   buyBtnTxt: { color: T.white, fontWeight: "800", fontSize: 15 },
@@ -509,12 +539,12 @@ const S = StyleSheet.create({
   specVal: { flex: 1, fontSize: 13, color: T.text },
   review: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
   muted: { fontSize: 13, color: T.textSoft, marginTop: 4 },
-  relCard: { 
-    width: 130, 
-    backgroundColor: "#fafafa", 
-    borderRadius: 12, 
-    padding: 8, 
-    borderWidth: 1, 
+  relCard: {
+    width: 140,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 8,
+    borderWidth: 1,
     borderColor: T.border,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -522,12 +552,37 @@ const S = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  relImg: { width: "100%", height: 100, borderRadius: 8, backgroundColor: "#eee" },
-  relName: { fontSize: 12, fontWeight: "600", marginTop: 6, minHeight: 32, color: T.text },
-  relPrice: { fontSize: 14, fontWeight: "800", marginTop: 4, color: T.orange },
+  relImg: { width: "100%", height: 112, borderRadius: 10, backgroundColor: "#eee" },
+  relBody: { paddingTop: 8 },
+  relName: { fontSize: 13, fontWeight: "700", minHeight: 36, color: T.text, lineHeight: 18 },
+  relDesc: { 
+    fontSize: 10, 
+    color: T.textSoft, 
+    marginTop: 4, 
+    lineHeight: 14,
+    minHeight: 14,
+  },
+  relRatingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+  },
+  relRatingStar: {
+    fontSize: 10,
+  },
+  relRatingText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: T.text,
+  },
+  relMetaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 5, flexWrap: "wrap" },
+  relPrice: { fontSize: 15, fontWeight: "900", color: T.orange },
+  relMrp: { fontSize: 11, color: T.textSoft, textDecorationLine: "line-through" },
+  relDiscount: { marginTop: 4, fontSize: 11, fontWeight: "800", color: T.green },
   loadMoreCard: {
-    width: 130,
-    height: 134,
+    width: 140,
+    height: 180,
     backgroundColor: T.orange,
     borderRadius: 12,
     padding: 12,

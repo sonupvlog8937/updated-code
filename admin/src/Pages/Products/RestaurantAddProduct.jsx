@@ -126,6 +126,7 @@ const RestaurantAddProduct = () => {
       price: Number(form.price),
       discountPrice: form.oldPrice ? Number(form.oldPrice) : 0,
       image: previews[0],
+      images: previews,
       categoryId: categoryId || undefined,
       subCategoryId: subCategoryId || undefined,
       isFeatured: form.isFeatured === 'yes',

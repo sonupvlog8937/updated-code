@@ -13,6 +13,7 @@ const groceryProductSchema = new mongoose.Schema({
     values: [{ type: String, trim: true }],
   }],
   image: { type: String, default: "" },
+  images: [{ type: String, default: "" }],
   categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "GoMarketCategory", default: null, index: true },
   subCategoryId: { type: mongoose.Schema.Types.ObjectId, ref: "GoMarketSubCategory", default: null, index: true },
   price: { type: Number, required: true, min: 0 },
