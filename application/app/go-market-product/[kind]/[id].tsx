@@ -362,57 +362,67 @@ export default function GoMarketProductScreen() {
           }
         />
 
+        {/* Related Products - 2 Column Grid with Infinity Scrolling */}
         {related.length > 0 && (
-          <View style={S.block}>
+          <View style={{ marginHorizontal: 14, marginBottom: 20 }}>
             <Text style={S.blockTitle}>You may also like</Text>
             <Text style={S.relatedSubtitle}>Similar products you might enjoy</Text>
             <FlatList
               data={related}
               keyExtractor={(item) => item._id}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingVertical: 8, gap: 10 }}
+              numColumns={2}
+              columnWrapperStyle={{ gap: 12 }}
+              scrollEnabled={false}
+              contentContainerStyle={{ gap: 12 }}
               onEndReached={() => {
-                if (kind === "grocery" && relatedPage < relatedTotalPages && !loadingRelated) {
+                if (relatedPage < relatedTotalPages && !loadingRelated) {
                   loadMoreRelated();
                 }
               }}
               onEndReachedThreshold={0.5}
               renderItem={({ item: r }) => (
                 <TouchableOpacity
-                  style={S.relCard}
+                  style={[S.gridCard, { flex: 1 }]}
                   onPress={() => router.replace(`/go-market-product/${r.goMarketKind || kind}/${r._id}` as never)}
                 >
-                  <Image source={{ uri: gmImg(r.image, FALLBACK) }} style={S.relImg} />
-                  <View style={S.relBody}>
-                    <Text style={S.relName} numberOfLines={2}>{r.name}</Text>
+                  <Image source={{ uri: gmImg(r.image, FALLBACK) }} style={S.gridImg} />
+                  <View style={S.gridBody}>
+                    <Text style={S.gridName} numberOfLines={2}>{r.name}</Text>
                     {r.description && (
-                      <Text style={S.relDesc} numberOfLines={1}>{r.description}</Text>
+                      <Text style={S.gridDesc} numberOfLines={1}>{r.description}</Text>
                     )}
                     {r.rating > 0 && (
-                      <View style={S.relRatingRow}>
-                        <Text style={S.relRatingStar}>⭐</Text>
-                        <Text style={S.relRatingText}>{r.rating.toFixed(1)}</Text>
+                      <View style={S.gridRatingRow}>
+                        <Text style={S.gridRatingStar}>⭐</Text>
+                        <Text style={S.gridRatingText}>{r.rating.toFixed(1)}</Text>
                       </View>
                     )}
-                    <View style={S.relMetaRow}>
-                      <Text style={S.relPrice}>₹{r.price}</Text>
-                      {r.oldPrice > r.price && <Text style={S.relMrp}>₹{r.oldPrice}</Text>}
+                    <View style={S.gridMetaRow}>
+                      <Text style={S.gridPrice}>₹{r.price}</Text>
+                      {r.oldPrice > r.price && <Text style={S.gridMrp}>₹{r.oldPrice}</Text>}
                     </View>
-                    {r.discount > 0 && <Text style={S.relDiscount}>{r.discount}% off</Text>}
+                    {r.discount > 0 && <Text style={S.gridDiscount}>{r.discount}% off</Text>}
                   </View>
                 </TouchableOpacity>
               )}
               ListFooterComponent={
-                loadingRelated ? (
-                  <View style={{ width: 140, justifyContent: 'center', alignItems: 'center' }}>
-                    <ActivityIndicator color={T.orange} size="small" />
+                related.length > 0 ? (
+                  <View style={{ width: '100%', paddingTop: 8, paddingBottom: 16 }}>
+                    {loadingRelated ? (
+                      <ActivityIndicator color={T.orange} size="small" />
+                    ) : relatedPage < relatedTotalPages ? (
+                      <TouchableOpacity 
+                        style={S.loadMoreBtn} 
+                        onPress={loadMoreRelated}
+                      >
+                        <Text style={S.loadMoreBtnText}>Load more products</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={{ textAlign: 'center', color: T.textSoft, fontSize: 12, marginTop: 12 }}>
+                        No more products
+                      </Text>
+                    )}
                   </View>
-                ) : relatedPage < relatedTotalPages ? (
-                  <TouchableOpacity style={S.loadMoreCard} onPress={loadMoreRelated}>
-                    <Text style={S.loadMoreCardText}>Load{'\n'}More</Text>
-                    <Text style={S.loadMoreCardArrow}>→</Text>
-                  </TouchableOpacity>
                 ) : null
               }
             />
@@ -510,8 +520,6 @@ const S = StyleSheet.create({
   optChipOn: { backgroundColor: T.black, borderColor: T.black },
   optChipTxt: { fontSize: 13, fontWeight: "600", color: T.text },
   optChipTxtOn: { color: T.white },
-  loadMore: { marginTop: 12, paddingVertical: 12, borderRadius: 10, backgroundColor: "#f3f4f6", alignItems: "center" },
-  loadMoreTxt: { fontWeight: "800", color: T.text },
   qtyRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 16 },
   qtyBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: T.border, alignItems: "center", justifyContent: "center" },
   cartBtn: {
@@ -533,17 +541,18 @@ const S = StyleSheet.create({
   stock: { marginTop: 12, fontSize: 12, fontWeight: "700" },
   block: { backgroundColor: T.white, marginHorizontal: 14, marginBottom: 12, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: T.border },
   blockTitle: { fontSize: 16, fontWeight: "800", marginBottom: 10 },
-  relatedSubtitle: { fontSize: 11, color: T.textSoft, marginBottom: 8, fontWeight: "500" },
+  relatedSubtitle: { fontSize: 11, color: T.textSoft, marginBottom: 12, fontWeight: "500" },
   specRow: { flexDirection: "row", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
   specKey: { width: "40%", fontSize: 13, color: T.textSoft, fontWeight: "600" },
   specVal: { flex: 1, fontSize: 13, color: T.text },
   review: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
   muted: { fontSize: 13, color: T.textSoft, marginTop: 4 },
-  relCard: {
-    width: 140,
+  
+  // Grid Card Styles (2 columns)
+  gridCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
-    padding: 8,
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: T.border,
     shadowColor: "#000",
@@ -552,59 +561,46 @@ const S = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  relImg: { width: "100%", height: 112, borderRadius: 10, backgroundColor: "#eee" },
-  relBody: { paddingTop: 8 },
-  relName: { fontSize: 13, fontWeight: "700", minHeight: 36, color: T.text, lineHeight: 18 },
-  relDesc: { 
+  gridImg: { width: "100%", height: 140, backgroundColor: "#eee" },
+  gridBody: { padding: 10 },
+  gridName: { fontSize: 13, fontWeight: "700", minHeight: 36, color: T.text, lineHeight: 18 },
+  gridDesc: { 
     fontSize: 10, 
     color: T.textSoft, 
-    marginTop: 4, 
+    marginTop: 3,
     lineHeight: 14,
     minHeight: 14,
   },
-  relRatingRow: {
+  gridRatingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     marginTop: 4,
   },
-  relRatingStar: {
+  gridRatingStar: {
     fontSize: 10,
   },
-  relRatingText: {
+  gridRatingText: {
     fontSize: 11,
     fontWeight: "700",
     color: T.text,
   },
-  relMetaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 5, flexWrap: "wrap" },
-  relPrice: { fontSize: 15, fontWeight: "900", color: T.orange },
-  relMrp: { fontSize: 11, color: T.textSoft, textDecorationLine: "line-through" },
-  relDiscount: { marginTop: 4, fontSize: 11, fontWeight: "800", color: T.green },
-  loadMoreCard: {
-    width: 140,
-    height: 180,
+  gridMetaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" },
+  gridPrice: { fontSize: 15, fontWeight: "900", color: T.orange },
+  gridMrp: { fontSize: 10, color: T.textSoft, textDecorationLine: "line-through" },
+  gridDiscount: { marginTop: 4, fontSize: 10, fontWeight: "800", color: T.green },
+
+  // Load More Button
+  loadMoreBtn: {
     backgroundColor: T.orange,
     borderRadius: 12,
-    padding: 12,
-    justifyContent: "center",
+    padding: 14,
     alignItems: "center",
-    gap: 8,
-    shadowColor: T.orange,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    marginTop: 8,
   },
-  loadMoreCardText: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#fff",
-    textAlign: "center",
-    lineHeight: 18,
-  },
-  loadMoreCardArrow: {
-    fontSize: 24,
-    fontWeight: "800",
+  loadMoreBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
     color: "#fff",
   },
 });

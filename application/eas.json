@@ -27,8 +27,7 @@
     },
     "production": {
       "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease"
+        "buildType": "app-bundle"
       },
       "node": "20.18.0",
       "cache": {
@@ -38,8 +37,7 @@
         "NODE_ENV": "production",
         "EXPO_PUBLIC_API_URL": "https://sonuserver-ruix.vercel.app",
         "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_live_SukpRI4otsuC4i"
-      },
-      "channel": "production"
+      }
     }
   },
   "submit": {

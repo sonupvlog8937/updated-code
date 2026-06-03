@@ -16,13 +16,13 @@ const colors = {
     secondaryForeground: "#171717",
 
     muted: "#f3f4f6",
-    mutedForeground: "#6b7280",
+    mutedForeground: "#fff",
 
     accent: "#fff1f1",
     accentForeground: "#b91c1c",
 
     destructive: "#ef4444",
-    destructiveForeground: "#ffffff",
+    destructiveForeground: "#e1dedeff",
 
     border: "#e5e7eb",
     input: "#e5e7eb",

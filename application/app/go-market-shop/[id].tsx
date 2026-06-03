@@ -409,7 +409,7 @@ export default function GoMarketShopDetails() {
       <ScrollView
         style={S.scroll}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 16, paddingTop: STATUS_H + 10 }}
+        contentContainerStyle={{ paddingBottom: 16, paddingTop: STATUS_H - 44 }}
       >
         {/* Banner */}
         <View style={S.bannerWrap}>

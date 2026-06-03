@@ -44,7 +44,7 @@ const { width: SW } = Dimensions.get("window");
 const BANNER_H = 220;
 const LOGO_SIZE = 70;
 const FALLBACK = "https://placehold.co/800x420/2d2416/9d7d4d?text=Restaurant";
-const STATUS_H = Platform.OS === "android" ? (StatusBar.currentHeight ?? 20) : 44;
+const STATUS_H = Platform.OS === "android" ? (StatusBar.currentHeight ?? 20) : 24;
 
 // Restaurant Theme Colors
 const C = {
@@ -545,7 +545,7 @@ export default function GoMarketRestaurantDetails() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100, paddingTop: Platform.OS === "ios" ? 44 : (StatusBar.currentHeight ?? 0) }}
+        contentContainerStyle={{ paddingBottom: 100, paddingTop: Platform.OS === "ios" ? 24 : (StatusBar.currentHeight ?? 0) }}
       >
         <View style={{ height: BANNER_H, overflow: "hidden" }}>
           <Image

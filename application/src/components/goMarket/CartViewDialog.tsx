@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,10 +10,15 @@ import {
   Animated,
   Dimensions,
   Platform,
+  ActivityIndicator,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useAppSelector } from "@/src/store";
+import { useAppDispatch, useAppSelector } from "@/src/store";
+import { setCartData } from "@/src/store/appSlice";
 import { gmImg } from "@/src/utils/goMarketMedia";
+import { deleteData } from "@/src/utils/api";
+import { showToast } from "@/src/utils/toast";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -30,6 +35,7 @@ const T = {
   textSoft: "#5A6B4D",
   textMuted: "#9BA896",
   red: "#D32F2F",
+  warning: "#F59E0B",
 };
 
 type CartViewDialogProps = {
@@ -37,11 +43,18 @@ type CartViewDialogProps = {
   onClose: () => void;
 };
 
+type BusyState = {
+  itemId: string | null;
+  action: "remove" | "wishlist" | null;
+};
+
 export function CartViewDialog({ visible, onClose }: CartViewDialogProps) {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const cartData = useAppSelector((s: any) => s.app.cartData || []);
   const slideAnim = useRef(new Animated.Value(SCREEN_W)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
+  const [busy, setBusy] = useState<BusyState>({ itemId: null, action: null });
 
   useEffect(() => {
     if (visible) {
@@ -85,6 +98,47 @@ export function CartViewDialog({ visible, onClose }: CartViewDialogProps) {
   const handleViewFullCart = () => {
     onClose();
     router.push("/cart" as never);
+  };
+
+  const removeItem = async (item: any) => {
+    // Prevent multiple operations on same item
+    if (busy.itemId === item._id) return;
+    
+    setBusy({ itemId: item._id, action: "remove" });
+    try {
+      const res = await deleteData(`/api/cart/delete-cart-item/${item._id}`);
+      if (res?.success === true) {
+        showToast("success", "Removed from cart");
+        dispatch(setCartData(cartData.filter((c: any) => c._id !== item._id)));
+      } else {
+        showToast("error", res?.message || "Failed to remove");
+      }
+    } catch {
+      showToast("error", "Failed to remove item");
+    } finally {
+      setBusy({ itemId: null, action: null });
+    }
+  };
+
+  const handleWishlist = async (item: any) => {
+    // Prevent multiple operations on same item
+    if (busy.itemId === item._id) return;
+    
+    setBusy({ itemId: item._id, action: "wishlist" });
+    try {
+      // Remove from cart and move to wishlist
+      const res = await deleteData(`/api/cart/delete-cart-item/${item._id}`);
+      if (res?.success === true || res?.error === false) {
+        showToast("success", "Moved to wishlist");
+        dispatch(setCartData(cartData.filter((c: any) => c._id !== item._id)));
+      } else {
+        showToast("error", res?.message || "Failed to move to wishlist");
+      }
+    } catch {
+      showToast("error", "Failed to move to wishlist");
+    } finally {
+      setBusy({ itemId: null, action: null });
+    }
   };
 
   return (
@@ -144,10 +198,13 @@ export function CartViewDialog({ visible, onClose }: CartViewDialogProps) {
             ) : (
               cartData.map((item: any, index: number) => (
                 <View key={item._id || index} style={S.cartItem}>
+                  {/* Item Image */}
                   <Image
                     source={{ uri: gmImg(item.image, "https://placehold.co/80x80/E8F5E1/2D5016?text=Item") }}
                     style={S.itemImg}
                   />
+                  
+                  {/* Item Info */}
                   <View style={S.itemInfo}>
                     <Text style={S.itemName} numberOfLines={2}>
                       {item.productTitle}
@@ -155,13 +212,66 @@ export function CartViewDialog({ visible, onClose }: CartViewDialogProps) {
                     {item.brand && (
                       <Text style={S.itemBrand}>{item.brand}</Text>
                     )}
+                    
+                    {/* Selected Options */}
+                    {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
+                      <View style={S.optionsRow}>
+                        {Object.entries(item.selectedOptions).map(([key, value]: any) => (
+                          <View key={key} style={S.optionChip}>
+                            <Text style={S.optionChipText}>{value}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                    
                     <View style={S.itemFooter}>
                       <Text style={S.itemPrice}>₹{item.price}</Text>
                       <Text style={S.itemQty}>Qty: {item.quantity}</Text>
                     </View>
                   </View>
+                  
+                  {/* Right Section */}
                   <View style={S.itemRight}>
                     <Text style={S.itemTotal}>₹{item.subTotal}</Text>
+                    
+                    {/* Action Buttons */}
+                    <View style={S.actionBtns}>
+                      {/* Wishlist Button */}
+                      <TouchableOpacity
+                        style={[
+                          S.actionBtn, 
+                          S.wishlistBtn,
+                          busy.itemId === item._id && S.btnDisabled
+                        ]}
+                        onPress={() => handleWishlist(item)}
+                        disabled={busy.itemId === item._id}
+                        activeOpacity={0.7}
+                      >
+                        {busy.itemId === item._id && busy.action === "wishlist" ? (
+                          <ActivityIndicator size={13} color={T.warning} />
+                        ) : (
+                          <Feather name="heart" size={12} color={T.warning} />
+                        )}
+                      </TouchableOpacity>
+                      
+                      {/* Remove Button */}
+                      <TouchableOpacity
+                        style={[
+                          S.actionBtn, 
+                          S.removeBtn,
+                          busy.itemId === item._id && S.btnDisabled
+                        ]}
+                        onPress={() => removeItem(item)}
+                        disabled={busy.itemId === item._id}
+                        activeOpacity={0.7}
+                      >
+                        {busy.itemId === item._id && busy.action === "remove" ? (
+                          <ActivityIndicator size={13} color={T.red} />
+                        ) : (
+                          <Feather name="trash-2" size={12} color={T.red} />
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               ))
@@ -176,11 +286,12 @@ export function CartViewDialog({ visible, onClose }: CartViewDialogProps) {
                 <Text style={S.totalAmount}>₹{totalAmount.toLocaleString("en-IN")}</Text>
               </View>
 
-              <View style={S.actionBtns}>
+              <View style={S.footerActionBtns}>
                 <TouchableOpacity
                   style={S.viewCartBtn}
                   onPress={handleViewFullCart}
                   activeOpacity={0.8}
+                  disabled={busy.itemId !== null}
                 >
                   <Text style={S.viewCartBtnTxt}>View Full Cart</Text>
                 </TouchableOpacity>
@@ -188,6 +299,7 @@ export function CartViewDialog({ visible, onClose }: CartViewDialogProps) {
                   style={S.checkoutBtn}
                   onPress={handleCheckout}
                   activeOpacity={0.8}
+                  disabled={busy.itemId !== null}
                 >
                   <Text style={S.checkoutBtnTxt}>Proceed to Checkout →</Text>
                 </TouchableOpacity>
@@ -301,24 +413,45 @@ const S = StyleSheet.create({
   itemInfo: {
     flex: 1,
     marginLeft: 12,
+    justifyContent: "space-between",
   },
   itemName: {
     fontSize: 13,
     fontWeight: "700",
     color: T.text,
     lineHeight: 17,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   itemBrand: {
     fontSize: 10,
     fontWeight: "600",
     color: T.textMuted,
+    marginBottom: 4,
+  },
+  optionsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
     marginBottom: 6,
+  },
+  optionChip: {
+    backgroundColor: T.greenLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: T.green,
+  },
+  optionChipText: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: T.green,
   },
   itemFooter: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
+    flexWrap: "wrap",
   },
   itemPrice: {
     fontSize: 13,
@@ -336,13 +469,38 @@ const S = StyleSheet.create({
   },
   itemRight: {
     alignItems: "flex-end",
-    justifyContent: "center",
+    justifyContent: "space-between",
+    marginLeft: 8,
   },
   itemTotal: {
     fontSize: 15,
     fontWeight: "900",
     color: T.text,
     letterSpacing: -0.3,
+  },
+  actionBtns: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 8,
+  },
+  actionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  wishlistBtn: {
+    backgroundColor: T.warning + "15",
+    borderColor: T.warning + "40",
+  },
+  removeBtn: {
+    backgroundColor: T.red + "15",
+    borderColor: T.red + "40",
   },
   footer: {
     paddingHorizontal: 16,
@@ -368,7 +526,7 @@ const S = StyleSheet.create({
     color: T.green,
     letterSpacing: -0.4,
   },
-  actionBtns: {
+  footerActionBtns: {
     flexDirection: "row",
     gap: 10,
   },

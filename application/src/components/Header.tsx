@@ -243,27 +243,101 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                 </>
               )}
             </Pressable>
+            {/* <Pressable
+              onPress={() => router.push("/go-market" as never)}
+              style={({ pressed }) => [
+                styles.marketButton,
+                { opacity: pressed ? 0.85 : 1 },
+              ]}
+              hitSlop={6}
+            >
+              <View style={styles.wordmarkRow}>
+                <Text style={[styles.wordmarkZee, { color: "#111827" }]}>
+                  Go
+                </Text>
+                <Text style={[styles.wordmarkDaddy, { color: "#E5333A" }]}>
+                  Market
+                </Text>
+              </View>
+
+              <Text style={styles.marketSubtitle}>
+                ⚡ Quick Delivery
+              </Text>
+            </Pressable> */}
+            <Pressable
+                onPress={() => router.push("/go-market" as never)}
+                style={styles.loginBtn1}
+                hitSlop={8}
+              >
+                <View style={styles.wordmarkRow}>
+                    <Text style={[styles.wordmarkZee, { color: colors.background }]}>Go</Text>
+                    <Text style={[styles.wordmarkDaddy, { color: "#ff0000ff" }]}>Market</Text>
+                    {/* <Text style={[styles.starAccent, { color: "#E5333A" }]}>★</Text> */}
+                  </View>
+                  <Text style={[styles.logoSubtitle, { color: colors.mutedForeground }]}>
+                    ⚡ quick delivery
+                  </Text>
+              </Pressable>
 
             {/* Divider */}
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
             {/* Go Market */}
-            <Pressable
+            {/* <Pressable
               onPress={() => router.push("/go-market" as never)}
-              style={({ pressed }) => [styles.goMarketPill, { opacity: pressed ? 0.82 : 1 }]}
+              style={({ pressed }) => [styles.goMarketPill, { opacity: pressed ? 0.82 : 1, backgroundColor: colors.text }]}
               hitSlop={6}
             >
-              <View style={styles.goMarketIconBox}>
-                <Feather name="shopping-bag" size={12} color="#FFFFFF" />
+              <View style={[styles.goMarketIconBox, { backgroundColor: colors.mutedForeground, borderColor: colors.mutedForeground}]}>
+                <Feather name="shopping-bag" size={12} color={colors.card} />
               </View>
               <View style={styles.goMarketTextStack}>
                 <View style={styles.goMarketTitleRow}>
-                  <Text style={styles.goMarketTitle}>Go Market</Text>
-                  <View style={styles.liveDot} />
+                  <Text style={[styles.goMarketTitle, {color: colors.card}]}>Go Market</Text>
+                  <View style={[styles.liveDot, {backgroundColor: colors.success}]} />
                 </View>
-                <Text style={styles.goMarketSub}>⚡ quick delivery</Text>
+                <Text style={[styles.goMarketSub, { color: colors.mutedForeground}]}>⚡ quick delivery</Text>
               </View>
-            </Pressable>
+            </Pressable> */}
+            {/* <Pressable
+                  onPress={() => router.push("/go-market" as never)}
+                  style={[
+                    styles.actionCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      marginTop: 0,
+                    },
+                  ]}
+                >
+                  <View
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 10,
+                      backgroundColor: colors.accent,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Feather name="shopping-bag" size={18} color={colors.primary} />
+                  </View>
+                  <View style={styles.menuTextFlex}>
+                    <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: colors.foreground,
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 14,
+                      }}
+                    >
+                      Go Market
+                    </Text>
+                  </View>
+                  <Text style={[styles.goMarketSub, { color: colors.mutedForeground}]}>⚡ quick delivery</Text>
+                  </View>
+                  
+                </Pressable> */}
 
           </View>
 
@@ -1832,7 +1906,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 14,
+    padding: 10,
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -1939,149 +2013,183 @@ const styles = StyleSheet.create({
   //   lineHeight: 12,
   // },
   headerContainer: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  paddingHorizontal: 12,
-  paddingVertical: 8,
-  borderBottomWidth: 0.5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 0.5,
+  },
+
+  // LEFT
+  leftSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,             // reduced from 8 for tighter spacing
+    flex: 1,
+    minWidth: 0,       // allows inner items to shrink on small screens
+  },
+  backButton: {
+    width: 34,          // slightly smaller from 36
+    height: 34,         // slightly smaller from 36
+    borderRadius: 9,    // adjusted for smaller size
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 2,     // reduced from 4
+  },
+  wordmarkRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  wordmarkZee: {
+    fontFamily: Platform.select({ ios: "Georgia", android: "serif", default: "serif" }),
+    fontSize: 15,       // slightly smaller from 17
+    fontWeight: "800",
+    letterSpacing: -0.5,
+    lineHeight: 18,     // reduced from 20
+  },
+  wordmarkDaddy: {
+    fontFamily: Platform.select({ ios: "Georgia", android: "serif", default: "serif" }),
+    fontSize: 15,       // slightly smaller from 17
+    fontWeight: "800",
+    letterSpacing: -0.5,
+    lineHeight: 18,     // reduced from 20
+  },
+  starAccent: {
+    fontSize: 6,        // slightly smaller from 7
+    fontWeight: "700",
+    marginTop: 2,
+    marginLeft: 1,
+    lineHeight: 8,      // reduced from 9
+  },
+  logoSubtitle: {
+    fontSize: 5.5,      // slightly smaller from 6
+    fontWeight: "700",
+    letterSpacing: 0.8, // slightly reduced from 0.9
+    textTransform: "uppercase",
+    marginTop: 1,
+  },
+  divider: {
+    width: 1,
+    height: 24,         // reduced from 26 for better proportion
+    opacity: 0.3,
+    flexShrink: 0,
+  },
+
+  // Go Market pill
+  goMarketPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,             // increased for better spacing
+    // backgroundColor: "#111111",
+    borderRadius: 10,   // slightly larger radius
+    paddingVertical: 6, // increased padding
+    paddingRight: 10,   // increased padding
+    paddingLeft: 6,     // increased padding
+    flexShrink: 1,     // pill shrinks before icons disappear on narrow screens
+    minWidth: 0,
+  },
+  goMarketIconBox: {
+    width: 24,          // increased size
+    height: 24,         // increased size
+    borderRadius: 6,    // adjusted for larger size
+    // backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 0.5,
+    // borderColor: "rgba(255,255,255,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  goMarketTextStack: {
+    gap: 0,
+    minWidth: 0,
+  },
+  goMarketTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  goMarketTitle: {
+    // color: "#FFFFFF",
+    fontSize: 11.5,     // slightly increased for better readability
+    fontWeight: "700",
+    letterSpacing: -0.1,
+    lineHeight: 14,
+  },
+  liveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    // backgroundColor: "#22C55E",
+    flexShrink: 0,
+  },
+  goMarketSub: {
+    // color: "rgba(255,255,255,0.45)",
+    fontSize: 8.5,      // slightly increased
+    fontWeight: "500",
+    letterSpacing: 0.1,
+    lineHeight: 11,
+  },
+
+  // RIGHT
+  rightSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,    // icons never shrink — always visible
+    marginLeft: 8,
+  },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loginBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 17,
+    backgroundColor: "#111111",
+  },
+  loginBtn1: {
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: "#111111",
+  },
+  loginBtnText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  menuTextFlex: {
+    flex: 1,
+  },
+  marketButton: {
+  paddingHorizontal: 24,
+  paddingVertical: 4,
+  borderRadius: 14,
+  borderWidth: 1.5,
+  borderColor: "#E5333A",
+  backgroundColor: "#FFF5F5",
+
+  shadowColor: "#000",
+  shadowOffset: {
+    width: 0,
+    height: 2,
+  },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+
+  elevation: 3,
 },
- 
-// LEFT
-leftSection: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 6,             // reduced from 8 for tighter spacing
-  flex: 1,
-  minWidth: 0,       // allows inner items to shrink on small screens
-},
-backButton: {
-  width: 34,          // slightly smaller from 36
-  height: 34,         // slightly smaller from 36
-  borderRadius: 9,    // adjusted for smaller size
-  alignItems: "center",
-  justifyContent: "center",
-  marginRight: 2,     // reduced from 4
-},
-wordmarkRow: {
-  flexDirection: "row",
-  alignItems: "flex-start",
-},
-wordmarkZee: {
-  fontFamily: Platform.select({ ios: "Georgia", android: "serif", default: "serif" }),
-  fontSize: 15,       // slightly smaller from 17
-  fontWeight: "800",
-  letterSpacing: -0.5,
-  lineHeight: 18,     // reduced from 20
-},
-wordmarkDaddy: {
-  fontFamily: Platform.select({ ios: "Georgia", android: "serif", default: "serif" }),
-  fontSize: 15,       // slightly smaller from 17
-  fontWeight: "800",
-  letterSpacing: -0.5,
-  lineHeight: 18,     // reduced from 20
-},
-starAccent: {
-  fontSize: 6,        // slightly smaller from 7
-  fontWeight: "700",
-  marginTop: 2,
-  marginLeft: 1,
-  lineHeight: 8,      // reduced from 9
-},
-logoSubtitle: {
-  fontSize: 5.5,      // slightly smaller from 6
-  fontWeight: "700",
-  letterSpacing: 0.8, // slightly reduced from 0.9
-  textTransform: "uppercase",
-  marginTop: 1,
-},
-divider: {
-  width: 1,
-  height: 24,         // reduced from 26 for better proportion
-  opacity: 0.3,
-  flexShrink: 0,
-},
- 
-// Go Market pill
-goMarketPill: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 6,             // increased for better spacing
-  backgroundColor: "#111111",
-  borderRadius: 10,   // slightly larger radius
-  paddingVertical: 6, // increased padding
-  paddingRight: 10,   // increased padding
-  paddingLeft: 6,     // increased padding
-  flexShrink: 1,     // pill shrinks before icons disappear on narrow screens
-  minWidth: 0,
-},
-goMarketIconBox: {
-  width: 24,          // increased size
-  height: 24,         // increased size
-  borderRadius: 6,    // adjusted for larger size
-  backgroundColor: "rgba(255,255,255,0.10)",
-  borderWidth: 0.5,
-  borderColor: "rgba(255,255,255,0.14)",
-  alignItems: "center",
-  justifyContent: "center",
-  flexShrink: 0,
-},
-goMarketTextStack: {
-  gap: 0,
-  minWidth: 0,
-},
-goMarketTitleRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 4,
-},
-goMarketTitle: {
-  color: "#FFFFFF",
-  fontSize: 11.5,     // slightly increased for better readability
-  fontWeight: "700",
-  letterSpacing: -0.1,
-  lineHeight: 14,
-},
-liveDot: {
-  width: 5,
-  height: 5,
-  borderRadius: 2.5,
-  backgroundColor: "#22C55E",
-  flexShrink: 0,
-},
-goMarketSub: {
-  color: "rgba(255,255,255,0.45)",
-  fontSize: 8.5,      // slightly increased
-  fontWeight: "500",
-  letterSpacing: 0.1,
-  lineHeight: 11,
-},
- 
-// RIGHT
-rightSection: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 6,
-  flexShrink: 0,    // icons never shrink — always visible
-  marginLeft: 8,
-},
-iconBtn: {
-  width: 34,
-  height: 34,
-  borderRadius: 9,
-  alignItems: "center",
-  justifyContent: "center",
-},
-loginBtn: {
-  paddingHorizontal: 12,
-  paddingVertical: 6,
-  borderRadius: 17,
-  backgroundColor: "#111111",
-},
-loginBtnText: {
-  color: "#FFFFFF",
-  fontSize: 11,
-  fontWeight: "700",
-  letterSpacing: 0.2,
+
+marketSubtitle: {
+  fontSize: 9,
+  fontWeight: "600",
+  color: "#6B7280",
+  marginTop: 0,
 },
 });
