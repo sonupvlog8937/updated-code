@@ -274,7 +274,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                     <Text style={[styles.wordmarkDaddy, { color: "#ff0000ff" }]}>Market</Text>
                     {/* <Text style={[styles.starAccent, { color: "#E5333A" }]}>★</Text> */}
                   </View>
-                  <Text style={[styles.logoSubtitle, { color: colors.mutedForeground }]}>
+                  <Text style={[styles.logoSubtitle, { color: colors.secondarymutedForeground }]}>
                     ⚡ quick delivery
                   </Text>
               </Pressable>

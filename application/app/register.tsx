@@ -33,11 +33,11 @@ export default function RegisterScreen() {
 
   const onRegister = async () => {
     if (!name.trim() || !email.trim() || !password) {
-      showToast("All fields are required", "error");
+      showToast("error", "All fields are required");
       return;
     }
     if (password.length < 6) {
-      showToast("Password must be at least 6 characters", "error");
+      showToast("error", "Password must be at least 6 characters");
       return;
     }
     setLoading(true);
@@ -106,6 +106,14 @@ export default function RegisterScreen() {
             Join Zee Daddy and start exploring great deals
           </Text>
           <View style={styles.formGroup}>
+            <Text
+              style={[
+                styles.altBtnText,
+                { color: colors.foreground },
+              ]}
+            >
+              Full name
+            </Text>
             <Field
               icon="user"
               placeholder="Full name"
@@ -114,6 +122,14 @@ export default function RegisterScreen() {
               editable={!loading}
               onFocus={handleNameFocus}
             />
+            <Text
+              style={[
+                styles.altBtnText,
+                { color: colors.foreground },
+              ]}
+            >
+              Email
+            </Text>
             <Field
               icon="mail"
               placeholder="Email"
@@ -124,6 +140,14 @@ export default function RegisterScreen() {
               editable={!loading}
               onFocus={handleEmailFocus}
             />
+            <Text
+              style={[
+                styles.altBtnText,
+                { color: colors.foreground },
+              ]}
+            >
+              Password (min 6 characters)
+            </Text>
             <Field
               icon="lock"
               placeholder="Password (min 6 chars)"
@@ -162,7 +186,7 @@ export default function RegisterScreen() {
             <Text
               style={[
                 styles.signinText,
-                { color: colors.mutedForeground },
+                { color: colors.primary },
               ]}
             >
               Already have an account?{" "}
@@ -183,37 +207,41 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { 
+  scroll: {
     padding: IS_SMALL ? 10 : 12,
     paddingTop: IS_SMALL ? 8 : 10,
     paddingBottom: IS_SMALL ? 8 : 10,
     justifyContent: 'space-between',
   },
-  heading: { 
+  heading: {
     fontSize: IS_SMALL ? 20 : 24,
     fontFamily: "Inter_700Bold",
     marginBottom: 0,
   },
-  sub: { 
+  sub: {
     fontSize: IS_SMALL ? 11 : 12,
     marginTop: 0,
     fontFamily: "Inter_400Regular",
     lineHeight: 14,
   },
-  formGroup: { 
+  formGroup: {
     marginTop: IS_SMALL ? 6 : 8,
     gap: 8,
   },
   createBtn: {
     marginTop: IS_SMALL ? 4 : 6,
   },
-  signinLink: { 
+  signinLink: {
     marginTop: IS_SMALL ? 2 : 4,
     alignItems: "center",
-    marginBottom: IS_SMALL ? 80 : 84,
+    marginBottom: IS_SMALL ? 260 : 264,
   },
   signinText: {
     fontSize: IS_SMALL ? 11 : 12,
     fontFamily: "Inter_400Regular",
+  },
+  altBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: IS_SMALL ? 12 : 13,
   },
 });

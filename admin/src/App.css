@@ -97,3 +97,122 @@ input[type=number]::-webkit-outer-spin-button {
 
 .contentRight {padding-left: 20px !important;}
 .uploadBox  h4{text-align: center;}
+
+/* Order sound notifier: production-friendly floating control for sellers and riders */
+.order-sound-widget {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(430px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(18px);
+}
+.order-sound-widget__pulse {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  position: relative;
+  box-shadow: 0 10px 22px rgba(34, 197, 94, 0.32);
+}
+.order-sound-widget__pulse::before {
+  content: "🔔";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+.order-sound-widget__pulse::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border: 2px solid rgba(34, 197, 94, 0.22);
+  border-radius: 18px;
+  animation: orderSoundPulse 1.8s ease-out infinite;
+}
+.order-sound-widget__body { min-width: 0; flex: 1; }
+.order-sound-widget__title {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.order-sound-widget__meta {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.order-sound-widget__toggle,
+.order-sound-widget__unlock {
+  border: 0;
+  cursor: pointer;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+.order-sound-widget__toggle {
+  padding: 8px 13px;
+  background: #fee2e2;
+  color: #991b1b;
+}
+.order-sound-widget__toggle--on {
+  background: #dcfce7;
+  color: #166534;
+}
+.order-sound-widget__unlock {
+  padding: 8px 12px;
+  background: #0f172a;
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.18);
+}
+.order-sound-widget__toggle:hover,
+.order-sound-widget__unlock:hover { transform: translateY(-1px); }
+.order-sound-toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 300px;
+  max-width: calc(100vw - 32px);
+  padding: 14px 16px;
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 20px 42px rgba(15, 23, 42, 0.18);
+  transform: translateY(-8px) scale(0.98);
+  opacity: 0;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.order-sound-toast--show { transform: translateY(0) scale(1); opacity: 1; }
+.order-sound-toast__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+.order-sound-toast__title { font-size: 13px; font-weight: 900; color: #0f172a; }
+.order-sound-toast__sub { margin-top: 2px; font-size: 11px; font-weight: 700; color: #64748b; }
+@keyframes orderSoundPulse {
+  0% { opacity: 0.9; transform: scale(0.86); }
+  100% { opacity: 0; transform: scale(1.32); }
+}

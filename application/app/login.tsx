@@ -42,7 +42,7 @@ export default function LoginScreen() {
 
   const onLogin = async () => {
     if (!email.trim() || !password) {
-      showToast("Email and password are required", "error");
+      showToast("error", "Email and password are required");
       return;
     }
     setLoading(true);
@@ -59,8 +59,8 @@ export default function LoginScreen() {
         dispatch(fetchUserDetails());
         dispatch(fetchCartItems());
         dispatch(fetchMyListData());
-        showToast("Welcome back!", "success");
-        
+        showToast("success", "Welcome back!");
+
         setTimeout(() => {
           router.replace("/" as never);
         }, 800);
@@ -115,6 +115,14 @@ export default function LoginScreen() {
           </Text>
 
           <View style={styles.formGroup}>
+            <Text
+              style={[
+                styles.altBtnText,
+                { color: colors.foreground },
+              ]}
+            >
+              Enter your email
+            </Text>
             <Field
               icon="mail"
               placeholder="Email"
@@ -125,6 +133,14 @@ export default function LoginScreen() {
               editable={!loading}
               onFocus={handleEmailFocus}
             />
+            <Text
+              style={[
+                styles.altBtnText,
+                { color: colors.foreground },
+              ]}
+            >
+              Enter your password
+            </Text>
             <Field
               icon="lock"
               placeholder="Password"
@@ -182,7 +198,7 @@ export default function LoginScreen() {
 
           <Pressable
             onPress={() =>
-              showToast("Phone OTP login coming soon", "info")
+              showToast("info", "Phone OTP login coming soon")
             }
             style={[
               styles.altBtn,
@@ -207,7 +223,7 @@ export default function LoginScreen() {
             <Text
               style={[
                 styles.signupText,
-                { color: colors.mutedForeground },
+                { color: colors.primary },
               ]}
             >
               Don't have an account?{" "}
@@ -253,14 +269,11 @@ export const Field: React.FC<FieldProps> = ({
       <TextInput
         placeholderTextColor={colors.mutedForeground}
         {...rest}
-        onFocus={(e) => {
-          onFocus?.(e);
-          rest.onFocus?.(e);
-        }}
+        onFocus={onFocus}
         style={[
           styles.input,
           { color: colors.foreground },
-          rest.style as never,
+          rest.style,
         ]}
       />
       {rightIcon ? (
@@ -273,24 +286,24 @@ export const Field: React.FC<FieldProps> = ({
 };
 
 const styles = StyleSheet.create({
-  scroll: { 
+  scroll: {
     padding: IS_SMALL ? 10 : 12,
     paddingTop: IS_SMALL ? 8 : 10,
     paddingBottom: IS_SMALL ? 8 : 10,
     justifyContent: 'space-between',
   },
-  heading: { 
+  heading: {
     fontSize: IS_SMALL ? 20 : 24,
     fontFamily: "Inter_700Bold",
     marginBottom: 0,
   },
-  sub: { 
+  sub: {
     fontSize: IS_SMALL ? 11 : 12,
     marginTop: 0,
     fontFamily: "Inter_400Regular",
     lineHeight: 14,
   },
-  formGroup: { 
+  formGroup: {
     marginTop: IS_SMALL ? 6 : 8,
     gap: 8,
   },
@@ -342,9 +355,9 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: IS_SMALL ? 12 : 13,
   },
-  signupLink: { 
+  signupLink: {
     marginTop: IS_SMALL ? 2 : 4,
-    marginBottom: IS_SMALL ? 80 : 84,
+    marginBottom: IS_SMALL ? 260 : 264,
     alignItems: "center",
   },
   signupText: {

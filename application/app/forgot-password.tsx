@@ -85,7 +85,7 @@ export default function ForgotPasswordScreen() {
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -101,6 +101,14 @@ export default function ForgotPasswordScreen() {
 
           {step === 1 ? (
             <View style={styles.formBlock}>
+              <Text
+                style={[
+                  styles.altBtnText,
+                  { color: colors.foreground },
+                ]}
+              >
+                Enter your email
+              </Text>
               <Field
                 icon="mail"
                 placeholder="Email"
@@ -139,6 +147,14 @@ export default function ForgotPasswordScreen() {
             </View>
           ) : (
             <View style={styles.formBlock}>
+              <Text
+                style={[
+                  styles.altBtnText,
+                  { color: colors.foreground },
+                ]}
+              >
+                6-digit OTP
+              </Text>
               <Field
                 icon="hash"
                 placeholder="6-digit OTP"
@@ -148,6 +164,14 @@ export default function ForgotPasswordScreen() {
                 maxLength={6}
                 editable={!loading}
               />
+              <Text
+                style={[
+                  styles.altBtnText,
+                  { color: colors.foreground },
+                ]}
+              >
+                New password
+              </Text>
               <Field
                 icon="lock"
                 placeholder="New password"
@@ -156,6 +180,14 @@ export default function ForgotPasswordScreen() {
                 secureTextEntry
                 editable={!loading}
               />
+              <Text
+                style={[
+                  styles.altBtnText,
+                  { color: colors.foreground },
+                ]}
+              >
+                confirm password
+              </Text>
               <Field
                 icon="lock"
                 placeholder="Confirm password"
@@ -236,8 +268,16 @@ const styles = StyleSheet.create({
   },
   backLink: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
     textAlign: "center",
     marginTop: 4,
+    borderColor: "#000",
+    borderRadius: 10,
+    borderWidth: 1.5,
+    padding: 10
+  },
+  altBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: IS_SMALL ? 12 : 13,
   },
 });

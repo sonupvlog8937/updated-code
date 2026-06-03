@@ -41,6 +41,7 @@ import GoMarketAdminPage from "./Pages/GoMarket";
 import GoMarketStoreProfile from "./Pages/GoMarketStoreProfile";
 import StoreOperations from "./Pages/QuickCommerce/StoreOperations";
 import RidersPage from "./Pages/Riders";
+import OrderSoundNotifier from "./Components/OrderSoundNotifier";
 
 const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
@@ -644,7 +645,10 @@ function App() {
       )}
 
       {!isAppLoading && (!isLogin || !isSellerPending) && (
-        <RouterProvider router={router} />
+        <>
+          <RouterProvider router={router} />
+          {isLogin && !isSellerPending && <OrderSoundNotifier />}
+        </>
       )}
 
       <LoadingBar
