@@ -25,7 +25,7 @@ import { RazorpayPaymentError } from "@/src/types/razorpay";
 import { useScrollHeader } from "@/src/hooks/useScrollHeader";
 import { useAppDispatch, useAppSelector } from "@/src/store";
 import { fetchCartItems, UserAddress } from "@/src/store/appSlice";
-import { deleteData, postData } from "@/src/utils/api";
+import { deleteData, fetchDataFromApi, postData } from "@/src/utils/api";
 import { showToast } from "@/src/utils/toast";
 
 if (
@@ -49,25 +49,25 @@ interface Coupon {
 const AVAILABLE_COUPONS: Coupon[] = [
   {
     code: "ZEED20",
-    discount: 20,
+    discount: 0,
     minOrder: 200,
     label: "₹20 off on orders above ₹200",
   },
   {
     code: "FIRST50",
-    discount: 50,
+    discount: 0,
     minOrder: 0,
     label: "₹50 off on your first order",
   },
   {
     code: "SAVE100",
-    discount: 100,
+    discount: 0,
     minOrder: 500,
     label: "₹100 off on orders above ₹500",
   },
   {
     code: "WELCOME30",
-    discount: 30,
+    discount: 0,
     minOrder: 300,
     label: "₹30 off on orders above ₹300",
   },
@@ -783,35 +783,7 @@ const CouponSection = ({
         </Pressable>
       </View>
 
-      {/* Available coupons */}
-      <Pressable
-        onPress={toggle}
-        style={[couponStyles.expandBtn, { borderColor: colors.border }]}
-      >
-        <View style={couponStyles.expandHeader}>
-          <Feather name="gift" size={14} color={colors.primary} />
-          <Text style={[couponStyles.expandTitle, { color: colors.primary }]}>
-            Available Offers
-          </Text>
-          <View
-            style={[
-              couponStyles.badge,
-              { backgroundColor: colors.primary + "20" },
-            ]}
-          >
-            <Text style={[couponStyles.badgeText, { color: colors.primary }]}>
-              {AVAILABLE_COUPONS.length}
-            </Text>
-          </View>
-        </View>
-        <Animated.View style={{ transform: [{ rotate }] }}>
-          <Feather
-            name="chevron-down"
-            size={14}
-            color={colors.mutedForeground}
-          />
-        </Animated.View>
-      </Pressable>
+      
 
       {expanded && (
         <View style={[couponStyles.list, { borderTopColor: colors.border }]}>
@@ -1095,8 +1067,13 @@ export default function CheckoutScreen() {
       checkoutItems.reduce((s, c) => s + (c.price || 0) * (c.quantity || 1), 0),
     [checkoutItems],
   );
-  const shipping = subTotal > 0 && subTotal < 500 ? 19 : 0;
-  const total = subTotal - discount + shipping;
+  const [commerceSettings, setCommerceSettings] = useState<any>({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0 });
+  useEffect(() => { fetchDataFromApi("/api/settings/commerce").then((res) => { if (res?.data) setCommerceSettings(res.data); }); }, []);
+  const baseAfterDiscount = Math.max(subTotal - discount, 0);
+  const freeByRule = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove;
+  const shipping = freeByRule ? 0 : Number(commerceSettings.shippingFee || 0);
+  const deliveryFee = freeByRule ? 0 : Number(commerceSettings.deliveryFee || 0);
+  const total = baseAfterDiscount + shipping + deliveryFee;
 
   const removeCoupon = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -1510,10 +1487,11 @@ export default function CheckoutScreen() {
               />
             )}
             <PriceRow
-              label="Shipping & Delivery"
+              label="Shipping"
               value={shipping === 0 ? "FREE" : `₹${shipping}`}
               color={shipping === 0 ? colors.success : undefined}
             />
+            <PriceRow label="Delivery fee" value={deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`} color={deliveryFee === 0 ? colors.success : undefined} />
             {shipping > 0 && (
               <View
                 style={[

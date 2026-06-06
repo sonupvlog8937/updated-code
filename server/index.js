@@ -25,6 +25,7 @@ import bannerList2Router from './route/bannerList2.route.js';
 import blogRouter from './route/blog.route.js';
 import orderRouter from './route/order.route.js';
 import logoRouter from './route/logo.route.js';
+import appSettingsRouter from './route/appSettings.route.js';
 import { requestContext } from './middlewares/requestContext.js';
 import { globalErrorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import mongoose from 'mongoose';
@@ -131,6 +132,7 @@ app.use("/api/bannerList2", bannerList2Router)
 app.use("/api/blog", blogRouter)
 app.use("/api/order", orderRouter)
 app.use("/api/logo", logoRouter)
+app.use("/api/settings", appSettingsRouter)
 app.use("/api/notifications", notificationRouter)
 app.use("/api/coupon", couponRouter)
 app.use("/api/notification-settings", notificationSettingRouter)

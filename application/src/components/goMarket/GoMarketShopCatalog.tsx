@@ -179,7 +179,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
     const cartProduct = {
       _id: product._id,
       name: product.name || product.itemName || product.productName,
-      price: product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price,
+      price: selectedOption?.price && selectedOption.price > 0 ? selectedOption.price : (product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price),
       oldPrice: product.oldPrice || product.originalPrice || product.price,
       images: product.images || (product.image ? [product.image] : []),
       countInStock: product.countInStock ?? product.stock ?? 999,
@@ -187,6 +187,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
       brand: product.brand,
       discount: product.discount,
       weight: selectedOption?.name || product.weight,
+      selectedOptions: selectedOption ? { option: selectedOption.name } : {},
     };
 
     if (isLogin && (userData?._id || userData?.id)) {
@@ -227,7 +228,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
       productTitle: title,
       image: product.images?.[0] || product.image,
       rating: product.rating || product.averageRating || 0,
-      price: product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price,
+      price: selectedOption?.price && selectedOption.price > 0 ? selectedOption.price : (product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price),
       oldPrice: product.oldPrice || product.originalPrice || product.price,
       productId: product._id,
       brand: product.brand || product.shopName || product.restaurantName || "GoMarket",

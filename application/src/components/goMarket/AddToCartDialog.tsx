@@ -59,12 +59,15 @@ export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddT
     if (product?.options?.length) return product.options;
 
     return (product?.productOptions || []).flatMap((option, optionIndex) =>
-      (option.values || []).map((value, valueIndex) => ({
-        _id: `${option.name || option.label || optionIndex}-${value}-${valueIndex}`,
-        name: `${option.name || option.label || "Option"}: ${value}`,
-        price: 0,
-        isDefault: optionIndex === 0 && valueIndex === 0,
-      })),
+      (option.values || []).map((rawValue: any, valueIndex) => {
+        const value = typeof rawValue === "object" ? (rawValue.label || rawValue.value || rawValue.name) : rawValue;
+        return {
+          _id: `${option.name || option.label || optionIndex}-${value}-${valueIndex}`,
+          name: `${option.name || option.label || "Option"}: ${value}`,
+          price: typeof rawValue === "object" ? Number(rawValue.price || 0) : 0,
+          isDefault: (typeof rawValue === "object" && rawValue.isDefault) || (optionIndex === 0 && valueIndex === 0),
+        };
+      }),
     );
   }, [product]);
 
@@ -83,8 +86,8 @@ export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddT
   const discount = product.discount || (oldPrice && oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0);
   const rating = Number(product.averageRating || product.rating || 0);
   const reviews = Number(product.reviewCount || product.totalReviews || 0);
-  const optionPrice = selectedOption ? selectedOption.price : 0;
-  const totalPrice = (price + optionPrice) * quantity;
+  const optionPrice = selectedOption?.price && selectedOption.price > 0 ? selectedOption.price : price;
+  const totalPrice = optionPrice * quantity;
 
   const handleAddToCart = async () => {
     if (hasOptions && !selectedOption) {
@@ -170,7 +173,7 @@ export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddT
                           {option.name}
                         </Text>
                         {option.price > 0 && (
-                          <Text style={S.optionPrice}>+₹{option.price}</Text>
+                          <Text style={S.optionPrice}>₹{option.price}</Text>
                         )}
                       </View>
                     </TouchableOpacity>

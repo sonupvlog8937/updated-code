@@ -40,6 +40,10 @@ const cartProductSchema = new mongoose.Schema({
         type:String,
         default:""
     },
+    selectedOptions:{
+        type:Object,
+        default:{}
+    },
     quantity:{
         type:Number,
         required:true

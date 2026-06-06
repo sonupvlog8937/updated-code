@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchMarkets, fetchNearbyMarkets, savePreferredMarket } from "../../store/goMarketSlice";
+import { fetchDataFromApi } from "../../utils/api";
 import { STYLES, useMyLocation } from "./shared";
 
 const GoMarketHome = () => {
@@ -14,6 +15,7 @@ const GoMarketHome = () => {
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [collections, setCollections] = useState([]);
 
   // Redirect to login if not logged in
   useEffect(() => {
@@ -33,6 +35,7 @@ const GoMarketHome = () => {
   useEffect(() => {
     dispatch(fetchMarkets({ search: "" }));
   }, [dispatch]);
+  fetchDataFromApi("/api/settings/commerce").then((res) => setCollections((res?.data?.collections || []).filter((c) => c.isActive !== false)));
 
   const allMarkets = useMemo(() => {
     const map = new Map([...nearbyMarkets, ...markets].map((m) => [m._id, m]));
@@ -220,6 +223,8 @@ const GoMarketHome = () => {
           </form>
         </div>
       </section>
+
+      {collections.length > 0 && <div className="gmp-container" style={{ marginTop: 24 }}><p style={{ fontSize: 12, fontWeight: 800, color: "#64748b", marginBottom: 10 }}>Collections</p><div className="gmp-chip-row">{collections.map((c, i) => <button key={`${c.title}-${i}`} className="gmp-chip active" type="button">{c.image ? <img src={c.image} alt="" style={{ width: 22, height: 22, borderRadius: 999, objectFit: "cover", marginRight: 6 }} /> : null}{c.title}</button>)}</div></div>}
 
       <div className="gmp-container" style={{ marginTop: 24 }}>
         <p style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 8 }}>

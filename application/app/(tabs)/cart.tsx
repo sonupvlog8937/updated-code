@@ -29,7 +29,7 @@ const { width } = Dimensions.get("window");
 const IS_SMALL = width < 375;
 
 const FREE_SHIPPING_THRESHOLD = 500;
-const SHIPPING_CHARGE = 19;
+const SHIPPING_CHARGE = 0;
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 

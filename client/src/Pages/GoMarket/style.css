@@ -375,4 +375,4 @@
             gap: 5px;
         }
     }
-}
+}.gmp-product-tile{position:relative}.gmp-card-icon{position:absolute;top:10px;width:34px;height:34px;border:0;border-radius:999px;background:#fff;box-shadow:0 10px 22px rgba(15,23,42,.16);font-weight:900;cursor:pointer;z-index:2}.gmp-card-heart{right:52px;color:#e11d48}.gmp-card-plus{right:10px;color:#fff;background:#16a34a;font-size:20px}.gmp-option-modal{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:999;display:grid;place-items:center;padding:18px}.gmp-option-sheet{width:min(460px,100%);background:#fff;border-radius:20px;padding:20px;box-shadow:0 24px 80px rgba(15,23,42,.28)}

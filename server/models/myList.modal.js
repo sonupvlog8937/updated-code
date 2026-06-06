@@ -51,6 +51,10 @@ const myListSchema = new mongoose.Schema({
         type:String,
         default:""
     },
+    selectedOptions:{
+        type:Object,
+        default:{}
+    },
 },{
     timestamps : true
 });

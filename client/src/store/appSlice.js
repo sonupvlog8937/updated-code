@@ -70,6 +70,7 @@ export const addToCart = createAsyncThunk("app/addToCart", async ({ product, use
     weight: product?.weight,
     ram: product?.ram,
     color: product?.color,
+    selectedOptions: product?.selectedOptions || {},
   };
 
   const res = await postData("/api/cart/add", data);

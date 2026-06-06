@@ -18,6 +18,7 @@ export const addToMyListController = async (request, response) => {
             ram,
             color,
             colorCode,
+            selectedOptions,
         } = request.body;
 
 
@@ -47,6 +48,7 @@ export const addToMyListController = async (request, response) => {
             ram,
             color,
             colorCode,
+            selectedOptions: selectedOptions || {},
             userId
         })
 

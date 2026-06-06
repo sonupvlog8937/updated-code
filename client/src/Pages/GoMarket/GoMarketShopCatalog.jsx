@@ -1,9 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { fetchDataFromApi } from "../../utils/api";
+import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
+import { fetchDataFromApi, postData } from "../../utils/api";
 import { img } from "../../utils/goMarketMedia";
 import { useDebouncedValue, SkeletonGrid, ResultBar } from "./shared";
 import { useInfiniteScroll } from "./hooks/useInfiniteScroll";
+import { addToCart, fetchMyListData } from "../../store/appSlice";
+import { normalizeProductOptions } from "./GoMarketProductOptions";
 
 const SORT_OPTIONS = [
   { value: "", label: "Smart tab order" },
@@ -47,6 +51,8 @@ export const GoMarketShopCatalog = ({
   onQueryChange,
 }) => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { isLogin, userData, myListData } = useSelector((s) => s.app);
   const [search, setSearch] = useState(initialQuery);
   const debouncedSearch = useDebouncedValue(search, 350);
   const [tab, setTab] = useState("featured");
@@ -69,6 +75,8 @@ export const GoMarketShopCatalog = ({
 
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [optionProduct, setOptionProduct] = useState(null);
+  const [quickSelections, setQuickSelections] = useState({});
 
   useEffect(() => {
     setSearch(initialQuery);
@@ -181,6 +189,34 @@ export const GoMarketShopCatalog = ({
   const subCatsForCategory = (filterMeta?.subCategories || []).filter(
     (sc) => !categoryId || String(sc.parentId) === String(categoryId),
   );
+
+  const optionGroups = normalizeProductOptions(optionProduct?.productOptions || []);
+  const quickPrice = optionGroups.reduce((price, opt) => { const key = opt.name || opt.label; const found = (opt.values || []).find((v) => v.label === quickSelections[key] || v.value === quickSelections[key]); return Number(found?.price) > 0 ? Number(found.price) : price; }, Number(optionProduct?.price || 0));
+  const addProductWithOptions = async (product, selectedOptions = {}, priceOverride = null) => {
+    if (!isLogin) { toast.error("Please login first"); navigate("/login"); return; }
+    const cartProduct = { _id: product._id, name: product.name, price: priceOverride ?? (product.discountPrice > 0 ? product.discountPrice : product.price), oldPrice: product.oldPrice || product.price, image: product.image, images: product.images || [product.image], countInStock: product.countInStock ?? product.stock ?? 99, rating: product.rating || product.averageRating || 0, brand: product.brand || "GoMarket", discount: product.discount, selectedOptions };
+    await dispatch(addToCart({ product: cartProduct, userId: userData?._id, quantity: 1 }));
+  };
+  const handleQuickAdd = (e, product) => {
+    e.preventDefault(); e.stopPropagation();
+    const options = normalizeProductOptions(product.productOptions || []);
+    if (options.length) { setOptionProduct(product); setQuickSelections({}); return; }
+    addProductWithOptions(product);
+  };
+  const handleQuickWishlist = async (e, product) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!isLogin) { toast.error("Please login first"); navigate("/login"); return; }
+    if (myListData?.some((item) => item?.productId === product._id)) { toast.success("Already in wishlist"); return; }
+    const res = await postData("/api/myList/add", { productTitle: product.name, image: product.image, rating: product.rating || product.averageRating || 0, price: product.discountPrice > 0 ? product.discountPrice : product.price, oldPrice: product.oldPrice || product.price, productId: product._id, brand: product.brand || "GoMarket", discount: product.discount });
+    if (res?.error === false) { toast.success("Added to wishlist"); dispatch(fetchMyListData()); } else toast.error(res?.message || "Wishlist failed");
+  };
+  const confirmOptionAdd = () => {
+    const complete = optionGroups.every((opt) => quickSelections[opt.name || opt.label]);
+    if (!complete) { toast.error("Select all options"); return; }
+    addProductWithOptions(optionProduct, quickSelections, quickPrice);
+    setOptionProduct(null); setQuickSelections({});
+  };
+
 
   return (
     <div>
@@ -393,6 +429,8 @@ export const GoMarketShopCatalog = ({
             return (
               <Link to={`/go-market/product/grocery/${p._id}`} className="gmp-product-tile" key={p._id}>
                 <img src={img(p.image)} alt={p.name} />
+                <button className="gmp-card-icon gmp-card-heart" onClick={(e) => handleQuickWishlist(e, p)}>♡</button>
+                <button className="gmp-card-icon gmp-card-plus" onClick={(e) => handleQuickAdd(e, p)}>+</button>
                 <div className="gmp-product-body">
                   <div className="gmp-product-name">{p.name}</div>
                   <div className="gmp-product-price">
@@ -408,6 +446,8 @@ export const GoMarketShopCatalog = ({
           })}
         </div>
       )}
+
+       {optionProduct && <div className="gmp-option-modal" onClick={() => setOptionProduct(null)}><div className="gmp-option-sheet" onClick={(e) => e.stopPropagation()}><h3>{optionProduct.name}</h3><p>Select options - price updates dynamically.</p>{optionGroups.map((opt) => <div key={opt.name || opt.label} className="gmp-option-group"><b>{opt.label || opt.name}</b><div className="gmp-option-chips">{opt.values.map((v) => <button key={v.value || v.label} type="button" className={`gmp-option-chip${quickSelections[opt.name || opt.label] === v.label ? " active" : ""}`} onClick={() => setQuickSelections((prev) => ({ ...prev, [opt.name || opt.label]: v.label }))}>{v.label} · ₹{v.price || optionProduct.price}</button>)}</div></div>)}<div className="gmp-product-price"><b>₹{quickPrice}</b></div><button className="gmp-btn gmp-btn-primary" onClick={confirmOptionAdd}>Add to cart</button></div></div>}
 
       <div ref={sentinelRef} style={{ height: 1 }} />
       {loadingMore && (

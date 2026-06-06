@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { fetchDataFromApi } from "../../utils/api";
+import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
+import { fetchDataFromApi, postData } from "../../utils/api";
 import { img } from "../../utils/goMarketMedia";
 import { ResultBar, SkeletonGrid, useDebouncedValue } from "./shared";
 import { useInfiniteScroll } from "./hooks/useInfiniteScroll";
-
+import { addToCart, fetchMyListData } from "../../store/appSlice";
+import { normalizeProductOptions } from "./GoMarketProductOptions";
 const TABS = [
   { key: "featured", label: "Featured" },
   { key: "popular", label: "Popular" },
@@ -21,6 +24,8 @@ const SORT_OPTIONS = [
 
 export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = false, initialQuery = "", onRestaurant }) {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { isLogin, userData, myListData } = useSelector((s) => s.app);
   const [search, setSearch] = useState(initialQuery);
   const debouncedSearch = useDebouncedValue(search, 350);
   const [tab, setTab] = useState("featured");
@@ -40,6 +45,8 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
   const [loadingMore, setLoadingMore] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [optionProduct, setOptionProduct] = useState(null);
+  const [quickSelections, setQuickSelections] = useState({});
 
   useEffect(() => setSearch(initialQuery), [initialQuery]);
 
@@ -92,6 +99,14 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
   const hasMore = page < totalPages;
   const sentinelRef = useInfiniteScroll({ enabled: true, hasMore, loading: loading || loadingMore, onLoadMore: () => loadPage(page + 1, true) });
   const subCats = (filterMeta?.subCategories || []).filter((s) => !categoryId || String(s.parentId) === String(categoryId));
+
+  const optionGroups = normalizeProductOptions(optionProduct?.productOptions || []);
+  const quickPrice = optionGroups.reduce((price, opt) => { const key = opt.name || opt.label; const found = (opt.values || []).find((v) => v.label === quickSelections[key] || v.value === quickSelections[key]); return Number(found?.price) > 0 ? Number(found.price) : price; }, Number(optionProduct?.price || 0));
+  const addProductWithOptions = async (product, selectedOptions = {}, priceOverride = null) => { if (!isLogin) { toast.error("Please login first"); navigate("/login"); return; } const name = product.itemName || product.name; await dispatch(addToCart({ product: { _id: product._id, name, price: priceOverride ?? product.price, oldPrice: product.oldPrice || product.price, image: product.image, images: product.images || [product.image], countInStock: product.countInStock ?? 99, rating: product.rating || product.averageRating || 0, brand: product.brand || "GoMarket Restaurant", discount: product.discount, selectedOptions }, userId: userData?._id, quantity: 1 })); };
+  const handleQuickAdd = (e, product) => { e.preventDefault(); e.stopPropagation(); const options = normalizeProductOptions(product.productOptions || []); if (options.length) { setOptionProduct(product); setQuickSelections({}); return; } addProductWithOptions(product); };
+  const handleQuickWishlist = async (e, product) => { e.preventDefault(); e.stopPropagation(); if (!isLogin) { toast.error("Please login first"); navigate("/login"); return; } if (myListData?.some((item) => item?.productId === product._id)) { toast.success("Already in wishlist"); return; } const name = product.itemName || product.name; const res = await postData("/api/myList/add", { productTitle: name, image: product.image, rating: product.rating || product.averageRating || 0, price: product.price, oldPrice: product.oldPrice || product.price, productId: product._id, brand: product.brand || "GoMarket Restaurant", discount: product.discount }); if (res?.error === false) { toast.success("Added to wishlist"); dispatch(fetchMyListData()); } else toast.error(res?.message || "Wishlist failed"); };
+  const confirmOptionAdd = () => { if (!optionGroups.every((opt) => quickSelections[opt.name || opt.label])) { toast.error("Select all options"); return; } addProductWithOptions(optionProduct, quickSelections, quickPrice); setOptionProduct(null); setQuickSelections({}); };
+
   const goSearch = (q) => {
     const query = (q || search).trim();
     if (!query) return;
@@ -128,7 +143,8 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600 }}><input type="checkbox" checked={availableOnly} onChange={(e) => setAvailableOnly(e.target.checked)} /> Available only</label>
       </div>}
       <ResultBar total={total} label="dishes" loading={loading && !items.length} />
-      {loading && !items.length ? <SkeletonGrid count={8} type="product" /> : items.length === 0 ? <div className="gmp-empty"><span className="gmp-empty-icon">🍽️</span>No dishes found.</div> : <div className="gmp-product-grid">{items.map((item) => <Link to={`/go-market/product/restaurant/${item._id}`} className="gmp-product-tile" key={item._id}><img src={img(item.image)} alt={item.itemName} /><div className="gmp-product-body"><div className="gmp-product-name">{item.itemName}</div><div className="gmp-product-price"><b>₹{item.price}</b>{item.discountPrice > 0 && item.oldPrice > item.price && <del>₹{item.oldPrice}</del>}</div><div style={{ fontSize: 11, color: item.isAvailable === false ? "#dc2626" : "#16a34a", marginTop: 4 }}>{item.isAvailable === false ? "Unavailable" : `${item.soldCount || 0} sold`}</div></div></Link>)}</div>}
+      {loading && !items.length ? <SkeletonGrid count={8} type="product" /> : items.length === 0 ? <div className="gmp-empty"><span className="gmp-empty-icon">🍽️</span>No dishes found.</div> : <div className="gmp-product-grid">{items.map((item) => <Link to={`/go-market/product/restaurant/${item._id}`} className="gmp-product-tile" key={item._id}><img src={img(item.image)} alt={item.itemName} /><button className="gmp-card-icon gmp-card-heart" onClick={(e) => handleQuickWishlist(e, item)}>♡</button><button className="gmp-card-icon gmp-card-plus" onClick={(e) => handleQuickAdd(e, item)}>+</button><div className="gmp-product-body"><div className="gmp-product-name">{item.itemName}</div><div className="gmp-product-price"><b>₹{item.price}</b>{item.discountPrice > 0 && item.oldPrice > item.price && <del>₹{item.oldPrice}</del>}</div><div style={{ fontSize: 11, color: item.isAvailable === false ? "#dc2626" : "#16a34a", marginTop: 4 }}>{item.isAvailable === false ? "Unavailable" : `${item.soldCount || 0} sold`}</div></div></Link>)}</div>}
+      {optionProduct && <div className="gmp-option-modal" onClick={() => setOptionProduct(null)}><div className="gmp-option-sheet" onClick={(e) => e.stopPropagation()}><h3>{optionProduct.itemName || optionProduct.name}</h3><p>Select options - price updates dynamically.</p>{optionGroups.map((opt) => <div key={opt.name || opt.label} className="gmp-option-group"><b>{opt.label || opt.name}</b><div className="gmp-option-chips">{opt.values.map((v) => <button key={v.value || v.label} type="button" className={`gmp-option-chip${quickSelections[opt.name || opt.label] === v.label ? " active" : ""}`} onClick={() => setQuickSelections((prev) => ({ ...prev, [opt.name || opt.label]: v.label }))}>{v.label} · ₹{v.price || optionProduct.price}</button>)}</div></div>)}<div className="gmp-product-price"><b>₹{quickPrice}</b></div><button className="gmp-btn gmp-btn-primary" onClick={confirmOptionAdd}>Add to cart</button></div></div>}
       <div ref={sentinelRef} style={{ height: 1 }} />
       {loadingMore && <p style={{ textAlign: "center", color: "#94a3b8", padding: 16, fontSize: 13 }}>Loading more…</p>}
       {!hasMore && items.length > 0 && <p style={{ textAlign: "center", color: "#94a3b8", padding: 12, fontSize: 12 }}>End of list</p>}

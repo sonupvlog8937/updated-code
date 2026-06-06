@@ -205,6 +205,7 @@ const Sidebar = () => {
                 <SubItem to="/go-market/menus" label="Menus" />
                 <SubItem to="/go-market/items" label="Restaurant Items" />
                 <SubItem to="/go-market/owners" label="Shop Owners" />
+                <SubItem to="/commerce-settings" label="Fees & Collections" />
               </CollapseGroup>
 
               <GroupLabel label="Finance" />

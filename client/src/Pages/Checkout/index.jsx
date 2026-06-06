@@ -4,7 +4,7 @@ import { BsFillBagCheckFill } from "react-icons/bs";
 import { useAppContext } from "../../hooks/useAppContext";
 import { FaPlus } from "react-icons/fa6";
 import Radio from '@mui/material/Radio';
-import { deleteData, postData } from "../../utils/api";
+import { deleteData, postData, fetchDataFromApi } from "../../utils/api";
 import axios from 'axios';
 import { useLocation, useNavigate } from "react-router-dom";
 import CircularProgress from '@mui/material/CircularProgress';
@@ -21,6 +21,7 @@ const Checkout = () => {
   const [isChecked, setIsChecked] = useState(0);
   const [selectedAddress, setSelectedAddress] = useState("");
   const [isLoading, setIsloading] = useState(false);
+  const [commerceSettings, setCommerceSettings] = useState({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0 });
   const context = useAppContext();
 
   const history = useNavigate();
@@ -40,7 +41,14 @@ const Checkout = () => {
   const couponCode = !isBuyNowCheckout ? (localStorage.getItem("couponCode") || "") : "";
   const couponDiscount = !isBuyNowCheckout ? Number(localStorage.getItem("couponDiscount") || 0) : 0;
   const discountAmount = Math.min(couponDiscount, cartSubTotal);
-  const totalAmount = Math.max(cartSubTotal - discountAmount, 0);
+  const baseAfterDiscount = Math.max(cartSubTotal - discountAmount, 0);
+  const deliveryFee = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove ? 0 : Number(commerceSettings.deliveryFee || 0);
+  const shippingFee = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove ? 0 : Number(commerceSettings.shippingFee || 0);
+  const totalAmount = Math.max(baseAfterDiscount + deliveryFee + shippingFee, 0);
+
+  useEffect(() => {
+    fetchDataFromApi("/api/settings/commerce").then((res) => { if (res?.data) setCommerceSettings(res.data); });
+  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -416,6 +424,11 @@ const Checkout = () => {
                   <p className="text-[13px] mb-0">Discount: -{discountAmount.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}</p>
                 </div>
               )}
+
+              <div className="bg-[#f7f7f7] rounded-md p-3 mb-3">
+                <p className="text-[13px] mb-1">Shipping fee: {shippingFee === 0 ? "FREE" : shippingFee.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}</p>
+                <p className="text-[13px] mb-0">Delivery fee: {deliveryFee === 0 ? "FREE" : deliveryFee.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}</p>
+              </div>
 
               <div className="flex items-center justify-between border-t pt-3 mb-3">
                 <span className="text-[14px] font-[600]">Payable Total</span>

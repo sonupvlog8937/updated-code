@@ -9,6 +9,7 @@ import ProductReviewsSection from "./ProductReviewsSection";
 import GoMarketProductOptions, {
   allOptionsSelected,
   normalizeProductOptions,
+  selectedOptionPrice,
 } from "./GoMarketProductOptions";
 import { useInfiniteScroll } from "./hooks/useInfiniteScroll";
 
@@ -89,12 +90,14 @@ const GoMarketProduct = () => {
   const specs = data?.specifications || [];
   const productOptions = normalizeProductOptions(product?.productOptions || []);
   const optionsComplete = allOptionsSelected(productOptions, selectedOptions);
+  const optionPrice = selectedOptionPrice(productOptions, selectedOptions);
+  const activePrice = optionPrice || Number(product?.price || 0);
 
   const cartProduct = product
     ? {
         _id: product._id,
         name: product.name,
-        price: product.price,
+        price: activePrice,
         oldPrice: product.oldPrice || product.mrp,
         image: product.image || product.images?.[0],
         images: product.images,
@@ -145,9 +148,9 @@ const GoMarketProduct = () => {
           productId: product._id,
           productTitle: product.name,
           image: product.image || product.images?.[0],
-          price: product.price,
+          price: activePrice,
           quantity,
-          subTotal: product.price * quantity,
+          subTotal: activePrice * quantity,
           selectedOptions,
           sellerId: product.sellerId || null,
         },
@@ -225,7 +228,7 @@ const GoMarketProduct = () => {
             </p>
 
             <div style={{ marginBottom: 8 }}>
-              <span className="gmp-pd-price">₹{product.price}</span>
+              <span className="gmp-pd-price">₹{activePrice}</span>
               {product.oldPrice > product.price && (
                 <span className="gmp-pd-mrp">₹{product.oldPrice}</span>
               )}

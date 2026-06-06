@@ -46,6 +46,7 @@ export const addToCartItemController = async (request, response) => {
       brand,
       color,
       colorCode,
+      selectedOptions,
     } = request.body;
     if (!productId) {
       return response.status(402).json({
@@ -62,6 +63,7 @@ export const addToCartItemController = async (request, response) => {
       weight: weight || null,
       ram: ram || null,
       color: color || "",
+      selectedOptions: selectedOptions || {},
     });
 
     if (checkItemCart) {
@@ -102,6 +104,7 @@ export const addToCartItemController = async (request, response) => {
       ram: ram,
       color: color,
       colorCode: colorCode,
+      selectedOptions: selectedOptions || {},
     });
 
     const save = await cartItem.save();

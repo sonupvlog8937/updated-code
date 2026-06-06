@@ -10,7 +10,13 @@ const groceryProductSchema = new mongoose.Schema({
   productOptions: [{
     name: { type: String, default: "", trim: true },
     label: { type: String, default: "", trim: true },
-    values: [{ type: String, trim: true }],
+    values: [{
+      label: { type: String, default: "", trim: true },
+      value: { type: String, default: "", trim: true },
+      price: { type: Number, default: 0, min: 0 },
+      oldPrice: { type: Number, default: 0, min: 0 },
+      isDefault: { type: Boolean, default: false },
+    }],
   }],
   image: { type: String, default: "" },
   images: [{ type: String, default: "" }],
