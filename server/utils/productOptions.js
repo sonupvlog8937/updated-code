@@ -1,7 +1,6 @@
 import { normalizeSpecifications } from "./productSpecs.js";
 
-const OPTION_KEY_HINTS = ["weight", "size", "ram", "age", "color", "colour", "unit", "volume", "capacity", "storage", "flavour", "flavor", "pack"];
-
+const OPTION_KEY_HINTS = ["weight", "size", "ram", "age", "color", "colour", "volume", "capacity", "storage", "flavour", "flavor", "pack"];
 const clean = (value) => String(value ?? "").trim();
 
 const toMoney = (value) => {

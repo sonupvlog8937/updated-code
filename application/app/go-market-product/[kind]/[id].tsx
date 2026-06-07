@@ -360,7 +360,6 @@ export default function GoMarketProductScreen() {
                 <View style={S.optRow}>
                   {(opt.values || []).map((val: any) => {
                     const isSelected = selectedOptions[key] === (val.value || val.label);
-                    const hasPrice = val.price > 0;
                     return (
                       <TouchableOpacity
                         key={val.value || val.label}
@@ -368,8 +367,7 @@ export default function GoMarketProductScreen() {
                         onPress={() => setSelectedOptions((s) => ({ ...s, [key]: val.value || val.label }))}
                       >
                         <Text style={[S.optChipTxt, isSelected && S.optChipTxtOn]}>
-                          {val.label || val.value}
-                          {``}
+                          {val.label || val.value}{val.price > 0 ? ` · ₹${val.price}` : ""}
                         </Text>
                       </TouchableOpacity>
                     );

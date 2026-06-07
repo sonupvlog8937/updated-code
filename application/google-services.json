@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "963749736909",
+    "project_id": "hope-de8fd",
+    "storage_bucket": "hope-de8fd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:963749736909:android:5b9cb4eb98e5d1707c9484",
+        "android_client_info": {
+          "package_name": "com.zeedaddy.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "963749736909-g7luemjqn7pb49tsak110fp8it5eaj2i.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.zeedaddy.app",
+            "certificate_hash": "97411fc879fd573ef714ce5f893f308e6a95e42f"
+          }
+        },
+        {
+          "client_id": "963749736909-edc3jh850on4g4ou81hleejgte5989q2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCYB0lgYUmRuWRpau4oguVUSA3LJymgiNk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "963749736909-edc3jh850on4g4ou81hleejgte5989q2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

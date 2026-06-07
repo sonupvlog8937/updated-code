@@ -47,6 +47,14 @@ const CartPanel = (props) => {
                     </span>
                     <span className="text-primary font-bold">{item?.price?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}</span>
                   </p>
+                   <div className="flex items-center gap-2 flex-wrap mb-2">
+                    {Number(item?.oldPrice) > Number(item?.price) && (
+                      <del className="text-[12px] text-gray-400">{Number(item?.oldPrice)?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}</del>
+                    )}
+                    {Number(item?.discount) > 0 && (
+                      <span className="text-[11px] font-bold text-green-700 bg-green-50 px-2 py-[2px] rounded-full">{item?.discount}% OFF</span>
+                    )}
+                  </div>
 
                   <MdOutlineDeleteOutline className="absolute top-[10px] right-[10px] cursor-pointer text-[20px] link transition-all" onClick={() => removeItem(item?._id)} />
                 </div>

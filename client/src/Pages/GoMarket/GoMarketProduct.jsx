@@ -91,21 +91,50 @@ const GoMarketProduct = () => {
   const specs = data?.specifications || [];
   const productOptions = normalizeProductOptions(product?.productOptions || []);
   const optionsComplete = allOptionsSelected(productOptions, selectedOptions);
-  const optionPrice = selectedOptionPrice(productOptions, selectedOptions);
-  const activePrice = optionPrice || Number(product?.price || 0);
+  
+  // Calculate active price and old price based on selected options
+  const getActivePricing = () => {
+    let price = Number(product?.price || 0);
+    let oldPrice = product?.oldPrice || product?.mrp || product?.price || 0;
+    
+    if (productOptions.length > 0 && selectedOptions) {
+      productOptions.forEach((opt) => {
+        const key = opt.name || opt.label;
+        const selectedLabel = selectedOptions[key];
+        if (selectedLabel) {
+          const found = (opt.values || []).find((v) => v.label === selectedLabel || v.value === selectedLabel);
+          if (found) {
+            if (Number(found.price) > 0) {
+              price = Number(found.price);
+            }
+            if (Number(found.oldPrice) > 0) {
+              oldPrice = Number(found.oldPrice);
+            }
+          }
+        }
+      });
+    }
+    
+    return { price, oldPrice };
+  };
+  
+  const { price: activePrice, oldPrice: activeOldPrice } = product ? getActivePricing() : { price: 0, oldPrice: 0 };
+  const hasDiscount = activeOldPrice > activePrice;
+  const discountPercent = hasDiscount ? Math.round(((activeOldPrice - activePrice) / activeOldPrice) * 100) : (product?.discount || 0);
+  const saveAmount = hasDiscount ? activeOldPrice - activePrice : 0;
 
   const cartProduct = product
     ? {
         _id: product._id,
         name: product.name,
         price: activePrice,
-        oldPrice: product.oldPrice || product.mrp,
+        oldPrice: activeOldPrice,
         image: product.image || product.images?.[0],
         images: product.images,
         countInStock: product.countInStock ?? product.stock ?? 0,
         rating: data?.averageRating || product.rating,
         brand: product.brand,
-        discount: product.discount,
+        discount: discountPercent,
         selectedOptions,
       }
     : null;
@@ -265,18 +294,18 @@ const GoMarketProduct = () => {
             <div style={{ background: "linear-gradient(135deg, #f0fdf4 0%, #fff 100%)", border: "1px solid #bbf7d0", borderRadius: 12, padding: "12px 16px", marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                 <span className="gmp-pd-price">₹{activePrice}</span>
-                {product.oldPrice > product.price && (
-                  <span className="gmp-pd-mrp">₹{product.oldPrice}</span>
+                {hasDiscount && activeOldPrice > activePrice && (
+                  <span className="gmp-pd-mrp">₹{activeOldPrice}</span>
                 )}
-                {product.discount > 0 && (
+                {discountPercent > 0 && (
                   <span style={{ fontSize: 13, fontWeight: 700, color: "#16a34a", background: "#dcfce7", padding: "3px 10px", borderRadius: 20 }}>
-                    {product.discount}% OFF
+                    {discountPercent}% OFF
                   </span>
                 )}
               </div>
-              {product.oldPrice > product.price && (
+              {saveAmount > 0 && (
                 <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 600, marginTop: 4 }}>
-                  You save ₹{product.oldPrice - activePrice}
+                  You save ₹{saveAmount}
                 </div>
               )}
             </div>

@@ -78,6 +78,11 @@ const userSchema = mongoose.Schema({
         type:Boolean,
         default:false
     },
+    firebaseUid: {
+        type: String,
+        default: "",
+        index: true
+    },
     storeProfile: {
         storeName:    { type: String, default: "" },
         description:  { type: String, default: "" },

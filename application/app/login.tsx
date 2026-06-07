@@ -1,4 +1,7 @@
 import { Feather } from "@expo/vector-icons";
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
+import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { useState, useRef } from "react";
@@ -12,7 +15,6 @@ import {
   TextInput,
   View,
   Dimensions,
-  Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -25,7 +27,10 @@ import {
   setIsLogin,
 } from "@/src/store/appSlice";
 import { postData } from "@/src/utils/api";
+import { auth } from "@/src/utils/firebase";
 import { showToast } from "@/src/utils/toast";
+
+WebBrowser.maybeCompleteAuthSession();
 
 const { width, height } = Dimensions.get("window");
 const IS_SMALL = width < 375;
@@ -38,7 +43,78 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [, , promptGoogleAsync] = Google.useAuthRequest({
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  });
   const scrollViewRef = useRef<ScrollView>(null);
+
+  const completeGoogleLogin = async (firebaseUser: any) => {
+    const idToken = await firebaseUser.getIdToken();
+    const providerProfile = firebaseUser.providerData?.[0] || {};
+    const fields = {
+      name: providerProfile.displayName || firebaseUser.displayName || "Google User",
+      email: providerProfile.email || firebaseUser.email,
+      password: null,
+      avatar: providerProfile.photoURL || firebaseUser.photoURL,
+      mobile: providerProfile.phoneNumber || firebaseUser.phoneNumber,
+      role: "USER",
+      firebaseUid: firebaseUser.uid,
+      idToken,
+    };
+    const res = await postData("/api/user/authWithGoogle", fields);
+    if (res?.error === false) {
+      await AsyncStorage.setItem("accessToken", res?.data?.accesstoken || "");
+      await AsyncStorage.setItem("refreshToken", res?.data?.refreshToken || "");
+      await AsyncStorage.setItem("userEmail", fields.email || "");
+      dispatch(setIsLogin(true));
+      dispatch(fetchUserDetails());
+      dispatch(fetchCartItems());
+      dispatch(fetchMyListData());
+      showToast("success", res?.message || "Signed in with Google");
+      router.replace("/" as never);
+    } else {
+      showToast(res?.message || "Google sign-in failed", "error");
+    }
+  };
+
+  const onGoogleLogin = async () => {
+    setGoogleLoading(true);
+    try {
+      const result = await promptGoogleAsync();
+
+      console.log("Google Result:", JSON.stringify(result, null, 2));
+
+      if (result.type !== "success") {
+        return;
+      }
+
+      const idToken = result.authentication?.idToken;
+      const accessToken = result.authentication?.accessToken;
+
+      console.log("ID TOKEN:", idToken);
+      console.log("ACCESS TOKEN:", accessToken);
+
+      if (!idToken) {
+        throw new Error(
+          "Google ID Token not received. Check OAuth Client IDs configuration."
+        );
+      }
+
+      const credential = GoogleAuthProvider.credential(idToken, accessToken);
+      const firebaseResult = await signInWithCredential(auth, credential);
+
+      await completeGoogleLogin(firebaseResult.user);
+    } catch (error: any) {
+      console.error("Google sign-in error:", error);
+      showToast("error", error?.message || "Google sign-in failed");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
 
   const onLogin = async () => {
     if (!email.trim() || !password) {
@@ -197,22 +273,21 @@ export default function LoginScreen() {
           </View>
 
           <Pressable
-            onPress={() =>
-              showToast("info", "Phone OTP login coming soon")
-            }
+            onPress={onGoogleLogin}
+            disabled={loading || googleLoading}
             style={[
               styles.altBtn,
-              { borderColor: colors.border, backgroundColor: colors.card },
+               { borderColor: colors.border, backgroundColor: colors.card, opacity: googleLoading ? 0.6 : 1 },
             ]}
           >
-            <Feather name="phone" size={16} color={colors.foreground} />
+             <Feather name="chrome" size={16} color={colors.foreground} />
             <Text
               style={[
                 styles.altBtnText,
                 { color: colors.foreground },
               ]}
             >
-              Continue with phone
+               {googleLoading ? "Connecting Google..." : "Continue with Google"}
             </Text>
           </Pressable>
 

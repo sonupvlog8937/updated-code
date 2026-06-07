@@ -388,7 +388,7 @@ export async function resendOtpController(request, response) {
 
 // ─── Google Auth ──────────────────────────────────────────────────────────────
 export async function authWithGoogle(request, response) {
-    const { name, email, password, avatar, mobile, role } = request.body;
+    const { name, email, password, avatar, mobile, role, firebaseUid } = request.body;
 
     try {
         const existingUser = await UserModel.findOne({ email });
@@ -398,6 +398,7 @@ export async function authWithGoogle(request, response) {
                 name, mobile, email,
                 password: "null",
                 avatar, role,
+                firebaseUid: firebaseUid || "",
                 verify_email: true,
                 signUpWithGoogle: true
             });
@@ -407,6 +408,12 @@ export async function authWithGoogle(request, response) {
             return sendLoginResponse(response, user._id);
 
         } else {
+            if (firebaseUid && !existingUser.firebaseUid) {
+                existingUser.firebaseUid = firebaseUid;
+                existingUser.signUpWithGoogle = true;
+                existingUser.verify_email = true;
+                await existingUser.save();
+            }
             return sendLoginResponse(response, existingUser._id);
         }
 

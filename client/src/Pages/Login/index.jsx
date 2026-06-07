@@ -250,8 +250,9 @@ const Login = () => {
     setIsLoading(true);
     context.setGlobalLoading(true);
     signInWithPopup(auth, googleProvider)
-      .then((result) => {
+      .then(async (result) => {
         const user = result.user;
+        const idToken = await user.getIdToken();
         const fields = {
           name: user.providerData[0].displayName,
           email: user.providerData[0].email,
@@ -259,6 +260,8 @@ const Login = () => {
           avatar: user.providerData[0].photoURL,
           mobile: user.providerData[0].phoneNumber,
           role: "USER",
+          firebaseUid: user.uid,
+          idToken,
         };
         postData("/api/user/authWithGoogle", fields).then((res) => {
           if (res?.error !== true) {

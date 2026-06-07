@@ -1,4 +1,8 @@
+import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
+import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 import { useRouter } from "expo-router";
 import React, { useState, useRef } from "react";
 import {
@@ -14,9 +18,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useAppDispatch } from "@/src/store";
+import { fetchCartItems, fetchMyListData, fetchUserDetails, setIsLogin } from "@/src/store/appSlice";
 import { Field } from "@/app/login";
 import { postData } from "@/src/utils/api";
+import { auth } from "@/src/utils/firebase";
 import { showToast } from "@/src/utils/toast";
+
+WebBrowser.maybeCompleteAuthSession();
 
 const { width, height } = Dimensions.get("window");
 const IS_SMALL = width < 375;
@@ -24,12 +33,78 @@ const IS_SMALL = width < 375;
 export default function RegisterScreen() {
   const colors = useColors();
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [, , promptGoogleAsync] = Google.useAuthRequest({
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  });
   const scrollViewRef = useRef<ScrollView>(null);
+
+  const onGoogleRegister = async () => {
+    setGoogleLoading(true);
+    try {
+      const result = await promptGoogleAsync();
+
+      console.log("Google Result:", JSON.stringify(result, null, 2));
+
+      if (result.type !== "success") {
+        return;
+      }
+
+      const idToken = result.authentication?.idToken;
+      const accessToken = result.authentication?.accessToken;
+
+      console.log("ID TOKEN:", idToken);
+      console.log("ACCESS TOKEN:", accessToken);
+
+      if (!idToken) {
+        throw new Error(
+          "Google ID Token not received. Check OAuth Client IDs configuration."
+        );
+      }
+
+      const credential = GoogleAuthProvider.credential(idToken, accessToken);
+      const firebaseResult = await signInWithCredential(auth, credential);
+      const firebaseUser: any = firebaseResult.user;
+      const providerProfile = firebaseUser.providerData?.[0] || {};
+      const fields = {
+        name: providerProfile.displayName || firebaseUser.displayName || "Google User",
+        email: providerProfile.email || firebaseUser.email,
+        password: null,
+        avatar: providerProfile.photoURL || firebaseUser.photoURL,
+        mobile: providerProfile.phoneNumber || firebaseUser.phoneNumber,
+        role: "USER",
+        firebaseUid: firebaseUser.uid,
+        idToken: await firebaseUser.getIdToken(),
+      };
+      const res = await postData("/api/user/authWithGoogle", fields);
+      if (res?.error === false) {
+        await AsyncStorage.setItem("accessToken", res?.data?.accesstoken || "");
+        await AsyncStorage.setItem("refreshToken", res?.data?.refreshToken || "");
+        await AsyncStorage.setItem("userEmail", fields.email || "");
+        dispatch(setIsLogin(true));
+        dispatch(fetchUserDetails());
+        dispatch(fetchCartItems());
+        dispatch(fetchMyListData());
+        showToast("success", res?.message || "Signed in with Google");
+        router.replace("/" as never);
+      } else {
+        showToast(res?.message || "Google sign-in failed", "error");
+      }
+    } catch (error: any) {
+      console.error("Google sign-in error:", error);
+      showToast("error", error?.message || "Google sign-in failed");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const onRegister = async () => {
     if (!name.trim() || !email.trim() || !password) {
@@ -179,6 +254,21 @@ export default function RegisterScreen() {
               {loading ? "Creating..." : "Create Account"}
             </Text>
           </Pressable>
+          <View style={styles.divider}>
+            <View style={[styles.line, { backgroundColor: colors.border }]} />
+            <Text style={[styles.orText, { color: colors.mutedForeground }]}>OR</Text>
+            <View style={[styles.line, { backgroundColor: colors.border }]} />
+          </View>
+          <Pressable
+            onPress={onGoogleRegister}
+            disabled={loading || googleLoading}
+            style={[styles.googleBtn, { borderColor: colors.border, backgroundColor: colors.card, opacity: googleLoading ? 0.6 : 1 }]}
+          >
+            <Feather name="chrome" size={16} color={colors.foreground} />
+            <Text style={[styles.altBtnText, { color: colors.foreground }]}>
+              {googleLoading ? "Connecting Google..." : "Continue with Google"}
+            </Text>
+          </Pressable>
           <Pressable
             onPress={() => router.back()}
             style={styles.signinLink}
@@ -243,5 +333,25 @@ const styles = StyleSheet.create({
   altBtnText: {
     fontFamily: "Inter_600SemiBold",
     fontSize: IS_SMALL ? 12 : 13,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: IS_SMALL ? 2 : 4,
+  },
+  line: { flex: 1, height: 1 },
+  orText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  googleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 11,
   },
 });
