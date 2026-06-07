@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -22,14 +22,11 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { QtyBox } from "@/src/components/QtyBox";
 import { useAppDispatch, useAppSelector } from "@/src/store";
 import { CartItem, fetchCartItems, setCartData } from "@/src/store/appSlice";
-import { deleteData, putData } from "@/src/utils/api";
+import { deleteData, fetchDataFromApi, putData } from "@/src/utils/api";
 import { showToast } from "@/src/utils/toast";
 
 const { width } = Dimensions.get("window");
 const IS_SMALL = width < 375;
-
-const FREE_SHIPPING_THRESHOLD = 500;
-const SHIPPING_CHARGE = 0;
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -251,13 +248,16 @@ const CartItemCard = ({
 /** Delivery info banner */
 const DeliveryBanner = ({
   subTotal,
+  freeShippingAbove,
   colors,
 }: {
   subTotal: number;
+  freeShippingAbove: number;
   colors: any;
 }) => {
-  const isFree = subTotal >= FREE_SHIPPING_THRESHOLD;
-  const remaining = FREE_SHIPPING_THRESHOLD - subTotal;
+  const threshold = freeShippingAbove || 500; // fallback
+  const isFree = subTotal >= threshold;
+  const remaining = threshold - subTotal;
 
   return (
     <View
@@ -281,8 +281,8 @@ const DeliveryBanner = ({
         ]}
       >
         {isFree
-          ? "🎉 Free delivery on this order!"
-          : `Add ₹${remaining} more for free delivery`}
+          ? "🎉 Congratulations! You've unlocked FREE delivery"
+          : `Add ₹${remaining.toFixed(0)} more for FREE delivery`}
       </Text>
     </View>
   );
@@ -368,6 +368,24 @@ export default function CartScreen() {
   const isLogin = useAppSelector((s) => s.app.isLogin);
 
   const [busy, setBusy] = useState<string | null>(null);
+  const [commerceSettings, setCommerceSettings] = useState<any>({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0 });
+
+  // Fetch commerce settings
+  useEffect(() => {
+    fetchDataFromApi("/api/settings/commerce")
+      .then((res) => {
+        console.log("🛒 Commerce Settings Response:", res);
+        if (res?.data) {
+          console.log("✅ Commerce Settings Loaded:", res.data);
+          setCommerceSettings(res.data);
+        } else {
+          console.warn("⚠️ No data in commerce settings response");
+        }
+      })
+      .catch((error) => {
+        console.error("❌ Failed to fetch commerce settings:", error);
+      });
+  }, []);
 
   const subTotal = useMemo(
     () => cartData.reduce((sum, c) => sum + c.price * c.quantity, 0),
@@ -384,11 +402,11 @@ export default function CartScreen() {
   );
 
   const itemDiscount = Math.max(0, oldTotal - subTotal);
-  const shipping =
-    subTotal > 0 && subTotal < FREE_SHIPPING_THRESHOLD ? SHIPPING_CHARGE : 0;
-  const grandTotal = subTotal + shipping;
-  const totalSavings =
-    itemDiscount + (shipping === 0 && subTotal > 0 ? SHIPPING_CHARGE : 0);
+  const freeByRule = commerceSettings.freeShippingAbove > 0 && subTotal >= commerceSettings.freeShippingAbove;
+  const shipping = freeByRule ? 0 : Number(commerceSettings.shippingFee || 0);
+  const deliveryFee = freeByRule ? 0 : Number(commerceSettings.deliveryFee || 0);
+  const grandTotal = subTotal + shipping + deliveryFee;
+  const totalSavings = itemDiscount + (freeByRule && subTotal > 0 ? (Number(commerceSettings.shippingFee || 0) + Number(commerceSettings.deliveryFee || 0)) : 0);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   const updateQty = async (item: CartItem, next: number) => {
@@ -583,7 +601,7 @@ export default function CartScreen() {
           <Header count={cartData.length} />
 
           {/* Delivery banner */}
-          <DeliveryBanner subTotal={subTotal} colors={colors} />
+          <DeliveryBanner subTotal={subTotal} freeShippingAbove={commerceSettings.freeShippingAbove} colors={colors} />
 
           {/* Cart items */}
           <View style={styles.section}>
@@ -633,6 +651,20 @@ export default function CartScreen() {
                 valueColor={shipping === 0 ? colors.success : undefined}
                 colors={colors}
               />
+              <SummaryRow
+                label="Delivery Fee"
+                value={deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}
+                valueColor={deliveryFee === 0 ? colors.success : undefined}
+                colors={colors}
+              />
+              {freeByRule && commerceSettings.freeShippingAbove > 0 && (
+                <View style={[styles.freeShipBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+                  <Feather name="check-circle" size={12} color={colors.success} />
+                  <Text style={[styles.freeShipText, { color: colors.success }]}>
+                    🎉 Free shipping & delivery applied!
+                  </Text>
+                </View>
+              )}
               <View
                 style={[styles.divider, { backgroundColor: colors.border }]}
               />
@@ -952,6 +984,20 @@ const styles = StyleSheet.create({
   },
   savingsStripText: {
     fontSize: IS_SMALL ? 11 : 12,
+    fontFamily: "Inter_600SemiBold",
+    flex: 1,
+  },
+  freeShipBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginVertical: 4,
+  },
+  freeShipText: {
+    fontSize: 11,
     fontFamily: "Inter_600SemiBold",
     flex: 1,
   },

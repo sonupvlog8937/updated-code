@@ -46,6 +46,7 @@ export interface Product {
   color?: string;
   sellerId?: string;
   soldCount?: number;
+  selectedOptions?: Record<string, string>;
 }
 
 export interface Category {

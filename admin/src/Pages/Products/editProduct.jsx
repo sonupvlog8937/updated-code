@@ -14,7 +14,8 @@ import { useNavigate } from 'react-router-dom';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import Switch from '@mui/material/Switch';
-import SpecialtyEditProduct from './SpecialtyEditProduct';
+import GroceryEditProduct from './GroceryEditProduct';
+import RestaurantEditProduct from './RestaurantEditProduct';
 
 const label = { inputProps: { 'aria-label': 'Switch demo' } };
 
@@ -868,8 +869,11 @@ const EditProduct = () => {
 const EditProductRoute = () => {
     const context = useContext(MyContext);
     const role = context?.userData?.role;
-    if (role === 'GROCERY_SELLER' || role === 'RESTAURANT_SELLER') {
-        return <SpecialtyEditProduct />;
+    if (role === 'GROCERY_SELLER') {
+        return <GroceryEditProduct />;
+    }
+    if (role === 'RESTAURANT_SELLER') {
+        return <RestaurantEditProduct />;
     }
     return <EditProduct />;
 };

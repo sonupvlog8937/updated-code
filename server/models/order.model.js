@@ -49,6 +49,10 @@ const orderSchema = new mongoose.Schema(
           type: String,
           default: "",
         },
+        selectedOptions: {
+          type: Object,
+          default: {},
+        },
         subTotal: {
           type: Number,
         },
@@ -84,6 +88,18 @@ const orderSchema = new mongoose.Schema(
       ref: "address",
     },
     totalAmt: {
+      type: Number,
+      default: 0,
+    },
+    shippingFee: {
+      type: Number,
+      default: 0,
+    },
+    deliveryFee: {
+      type: Number,
+      default: 0,
+    },
+    discount_amount: {
       type: Number,
       default: 0,
     },

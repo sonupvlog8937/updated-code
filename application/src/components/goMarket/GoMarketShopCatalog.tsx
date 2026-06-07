@@ -176,6 +176,10 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
   };
 
   const handleConfirmAddToCart = async (product: any, selectedOption: any, quantity: number) => {
+    const selectedOptionsData: Record<string, string> | undefined = selectedOption 
+      ? { option: String(selectedOption.name || '') } 
+      : undefined;
+    
     const cartProduct = {
       _id: product._id,
       name: product.name || product.itemName || product.productName,
@@ -187,7 +191,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
       brand: product.brand,
       discount: product.discount,
       weight: selectedOption?.name || product.weight,
-      selectedOptions: selectedOption ? { option: selectedOption.name } : {},
+      ...(selectedOptionsData && { selectedOptions: selectedOptionsData }),
     };
 
     if (isLogin && (userData?._id || userData?.id)) {
@@ -228,7 +232,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
       productTitle: title,
       image: product.images?.[0] || product.image,
       rating: product.rating || product.averageRating || 0,
-      price: selectedOption?.price && selectedOption.price > 0 ? selectedOption.price : (product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price),
+      price: product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price,
       oldPrice: product.oldPrice || product.originalPrice || product.price,
       productId: product._id,
       brand: product.brand || product.shopName || product.restaurantName || "GoMarket",
@@ -243,10 +247,19 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
   };
 
   const renderProduct = ({ item: p }: { item: any }) => {
-    const price = p.discountPrice > 0 ? p.discountPrice : p.price;
-    const oldPrice = p.oldPrice || p.originalPrice || p.price;
-    const hasDiscount = (p.discountPrice > 0 && p.discountPrice < oldPrice) || (p.discount > 0);
-    const discountPercent = p.discount || (hasDiscount ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0);
+    // Server response structure:
+    // price = selling price (already calculated)
+    // oldPrice or mrp = original MRP
+    // discountPrice = selling price
+    // discount = discount percentage
+    
+    const sellingPrice = p.price || 0; // Server already sends selling price in 'price' field
+    const mrp = p.oldPrice || p.mrp || p.price; // MRP is in oldPrice or mrp field
+    const price = sellingPrice; // Display selling price
+    const oldPrice = mrp; // Display MRP as old price
+    const hasDiscount = mrp > 0 && sellingPrice > 0 && sellingPrice < mrp;
+    const discountPercent = p.discount || (hasDiscount ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0);
+    const saveAmount = hasDiscount ? mrp - sellingPrice : 0;
     const inWishlist = myListData?.some((item: any) => item?.productId === p._id);
     const rating = p.rating || p.averageRating || 0;
     const isOutOfStock = p.stock === 0 || p.inStock === false;
@@ -259,7 +272,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
       >
         <View style={S.tileImageWrap}>
           <Image source={{ uri: gmImg(p.image, GO_MARKET_FALLBACK) }} style={S.tileImg} />
-          {hasDiscount && (
+          {discountPercent > 0 && (
             <View style={S.discountBadge}>
               <Text style={S.discountText}>{discountPercent}% OFF</Text>
             </View>
@@ -305,8 +318,13 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
           <View style={S.priceRow}>
             <View style={S.priceCol}>
               <Text style={S.tilePrice}>₹{price}</Text>
-              {hasDiscount && (
-                <Text style={S.originalPrice}>₹{oldPrice}</Text>
+              {hasDiscount && oldPrice > price && (
+                <>
+                  <Text style={S.originalPrice}>₹{oldPrice}</Text>
+                  {saveAmount > 0 && (
+                    <Text style={S.savePrice}>Save ₹{saveAmount}</Text>
+                  )}
+                </>
               )}
             </View>
             
@@ -741,6 +759,15 @@ const S = StyleSheet.create({
     fontWeight: "600",
     color: "#94a3b8",
     textDecorationLine: "line-through",
+  },
+  savePrice: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#10b981",
+    backgroundColor: "#d1fae5",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   addBtn: {
     width: 32,

@@ -376,3 +376,345 @@
         }
     }
 }.gmp-product-tile{position:relative}.gmp-card-icon{position:absolute;top:10px;width:34px;height:34px;border:0;border-radius:999px;background:#fff;box-shadow:0 10px 22px rgba(15,23,42,.16);font-weight:900;cursor:pointer;z-index:2}.gmp-card-heart{right:52px;color:#e11d48}.gmp-card-plus{right:10px;color:#fff;background:#16a34a;font-size:20px}.gmp-option-modal{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:999;display:grid;place-items:center;padding:18px}.gmp-option-sheet{width:min(460px,100%);background:#fff;border-radius:20px;padding:20px;box-shadow:0 24px 80px rgba(15,23,42,.28)}
+
+/* ═══════════════════════════════════════════════════
+   PRODUCT TILE — Rich Card Styles
+   Add these to your existing style.css
+   ═══════════════════════════════════════════════════ */
+
+/* Wrap the image to allow badge/overlay positioning */
+.gmp-tile-img-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px 12px 0 0;
+  background: #f1f5f9;
+  aspect-ratio: 4 / 3;
+}
+
+.gmp-tile-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.gmp-product-tile:hover .gmp-tile-img-wrap img {
+  transform: scale(1.05);
+}
+
+/* Discount badge on image */
+.gmp-tile-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Out of stock overlay */
+.gmp-tile-oos-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  z-index: 3;
+  border-radius: 12px 12px 0 0;
+}
+
+/* Brand label */
+.gmp-tile-brand {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 2px;
+}
+
+/* Short description under title */
+.gmp-tile-desc {
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.45;
+  margin: 3px 0 5px;
+  /* 2-line clamp */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Star rating row */
+.gmp-tile-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.gmp-tile-stars {
+  font-size: 11px;
+  color: #f59e0b;
+  letter-spacing: -1px;
+}
+
+.gmp-tile-rating-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.gmp-tile-review-count {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* Price row */
+.gmp-tile-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.gmp-tile-price {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.gmp-tile-mrp {
+  font-size: 12px;
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.gmp-tile-save {
+  font-size: 11px;
+  font-weight: 700;
+  color: #16a34a;
+  background: #dcfce7;
+  padding: 1px 7px;
+  border-radius: 12px;
+}
+
+/* Stock status */
+.gmp-tile-stock {
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 5px;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   OPTION MODAL — Professional Sheet
+   ═══════════════════════════════════════════════════ */
+
+.gmp-option-sheet-header {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.gmp-option-sheet-img {
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+.gmp-option-sheet-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gmp-option-sheet-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.gmp-option-sheet-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px;
+  line-height: 1.3;
+}
+
+.gmp-option-sheet-desc {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0 0 4px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.gmp-option-sheet-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+  margin: 0 0 12px;
+}
+
+.gmp-option-group-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+/* Enhanced option chips with price */
+.gmp-option-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  transition: all 0.15s;
+  min-width: 64px;
+}
+
+.gmp-option-chip:hover {
+  border-color: #6366f1;
+  color: #6366f1;
+  background: #eef2ff;
+}
+
+.gmp-option-chip.active {
+  border-color: #6366f1;
+  background: #6366f1;
+  color: #fff;
+}
+
+.gmp-chip-price {
+  font-size: 11px;
+  font-weight: 800;
+  opacity: 0.8;
+}
+
+.gmp-option-chip.active .gmp-chip-price {
+  opacity: 1;
+}
+
+/* Footer with total + CTA */
+.gmp-option-sheet-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.gmp-option-total {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.gmp-option-total span:first-child {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   PRODUCT DETAIL PAGE — Gallery Enhancements
+   ═══════════════════════════════════════════════════ */
+
+.gmp-pd-main-img-wrap {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f8fafc;
+  aspect-ratio: 1 / 1;
+}
+
+.gmp-pd-main-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.gmp-pd-main-img-wrap:hover .gmp-pd-main-img {
+  transform: scale(1.04);
+}
+
+.gmp-pd-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  font-size: 12px;
+  padding: 4px 12px;
+  z-index: 2;
+}
+
+/* Thumbnail strip */
+.gmp-pd-thumbs {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.gmp-pd-thumb {
+  width: 60px;
+  height: 60px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid #e2e8f0;
+  background: #f1f5f9;
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.15s;
+}
+
+.gmp-pd-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gmp-pd-thumb.active {
+  border-color: #6366f1;
+}
+
+.gmp-pd-thumb:hover {
+  border-color: #818cf8;
+}

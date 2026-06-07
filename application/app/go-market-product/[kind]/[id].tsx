@@ -26,7 +26,22 @@ const normalizeProductOptions = (options: any[] = []) =>
   (Array.isArray(options) ? options : [])
     .map((opt: any) => {
       const key = cleanText(opt?.name || opt?.label);
-      const values = [...new Set((Array.isArray(opt?.values) ? opt.values : []).map(cleanText).filter(Boolean))];
+      const values = (Array.isArray(opt?.values) ? opt.values : [])
+        .map((val: any) => {
+          if (typeof val === 'object') {
+            return {
+              label: cleanText(val?.label || val?.value || ''),
+              value: cleanText(val?.value || val?.label || ''),
+              price: Number(val?.price) || 0,
+              oldPrice: Number(val?.oldPrice) || 0,
+              isDefault: Boolean(val?.isDefault),
+            };
+          }
+          const cleaned = cleanText(val);
+          return { label: cleaned, value: cleaned, price: 0, oldPrice: 0, isDefault: false };
+        })
+        .filter((v: any) => v.label);
+      
       if (!key || values.length === 0) return null;
       return {
         ...opt,
@@ -35,8 +50,7 @@ const normalizeProductOptions = (options: any[] = []) =>
         values,
       };
     })
-    .filter(Boolean)
-    .filter((opt: any) => Array.isArray(opt.values) && opt.values.length > 1);
+    .filter(Boolean);
 
 export default function GoMarketProductScreen() {
   const { kind, id } = useLocalSearchParams<{ kind: string; id: string }>();
@@ -106,6 +120,45 @@ export default function GoMarketProductScreen() {
   // 3. Options were added intentionally by seller (not test/dummy data)
   const productOptions: any[] = normalizeProductOptions(product?.productOptions || []);
 
+  // Calculate current price based on selected options
+  const calculatePriceFromOptions = () => {
+    // Check if any option with price is selected
+    let hasOptionWithPrice = false;
+    let optionPrice = 0;
+    let optionOldPrice = 0;
+    
+    productOptions.forEach((opt: any) => {
+      const selectedValue = selectedOptions[opt.name || opt.label];
+      if (selectedValue) {
+        const valueObj = opt.values.find((v: any) => v.value === selectedValue || v.label === selectedValue);
+        if (valueObj && valueObj.price > 0) {
+          hasOptionWithPrice = true;
+          optionPrice = Number(valueObj.price) || 0;
+          optionOldPrice = Number(valueObj.oldPrice) || 0;
+        }
+      }
+    });
+    
+    // If option has its own price, show that exact price instead of adding to base price
+    if (hasOptionWithPrice) {
+      return {
+        price: optionPrice,
+        oldPrice: optionOldPrice > 0 ? optionOldPrice : optionPrice,
+      };
+    }
+    
+    // Otherwise, show base product price
+    return {
+      price: product?.price || 0,
+      oldPrice: product?.oldPrice || product?.price || 0,
+    };
+  };
+
+  const currentPricing = product ? calculatePriceFromOptions() : { price: 0, oldPrice: 0 };
+  const displayPrice = currentPricing.price;
+  const displayOldPrice = currentPricing.oldPrice;
+  const displayDiscount = displayOldPrice > displayPrice ? Math.round(((displayOldPrice - displayPrice) / displayOldPrice) * 100) : 0;
+
   const optionsComplete =
     !productOptions.length ||
     productOptions.every((opt: any) => String(selectedOptions[opt.name || opt.label] || "").trim());
@@ -131,10 +184,10 @@ export default function GoMarketProductScreen() {
     ? {
         _id: product._id,
         name: product.name,
-        price: product.price,
-        oldPrice: product.oldPrice,
+        price: displayPrice,
+        oldPrice: displayOldPrice,
         description: product.description,
-        discount: product.discount,
+        discount: displayDiscount,
         totalReviews: data?.totalReviews || product.totalReviews || 0,
         images: product.images || (product.image ? [product.image] : []),
         countInStock: product.countInStock ?? product.stock ?? 0,
@@ -189,13 +242,13 @@ export default function GoMarketProductScreen() {
       productId: product._id,
       productTitle: product.name,
       image: product.image || product.images?.[0],
-      price: product.price,
-      oldPrice: product.oldPrice,
+      price: displayPrice,
+      oldPrice: displayOldPrice,
       description: product.description,
       rating: data?.averageRating || product.rating,
-      discount: product.discount,
+      discount: displayDiscount,
       quantity: qty,
-      subTotal: product.price * qty,
+      subTotal: displayPrice * qty,
       selectedOptions,
       sellerId: product.sellerId || null,
     };
@@ -283,9 +336,9 @@ export default function GoMarketProductScreen() {
           )}
           <Text style={S.desc}>{product.description}</Text>
           <View style={S.priceRow}>
-            <Text style={S.price}>₹{product.price}</Text>
-            {product.oldPrice > product.price && <Text style={S.mrp}>₹{product.oldPrice}</Text>}
-            {product.discount > 0 && <Text style={S.off}>{product.discount}% off</Text>}
+            <Text style={S.price}>₹{displayPrice}</Text>
+            {displayOldPrice > displayPrice && <Text style={S.mrp}>₹{displayOldPrice}</Text>}
+            {displayDiscount > 0 && <Text style={S.off}>{displayDiscount}% off</Text>}
           </View>
 
           {offers.length > 0 && (
@@ -305,15 +358,22 @@ export default function GoMarketProductScreen() {
               <View key={key} style={{ marginTop: 14 }}>
                 <Text style={S.optLabel}>{key} *</Text>
                 <View style={S.optRow}>
-                  {(opt.values || []).map((val: string) => (
-                    <TouchableOpacity
-                      key={val}
-                      style={[S.optChip, selectedOptions[key] === val && S.optChipOn]}
-                      onPress={() => setSelectedOptions((s) => ({ ...s, [key]: val }))}
-                    >
-                      <Text style={[S.optChipTxt, selectedOptions[key] === val && S.optChipTxtOn]}>{val}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {(opt.values || []).map((val: any) => {
+                    const isSelected = selectedOptions[key] === (val.value || val.label);
+                    const hasPrice = val.price > 0;
+                    return (
+                      <TouchableOpacity
+                        key={val.value || val.label}
+                        style={[S.optChip, isSelected && S.optChipOn]}
+                        onPress={() => setSelectedOptions((s) => ({ ...s, [key]: val.value || val.label }))}
+                      >
+                        <Text style={[S.optChipTxt, isSelected && S.optChipTxtOn]}>
+                          {val.label || val.value}
+                          {``}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
             );

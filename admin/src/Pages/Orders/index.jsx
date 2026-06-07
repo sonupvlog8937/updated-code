@@ -590,6 +590,15 @@ const ProductModal = ({ item, onClose }) => {
     item.brand     && { label: "Brand",    value: item.brand },
   ].filter(Boolean);
 
+  // Add selected options to attrs if they exist
+  if (item.selectedOptions && typeof item.selectedOptions === 'object') {
+    Object.entries(item.selectedOptions).forEach(([key, value]) => {
+      if (value) {
+        attrs.push({ label: key.charAt(0).toUpperCase() + key.slice(1), value: String(value) });
+      }
+    });
+  }
+
   return (
     <div className="ao-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="ao-modal" role="dialog" aria-modal="true">
@@ -669,6 +678,8 @@ const ProductModal = ({ item, onClose }) => {
 ═══════════════════════════════════════════════════════ */
 const ReceiptModal = ({ order, onClose }) => {
   const printRef = React.useRef();
+  const [commerceSettings, setCommerceSettings] = useState({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0 });
+  const context = useContext(MyContext);
 
   useEffect(() => {
     const handler = (e) => { if (e.key === "Escape") onClose(); };
@@ -676,18 +687,75 @@ const ReceiptModal = ({ order, onClose }) => {
     return () => document.removeEventListener("keydown", handler);
   }, []);
 
+  // Fetch commerce settings for fallback pricing
+  useEffect(() => {
+    fetchDataFromApi("/api/settings/commerce")
+      .then((res) => {
+        if (res?.data) {
+          setCommerceSettings(res.data);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to fetch commerce settings:", error);
+      });
+  }, []);
+
   if (!order) return null;
 
   const addr      = order?.delivery_address || {};
   const user      = order?.userId || {};
-  const products  = order?.products || [];
+  const allProducts = order?.products || [];
   const isCOD     = !order?.paymentId;
   const sc        = getStatusStyle(order?.order_status);
 
+  // Filter products for seller view - only show products that belong to this seller
+  const isSellerView = SELLER_ROLES.includes(context?.userData?.role);
+  const currentSellerId = context?.userData?._id || context?.userData?.id;
+  
+  const products = isSellerView && currentSellerId
+    ? allProducts.filter((p) => {
+        // Handle different sellerId structures
+        const productSellerId = p.sellerId?._id || p.sellerId;
+        return String(productSellerId) === String(currentSellerId);
+      })
+    : allProducts;
+  
+  console.log('ReceiptModal Debug:', {
+    isSellerView,
+    currentSellerId,
+    allProductsCount: allProducts.length,
+    filteredProductsCount: products.length,
+    sampleProduct: allProducts[0],
+  });
+
   // Subtotal = sum of (price × qty)
   const subtotal  = products.reduce((s, p) => s + (p.price || 0) * (p.quantity || 1), 0);
-  const total     = order?.totalAmt || subtotal;
-  const shipping  = Math.max(0, total - subtotal);
+  const discount = order?.discount_amount || 0;
+  const baseAfterDiscount = Math.max(subtotal - discount, 0);
+  
+  // Use order's fees if available, otherwise use commerce settings
+  const hasOrderFees = (order?.shippingFee !== undefined && order?.shippingFee !== null) || 
+                       (order?.deliveryFee !== undefined && order?.deliveryFee !== null);
+  
+  let shippingFee = 0;
+  let deliveryFee = 0;
+  
+  if (hasOrderFees) {
+    // Order has fees saved - use them
+    shippingFee = order?.shippingFee || 0;
+    deliveryFee = order?.deliveryFee || 0;
+  } else if (commerceSettings.shippingFee > 0 || commerceSettings.deliveryFee > 0) {
+    // Fallback to commerce settings for old orders
+    const freeByRule = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove;
+    shippingFee = freeByRule ? 0 : Number(commerceSettings.shippingFee || 0);
+    deliveryFee = freeByRule ? 0 : Number(commerceSettings.deliveryFee || 0);
+  }
+  
+  // For sellers: show their product subtotal + full order fees
+  // For admin: show full order total
+  const total = isSellerView 
+    ? (subtotal + shippingFee + deliveryFee) 
+    : (order?.totalAmt || (subtotal - discount + shippingFee + deliveryFee));
 
   const orderId   = order._id?.slice(-10).toUpperCase();
   const orderDate = order?.createdAt
@@ -788,17 +856,37 @@ const ReceiptModal = ({ order, onClose }) => {
           </div>
 
           <div style={{ border:"1px solid #e8e8f2", borderRadius:12, overflow:"hidden" }}>
-            <table className="ao-rcpt-prod-table">
-              <thead style={{ background:"#f8fafc" }}>
-                <tr>
-                  <th style={{ paddingLeft:14 }}>Product</th>
-                  <th style={{ textAlign:"center", width:60 }}>Qty</th>
-                  <th style={{ textAlign:"right", paddingRight:14 }}>Amount</th>
-                </tr>
-              </thead>
+            {products.length === 0 ? (
+              <div style={{ padding: "40px 20px", textAlign: "center", color: "#9ca3af" }}>
+                <div style={{ fontSize: "32px", marginBottom: "8px" }}>📦</div>
+                <div style={{ fontSize: "13px", fontWeight: "600", color: "#6b7280" }}>
+                  {isSellerView ? "No products from your store in this order" : "No products found"}
+                </div>
+              </div>
+            ) : (
+              <table className="ao-rcpt-prod-table">
+                <thead style={{ background:"#f8fafc" }}>
+                  <tr>
+                    <th style={{ paddingLeft:14 }}>Product</th>
+                    <th style={{ textAlign:"center", width:60 }}>Qty</th>
+                    <th style={{ textAlign:"right", paddingRight:14 }}>Amount</th>
+                  </tr>
+                </thead>
               <tbody>
                 {products.map((item, i) => {
-                  const attrs = [item.color, item.size, item.weight, item.ram].filter(Boolean).join(" · ");
+                  const attrParts = [item.color, item.size, item.weight, item.ram].filter(Boolean);
+                  
+                  // Add selected options if they exist
+                  if (item.selectedOptions && typeof item.selectedOptions === 'object') {
+                    Object.entries(item.selectedOptions).forEach(([key, value]) => {
+                      if (value) {
+                        attrParts.push(`${key}: ${value}`);
+                      }
+                    });
+                  }
+                  
+                  const attrs = attrParts.join(" · ");
+                  
                   return (
                     <tr key={i}>
                       <td style={{ paddingLeft:14 }}>
@@ -823,6 +911,7 @@ const ReceiptModal = ({ order, onClose }) => {
                 })}
               </tbody>
             </table>
+            )}
           </div>
 
           {/* Totals */}
@@ -831,20 +920,36 @@ const ReceiptModal = ({ order, onClose }) => {
               <span style={{ fontWeight:500 }}>Subtotal</span>
               <span style={{ fontWeight:600 }}>{fmt(subtotal)}</span>
             </div>
-            {shipping > 0 && (
+            {!isSellerView && discount > 0 && (
               <div className="ao-rcpt-total-row sub">
-                <span style={{ fontWeight:500 }}>Shipping & Handling</span>
-                <span style={{ fontWeight:600 }}>{fmt(shipping)}</span>
+                <span style={{ fontWeight:500, color:"#16a34a" }}>Discount</span>
+                <span style={{ fontWeight:600, color:"#16a34a" }}>-{fmt(discount)}</span>
               </div>
             )}
-            {shipping === 0 && (
+            {shippingFee > 0 ? (
               <div className="ao-rcpt-total-row sub">
-                <span style={{ fontWeight:500 }}>Shipping</span>
+                <span style={{ fontWeight:500 }}>Shipping Fee</span>
+                <span style={{ fontWeight:600 }}>{fmt(shippingFee)}</span>
+              </div>
+            ) : (
+              <div className="ao-rcpt-total-row sub">
+                <span style={{ fontWeight:500 }}>Shipping Fee</span>
+                <span style={{ fontWeight:600, color:"#16a34a" }}>FREE</span>
+              </div>
+            )}
+            {deliveryFee > 0 ? (
+              <div className="ao-rcpt-total-row sub">
+                <span style={{ fontWeight:500 }}>Delivery Fee</span>
+                <span style={{ fontWeight:600 }}>{fmt(deliveryFee)}</span>
+              </div>
+            ) : (
+              <div className="ao-rcpt-total-row sub">
+                <span style={{ fontWeight:500 }}>Delivery Fee</span>
                 <span style={{ fontWeight:600, color:"#16a34a" }}>FREE</span>
               </div>
             )}
             <div className="ao-rcpt-total-row grand">
-              <span className="ao-rcpt-total-lbl">Grand Total</span>
+              <span className="ao-rcpt-total-lbl">{isSellerView ? "Your Total (with fees)" : "Grand Total"}</span>
               <span className="ao-rcpt-total-val">{fmt(total)}</span>
             </div>
           </div>
@@ -960,7 +1065,7 @@ const isSellerView = isSellerRole(context?.userData?.role);
     editData(`/api/order/assign-rider/${orderId}`, { riderId }).then((res) => {
       if (res?.data?.success || res?.data?.error === false) {
         context.alertBox('success', res?.data?.message || 'Order assigned');
-        fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=5`).then((next) => {
+        fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=20`).then((next) => {
           if (next?.error === false) setOrdersData(next?.data || []);
         });
       } else context.alertBox('error', res?.data?.message || 'Could not assign order');
@@ -968,7 +1073,7 @@ const isSellerView = isSellerRole(context?.userData?.role);
   };
 
   const refreshOrders = () => {
-    fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=5`).then((res) => {
+    fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=20`).then((res) => {
       if (res?.error === false) { setOrdersData(res?.data || []); setOrders(res); }
     });
     fetchDataFromApi(`${ordersListEndpoint}`).then((res) => {
@@ -1013,7 +1118,7 @@ const isSellerView = isSellerRole(context?.userData?.role);
     editData(`/api/order/return-refund-status/${id}`, payload).then((res) => {
       if (res?.data?.success) {
         context.alertBox("success", res?.data?.message || "Updated");
-        fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=5`).then((next) => {
+        fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=20`).then((next) => {
           if (next?.error === false) setOrdersData(next?.data || []);
         });
         fetchDataFromApi(`${ordersListEndpoint}`).then((all) => {
@@ -1030,7 +1135,7 @@ const isSellerView = isSellerRole(context?.userData?.role);
       return;
     }
     deleteData(`/api/order/deleteOrder/${id}`).then(() => {
-      fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=5`).then((res) => {
+      fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=20`).then((res) => {
         if (res?.error === false) {
           setOrdersData(res?.data);
           context?.setProgress(100);
@@ -1046,7 +1151,7 @@ const isSellerView = isSellerRole(context?.userData?.role);
   /* fetch on page / status change */
   useEffect(() => {
     context?.setProgress(50);
-    fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=5`).then((res) => {
+    fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=20`).then((res) => {
       if (res?.error === false) { setOrdersData(res?.data); setOrders(res); context?.setProgress(100); }
     });
     fetchDataFromApi(`${ordersListEndpoint}`).then((res) => {
@@ -1066,7 +1171,7 @@ const isSellerView = isSellerRole(context?.userData?.role);
       );
       setOrdersData(filtered);
     } else {
-      fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=5`).then((res) => {
+      fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=20`).then((res) => {
         if (res?.error === false) { setOrders(res); setOrdersData(res?.data); }
       });
     }
@@ -1074,7 +1179,7 @@ const isSellerView = isSellerRole(context?.userData?.role);
 
   /* stats */
   const allOrders   = totalOrdersData?.data || [];
-  const totalCount  = allOrders.length;
+  const totalCount  = totalOrdersData?.total || allOrders.length; // Use backend total count
   const pendingCnt  = allOrders.filter((o) => (o.order_status || "").toLowerCase() === "pending").length;
   const deliveredCnt= allOrders.filter((o) => (o.order_status || "").toLowerCase() === "delivered").length;
   const cancelledCnt= allOrders.filter((o) => (o.order_status || "").toLowerCase() === "cancelled").length;
@@ -1172,6 +1277,22 @@ const isSellerView = isSellerRole(context?.userData?.role);
                   const isCOD  = !order?.paymentId;
                   const sc     = getStatusStyle(order?.order_status);
 
+                  // Calculate seller-specific total
+                  const currentSellerId = context?.userData?._id || context?.userData?.id;
+                  const allProducts = order?.products || [];
+                  const sellerProducts = isSellerView && currentSellerId
+                    ? allProducts.filter((p) => {
+                        const productSellerId = p.sellerId?._id || p.sellerId;
+                        return String(productSellerId) === String(currentSellerId);
+                      })
+                    : allProducts;
+                  
+                  // Calculate subtotal for seller's products only
+                  const sellerSubtotal = sellerProducts.reduce((s, p) => s + (p.price || 0) * (p.quantity || 1), 0);
+                  
+                  // For sellers, show only their product total; for admin, show full order total
+                  const displayAmount = isSellerView ? sellerSubtotal : (order?.totalAmt || 0);
+
                   return (
                     <React.Fragment key={order._id}>
                       {/* ── Main row ── */}
@@ -1223,7 +1344,7 @@ const isSellerView = isSellerRole(context?.userData?.role);
                         </td>
 
                         {/* Amount */}
-                        <td><span className="ao-amt">{fmt(order?.totalAmt)}</span></td>
+                        <td><span className="ao-amt">{fmt(displayAmount)}</span></td>
 
                         {/* Status select */}
                         <td>
@@ -1314,15 +1435,27 @@ const isSellerView = isSellerRole(context?.userData?.role);
                         <tr className="ao-panel-row">
                           <td colSpan={9}>
                             <div className="ao-panel">
-                              <div className="ao-panel-hdr">
-                                <span className="ao-panel-title">📦 Products in this order</span>
-                                <span className="ao-panel-count">{order?.products?.length || 0} items</span>
-                              </div>
-                              <p className="ao-panel-hint">
-                                Click any product card to see full details
-                              </p>
-                              <div className="ao-prod-list">
-                                {(order?.products || []).map((item, i) => (
+                              {(() => {
+                                // Filter products for seller view - only show products that belong to this seller
+                                const currentSellerId = context?.userData?._id || context?.userData?.id;
+                                const productsToShow = isSellerView && currentSellerId
+                                  ? (order?.products || []).filter((p) => {
+                                      const productSellerId = p.sellerId?._id || p.sellerId;
+                                      return String(productSellerId) === String(currentSellerId);
+                                    })
+                                  : (order?.products || []);
+                                
+                                return (
+                                  <>
+                                    <div className="ao-panel-hdr">
+                                      <span className="ao-panel-title">📦 Products in this order</span>
+                                      <span className="ao-panel-count">{productsToShow.length} items</span>
+                                    </div>
+                                    <p className="ao-panel-hint">
+                                      Click any product card to see full details
+                                    </p>
+                                    <div className="ao-prod-list">
+                                      {productsToShow.map((item, i) => (
                                   <div
                                     className="ao-prod-card"
                                     key={i}
@@ -1339,10 +1472,19 @@ const isSellerView = isSellerRole(context?.userData?.role);
                                     <div className="ao-prod-info">
                                       <div className="ao-prod-name">{item.productTitle}</div>
                                       <div className="ao-prod-tags">
-                                        {item.color  && <span className="ao-prod-tag">🎨 {item.color}</span>}
-                                        {item.size   && <span className="ao-prod-tag">📐 {item.size}</span>}
-                                        {item.weight && <span className="ao-prod-tag">⚖️ {item.weight}</span>}
-                                        {item.ram    && <span className="ao-prod-tag">💾 {item.ram}</span>}
+                                        {/* Show selectedOptions if available, else show weight/size/color/ram */}
+                                        {item.selectedOptions && typeof item.selectedOptions === 'object' && Object.keys(item.selectedOptions).length > 0 ? (
+                                          Object.entries(item.selectedOptions).map(([key, value]) => 
+                                            value ? <span key={key} className="ao-prod-tag">✓ {key.charAt(0).toUpperCase() + key.slice(1)}: {value}</span> : null
+                                          )
+                                        ) : (
+                                          <>
+                                            {item.weight && <span className="ao-prod-tag">📦 {item.weight}</span>}
+                                            {item.color  && <span className="ao-prod-tag">🎨 {item.color}</span>}
+                                            {item.size   && <span className="ao-prod-tag">📐 {item.size}</span>}
+                                            {item.ram    && <span className="ao-prod-tag">💾 {item.ram}</span>}
+                                          </>
+                                        )}
                                         <span className="ao-prod-tag">Qty {item.quantity}</span>
                                       </div>
                                     </div>
@@ -1350,7 +1492,7 @@ const isSellerView = isSellerRole(context?.userData?.role);
                                     {/* Price */}
                                     <div className="ao-prod-right">
                                       <div className="ao-prod-subtotal">{fmt(item.price * item.quantity)}</div>
-                                      <div className="ao-prod-unit">{fmt(item.price)} × {item.quantity}</div>
+                                      <div className="ao-prod-unit">{fmt(item.price)} per</div>
                                     </div>
                                   </div>
                                 ))}
@@ -1359,8 +1501,11 @@ const isSellerView = isSellerRole(context?.userData?.role);
                               {/* Total footer */}
                               <div className="ao-panel-total">
                                 <span className="ao-panel-total-lbl">Order Total</span>
-                                <span className="ao-panel-total-amt">{fmt(order?.totalAmt)}</span>
+                                <span className="ao-panel-total-amt">{fmt(displayAmount)}</span>
                               </div>
+                            </>
+                          );
+                        })()}
                             </div>
                           </td>
                         </tr>

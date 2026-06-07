@@ -232,7 +232,7 @@ const AnimatedSection = ({
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
       >
-        <View style={sectionStyles.header}>
+        <View style={[sectionStyles.header, { borderBottomColor: colors.border }]}>
           <View
             style={[sectionStyles.iconWrap, { backgroundColor: colors.accent }]}
           >
@@ -612,7 +612,7 @@ const payStyles = StyleSheet.create({
   },
   title: { fontFamily: "Inter_600SemiBold", fontSize: IS_SMALL ? 12 : 13 },
   subtitle: { fontSize: IS_SMALL ? 10 : 11 },
-  tags: { flexDirection: "row", gap: 4, marginTop: 4 },
+  tags: { flexDirection: "row", gap: 4, marginTop: 4, flexWrap: "wrap" },
   tag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   tagText: { fontSize: 9, fontFamily: "Inter_500Medium" },
   radioOuter: {
@@ -745,7 +745,6 @@ const CouponSection = ({
 
   return (
     <View style={couponStyles.container}>
-      {/* Manual input */}
       <View style={couponStyles.row}>
         <View
           style={[
@@ -782,8 +781,6 @@ const CouponSection = ({
           <Text style={couponStyles.applyText}>Apply</Text>
         </Pressable>
       </View>
-
-      
 
       {expanded && (
         <View style={[couponStyles.list, { borderTopColor: colors.border }]}>
@@ -1010,8 +1007,24 @@ export default function CheckoutScreen() {
   );
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
-  const [paymentMode, setPaymentMode] = useState<"COD" | "RAZORPAY">("COD");
+
+  // ── KEY CHANGE: null = no payment method selected yet ──
+  const [paymentMode, setPaymentMode] = useState<"COD" | "RAZORPAY" | null>(null);
+
   const [placing, setPlacing] = useState(false);
+
+  // Shake animation for payment section when user tries to proceed without selecting
+  const paymentShakeAnim = useRef(new Animated.Value(0)).current;
+
+  const shakePaymentSection = () => {
+    Animated.sequence([
+      Animated.timing(paymentShakeAnim, { toValue: 8, duration: 60, useNativeDriver: true }),
+      Animated.timing(paymentShakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
+      Animated.timing(paymentShakeAnim, { toValue: 6, duration: 60, useNativeDriver: true }),
+      Animated.timing(paymentShakeAnim, { toValue: -6, duration: 60, useNativeDriver: true }),
+      Animated.timing(paymentShakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
+    ]).start();
+  };
 
   // Footer pulse animation
   const footerAnim = useRef(new Animated.Value(1)).current;
@@ -1068,7 +1081,23 @@ export default function CheckoutScreen() {
     [checkoutItems],
   );
   const [commerceSettings, setCommerceSettings] = useState<any>({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0 });
-  useEffect(() => { fetchDataFromApi("/api/settings/commerce").then((res) => { if (res?.data) setCommerceSettings(res.data); }); }, []);
+  
+  useEffect(() => { 
+    fetchDataFromApi("/api/settings/commerce")
+      .then((res) => { 
+        console.log("💳 Checkout - Commerce Settings Response:", res);
+        if (res?.data) {
+          console.log("✅ Checkout - Commerce Settings Loaded:", res.data);
+          setCommerceSettings(res.data);
+        } else {
+          console.warn("⚠️ Checkout - No data in response");
+        }
+      })
+      .catch((error) => {
+        console.error("❌ Checkout - Failed to fetch commerce settings:", error);
+      });
+  }, []);
+  
   const baseAfterDiscount = Math.max(subTotal - discount, 0);
   const freeByRule = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove;
   const shipping = freeByRule ? 0 : Number(commerceSettings.shippingFee || 0);
@@ -1091,6 +1120,9 @@ export default function CheckoutScreen() {
     delivery_address: selectedAddrId,
     couponCode: coupon,
     discountAmount: discount,
+    discount_amount: discount,
+    shippingFee: shipping,
+    deliveryFee: deliveryFee,
     totalAmt: total,
     date: new Date().toISOString(),
     customerName: userData?.name,
@@ -1147,7 +1179,6 @@ export default function CheckoutScreen() {
         customerName: userData?.name,
         customerEmail: userData?.email,
         customerContact: userData?.mobile,
-      
         prefill: {
           name: userData?.name || "",
           email: userData?.email || "",
@@ -1157,7 +1188,7 @@ export default function CheckoutScreen() {
       });
 
       await handleRazorpaySuccess(paymentResponse);
-     } catch (error) {
+    } catch (error) {
       if (
         error instanceof RazorpayPaymentError &&
         error.reason === "cancelled"
@@ -1239,10 +1270,18 @@ export default function CheckoutScreen() {
     }
   };
 
+  // ── KEY CHANGE: guard — payment method must be selected first ──
   const handlePlaceOrder = () => {
+    if (!paymentMode) {
+      showToast("error", "Please select a payment method to continue");
+      shakePaymentSection();
+      return;
+    }
     if (paymentMode === "COD") cashOnDelivery();
     else initiateRazorpayPayment();
   };
+
+  const isReadyToOrder = !!selectedAddrId && !!paymentMode && !placing && !isPaymentProcessing;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -1257,7 +1296,7 @@ export default function CheckoutScreen() {
       >
         {/* Header */}
         <CheckoutHeader itemCount={checkoutItems.length} />
-        
+
         {/* Step Progress */}
         <StepIndicator current={1} />
 
@@ -1421,52 +1460,74 @@ export default function CheckoutScreen() {
         </AnimatedSection>
 
         {/* ── Payment Method ── */}
-        <AnimatedSection
-          title="Payment Method"
-          icon={
-            <Ionicons name="card-outline" size={16} color={colors.primary} />
-          }
-          delay={240}
-        >
-          <PaymentOption
-            mode="COD"
+        {/* ── KEY CHANGE: shake wrapper + "required" indicator when not selected ── */}
+        <Animated.View style={{ transform: [{ translateX: paymentShakeAnim }] }}>
+          <AnimatedSection
+            title="Payment Method"
             icon={
-              <Ionicons
-                name="cash-outline"
-                size={20}
-                color={
-                  paymentMode === "COD"
-                    ? colors.primary
-                    : colors.mutedForeground
-                }
-              />
+              <Ionicons name="card-outline" size={16} color={paymentMode ? colors.primary : colors.destructive} />
             }
-            title="Cash on Delivery"
-            subtitle="Pay when your order arrives"
-            tags={["Safe", "No extra charges"]}
-            selected={paymentMode === "COD"}
-            onPress={() => setPaymentMode("COD")}
-          />
-          <PaymentOption
-            mode="RAZORPAY"
-            icon={
-              <MaterialCommunityIcons
-                name="lightning-bolt"
-                size={20}
-                color={
-                  paymentMode === "RAZORPAY"
-                    ? colors.primary
-                    : colors.mutedForeground
-                }
-              />
-            }
-            title="Razorpay"
-            subtitle="Secure instant payment"
-            tags={["UPI", "Cards", "Wallet", "Net Banking"]}
-            selected={paymentMode === "RAZORPAY"}
-            onPress={() => setPaymentMode("RAZORPAY")}
-          />
-        </AnimatedSection>
+            badge={paymentMode ? undefined : "Required"}
+            delay={240}
+          >
+            {/* Prompt banner shown when no method selected */}
+            {!paymentMode && (
+              <View
+                style={[
+                  mainStyles.paymentPromptBanner,
+                  {
+                    backgroundColor: colors.destructive + "10",
+                    borderColor: colors.destructive + "30",
+                  },
+                ]}
+              >
+                <Feather name="alert-circle" size={13} color={colors.destructive} />
+                <Text style={[mainStyles.paymentPromptText, { color: colors.destructive }]}>
+                  Select a payment method to place your order
+                </Text>
+              </View>
+            )}
+
+            <PaymentOption
+              mode="COD"
+              icon={
+                <Ionicons
+                  name="cash-outline"
+                  size={20}
+                  color={
+                    paymentMode === "COD"
+                      ? colors.primary
+                      : colors.mutedForeground
+                  }
+                />
+              }
+              title="Cash on Delivery"
+              subtitle="Pay when your order arrives"
+              tags={["Safe", "No extra charges"]}
+              selected={paymentMode === "COD"}
+              onPress={() => setPaymentMode("COD")}
+            />
+            <PaymentOption
+              mode="RAZORPAY"
+              icon={
+                <MaterialCommunityIcons
+                  name="lightning-bolt"
+                  size={20}
+                  color={
+                    paymentMode === "RAZORPAY"
+                      ? colors.primary
+                      : colors.mutedForeground
+                  }
+                />
+              }
+              title="Pay on Online"
+              subtitle="Secure instant payment"
+              tags={["UPI", "Cards", "Wallet", "Net Banking"]}
+              selected={paymentMode === "RAZORPAY"}
+              onPress={() => setPaymentMode("RAZORPAY")}
+            />
+          </AnimatedSection>
+        </Animated.View>
 
         {/* ── Price Summary ── */}
         <AnimatedSection
@@ -1492,7 +1553,7 @@ export default function CheckoutScreen() {
               color={shipping === 0 ? colors.success : undefined}
             />
             <PriceRow label="Delivery fee" value={deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`} color={deliveryFee === 0 ? colors.success : undefined} />
-            {shipping > 0 && (
+            {/* {shipping > 0 && (
               <View
                 style={[
                   mainStyles.freeShipHint,
@@ -1510,7 +1571,7 @@ export default function CheckoutScreen() {
                   shipping
                 </Text>
               </View>
-            )}
+            )} */}
             <View
               style={[mainStyles.divider, { backgroundColor: colors.border }]}
             />
@@ -1592,6 +1653,24 @@ export default function CheckoutScreen() {
           { backgroundColor: colors.background, borderTopColor: colors.border },
         ]}
       >
+        {/* ── KEY CHANGE: show "select payment" hint in footer when not selected ── */}
+        {!paymentMode && (
+          <View
+            style={[
+              mainStyles.footerPaymentHint,
+              {
+                backgroundColor: colors.destructive + "12",
+                borderColor: colors.destructive + "25",
+              },
+            ]}
+          >
+            <Feather name="credit-card" size={12} color={colors.destructive} />
+            <Text style={[mainStyles.footerPaymentHintText, { color: colors.destructive }]}>
+              Choose COD or Online above to proceed
+            </Text>
+          </View>
+        )}
+
         <View style={mainStyles.footerContent}>
           <View>
             <Text
@@ -1615,9 +1694,10 @@ export default function CheckoutScreen() {
               onPress={handlePlaceOrder}
               disabled={placing || isPaymentProcessing}
               style={{
-                backgroundColor:
-                  placing || isPaymentProcessing
-                    ? colors.muted
+                backgroundColor: placing || isPaymentProcessing
+                  ? colors.muted
+                  : !paymentMode
+                    ? colors.border   // greyed-out until payment selected
                     : colors.primary,
                 paddingVertical: 14,
                 borderRadius: 10,
@@ -1626,18 +1706,20 @@ export default function CheckoutScreen() {
                 opacity: placing || isPaymentProcessing ? 0.6 : 1,
               }}
             >
-               <Text
+              <Text
                 style={{
-                  color: "#fff",
+                  color: !paymentMode ? colors.mutedForeground : "#fff",
                   fontSize: 15,
                   fontFamily: "Inter_700Bold",
                 }}
               >
                 {placing || isPaymentProcessing
                   ? "Processing..."
-                  : paymentMode === "COD"
-                    ? "Place Order"
-                    : "Pay Now"}
+                  : !paymentMode
+                    ? "Select Payment Method"
+                    : paymentMode === "COD"
+                      ? "Place Order"
+                      : "Pay Now"}
               </Text>
             </Pressable>
           </Animated.View>
@@ -1794,6 +1876,36 @@ const mainStyles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "Inter_500Medium",
     textAlign: "center",
+  },
+  // Payment prompt banner inside payment section
+  paymentPromptBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  paymentPromptText: {
+    fontSize: IS_SMALL ? 11 : 12,
+    fontFamily: "Inter_500Medium",
+    flex: 1,
+  },
+  // Footer hint strip
+  footerPaymentHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  footerPaymentHintText: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
   },
   footer: {
     borderTopWidth: 1,

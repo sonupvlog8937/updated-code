@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { showToast } from "@/src/utils/toast";
+import { fetchDataFromApi } from "@/src/utils/api";
 
 interface OrderProduct {
   _id?: string;
@@ -25,6 +26,8 @@ interface OrderProduct {
   image?: string;
   size?: string;
   color?: string;
+  weight?: string;
+  selectedOptions?: Record<string, string>;
   quantity: number;
   price: number;
 }
@@ -44,6 +47,8 @@ interface Order {
   createdAt: string;
   products: OrderProduct[];
   totalAmt: number;
+  shippingFee?: number;
+  deliveryFee?: number;
   delivery_address?: DeliveryAddress;
   userId?: {
     name?: string;
@@ -131,6 +136,20 @@ export default function OrderDetailsScreen() {
   const [modalType, setModalType] = useState<"return" | "refund">("return");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [commerceSettings, setCommerceSettings] = useState<any>({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0 });
+
+  // Fetch commerce settings for fallback pricing
+  useEffect(() => {
+    fetchDataFromApi("/api/settings/commerce")
+      .then((res) => {
+        if (res?.data) {
+          setCommerceSettings(res.data);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to fetch commerce settings:", error);
+      });
+  }, []);
 
   // If orders are not loaded yet, fetch them
   useEffect(() => {
@@ -272,6 +291,32 @@ export default function OrderDetailsScreen() {
   const isDelivered = status.toLowerCase() === "delivered";
   const hasReturnRequested = order?.returnRequest?.requested;
   const hasRefundRequested = order?.refundRequest?.requested;
+
+  // Calculate shipping and delivery fees with fallback to commerce settings
+  const subtotal = order?.products?.reduce(
+    (sum: number, p: OrderProduct) => sum + p.price * p.quantity,
+    0,
+  ) || 0;
+  const discount = order?.discount_amount || 0;
+  const baseAfterDiscount = Math.max(subtotal - discount, 0);
+  
+  // Use order's fees if available, otherwise use commerce settings
+  const hasOrderFees = (order?.shippingFee !== undefined && order?.shippingFee !== null) || 
+                       (order?.deliveryFee !== undefined && order?.deliveryFee !== null);
+  
+  let displayShippingFee = 0;
+  let displayDeliveryFee = 0;
+  
+  if (hasOrderFees) {
+    // Order has fees saved - use them
+    displayShippingFee = order?.shippingFee || 0;
+    displayDeliveryFee = order?.deliveryFee || 0;
+  } else if (commerceSettings.shippingFee > 0 || commerceSettings.deliveryFee > 0) {
+    // Fallback to commerce settings for old orders
+    const freeByRule = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove;
+    displayShippingFee = freeByRule ? 0 : Number(commerceSettings.shippingFee || 0);
+    displayDeliveryFee = freeByRule ? 0 : Number(commerceSettings.deliveryFee || 0);
+  }
 
   return (
     <SafeAreaView
@@ -608,6 +653,29 @@ export default function OrderDetailsScreen() {
                         🎨 {product.color}
                       </Text>
                     )}
+                    {product?.weight && (
+                      <Text
+                        style={[
+                          styles.productMetaItem,
+                          { color: colors.mutedForeground },
+                        ]}
+                      >
+                        ⚖️ {product.weight}
+                      </Text>
+                    )}
+                    {product?.selectedOptions && Object.keys(product.selectedOptions).length > 0 && (
+                      Object.entries(product.selectedOptions).map(([key, value]) => (
+                        <Text
+                          key={key}
+                          style={[
+                            styles.productMetaItem,
+                            { color: colors.mutedForeground },
+                          ]}
+                        >
+                          {key}: {value}
+                        </Text>
+                      ))
+                    )}
                     <Text
                       style={[
                         styles.productMetaItem,
@@ -694,6 +762,26 @@ export default function OrderDetailsScreen() {
               </Text>
             </View>
           )}
+          <View style={styles.priceRow}>
+            <Text
+              style={[styles.priceLabel, { color: colors.mutedForeground }]}
+            >
+              Shipping Fee
+            </Text>
+            <Text style={[styles.priceValue, { color: displayShippingFee === 0 ? colors.success : colors.foreground }]}>
+              {displayShippingFee === 0 ? "FREE" : formatPrice(displayShippingFee)}
+            </Text>
+          </View>
+          <View style={styles.priceRow}>
+            <Text
+              style={[styles.priceLabel, { color: colors.mutedForeground }]}
+            >
+              Delivery Fee
+            </Text>
+            <Text style={[styles.priceValue, { color: displayDeliveryFee === 0 ? colors.success : colors.foreground }]}>
+              {displayDeliveryFee === 0 ? "FREE" : formatPrice(displayDeliveryFee)}
+            </Text>
+          </View>
           <View
             style={[
               styles.priceDivider,

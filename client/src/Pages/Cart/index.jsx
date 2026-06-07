@@ -285,6 +285,7 @@ const CartPage = () => {
   const [couponMessage, setCouponMessage] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponSummary, setCouponSummary] = useState({ discountAmount: Number(localStorage.getItem("couponDiscount") || 0), isValid: false, message: "" });
+  const [commerceSettings, setCommerceSettings] = useState({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0 });
 
   const context = useAppContext();
 
@@ -301,6 +302,11 @@ const CartPage = () => {
 
     fetchDataFromApi("/api/product/productWeight/get").then((res) => {
       if (!res?.error) setProductWeightData(res?.data);
+    });
+
+    // Fetch commerce settings for shipping and delivery fees
+    fetchDataFromApi("/api/settings/commerce").then((res) => {
+      if (res?.data) setCommerceSettings(res.data);
     });
   }, []);
 
@@ -362,10 +368,12 @@ const CartPage = () => {
     return "";
   };
 
-  const totalAfterDiscount = Math.max(
-    cartSubTotal - (couponSummary?.discountAmount || 0),
-    0
-  );
+  // Calculate fees
+  const baseAfterDiscount = Math.max(cartSubTotal - (couponSummary?.discountAmount || 0), 0);
+  const freeByRule = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove;
+  const shippingFee = freeByRule ? 0 : Number(commerceSettings.shippingFee || 0);
+  const deliveryFee = freeByRule ? 0 : Number(commerceSettings.deliveryFee || 0);
+  const totalAfterDiscount = baseAfterDiscount + shippingFee + deliveryFee;
 
   return (
     <section className="section py-4 lg:py-8 pb-10">
@@ -449,12 +457,36 @@ const CartPage = () => {
               <span>₹{cartSubTotal}</span>
             </p>
 
+            {couponSummary.discountAmount > 0 && (
+              <p className="flex justify-between">
+                <span>Discount</span>
+                <span className="text-green-600">
+                  -₹{couponSummary.discountAmount}
+                </span>
+              </p>
+            )}
+
             <p className="flex justify-between">
-              <span>Discount</span>
-              <span className="text-green-600">
-                -₹{couponSummary.discountAmount}
+              <span>Shipping Fee</span>
+              <span className={shippingFee === 0 ? "text-green-600 font-[600]" : ""}>
+                {shippingFee === 0 ? "FREE" : `₹${shippingFee}`}
               </span>
             </p>
+
+            <p className="flex justify-between">
+              <span>Delivery Fee</span>
+              <span className={deliveryFee === 0 ? "text-green-600 font-[600]" : ""}>
+                {deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}
+              </span>
+            </p>
+
+            {freeByRule && commerceSettings.freeShippingAbove > 0 && (
+              <p className="text-[12px] text-green-600 bg-green-50 p-2 rounded mt-2">
+                🎉 You got FREE shipping & delivery!
+              </p>
+            )}
+
+            <hr className="my-2" />
 
             <p className="flex justify-between font-bold text-lg">
               <span>Total</span>

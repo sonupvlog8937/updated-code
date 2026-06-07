@@ -206,6 +206,9 @@ export const createOrderController = async (request, response) => {
             razorpaySignature: request.body.razorpay_signature,
             delivery_address: request.body.delivery_address,
             totalAmt: request.body.totalAmt,
+            shippingFee: request.body.shippingFee || 0,
+            deliveryFee: request.body.deliveryFee || 0,
+            discount_amount: request.body.discount_amount || request.body.discountAmount || 0,
             date: request.body.date
         });
 
@@ -249,9 +252,22 @@ export async function getOrderDetailsController(request, response) {
 
         const { page, limit } = request.query;
 
-        const orderlist = await OrderModel.find().sort({ createdAt: -1 }).populate('delivery_address userId deliveryAssignment.riderId').skip((page - 1) * limit).limit(parseInt(limit));
+        let orderlist;
+        if (page && limit) {
+            // Paginated query
+            orderlist = await OrderModel.find()
+                .sort({ createdAt: -1 })
+                .populate('delivery_address userId deliveryAssignment.riderId')
+                .skip((page - 1) * limit)
+                .limit(parseInt(limit));
+        } else {
+            // Fetch all orders (no pagination)
+            orderlist = await OrderModel.find()
+                .sort({ createdAt: -1 })
+                .populate('delivery_address userId deliveryAssignment.riderId');
+        }
 
-        const total = await OrderModel.countDocuments(orderlist);
+        const total = page && limit ? await OrderModel.countDocuments() : orderlist.length;
 
         return response.json({
             message: "order list",
@@ -259,8 +275,8 @@ export async function getOrderDetailsController(request, response) {
             error: false,
             success: true,
             total: total,
-            page: parseInt(page),
-            totalPages: Math.ceil(total / limit)
+            page: parseInt(page) || 1,
+            totalPages: page && limit ? Math.ceil(total / limit) : 1
         })
     } catch (error) {
         return response.status(500).json({
@@ -277,11 +293,22 @@ export async function getUserOrderDetailsController(request, response) {
 
         const { page, limit } = request.query;
 
-        const orderlist = await OrderModel.find({ userId: userId }).sort({ createdAt: -1 }).populate('delivery_address userId deliveryAssignment.riderId').skip((page - 1) * limit).limit(parseInt(limit));
+        let orderlist;
+        if (page && limit) {
+            // Paginated query
+            orderlist = await OrderModel.find({ userId: userId })
+                .sort({ createdAt: -1 })
+                .populate('delivery_address userId deliveryAssignment.riderId')
+                .skip((page - 1) * limit)
+                .limit(parseInt(limit));
+        } else {
+            // Fetch all orders (no pagination)
+            orderlist = await OrderModel.find({ userId: userId })
+                .sort({ createdAt: -1 })
+                .populate('delivery_address userId deliveryAssignment.riderId');
+        }
 
-        const orderTotal = await OrderModel.find({ userId: userId }).sort({ createdAt: -1 }).populate('delivery_address userId deliveryAssignment.riderId');
-
-        const total = await orderTotal?.length;
+        const total = orderlist?.length;
 
         return response.json({
             message: "order list",
@@ -289,8 +316,8 @@ export async function getUserOrderDetailsController(request, response) {
             error: false,
             success: true,
             total: total,
-            page: parseInt(page),
-            totalPages: Math.ceil(total / limit)
+            page: parseInt(page) || 1,
+            totalPages: page && limit ? Math.ceil(total / limit) : 1
         })
     } catch (error) {
         return response.status(500).json({
@@ -395,6 +422,9 @@ export const captureOrderPaypalController = async (request, response) => {
             payment_status: request.body.payment_status,
             delivery_address: request.body.delivery_address,
             totalAmt: request.body.totalAmount,
+            shippingFee: request.body.shippingFee || 0,
+            deliveryFee: request.body.deliveryFee || 0,
+            discount_amount: request.body.discount_amount || request.body.discountAmount || 0,
             date: request.body.date
         }
 
@@ -1185,7 +1215,7 @@ export const getRiderStatsController = async (request, response) => {
 
 export const getRiderRecentDeliveriesController = async (request, response) => {
     try {
-        const limit = parseInt(request.query.limit) || 5;
+        const limit = parseInt(request.query.limit) || 20;
         const deliveries = await OrderModel.find({ 
             "deliveryAssignment.riderId": request.userId,
             "deliveryAssignment.status": "delivered"

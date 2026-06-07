@@ -27,6 +27,7 @@ const GoMarketProduct = () => {
   const [busy, setBusy] = useState(false);
   const [selectedOptions, setSelectedOptions] = useState({});
   const [offers, setOffers] = useState([]);
+  const [activeImg, setActiveImg] = useState(0);
 
   const [related, setRelated] = useState([]);
   const [relatedPage, setRelatedPage] = useState(1);
@@ -198,54 +199,85 @@ const GoMarketProduct = () => {
         <div className="gmp-pd-grid">
           <div>
             <div className="gmp-pd-gallery">
-              <img src={img(product.image || product.images?.[0])} alt={product.name} />
+              {(() => {
+                const images = product.images?.length
+                  ? product.images
+                  : [product.image].filter(Boolean);
+                return (
+                  <>
+                    <div className="gmp-pd-main-img-wrap">
+                      {product.discount > 0 && (
+                        <span className="gmp-tile-badge gmp-pd-badge">{product.discount}% OFF</span>
+                      )}
+                      <img
+                        src={img(images[activeImg] || images[0])}
+                        alt={product.name}
+                        className="gmp-pd-main-img"
+                      />
+                    </div>
+                    {images.length > 1 && (
+                      <div className="gmp-pd-thumbs">
+                        {images.map((im, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            className={`gmp-pd-thumb${activeImg === i ? " active" : ""}`}
+                            onClick={() => setActiveImg(i)}
+                          >
+                            <img src={img(im)} alt={`${product.name} ${i + 1}`} />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
 
           <div className="gmp-pd-panel">
-            <p style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>
               {product.brand}
             </p>
-            <h1 style={{ fontSize: 22, fontWeight: 800, margin: "8px 0", lineHeight: 1.25 }}>{product.name}</h1>
-            <div
-              style={{
-                marginBottom: 12,
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                gap: 10,
-              }}
-            >
+            <h1 style={{ fontSize: 22, fontWeight: 800, margin: "6px 0 10px", lineHeight: 1.3 }}>{product.name}</h1>
+
+            {/* Rating row */}
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12, padding: "8px 12px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
               <StarRating value={data.averageRating || product.rating} size={16} />
-              <span style={{ fontSize: 13, color: "#64748b" }}>
-                {Number(data.averageRating || product.rating || 0).toFixed(1)} · {data.totalReviews || 0}{" "}
-                review{(data.totalReviews || 0) === 1 ? "" : "s"}
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#1e293b" }}>
+                {Number(data.averageRating || product.rating || 0).toFixed(1)}
               </span>
+              <span style={{ fontSize: 13, color: "#64748b" }}>
+                · {data.totalReviews || 0} review{(data.totalReviews || 0) === 1 ? "" : "s"}
+              </span>
+              {product.soldCount > 0 && (
+                <span style={{ fontSize: 12, color: "#64748b", marginLeft: "auto" }}>
+                  🛍 {product.soldCount} sold
+                </span>
+              )}
             </div>
 
-            <p style={{ fontSize: 14, color: "#475569", lineHeight: 1.6, marginBottom: 8 }}>
+            <p style={{ fontSize: 14, color: "#475569", lineHeight: 1.65, marginBottom: 12 }}>
               {product.description}
             </p>
 
-            <div style={{ marginBottom: 8 }}>
-              <span className="gmp-pd-price">₹{activePrice}</span>
+            {/* Price block */}
+            <div style={{ background: "linear-gradient(135deg, #f0fdf4 0%, #fff 100%)", border: "1px solid #bbf7d0", borderRadius: 12, padding: "12px 16px", marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                <span className="gmp-pd-price">₹{activePrice}</span>
+                {product.oldPrice > product.price && (
+                  <span className="gmp-pd-mrp">₹{product.oldPrice}</span>
+                )}
+                {product.discount > 0 && (
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#16a34a", background: "#dcfce7", padding: "3px 10px", borderRadius: 20 }}>
+                    {product.discount}% OFF
+                  </span>
+                )}
+              </div>
               {product.oldPrice > product.price && (
-                <span className="gmp-pd-mrp">₹{product.oldPrice}</span>
-              )}
-              {product.discount > 0 && (
-                <span
-                  style={{
-                    marginLeft: 8,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: "#16a34a",
-                    background: "#dcfce7",
-                    padding: "2px 8px",
-                    borderRadius: 8,
-                  }}
-                >
-                  {product.discount}% off
-                </span>
+                <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 600, marginTop: 4 }}>
+                  You save ₹{product.oldPrice - activePrice}
+                </div>
               )}
             </div>
 
@@ -349,21 +381,42 @@ const GoMarketProduct = () => {
           <section style={{ marginTop: 32 }}>
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 14 }}>You may also like</h2>
             <div className="gmp-product-grid">
-              {related.map((r) => (
-                <Link
-                  to={`/go-market/product/${r.goMarketKind || kind}/${r._id}`}
-                  className="gmp-product-tile"
-                  key={r._id}
-                >
-                  <img src={img(r.image)} alt={r.name} />
-                  <div className="gmp-product-body">
-                    <div className="gmp-product-name">{r.name}</div>
-                    <div className="gmp-product-price">
-                      <b>₹{r.price}</b>
+              {related.map((r) => {
+                const rRating = Number(r.rating || r.averageRating || 0);
+                const rDiscount = r.discountPrice > 0 && r.price > r.discountPrice
+                  ? Math.round(((r.price - r.discountPrice) / r.price) * 100)
+                  : r.discount || 0;
+                const rPrice = r.discountPrice > 0 ? r.discountPrice : r.price;
+                return (
+                  <Link
+                    to={`/go-market/product/${r.goMarketKind || kind}/${r._id}`}
+                    className="gmp-product-tile"
+                    key={r._id}
+                  >
+                    <div className="gmp-tile-img-wrap">
+                      <img src={img(r.image)} alt={r.name} />
+                      {rDiscount > 0 && <span className="gmp-tile-badge">{rDiscount}% OFF</span>}
                     </div>
-                  </div>
-                </Link>
-              ))}
+                    <div className="gmp-product-body">
+                      {r.brand && <div className="gmp-tile-brand">{r.brand}</div>}
+                      <div className="gmp-product-name">{r.name}</div>
+                      {r.description && <div className="gmp-tile-desc">{r.description}</div>}
+                      {rRating > 0 && (
+                        <div className="gmp-tile-rating">
+                          <span className="gmp-tile-stars">{"★".repeat(Math.round(rRating))}{"☆".repeat(5 - Math.round(rRating))}</span>
+                          <span className="gmp-tile-rating-val">{rRating.toFixed(1)}</span>
+                        </div>
+                      )}
+                      <div className="gmp-tile-price-row">
+                        <span className="gmp-tile-price">₹{rPrice}</span>
+                        {r.discountPrice > 0 && r.price > r.discountPrice && (
+                          <del className="gmp-tile-mrp">₹{r.price}</del>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
             <div ref={relatedSentinel} style={{ height: 1 }} />
             {loadingRelated && (

@@ -18,6 +18,7 @@ type ProductOption = {
   _id: string;
   name: string;
   price: number;
+  oldPrice?: number;
   isDefault?: boolean;
 };
 
@@ -65,6 +66,7 @@ export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddT
           _id: `${option.name || option.label || optionIndex}-${value}-${valueIndex}`,
           name: `${option.name || option.label || "Option"}: ${value}`,
           price: typeof rawValue === "object" ? Number(rawValue.price || 0) : 0,
+          oldPrice: typeof rawValue === "object" ? Number(rawValue.oldPrice || 0) : 0,
           isDefault: (typeof rawValue === "object" && rawValue.isDefault) || (optionIndex === 0 && valueIndex === 0),
         };
       }),
@@ -81,13 +83,24 @@ export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddT
 
   const productName = product.name || product.itemName || product.productName || "Product";
   const hasOptions = normalizedOptions.length > 0;
-  const price = product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price;
-  const oldPrice = product.oldPrice || product.originalPrice;
-  const discount = product.discount || (oldPrice && oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0);
+  
+  // Calculate displayed price based on selected option
+  const basePrice = product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price;
+  const baseOldPrice = product.oldPrice || product.originalPrice;
+  
+  // If an option with its own price is selected, use that instead of base price
+  const displayedPrice = selectedOption?.price && selectedOption.price > 0 ? selectedOption.price : basePrice;
+  const displayedOldPrice = selectedOption?.price && selectedOption.price > 0 
+    ? (selectedOption.oldPrice && selectedOption.oldPrice > 0 ? selectedOption.oldPrice : displayedPrice)
+    : baseOldPrice;
+  
+  const discount = displayedOldPrice && displayedOldPrice > displayedPrice 
+    ? Math.round(((displayedOldPrice - displayedPrice) / displayedOldPrice) * 100) 
+    : (product.discount || 0);
+  
   const rating = Number(product.averageRating || product.rating || 0);
   const reviews = Number(product.reviewCount || product.totalReviews || 0);
-  const optionPrice = selectedOption?.price && selectedOption.price > 0 ? selectedOption.price : price;
-  const totalPrice = optionPrice * quantity;
+  const totalPrice = displayedPrice * quantity;
 
   const handleAddToCart = async () => {
     if (hasOptions && !selectedOption) {
@@ -144,8 +157,8 @@ export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddT
                   <Text style={S.productDesc}>{product.description}</Text>
                 )}
                 <View style={S.metaRow}>
-                  <Text style={S.productPrice}>₹{price}</Text>
-                  {oldPrice && oldPrice > price ? <Text style={S.oldPrice}>₹{oldPrice}</Text> : null}
+                  <Text style={S.productPrice}>₹{displayedPrice}</Text>
+                  {displayedOldPrice && displayedOldPrice > displayedPrice ? <Text style={S.oldPrice}>₹{displayedOldPrice}</Text> : null}
                   {discount ? <Text style={S.discountPill}>{discount}% OFF</Text> : null}
                 </View>
                 <Text style={S.ratingLine}>⭐ {rating.toFixed(1)} · {reviews} reviews</Text>
@@ -173,7 +186,14 @@ export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddT
                           {option.name}
                         </Text>
                         {option.price > 0 && (
-                          <Text style={S.optionPrice}>₹{option.price}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                            <Text style={[S.optionPrice, isSelected && { color: '#2D5016', fontWeight: '700' }]}>
+                              ₹{option.price}
+                            </Text>
+                            {option.oldPrice && option.oldPrice > option.price && (
+                              <Text style={S.optionOldPrice}>₹{option.oldPrice}</Text>
+                            )}
+                          </View>
                         )}
                       </View>
                     </TouchableOpacity>
@@ -387,6 +407,12 @@ const S = StyleSheet.create({
     fontWeight: "600",
     color: "#666",
     marginTop: 2,
+  },
+  optionOldPrice: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#999",
+    textDecorationLine: "line-through",
   },
   quantityControl: {
     flexDirection: "row",

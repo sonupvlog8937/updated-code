@@ -8,6 +8,7 @@ import { useDebouncedValue, SkeletonGrid, ResultBar } from "./shared";
 import { useInfiniteScroll } from "./hooks/useInfiniteScroll";
 import { addToCart, fetchMyListData } from "../../store/appSlice";
 import { normalizeProductOptions } from "./GoMarketProductOptions";
+import "./style.css"
 
 const SORT_OPTIONS = [
   { value: "", label: "Smart tab order" },
@@ -426,19 +427,50 @@ export const GoMarketShopCatalog = ({
         <div className="gmp-product-grid">
           {products.map((p) => {
             const price = p.discountPrice > 0 ? p.discountPrice : p.price;
+            const discountPct = p.discountPrice > 0 && p.price > p.discountPrice
+              ? Math.round(((p.price - p.discountPrice) / p.price) * 100)
+              : p.discount || 0;
+            const rating = Number(p.rating || p.averageRating || 0);
+            const reviewCount = p.reviewCount || p.totalReviews || 0;
             return (
               <Link to={`/go-market/product/grocery/${p._id}`} className="gmp-product-tile" key={p._id}>
-                <img src={img(p.image)} alt={p.name} />
+                <div className="gmp-tile-img-wrap">
+                  <img src={img(p.image)} alt={p.name} />
+                  {discountPct > 0 && (
+                    <span className="gmp-tile-badge">{discountPct}% OFF</span>
+                  )}
+                  {p.stock === 0 && (
+                    <div className="gmp-tile-oos-overlay">Out of Stock</div>
+                  )}
+                </div>
                 <button className="gmp-card-icon gmp-card-heart" onClick={(e) => handleQuickWishlist(e, p)}>♡</button>
                 <button className="gmp-card-icon gmp-card-plus" onClick={(e) => handleQuickAdd(e, p)}>+</button>
                 <div className="gmp-product-body">
+                  {p.brand && <div className="gmp-tile-brand">{p.brand}</div>}
                   <div className="gmp-product-name">{p.name}</div>
-                  <div className="gmp-product-price">
-                    <b>₹{price}</b>
-                    {p.discountPrice > 0 && p.price > p.discountPrice && <del>₹{p.price}</del>}
+                  {p.description && (
+                    <div className="gmp-tile-desc">{p.description}</div>
+                  )}
+                  {rating > 0 && (
+                    <div className="gmp-tile-rating">
+                      <span className="gmp-tile-stars">
+                        {"★".repeat(Math.round(rating))}{"☆".repeat(5 - Math.round(rating))}
+                      </span>
+                      <span className="gmp-tile-rating-val">{rating.toFixed(1)}</span>
+                      {reviewCount > 0 && <span className="gmp-tile-review-count">({reviewCount})</span>}
+                    </div>
+                  )}
+                  <div className="gmp-tile-price-row">
+                    <span className="gmp-tile-price">₹{price}</span>
+                    {p.discountPrice > 0 && p.price > p.discountPrice && (
+                      <del className="gmp-tile-mrp">₹{p.price}</del>
+                    )}
+                    {discountPct > 0 && (
+                      <span className="gmp-tile-save">Save ₹{p.price - price}</span>
+                    )}
                   </div>
-                  <div style={{ fontSize: 11, color: p.stock > 0 ? "#16a34a" : "#dc2626", marginTop: 4 }}>
-                    {p.stock > 0 ? `${p.stock} in stock` : "Out of stock"}
+                  <div className="gmp-tile-stock" style={{ color: p.stock > 0 ? "#16a34a" : "#dc2626" }}>
+                    {p.stock > 0 ? `✓ ${p.stock} in stock` : "✕ Out of stock"}
                   </div>
                 </div>
               </Link>
@@ -447,7 +479,72 @@ export const GoMarketShopCatalog = ({
         </div>
       )}
 
-       {optionProduct && <div className="gmp-option-modal" onClick={() => setOptionProduct(null)}><div className="gmp-option-sheet" onClick={(e) => e.stopPropagation()}><h3>{optionProduct.name}</h3><p>Select options - price updates dynamically.</p>{optionGroups.map((opt) => <div key={opt.name || opt.label} className="gmp-option-group"><b>{opt.label || opt.name}</b><div className="gmp-option-chips">{opt.values.map((v) => <button key={v.value || v.label} type="button" className={`gmp-option-chip${quickSelections[opt.name || opt.label] === v.label ? " active" : ""}`} onClick={() => setQuickSelections((prev) => ({ ...prev, [opt.name || opt.label]: v.label }))}>{v.label} · ₹{v.price || optionProduct.price}</button>)}</div></div>)}<div className="gmp-product-price"><b>₹{quickPrice}</b></div><button className="gmp-btn gmp-btn-primary" onClick={confirmOptionAdd}>Add to cart</button></div></div>}
+      {optionProduct && (
+        <div className="gmp-option-modal" onClick={() => setOptionProduct(null)}>
+          <div className="gmp-option-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="gmp-option-sheet-header">
+              <div className="gmp-option-sheet-img">
+                {optionProduct.image && <img src={img(optionProduct.image)} alt={optionProduct.name} />}
+              </div>
+              <div className="gmp-option-sheet-meta">
+                {optionProduct.brand && <div className="gmp-tile-brand">{optionProduct.brand}</div>}
+                <h3 className="gmp-option-sheet-title">{optionProduct.name}</h3>
+                {optionProduct.description && (
+                  <p className="gmp-option-sheet-desc">{optionProduct.description}</p>
+                )}
+                {(() => {
+                  const r = Number(optionProduct.rating || optionProduct.averageRating || 0);
+                  const rc = optionProduct.reviewCount || optionProduct.totalReviews || 0;
+                  return r > 0 ? (
+                    <div className="gmp-tile-rating" style={{ marginTop: 4 }}>
+                      <span className="gmp-tile-stars">{"★".repeat(Math.round(r))}{"☆".repeat(5 - Math.round(r))}</span>
+                      <span className="gmp-tile-rating-val">{r.toFixed(1)}</span>
+                      {rc > 0 && <span className="gmp-tile-review-count">({rc} reviews)</span>}
+                    </div>
+                  ) : null;
+                })()}
+                <div className="gmp-tile-price-row" style={{ marginTop: 6 }}>
+                  <span className="gmp-pd-price">₹{quickPrice}</span>
+                  {optionProduct.price && quickPrice !== Number(optionProduct.price) && (
+                    <del className="gmp-tile-mrp">₹{optionProduct.price}</del>
+                  )}
+                  {optionProduct.discount > 0 && (
+                    <span className="gmp-tile-badge" style={{ position: "static", marginLeft: 6 }}>{optionProduct.discount}% OFF</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <p className="gmp-option-sheet-hint">Select options — price updates dynamically</p>
+            {optionGroups.map((opt) => (
+              <div key={opt.name || opt.label} className="gmp-option-group">
+                <b className="gmp-option-group-label">{opt.label || opt.name}</b>
+                <div className="gmp-option-chips">
+                  {opt.values.map((v) => (
+                    <button
+                      key={v.value || v.label}
+                      type="button"
+                      className={`gmp-option-chip${quickSelections[opt.name || opt.label] === v.label ? " active" : ""}`}
+                      onClick={() => setQuickSelections((prev) => ({ ...prev, [opt.name || opt.label]: v.label }))}
+                    >
+                      <span>{v.label}</span>
+                      <span className="gmp-chip-price">₹{v.price || optionProduct.price}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div className="gmp-option-sheet-footer">
+              <div className="gmp-option-total">
+                <span>Total</span>
+                <span className="gmp-pd-price">₹{quickPrice}</span>
+              </div>
+              <button className="gmp-btn gmp-btn-primary" style={{ flex: 1 }} onClick={confirmOptionAdd}>
+                🛒 Add to Cart
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div ref={sentinelRef} style={{ height: 1 }} />
       {loadingMore && (
