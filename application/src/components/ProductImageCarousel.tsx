@@ -14,7 +14,6 @@ import {
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const IMAGE_HEIGHT = SCREEN_WIDTH * 1.1;
-const THUMBNAIL_SIZE = 80;
 
 interface ZoomModalProps {
   imageUri: string;
@@ -65,7 +64,6 @@ export const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
   const scrollRef = useRef<ScrollView>(null);
-  const thumbScrollRef = useRef<ScrollView>(null);
 
   // Validate and filter images
   const displayImages = useMemo(() => {
@@ -93,7 +91,6 @@ export const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
     setActiveIndex(0);
     setImageErrors(new Set());
     scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
-    thumbScrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
   }, [displayImages]);
 
   const handleScrollEnd = (event: any) => {
@@ -103,12 +100,6 @@ export const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
 
     if (newIndex !== activeIndex && newIndex >= 0 && newIndex < total) {
       setActiveIndex(newIndex);
-      // Auto-scroll thumbnails
-      const thumbOffset = Math.max(
-        0,
-        newIndex * (THUMBNAIL_SIZE + 8) - SCREEN_WIDTH / 2 + THUMBNAIL_SIZE / 2,
-      );
-      thumbScrollRef.current?.scrollTo({ x: thumbOffset, animated: true });
     }
   };
 
@@ -245,50 +236,6 @@ export const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
           </View>
         )}
 
-        {/* Thumbnails */}
-        {total > 1 && (
-          <View style={styles.thumbContainer}>
-            <ScrollView
-              ref={thumbScrollRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              scrollEventThrottle={16}
-              contentContainerStyle={styles.thumbContent}
-            >
-              {displayImages.map((imageUri, index) => (
-                <TouchableOpacity
-                  key={`thumb-${index}`}
-                  onPress={() => goToIndex(index)}
-                  style={[
-                    styles.thumbnail,
-                    index === activeIndex ? styles.thumbActive : {},
-                  ]}
-                >
-                  {imageErrors.has(index) ? (
-                    <View style={styles.thumbErrorContainer}>
-                      <Ionicons name="image-outline" size={20} color="#ccc" />
-                    </View>
-                  ) : (
-                    <Image
-                      source={{ uri: imageUri }}
-                      style={styles.thumbImage}
-                      resizeMode="cover"
-                    />
-                  )}
-                  {index === activeIndex && (
-                    <View style={styles.thumbOverlay}>
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={18}
-                        color="#fff"
-                      />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
       </View>
     </>
   );
@@ -406,48 +353,6 @@ const styles = StyleSheet.create({
   },
   dotInactive: {
     backgroundColor: "rgba(0,0,0,0.2)",
-  },
-  thumbContainer: {
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#e8e8f0",
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-  },
-  thumbContent: {
-    gap: 8,
-    paddingHorizontal: 8,
-  },
-  thumbnail: {
-    width: THUMBNAIL_SIZE,
-    height: THUMBNAIL_SIZE,
-    borderRadius: 10,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#f8fafc",
-  },
-  thumbActive: {
-    borderColor: "#0f172a",
-    borderWidth: 3,
-  },
-  thumbImage: {
-    width: "100%",
-    height: "100%",
-  },
-  thumbErrorContainer: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f0f0f0",
-  },
-  thumbOverlay: {
-    position: "absolute",
-    inset: 0,
-    backgroundColor: "rgba(0,0,0,0.2)",
-    justifyContent: "center",
-    alignItems: "center",
   },
   zoomOverlay: {
     flex: 1,

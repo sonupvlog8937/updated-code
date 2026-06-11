@@ -43,7 +43,14 @@ const Verify = () => {
         localStorage.removeItem("actionType");
         history("/forgot-password");
       } else {
-        context.alertBox("error", res?.message || "Invalid OTP");
+        const errorMsg = res?.message || "Invalid OTP";
+        if (errorMsg.toLowerCase().includes("expired")) {
+          context.alertBox("error", "❌ Code expired. Request a new one.");
+        } else if (errorMsg.toLowerCase().includes("invalid")) {
+          context.alertBox("error", "❌ Invalid code. Please check and try again.");
+        } else {
+          context.alertBox("error", `❌ ${errorMsg}`);
+        }
       }
 
     } else {
@@ -59,7 +66,14 @@ const Verify = () => {
         context.setIsLogin(true);
         history("/");
       } else {
-        context.alertBox("error", res?.message || "Invalid OTP");
+        const errorMsg = res?.message || "Invalid OTP";
+        if (errorMsg.toLowerCase().includes("expired")) {
+          context.alertBox("error", "❌ Code expired. Request a new one.");
+        } else if (errorMsg.toLowerCase().includes("invalid")) {
+          context.alertBox("error", "❌ Invalid code. Please check and try again.");
+        } else {
+          context.alertBox("error", `❌ ${errorMsg}`);
+        }
       }
     }
   };

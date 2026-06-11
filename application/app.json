@@ -22,7 +22,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.zeedaddy.app",
-      "versionCode": 4,
+      "versionCode": 11,
       "permissions": [
         "android.permission.INTERNET"
       ]

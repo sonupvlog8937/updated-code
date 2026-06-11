@@ -22,6 +22,7 @@ const Checkout = () => {
   const [selectedAddress, setSelectedAddress] = useState("");
   const [isLoading, setIsloading] = useState(false);
   const [commerceSettings, setCommerceSettings] = useState({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0 });
+  const [isFirstOrder, setIsFirstOrder] = useState(false);
   const context = useAppContext();
 
   const history = useNavigate();
@@ -42,13 +43,28 @@ const Checkout = () => {
   const couponDiscount = !isBuyNowCheckout ? Number(localStorage.getItem("couponDiscount") || 0) : 0;
   const discountAmount = Math.min(couponDiscount, cartSubTotal);
   const baseAfterDiscount = Math.max(cartSubTotal - discountAmount, 0);
-  const deliveryFee = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove ? 0 : Number(commerceSettings.deliveryFee || 0);
-  const shippingFee = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove ? 0 : Number(commerceSettings.shippingFee || 0);
+  const deliveryFee = isFirstOrder ? 0 : (commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove ? 0 : Number(commerceSettings.deliveryFee || 0));
+  const shippingFee = isFirstOrder ? 0 : (commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove ? 0 : Number(commerceSettings.shippingFee || 0));
   const totalAmount = Math.max(baseAfterDiscount + deliveryFee + shippingFee, 0);
 
   useEffect(() => {
     fetchDataFromApi("/api/settings/commerce").then((res) => { if (res?.data) setCommerceSettings(res.data); });
   }, []);
+
+  useEffect(() => {
+    // Check if user has any previous orders
+    if (context?.userData?._id) {
+      fetchDataFromApi(`/api/order/order-list/orders`)
+        .then((res) => {
+          console.log("✅ First Order Check - Response:", res);
+          setIsFirstOrder(res?.total === 0 || res?.data?.length === 0);
+        })
+        .catch((err) => {
+          console.error("❌ First Order Check Failed:", err);
+          setIsFirstOrder(false);
+        });
+    }
+  }, [context?.userData]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -422,6 +438,14 @@ const Checkout = () => {
                 <div className="bg-[#f7f7f7] rounded-md p-3 mb-3">
                   <p className="text-[13px] mb-1">Coupon: <strong>{couponCode}</strong></p>
                   <p className="text-[13px] mb-0">Discount: -{discountAmount.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}</p>
+                </div>
+              )}
+
+              {isFirstOrder && (
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-md p-3 mb-3">
+                  <p className="text-[14px] font-semibold text-green-700 mb-0 flex items-center gap-2">
+                    🎉 First Order - FREE Shipping & Delivery!
+                  </p>
                 </div>
               )}
 

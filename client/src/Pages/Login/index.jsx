@@ -206,7 +206,14 @@ const Login = () => {
         setOtpSent(false);
         history("/");
       } else {
-        context.alertBox("error", res?.message);
+        const errorMsg = res?.message || "OTP verification failed";
+        if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("incorrect")) {
+          context.alertBox("error", "❌ Invalid OTP. Please check and try again.");
+        } else if (errorMsg.toLowerCase().includes("expired")) {
+          context.alertBox("error", "❌ OTP expired. Request a new one.");
+        } else {
+          context.alertBox("error", `❌ ${errorMsg}`);
+        }
         triggerShake();
       }
     } catch (error) {
@@ -238,9 +245,25 @@ const Login = () => {
         setFormFields({ email: "", password: "" });
         history("/");
       } else {
-        context.alertBox("error", res?.message);
+        // Better error messages based on API response
+        const errorMsg = res?.message || "Login failed";
+        if (errorMsg.toLowerCase().includes("not found") || errorMsg.toLowerCase().includes("user")) {
+          context.alertBox("error", "❌ User not found. Please check your email.");
+        } else if (errorMsg.toLowerCase().includes("password") || errorMsg.toLowerCase().includes("incorrect")) {
+          context.alertBox("error", "❌ Incorrect password. Please try again.");
+        } else if (errorMsg.toLowerCase().includes("invalid")) {
+          context.alertBox("error", "❌ Invalid email format. Please check.");
+        } else {
+          context.alertBox("error", `❌ ${errorMsg}`);
+        }
         triggerShake();
       }
+      setIsLoading(false);
+      context.setGlobalLoading(false);
+    }).catch((err) => {
+      console.error("Login error:", err);
+      context.alertBox("error", "❌ Network error. Please check your connection.");
+      triggerShake();
       setIsLoading(false);
       context.setGlobalLoading(false);
     });

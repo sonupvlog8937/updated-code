@@ -65,6 +65,7 @@ const Field = ({ label: lbText, children, span }) => (
 const MarketplaceAddProduct = () => {
     const context = useContext(MyContext);
     const userRole = context?.userData?.role || '';
+    const isAdmin = userRole === 'ADMIN';
 
     const [formFields, setFormFields] = useState({
         name: '', description: '', images: [], brand: '', keywords: '',
@@ -329,13 +330,15 @@ const MarketplaceAddProduct = () => {
                                 <>
                                     <Field label="Sales Count"><input style={inp} type="number" name="sale" value={formFields.sale} onChange={onChangeInput} placeholder="0" /></Field>
                                     <Field label="Brand *"><input style={inp} type="text" name="brand" value={formFields.brand} onChange={onChangeInput} placeholder="e.g. Apple" /></Field>
-                                    <Field label="Is Featured?">
-                                        <Select size="small" sx={selectSx} value={productFeatured} onChange={handleChangeProductFeatured} displayEmpty>
-                                            <MenuItem value="">Select</MenuItem>
-                                            <MenuItem value={true}>Yes — Featured</MenuItem>
-                                            <MenuItem value={false}>No</MenuItem>
-                                        </Select>
-                                    </Field>
+                                    {isAdmin && (
+                                        <Field label="Is Featured?">
+                                            <Select size="small" sx={selectSx} value={productFeatured} onChange={handleChangeProductFeatured} displayEmpty>
+                                                <MenuItem value="">Select</MenuItem>
+                                                <MenuItem value={true}>Yes — Featured</MenuItem>
+                                                <MenuItem value={false}>No</MenuItem>
+                                            </Select>
+                                        </Field>
+                                    )}
                                 </>
                             )}
                         </div>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { fetchDataFromApi, postData } from "../../utils/api";
@@ -63,6 +63,7 @@ export default function ProductReviewsSection({
   const [draftRating, setDraftRating] = useState(5);
   const [draftText, setDraftText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const sentinelRef = useRef(null);
 
   const applyStats = useCallback((payload) => {
     const avg = payload?.avgRating ?? payload?.averageRating;
@@ -113,6 +114,23 @@ export default function ProductReviewsSection({
     setTotalReviews(initialTotal);
     loadPage(1, false);
   }, [productId]);
+
+  // Infinity scroll observer
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMore || loadingMore) return;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadPage(page + 1, true);
+        }
+      },
+      { threshold: 0.1, rootMargin: "100px" }
+    );
+    
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, page]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -239,14 +257,14 @@ export default function ProductReviewsSection({
             </article>
           ))}
           {hasMore && (
-            <button
-              type="button"
-              className="gmp-pr-load"
-              disabled={loadingMore}
-              onClick={() => loadPage(page + 1, true)}
-            >
-              {loadingMore ? "Loading more…" : "Load more reviews"}
-            </button>
+            <>
+              <div ref={sentinelRef} style={{ height: 1 }} />
+              {loadingMore && (
+                <p style={{ textAlign: "center", color: "#94a3b8", padding: 12, fontSize: 14 }}>
+                  Loading more reviews…
+                </p>
+              )}
+            </>
           )}
         </div>
       )}

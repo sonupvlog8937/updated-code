@@ -1702,3 +1702,275 @@ export async function registerSellerController(request, response) {
         });
     }
 }
+
+
+// ─── OTP-based Login (Email) ──────────────────────────────────────────────────
+// Route: POST /api/user/send-login-otp
+export async function sendLoginOtpController(request, response) {
+    try {
+        const { email } = request.body;
+
+        if (!email) {
+            return response.status(400).json({
+                message: "Email is required",
+                error: true,
+                success: false
+            });
+        }
+
+        const user = await UserModel.findOne({ email });
+
+        if (!user) {
+            return response.status(400).json({
+                message: "User not found. Please register first.",
+                error: true,
+                success: false
+            });
+        }
+
+        if (user.status !== "Active") {
+            return response.status(400).json({
+                message: "Account is not active. Please contact admin.",
+                error: true,
+                success: false
+            });
+        }
+
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        user.login_otp = otp;
+        user.login_otp_expires = Date.now() + 10 * 60 * 1000; // 10 minutes
+        await user.save();
+
+        const emailSent = await sendVerificationOtpEmail({
+            email,
+            name: user.name,
+            otp,
+            subject: `Login OTP – ${process.env.STORE_NAME || 'MyStore'}`,
+        });
+
+        if (!emailSent) {
+            return response.status(500).json({
+                message: "Could not send OTP email. Please try again.",
+                error: true,
+                success: false
+            });
+        }
+
+        return response.status(200).json({
+            message: "OTP sent to your email!",
+            error: false,
+            success: true
+        });
+
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        });
+    }
+}
+
+// Route: POST /api/user/verify-login-otp
+export async function verifyLoginOtpController(request, response) {
+    try {
+        const { email, otp } = request.body;
+
+        if (!email || !otp) {
+            return response.status(400).json({
+                message: "Email and OTP are required",
+                error: true,
+                success: false
+            });
+        }
+
+        const user = await UserModel.findOne({ email });
+
+        if (!user) {
+            return response.status(400).json({
+                message: "User not found",
+                error: true,
+                success: false
+            });
+        }
+
+        if (user.status !== "Active") {
+            return response.status(400).json({
+                message: "Account is not active. Please contact admin.",
+                error: true,
+                success: false
+            });
+        }
+
+        if (!user.login_otp || user.login_otp !== otp) {
+            return response.status(400).json({
+                message: "Invalid OTP",
+                error: true,
+                success: false
+            });
+        }
+
+        if (!user.login_otp_expires || user.login_otp_expires < Date.now()) {
+            return response.status(400).json({
+                message: "OTP expired. Please request a new one.",
+                error: true,
+                success: false
+            });
+        }
+
+        // Clear OTP after successful verification
+        user.login_otp = null;
+        user.login_otp_expires = null;
+        await user.save();
+
+        return sendLoginResponse(response, user._id);
+
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        });
+    }
+}
+
+
+// ─── OTP-based Registration (Email) ───────────────────────────────────────────
+// Route: POST /api/user/send-register-otp
+export async function sendRegisterOtpController(request, response) {
+    try {
+        const { name, email } = request.body;
+
+        if (!name || !email) {
+            return response.status(400).json({
+                message: "Name and email are required",
+                error: true,
+                success: false
+            });
+        }
+
+        const existingUser = await UserModel.findOne({ email });
+
+        if (existingUser) {
+            return response.status(400).json({
+                message: "User already registered with this email. Please login instead.",
+                error: true,
+                success: false
+            });
+        }
+
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Create temporary user with OTP
+        const user = new UserModel({
+            email,
+            password: "temp", // Will be set to null after verification
+            name,
+            register_otp: otp,
+            register_otp_expires: Date.now() + 10 * 60 * 1000, // 10 minutes
+            verify_email: false,
+            status: "Pending"
+        });
+
+        await user.save();
+
+        const emailSent = await sendVerificationOtpEmail({
+            email,
+            name,
+            otp,
+            subject: `Registration OTP – ${process.env.STORE_NAME || 'MyStore'}`,
+        });
+
+        if (!emailSent) {
+            // Delete the temp user if email fails
+            await UserModel.findByIdAndDelete(user._id);
+            return response.status(500).json({
+                message: "Could not send OTP email. Please try again.",
+                error: true,
+                success: false
+            });
+        }
+
+        return response.status(200).json({
+            message: "OTP sent to your email!",
+            error: false,
+            success: true
+        });
+
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        });
+    }
+}
+
+// Route: POST /api/user/verify-register-otp
+export async function verifyRegisterOtpController(request, response) {
+    try {
+        const { name, email, otp } = request.body;
+
+        if (!name || !email || !otp) {
+            return response.status(400).json({
+                message: "Name, email, and OTP are required",
+                error: true,
+                success: false
+            });
+        }
+
+        const user = await UserModel.findOne({ email });
+
+        if (!user) {
+            return response.status(400).json({
+                message: "Registration session not found. Please start registration again.",
+                error: true,
+                success: false
+            });
+        }
+
+        if (user.verify_email === true) {
+            return response.status(400).json({
+                message: "Email already verified. Please login instead.",
+                error: true,
+                success: false
+            });
+        }
+
+        if (!user.register_otp || user.register_otp !== otp) {
+            return response.status(400).json({
+                message: "Invalid OTP",
+                error: true,
+                success: false
+            });
+        }
+
+        if (!user.register_otp_expires || user.register_otp_expires < Date.now()) {
+            return response.status(400).json({
+                message: "OTP expired. Please start registration again.",
+                error: true,
+                success: false
+            });
+        }
+
+        // Activate user account
+        user.name = name; // Update name in case it changed
+        user.password = "null"; // No password for OTP-based registration
+        user.verify_email = true;
+        user.status = "Active";
+        user.register_otp = null;
+        user.register_otp_expires = null;
+        await user.save();
+
+        return sendLoginResponse(response, user._id);
+
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false
+        });
+    }
+}

@@ -1,5 +1,5 @@
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -32,6 +32,7 @@ const T = {
 export default function GoMarketScreen() {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -57,13 +58,16 @@ export default function GoMarketScreen() {
     }
   }, [isLogin, authChecked]);
 
-  // Auto-navigate to preferred market if exists
+  // Auto-navigate to preferred market if exists (skip if coming from edit)
   useEffect(() => {
-    if (authChecked && isLogin && userData?.preferredMarketId) {
+    // Don't auto-redirect if in edit mode (coming from market page via edit button)
+    const isFromEdit = params?.edit === "true";
+    
+    if (authChecked && isLogin && userData?.preferredMarketId && !isFromEdit) {
       console.log("🎯 Auto-navigating to preferred market:", userData.preferredMarketId);
       router.replace(`/go-market-market/${userData.preferredMarketId}` as never);
     }
-  }, [authChecked, isLogin, userData?.preferredMarketId]);
+  }, [authChecked, isLogin, userData?.preferredMarketId, params?.edit]);
 
   useEffect(() => {
     dispatch(fetchGoMarkets(""));

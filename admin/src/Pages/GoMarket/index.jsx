@@ -67,6 +67,7 @@ const configs = {
     fields: [
       { key: "parentId", label: "Parent Category", type: "parentCategory", required: true },
       { key: "name", label: "Sub Category Name", type: "text", required: true },
+      { key: "type", label: "Category Type", type: "select", options: ["grocery", "restaurant"], required: true },
       { key: "image", label: "Image URL", type: "url" },
       { key: "description", label: "Description", type: "textarea" },
       { key: "status", label: "Status", type: "select", options: ["active", "inactive"] },

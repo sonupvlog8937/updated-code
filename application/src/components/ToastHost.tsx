@@ -23,23 +23,40 @@ export const ToastHost: React.FC = () => {
     return subscribeToast((msg, type) => {
       const id = nextId++;
       const opacity = new Animated.Value(0);
+      const scale = new Animated.Value(0.92);
       animationsRef.current.set(id, opacity);
       setToasts((prev) => [...prev, { id, msg, type }]);
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 220,
-        useNativeDriver: true,
-      }).start();
-      setTimeout(() => {
+      
+      Animated.parallel([
         Animated.timing(opacity, {
-          toValue: 0,
-          duration: 240,
+          toValue: 1,
+          duration: 300,
           useNativeDriver: true,
-        }).start(() => {
+        }),
+        Animated.timing(scale, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 280,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scale, {
+            toValue: 0.92,
+            duration: 280,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
           animationsRef.current.delete(id);
           setToasts((prev) => prev.filter((t) => t.id !== id));
         });
-      }, 2800);
+      }, 3200);
     });
   }, []);
 
@@ -49,10 +66,28 @@ export const ToastHost: React.FC = () => {
     return "info" as const;
   };
 
-  const colorFor = (type: ToastEntry["type"]) => {
-    if (type === "success") return colors.success;
-    if (type === "error") return colors.destructive;
-    return colors.info;
+  const bgColorFor = (type: ToastEntry["type"]) => {
+    if (type === "success") return "#F0FDF4";
+    if (type === "error") return "#FEF2F2";
+    return "#F0F9FF";
+  };
+
+  const borderColorFor = (type: ToastEntry["type"]) => {
+    if (type === "success") return "#86EFAC";
+    if (type === "error") return "#FECACA";
+    return "#93C5FD";
+  };
+
+  const iconColorFor = (type: ToastEntry["type"]) => {
+    if (type === "success") return "#16A34A";
+    if (type === "error") return "#DC2626";
+    return "#2563EB";
+  };
+
+  const textColorFor = (type: ToastEntry["type"]) => {
+    if (type === "success") return "#166534";
+    if (type === "error") return "#7F1D1D";
+    return "#1E3A8A";
   };
 
   const top =
@@ -62,9 +97,10 @@ export const ToastHost: React.FC = () => {
     <View pointerEvents="none" style={[styles.host, { top }]}>
       {toasts.map((t) => {
         const opacity = animationsRef.current.get(t.id) || new Animated.Value(1);
+        const scale = new Animated.Value(1);
         const translateY = opacity.interpolate({
           inputRange: [0, 1],
-          outputRange: [-12, 0],
+          outputRange: [-16, 0],
         });
         return (
           <Animated.View
@@ -73,17 +109,18 @@ export const ToastHost: React.FC = () => {
               styles.toast,
               {
                 opacity,
-                transform: [{ translateY }],
-                backgroundColor: colors.background,
-                borderColor: colors.border,
-                shadowColor: "#000",
+                transform: [{ translateY }, { scale }],
+                backgroundColor: bgColorFor(t.type),
+                borderColor: borderColorFor(t.type),
               },
             ]}
           >
-            <Feather name={iconFor(t.type)} size={18} color={colorFor(t.type)} />
+            <View style={styles.iconContainer}>
+              <Feather name={iconFor(t.type)} size={20} color={iconColorFor(t.type)} />
+            </View>
             <Text
               numberOfLines={3}
-              style={[styles.msg, { color: colors.foreground }]}
+              style={[styles.msg, { color: textColorFor(t.type) }]}
             >
               {t.msg}
             </Text>
@@ -100,24 +137,34 @@ const styles = StyleSheet.create({
     left: 12,
     right: 12,
     zIndex: 9999,
-    gap: 8,
+    gap: 10,
   },
   toast: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 18,
-    shadowOpacity: 0.12,
-    elevation: 6,
+    gap: 12,
+    borderWidth: 1.2,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 20,
+    shadowOpacity: 0.15,
+    elevation: 8,
+    overflow: "hidden",
+  },
+  iconContainer: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
   },
   msg: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 20,
     fontFamily: "Inter_500Medium",
+    letterSpacing: 0.2,
   },
 });

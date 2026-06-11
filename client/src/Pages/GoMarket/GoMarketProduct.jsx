@@ -11,7 +11,6 @@ import GoMarketProductOptions, {
   normalizeProductOptions,
   selectedOptionPrice,
 } from "./GoMarketProductOptions";
-import { useInfiniteScroll } from "./hooks/useInfiniteScroll";
 
 const GoMarketProduct = () => {
   const { kind, id } = useParams();
@@ -63,7 +62,7 @@ const GoMarketProduct = () => {
   }, [loadProduct]);
 
   const loadMoreRelated = useCallback(async () => {
-    if (kind !== "grocery" || relatedPage >= relatedTotalPages) return;
+    if (kind !== "grocery" || relatedPage >= relatedTotalPages || loadingRelated) return;
     setLoadingRelated(true);
     const next = relatedPage + 1;
     try {
@@ -78,19 +77,14 @@ const GoMarketProduct = () => {
     } finally {
       setLoadingRelated(false);
     }
-  }, [kind, id, relatedPage, relatedTotalPages]);
-
-  const relatedSentinel = useInfiniteScroll({
-    enabled: kind === "grocery",
-    hasMore: relatedPage < relatedTotalPages,
-    loading: loadingRelated,
-    onLoadMore: loadMoreRelated,
-  });
+  }, [kind, id, relatedPage, relatedTotalPages, loadingRelated]);
 
   const product = data?.product;
   const specs = data?.specifications || [];
   const productOptions = normalizeProductOptions(product?.productOptions || []);
   const optionsComplete = allOptionsSelected(productOptions, selectedOptions);
+  const [showAllSpecs, setShowAllSpecs] = useState(false);
+  const visibleSpecs = showAllSpecs ? specs : specs.slice(0, 5);
   
   // Calculate active price and old price based on selected options
   const getActivePricing = () => {
@@ -395,7 +389,7 @@ const GoMarketProduct = () => {
             <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>Specifications</h3>
             <table className="gmp-spec-table">
               <tbody>
-                {specs.map((s, i) => (
+                {visibleSpecs.map((s, i) => (
                   <tr key={i}>
                     <td>{s.key}</td>
                     <td>{s.value}</td>
@@ -403,6 +397,38 @@ const GoMarketProduct = () => {
                 ))}
               </tbody>
             </table>
+            {specs.length > 5 && (
+              <button
+                type="button"
+                onClick={() => setShowAllSpecs(!showAllSpecs)}
+                style={{
+                  marginTop: 16,
+                  padding: "10px 16px",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#475569",
+                  cursor: "pointer",
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  transition: "all 0.2s",
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = "#e2e8f0";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = "#f8fafc";
+                }}
+              >
+                {showAllSpecs ? "Show Less" : `Read More (${specs.length - 5} more)`}
+                <span style={{ fontSize: 16 }}>{showAllSpecs ? "▲" : "▼"}</span>
+              </button>
+            )}
           </section>
         )}
 
@@ -412,10 +438,14 @@ const GoMarketProduct = () => {
             <div className="gmp-product-grid">
               {related.map((r) => {
                 const rRating = Number(r.rating || r.averageRating || 0);
-                const rDiscount = r.discountPrice > 0 && r.price > r.discountPrice
-                  ? Math.round(((r.price - r.discountPrice) / r.price) * 100)
-                  : r.discount || 0;
                 const rPrice = r.discountPrice > 0 ? r.discountPrice : r.price;
+                const rOldPrice = r.oldPrice || r.price;
+                const hasDiscount = rOldPrice > rPrice;
+                const rDiscount = hasDiscount 
+                  ? Math.round(((rOldPrice - rPrice) / rOldPrice) * 100)
+                  : r.discount || 0;
+                const saveAmount = hasDiscount ? rOldPrice - rPrice : 0;
+                
                 return (
                   <Link
                     to={`/go-market/product/${r.goMarketKind || kind}/${r._id}`}
@@ -438,18 +468,68 @@ const GoMarketProduct = () => {
                       )}
                       <div className="gmp-tile-price-row">
                         <span className="gmp-tile-price">₹{rPrice}</span>
-                        {r.discountPrice > 0 && r.price > r.discountPrice && (
-                          <del className="gmp-tile-mrp">₹{r.price}</del>
+                        {hasDiscount && rOldPrice > rPrice && (
+                          <del className="gmp-tile-mrp">₹{rOldPrice}</del>
                         )}
                       </div>
+                      {saveAmount > 0 && (
+                        <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 600, marginTop: 4 }}>
+                          You save ₹{saveAmount}
+                        </div>
+                      )}
                     </div>
                   </Link>
                 );
               })}
             </div>
-            <div ref={relatedSentinel} style={{ height: 1 }} />
-            {loadingRelated && (
-              <p style={{ textAlign: "center", color: "#94a3b8", padding: 12 }}>Loading more…</p>
+            {relatedPage < relatedTotalPages && (
+              <button
+                type="button"
+                onClick={loadMoreRelated}
+                disabled={loadingRelated}
+                style={{
+                  marginTop: 20,
+                  padding: "12px 24px",
+                  background: loadingRelated ? "#f1f5f9" : "#fff",
+                  border: "2px solid #e2e8f0",
+                  borderRadius: 12,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#475569",
+                  cursor: loadingRelated ? "not-allowed" : "pointer",
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  transition: "all 0.2s",
+                  opacity: loadingRelated ? 0.6 : 1,
+                }}
+                onMouseOver={(e) => {
+                  if (!loadingRelated) {
+                    e.currentTarget.style.background = "#f8fafc";
+                    e.currentTarget.style.borderColor = "#cbd5e1";
+                  }
+                }}
+                onMouseOut={(e) => {
+                  if (!loadingRelated) {
+                    e.currentTarget.style.background = "#fff";
+                    e.currentTarget.style.borderColor = "#e2e8f0";
+                  }
+                }}
+              >
+                {loadingRelated ? (
+                  <>
+                    <span style={{ fontSize: 16 }}>⏳</span>
+                    Loading more products...
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 16 }}>↓</span>
+                    Load More Products
+                  </>
+                )}
+              </button>
             )}
           </section>
         )}

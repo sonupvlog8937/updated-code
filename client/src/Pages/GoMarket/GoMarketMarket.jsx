@@ -240,6 +240,38 @@ const GoMarketMarket = () => {
                 <h2>{market.name}</h2>
                 <p>{market.city}, {market.state} · {market.pincode}</p>
               </div>
+              <button
+                type="button"
+                onClick={() => navigate("/go-market?edit=true")}
+                style={{
+                  position: "absolute",
+                  top: 16,
+                  right: 16,
+                  background: "rgba(255, 255, 255, 0.95)",
+                  border: "1px solid #e2e8f0",
+                  color: "#1e293b",
+                  padding: "8px 14px",
+                  borderRadius: "6px",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = "rgba(255, 255, 255, 1)";
+                  e.target.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = "rgba(255, 255, 255, 0.95)";
+                  e.target.style.boxShadow = "none";
+                }}
+              >
+                <span>✏️</span>
+                Change Market
+              </button>
             </div>
           </div>
         )}

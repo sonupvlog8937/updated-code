@@ -103,6 +103,7 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
 
   const optionGroups = normalizeProductOptions(optionProduct?.productOptions || []);
   const quickPrice = optionGroups.reduce((price, opt) => { const key = opt.name || opt.label; const found = (opt.values || []).find((v) => v.label === quickSelections[key] || v.value === quickSelections[key]); return Number(found?.price) > 0 ? Number(found.price) : price; }, Number(optionProduct?.price || 0));
+  const quickOldPrice = optionGroups.reduce((oldPrice, opt) => { const key = opt.name || opt.label; const found = (opt.values || []).find((v) => v.label === quickSelections[key] || v.value === quickSelections[key]); return Number(found?.oldPrice) > 0 ? Number(found.oldPrice) : oldPrice; }, Number(optionProduct?.oldPrice || optionProduct?.price || 0));
   const addProductWithOptions = async (product, selectedOptions = {}, priceOverride = null) => { if (!isLogin) { toast.error("Please login first"); navigate("/login"); return; } const name = product.itemName || product.name; await dispatch(addToCart({ product: { _id: product._id, name, price: priceOverride ?? product.price, oldPrice: product.oldPrice || product.price, image: product.image, images: product.images || [product.image], countInStock: product.countInStock ?? 99, rating: product.rating || product.averageRating || 0, brand: product.brand || "GoMarket Restaurant", discount: product.discount, selectedOptions }, userId: userData?._id, quantity: 1 })); };
   const handleQuickAdd = (e, product) => { e.preventDefault(); e.stopPropagation(); const options = normalizeProductOptions(product.productOptions || []); if (options.length) { setOptionProduct(product); setQuickSelections({}); return; } addProductWithOptions(product); };
   const handleQuickWishlist = async (e, product) => { e.preventDefault(); e.stopPropagation(); if (!isLogin) { toast.error("Please login first"); navigate("/login"); return; } if (myListData?.some((item) => item?.productId === product._id)) { toast.success("Already in wishlist"); return; } const name = product.itemName || product.name; const res = await postData("/api/myList/add", { productTitle: name, image: product.image, rating: product.rating || product.averageRating || 0, price: product.price, oldPrice: product.oldPrice || product.price, productId: product._id, brand: product.brand || "GoMarket Restaurant", discount: product.discount }); if (res?.error === false) { toast.success("Added to wishlist"); dispatch(fetchMyListData()); } else toast.error(res?.message || "Wishlist failed"); };
@@ -203,7 +204,43 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
       )}
       {optionProduct && (
         <div className="gmp-option-modal" onClick={() => setOptionProduct(null)}>
-          <div className="gmp-option-sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="gmp-option-sheet" onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setOptionProduct(null)}
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                border: '1px solid #e2e8f0',
+                background: '#fff',
+                color: '#64748b',
+                fontSize: 18,
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10,
+                transition: 'all 0.2s',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f1f5f9';
+                e.currentTarget.style.color = '#334155';
+                e.currentTarget.style.borderColor = '#cbd5e1';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#fff';
+                e.currentTarget.style.color = '#64748b';
+                e.currentTarget.style.borderColor = '#e2e8f0';
+              }}
+              aria-label="Close"
+            >
+              ×
+            </button>
             <div className="gmp-option-sheet-header">
               <div className="gmp-option-sheet-img">
                 {optionProduct.image && <img src={img(optionProduct.image)} alt={optionProduct.itemName || optionProduct.name} />}
@@ -226,12 +263,17 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
                 })()}
                 <div className="gmp-tile-price-row" style={{ marginTop: 6 }}>
                   <span className="gmp-pd-price">₹{quickPrice}</span>
-                  {optionProduct.oldPrice > optionProduct.price && (
-                    <del className="gmp-tile-mrp">₹{optionProduct.oldPrice}</del>
+                  {quickOldPrice > quickPrice && (
+                    <del className="gmp-tile-mrp">₹{quickOldPrice}</del>
                   )}
-                  {optionProduct.discount > 0 && (
-                    <span className="gmp-tile-badge" style={{ position: "static", marginLeft: 6 }}>{optionProduct.discount}% OFF</span>
-                  )}
+                  {(() => {
+                    const discountPct = quickOldPrice > quickPrice 
+                      ? Math.round(((quickOldPrice - quickPrice) / quickOldPrice) * 100) 
+                      : optionProduct.discount || 0;
+                    return discountPct > 0 ? (
+                      <span className="gmp-tile-badge" style={{ position: "static", marginLeft: 6 }}>{discountPct}% OFF</span>
+                    ) : null;
+                  })()}
                 </div>
               </div>
             </div>
@@ -240,17 +282,26 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
               <div key={opt.name || opt.label} className="gmp-option-group">
                 <b className="gmp-option-group-label">{opt.label || opt.name}</b>
                 <div className="gmp-option-chips">
-                  {opt.values.map((v) => (
-                    <button
-                      key={v.value || v.label}
-                      type="button"
-                      className={`gmp-option-chip${quickSelections[opt.name || opt.label] === v.label ? " active" : ""}`}
-                      onClick={() => setQuickSelections((prev) => ({ ...prev, [opt.name || opt.label]: v.label }))}
-                    >
-                      <span>{v.label}</span>
-                      <span className="gmp-chip-price">₹{v.price || optionProduct.price}</span>
-                    </button>
-                  ))}
+                  {opt.values.map((v) => {
+                    const optPrice = v.price || optionProduct.price;
+                    const optOldPrice = v.oldPrice || optionProduct.oldPrice || optionProduct.price;
+                    return (
+                      <button
+                        key={v.value || v.label}
+                        type="button"
+                        className={`gmp-option-chip${quickSelections[opt.name || opt.label] === v.label ? " active" : ""}`}
+                        onClick={() => setQuickSelections((prev) => ({ ...prev, [opt.name || opt.label]: v.label }))}
+                      >
+                        <span>{v.label}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span className="gmp-chip-price">₹{optPrice}</span>
+                          {optOldPrice > optPrice && (
+                            <del style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400 }}>₹{optOldPrice}</del>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))}

@@ -401,12 +401,69 @@ const Orders = () => {
                         )}
 
                         {/* Grand total */}
-                        <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center",
-                          gap:12, paddingTop:14, borderTop:"2px solid #f0f0f5", marginTop:6 }}>
-                          <span style={{ fontSize:13, fontWeight:600, color:"#6b7280" }}>Order Total</span>
-                          <span style={{ fontSize:18, fontWeight:800, color:"#0a0a0f", fontFamily:"'Sora',sans-serif" }}>
-                            {fmt(order?.totalAmt)}
-                          </span>
+                        <div style={{ paddingTop:14, borderTop:"2px solid #f0f0f5", marginTop:6 }}>
+                          {(() => {
+                            const productsTotal = order?.products?.reduce((sum, item) => sum + (item?.price * item?.quantity), 0) || 0;
+                            const savedShipping = order?.shippingFee || 0;
+                            const savedDelivery = order?.deliveryFee || 0;
+                            const savedDiscount = order?.discount_amount || 0;
+                            const orderTotal = order?.totalAmt || 0;
+                            
+                            // Calculate actual fees if saved fees are 0 but total has difference
+                            const expectedTotal = productsTotal - savedDiscount;
+                            const feeDifference = orderTotal - expectedTotal;
+                            
+                            let actualShipping = savedShipping;
+                            let actualDelivery = savedDelivery;
+                            
+                            // If fees are 0 but there's a difference in total, split it
+                            if (savedShipping === 0 && savedDelivery === 0 && feeDifference > 0) {
+                              actualShipping = Math.floor(feeDifference / 2);
+                              actualDelivery = feeDifference - actualShipping;
+                            }
+                            
+                            return (
+                              <>
+                                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                                  <span style={{ fontSize:12, fontWeight:600, color:"#6b7280" }}>Subtotal</span>
+                                  <span style={{ fontSize:13, fontWeight:700, color:"#374151" }}>
+                                    {fmt(productsTotal)}
+                                  </span>
+                                </div>
+                                {(actualShipping !== undefined && actualShipping !== null) && (
+                                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                                    <span style={{ fontSize:12, fontWeight:600, color:"#6b7280" }}>Shipping Fee</span>
+                                    <span style={{ fontSize:13, fontWeight:700, color:actualShipping === 0 ? "#16a34a" : "#374151" }}>
+                                      {actualShipping === 0 ? "FREE" : fmt(actualShipping)}
+                                    </span>
+                                  </div>
+                                )}
+                                {(actualDelivery !== undefined && actualDelivery !== null) && (
+                                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                                    <span style={{ fontSize:12, fontWeight:600, color:"#6b7280" }}>Delivery Fee</span>
+                                    <span style={{ fontSize:13, fontWeight:700, color:actualDelivery === 0 ? "#16a34a" : "#374151" }}>
+                                      {actualDelivery === 0 ? "FREE" : fmt(actualDelivery)}
+                                    </span>
+                                  </div>
+                                )}
+                                {savedDiscount > 0 && (
+                                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                                    <span style={{ fontSize:12, fontWeight:600, color:"#16a34a" }}>Discount</span>
+                                    <span style={{ fontSize:13, fontWeight:700, color:"#16a34a" }}>
+                                      -{fmt(savedDiscount)}
+                                    </span>
+                                  </div>
+                                )}
+                                <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center",
+                                  gap:12, paddingTop:10, marginTop:6, borderTop:"1px solid #f0f0f5" }}>
+                                  <span style={{ fontSize:13, fontWeight:600, color:"#6b7280" }}>Order Total</span>
+                                  <span style={{ fontSize:18, fontWeight:800, color:"#0a0a0f", fontFamily:"'Sora',sans-serif" }}>
+                                    {fmt(orderTotal)}
+                                  </span>
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
 

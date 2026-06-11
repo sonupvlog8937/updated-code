@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback, lazy, Suspense } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from "react";
 import { LiaShippingFastSolid } from "react-icons/lia";
 import { fetchDataFromApi } from "../../utils/api";
 import { useAppContext } from "../../hooks/useAppContext";
@@ -143,6 +143,98 @@ const AllProductsSection = () => {
               </p>
             )}
           </>
+        )}
+      </div>
+    </section>
+  );
+};
+
+// ─── Featured Products Section (Infinite Scroll) ──────────────────────────────
+const FEATURED_PER_BATCH = 10;
+
+const FeaturedProductsSection = ({ featuredProducts, bannerList2Data }) => {
+  const [visibleCount, setVisibleCount] = useState(FEATURED_PER_BATCH);
+  const sentinelRef = useRef(null);
+
+  const allItems = featuredProducts || [];
+  const visibleItems = allItems.slice(0, visibleCount);
+  const hasMore = visibleCount < allItems.length;
+
+  // IntersectionObserver — jab sentinel dikhega, aur items load karo
+  useEffect(() => {
+    if (!hasMore || !sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + FEATURED_PER_BATCH, allItems.length));
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, allItems.length]);
+
+  // Reset visible count when data changes
+  useEffect(() => {
+    setVisibleCount(FEATURED_PER_BATCH);
+  }, [featuredProducts]);
+
+  return (
+    <section className="py-2 pb-5 bg-white">
+      <div className="container">
+        <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+          <div>
+            <h2 className="section-heading text-[22px] font-[800] text-gray-900 flex-shrink-0 mb-0"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Featured Products</h2>
+            {allItems.length > 0 && (
+              <p className="text-[13px] text-gray-400 mt-0.5 mb-0">
+                Showing {visibleItems.length} of {allItems.length} featured products
+              </p>
+            )}
+          </div>
+          <Link to="/products" className="flex-shrink-0">
+            <button className="cta-orange group flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-[700] text-white">
+              View All <span className="inline-flex items-center justify-center w-5 h-5 rounded-full group-hover:translate-x-0.5 transition-transform" style={{ background: "rgba(255,255,255,0.2)" }}><MdArrowRightAlt size={15} /></span>
+            </button>
+          </Link>
+        </div>
+
+        {allItems.length === 0 ? (
+          <ProductLoading />
+        ) : (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              {visibleItems.map((item, index) => (
+                <Suspense key={item?._id || index} fallback={null}>
+                  <ProductItem item={item} />
+                </Suspense>
+              ))}
+            </div>
+
+            {/* Sentinel element — triggers loading more */}
+            {hasMore && (
+              <div ref={sentinelRef} className="flex justify-center items-center py-8">
+                <div className="flex items-center gap-3">
+                  <span className="inline-block w-5 h-5 border-[2.5px] rounded-full animate-spin"
+                    style={{ borderColor: "rgba(255,107,43,0.15)", borderTopColor: "#FF6B2B" }} />
+                  <span className="text-[13px] font-[600]" style={{ color: "#FF6B2B" }}>Loading more featured products...</span>
+                </div>
+              </div>
+            )}
+
+            {!hasMore && allItems.length > FEATURED_PER_BATCH && (
+              <p className="text-center text-[13px] text-gray-400 mt-6 mb-0">
+                ✨ Saare featured products dekh liye! <Link to="/products" style={{ color: "#FF6B2B", fontWeight: 700 }}>Browse more</Link>
+              </p>
+            )}
+          </>
+        )}
+
+        {bannerList2Data?.length !== 0 && (
+          <div className="mt-5">
+            <Suspense fallback={null}><AdsBannerSlider items={4} data={bannerList2Data} /></Suspense>
+          </div>
         )}
       </div>
     </section>
@@ -520,36 +612,11 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── Featured Products ───────────────────────────────────────────── */}
-      <section className="py-2 pb-5 bg-white">
-        <div className="container">
-          <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
-            <h2 className="section-heading text-[22px] font-[800] text-gray-900 flex-shrink-0" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Featured Products</h2>
-            <Link to="/products" className="flex-shrink-0">
-              <button className="cta-orange group flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-[700] text-white">
-                View All <span className="inline-flex items-center justify-center w-5 h-5 rounded-full group-hover:translate-x-0.5 transition-transform" style={{ background: "rgba(255,255,255,0.2)" }}><MdArrowRightAlt size={15} /></span>
-              </button>
-            </Link>
-          </div>
-          {featuredProducts?.length === 0
-            ? <ProductLoading />
-            : (
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                {featuredProducts.slice(0, 8).map((item, index) => (
-                  <Suspense key={item?._id || index} fallback={null}>
-                    <ProductItem item={item} />
-                  </Suspense>
-                ))}
-              </div>
-            )
-          }
-          {bannerList2Data?.length !== 0 && (
-            <div className="mt-5">
-              <Suspense fallback={null}><AdsBannerSlider items={4} data={bannerList2Data} /></Suspense>
-            </div>
-          )}
-        </div>
-      </section>
+      {/* ─── Featured Products (Infinite Scroll) ───────────────────────── */}
+      <FeaturedProductsSection
+        featuredProducts={featuredProducts}
+        bannerList2Data={bannerList2Data}
+      />
 
       {/* ─── Random Category Products ────────────────────────────────────── */}
       {randomCatProducts?.map((productRow, index) => {

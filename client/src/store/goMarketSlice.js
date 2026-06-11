@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { fetchDataFromApi, postData } from "../utils/api";
+import { setUserData } from "./appSlice";
 
 export const fetchMarkets = createAsyncThunk("goMarket/fetchMarkets", async ({ search = "", page = 1 } = {}) => {
   const url = search ? `/api/go-market/markets/search?q=${encodeURIComponent(search)}&page=${page}&limit=20` : `/api/go-market/markets?page=${page}&limit=20&status=active`;
@@ -13,7 +14,21 @@ export const followGoMarketShop = createAsyncThunk("goMarket/followShop", async 
 export const unfollowGoMarketShop = createAsyncThunk("goMarket/unfollowShop", async (shopId) => postData("/api/go-market/unfollow-shop", { shopId }));
 export const followGoMarketRestaurant = createAsyncThunk("goMarket/followRestaurant", async (restaurantId) => postData("/api/go-market/follow-restaurant", { restaurantId }));
 export const unfollowGoMarketRestaurant = createAsyncThunk("goMarket/unfollowRestaurant", async (restaurantId) => postData("/api/go-market/unfollow-restaurant", { restaurantId }));
-export const savePreferredMarket = createAsyncThunk("goMarket/savePreferredMarket", async (marketId) => postData("/api/go-market/set-preferred-market", { marketId }));
+export const savePreferredMarket = createAsyncThunk("goMarket/savePreferredMarket", async (marketId, { dispatch, getState }) => {
+  const result = await postData("/api/go-market/set-preferred-market", { marketId });
+  // Update userData in app slice with new preferredMarketId
+  if (result?.success || result?.error === false) {
+    const state = getState();
+    const userData = state.app.userData;
+    if (userData) {
+      dispatch(setUserData({
+        ...userData,
+        preferredMarketId: marketId
+      }));
+    }
+  }
+  return result;
+});
 
 const initialState = {
   markets: [], nearbyMarkets: [], selectedMarket: null,

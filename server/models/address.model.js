@@ -41,6 +41,14 @@ const addressSchema = mongoose.Schema({
     userId : {
         type : String,
         default : ""
+    },
+    latitude : {
+        type : Number,
+        default : null
+    },
+    longitude : {
+        type : Number,
+        default : null
     }
 },{
     timestamps : true

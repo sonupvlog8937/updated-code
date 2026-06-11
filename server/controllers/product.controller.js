@@ -18,6 +18,7 @@ import {
 } from "../utils/goMarketSellerCatalog.js";
 import { normalizeSpecifications } from "../utils/productSpecs.js";
 import { rankSuggestions } from "../utils/searchSuggest.js";
+import { getProductImageOptions, getBannerImageOptions } from "../utils/imageCompression.js";
 
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
@@ -327,14 +328,8 @@ var imagesArr = [];
 export async function uploadImages(request, response) {
   try {
     imagesArr = [];
-
     const image = request.files;
-
-    const options = {
-      use_filename: true,
-      unique_filename: false,
-      overwrite: false,
-    };
+    const options = getProductImageOptions();
 
     for (let i = 0; i < image?.length; i++) {
       const img = await cloudinary.uploader.upload(
@@ -363,14 +358,8 @@ var bannerImage = [];
 export async function uploadBannerImages(request, response) {
   try {
     bannerImage = [];
-
     const image = request.files;
-
-    const options = {
-      use_filename: true,
-      unique_filename: false,
-      overwrite: false,
-    };
+    const options = getBannerImageOptions();
 
     for (let i = 0; i < image?.length; i++) {
       const img = await cloudinary.uploader.upload(
@@ -545,7 +534,7 @@ export async function getAllProducts(request, response) {
     const total = await ProductModel.countDocuments();
     const products = await ProductModel.find()
       .populate("seller", "name email role status storeProfile")
-      .sort({ createdAt: -1 })
+      .sort({ sale: -1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean(); // ✅ FIX: lean() — 2-3x faster, plain JS object return karta hai

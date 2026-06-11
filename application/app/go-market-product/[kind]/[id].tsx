@@ -78,6 +78,7 @@ export default function GoMarketProductScreen() {
   const [relatedTotalPages, setRelatedTotalPages] = useState(1);
   const [loadingRelated, setLoadingRelated] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [reviewScrollTrigger, setReviewScrollTrigger] = useState(0);
 
   const loadProduct = useCallback(() => {
     const endpoint =
@@ -111,6 +112,8 @@ export default function GoMarketProductScreen() {
 
   const product = data?.product;
   const specs = data?.specifications || [];
+  const [showAllSpecs, setShowAllSpecs] = useState(false);
+  const visibleSpecs = showAllSpecs ? specs : specs.slice(0, 5);
 
   const productImages = product ? ((Array.isArray(product.images) && product.images.length > 0 ? product.images : [product.image]).filter(Boolean)) : [];
   
@@ -278,10 +281,15 @@ export default function GoMarketProductScreen() {
       <ScrollView
         contentContainerStyle={S.scroll}
         showsVerticalScrollIndicator={false}
-        scrollEventThrottle={400}
+        scrollEventThrottle={16}
         onScroll={({ nativeEvent }) => {
-          const remaining = nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height - nativeEvent.contentOffset.y;
-          if (remaining < 500 && relatedPage < relatedTotalPages && !loadingRelated) loadMoreRelated();
+          const { contentSize, layoutMeasurement, contentOffset } = nativeEvent;
+          const remaining = contentSize.height - layoutMeasurement.height - contentOffset.y;
+          
+          // Trigger review infinity scrolling when near bottom (within 800px)
+          if (remaining < 800) {
+            setReviewScrollTrigger((prev) => prev + 1);
+          }
         }}
       >
         {/* Image Slider */}
@@ -398,12 +406,138 @@ export default function GoMarketProductScreen() {
         {specs.length > 0 && (
           <View style={S.block}>
             <Text style={S.blockTitle}>Specifications</Text>
-            {specs.map((s: any, i: number) => (
+            {visibleSpecs.map((s: any, i: number) => (
               <View key={i} style={S.specRow}>
                 <Text style={S.specKey}>{s.key}</Text>
                 <Text style={S.specVal}>{s.value}</Text>
               </View>
             ))}
+            {specs.length > 5 && (
+              <TouchableOpacity
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  backgroundColor: "#f8fafc",
+                  borderWidth: 1,
+                  borderColor: "#e2e8f0",
+                  borderRadius: 8,
+                  alignItems: "center",
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+                onPress={() => setShowAllSpecs(!showAllSpecs)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "600",
+                    color: "#475569",
+                  }}
+                >
+                  {showAllSpecs ? "Show Less" : `Read More (${specs.length - 5} more)`}
+                </Text>
+                <Text style={{ fontSize: 14 }}>{showAllSpecs ? "▲" : "▼"}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Related Products - 2 Column Grid with Load More Button */}
+        {related.length > 0 && (
+          <View style={{ marginHorizontal: 14, marginBottom: 20 }}>
+            <Text style={S.blockTitle}>You may also like</Text>
+            <Text style={S.relatedSubtitle}>Similar products you might enjoy</Text>
+            <FlatList
+              data={related}
+              keyExtractor={(item) => item._id}
+              numColumns={2}
+              columnWrapperStyle={{ gap: 12 }}
+              scrollEnabled={false}
+              contentContainerStyle={{ gap: 12 }}
+              renderItem={({ item: r }) => {
+                const rPrice = r.discountPrice > 0 ? r.discountPrice : r.price;
+                const rOldPrice = r.oldPrice || r.price;
+                const hasDiscount = rOldPrice > rPrice;
+                const rDiscount = hasDiscount 
+                  ? Math.round(((rOldPrice - rPrice) / rOldPrice) * 100)
+                  : r.discount || 0;
+                const saveAmount = hasDiscount ? rOldPrice - rPrice : 0;
+                
+                return (
+                  <TouchableOpacity
+                    style={[S.gridCard, { flex: 1 }]}
+                    onPress={() => router.replace(`/go-market-product/${r.goMarketKind || kind}/${r._id}` as never)}
+                  >
+                    <Image source={{ uri: gmImg(r.image, FALLBACK) }} style={S.gridImg} />
+                    {rDiscount > 0 && (
+                      <View style={S.gridBadge}>
+                        <Text style={S.gridBadgeText}>{rDiscount}% OFF</Text>
+                      </View>
+                    )}
+                    <View style={S.gridBody}>
+                      <Text style={S.gridName} numberOfLines={2}>{r.name}</Text>
+                      {r.description && (
+                        <Text style={S.gridDesc} numberOfLines={1}>{r.description}</Text>
+                      )}
+                      {r.rating > 0 && (
+                        <View style={S.gridRatingRow}>
+                          <Text style={S.gridRatingStar}>⭐</Text>
+                          <Text style={S.gridRatingText}>{r.rating.toFixed(1)}</Text>
+                        </View>
+                      )}
+                      <View style={S.gridMetaRow}>
+                        <Text style={S.gridPrice}>₹{rPrice}</Text>
+                        {hasDiscount && rOldPrice > rPrice && (
+                          <Text style={S.gridMrp}>₹{rOldPrice}</Text>
+                        )}
+                      </View>
+                      {saveAmount > 0 && (
+                        <Text style={{ fontSize: 11, color: "#16a34a", fontWeight: "600", marginTop: 3 }}>
+                          You save ₹{saveAmount}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+            {relatedPage < relatedTotalPages && (
+              <TouchableOpacity
+                style={{
+                  marginTop: 16,
+                  padding: 14,
+                  backgroundColor: "#fff",
+                  borderWidth: 2,
+                  borderColor: "#e2e8f0",
+                  borderRadius: 12,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  gap: 8,
+                }}
+                onPress={loadMoreRelated}
+                disabled={loadingRelated}
+                activeOpacity={0.7}
+              >
+                {loadingRelated ? (
+                  <>
+                    <ActivityIndicator size="small" color="#475569" />
+                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#475569" }}>
+                      Loading more...
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={{ fontSize: 16 }}>↓</Text>
+                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#475569" }}>
+                      Load More Products
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -418,74 +552,8 @@ export default function GoMarketProductScreen() {
           onStatsChange={(stats) =>
             setData((d: any) => (d ? { ...d, averageRating: stats.averageRating, totalReviews: stats.totalReviews } : d))
           }
+          onScroll={reviewScrollTrigger}
         />
-
-        {/* Related Products - 2 Column Grid with Infinity Scrolling */}
-        {related.length > 0 && (
-          <View style={{ marginHorizontal: 14, marginBottom: 20 }}>
-            <Text style={S.blockTitle}>You may also like</Text>
-            <Text style={S.relatedSubtitle}>Similar products you might enjoy</Text>
-            <FlatList
-              data={related}
-              keyExtractor={(item) => item._id}
-              numColumns={2}
-              columnWrapperStyle={{ gap: 12 }}
-              scrollEnabled={false}
-              contentContainerStyle={{ gap: 12 }}
-              onEndReached={() => {
-                if (relatedPage < relatedTotalPages && !loadingRelated) {
-                  loadMoreRelated();
-                }
-              }}
-              onEndReachedThreshold={0.5}
-              renderItem={({ item: r }) => (
-                <TouchableOpacity
-                  style={[S.gridCard, { flex: 1 }]}
-                  onPress={() => router.replace(`/go-market-product/${r.goMarketKind || kind}/${r._id}` as never)}
-                >
-                  <Image source={{ uri: gmImg(r.image, FALLBACK) }} style={S.gridImg} />
-                  <View style={S.gridBody}>
-                    <Text style={S.gridName} numberOfLines={2}>{r.name}</Text>
-                    {r.description && (
-                      <Text style={S.gridDesc} numberOfLines={1}>{r.description}</Text>
-                    )}
-                    {r.rating > 0 && (
-                      <View style={S.gridRatingRow}>
-                        <Text style={S.gridRatingStar}>⭐</Text>
-                        <Text style={S.gridRatingText}>{r.rating.toFixed(1)}</Text>
-                      </View>
-                    )}
-                    <View style={S.gridMetaRow}>
-                      <Text style={S.gridPrice}>₹{r.price}</Text>
-                      {r.oldPrice > r.price && <Text style={S.gridMrp}>₹{r.oldPrice}</Text>}
-                    </View>
-                    {r.discount > 0 && <Text style={S.gridDiscount}>{r.discount}% off</Text>}
-                  </View>
-                </TouchableOpacity>
-              )}
-              ListFooterComponent={
-                related.length > 0 ? (
-                  <View style={{ width: '100%', paddingTop: 8, paddingBottom: 16 }}>
-                    {loadingRelated ? (
-                      <ActivityIndicator color={T.orange} size="small" />
-                    ) : relatedPage < relatedTotalPages ? (
-                      <TouchableOpacity 
-                        style={S.loadMoreBtn} 
-                        onPress={loadMoreRelated}
-                      >
-                        <Text style={S.loadMoreBtnText}>Load more products</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <Text style={{ textAlign: 'center', color: T.textSoft, fontSize: 12, marginTop: 12 }}>
-                        No more products
-                      </Text>
-                    )}
-                  </View>
-                ) : null
-              }
-            />
-          </View>
-        )}
         <View style={{ height: 100 }} />
       </ScrollView>
 
@@ -618,8 +686,24 @@ const S = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
+    position: "relative",
   },
   gridImg: { width: "100%", height: 140, backgroundColor: "#eee" },
+  gridBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "#DC2626",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    zIndex: 1,
+  },
+  gridBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "800",
+  },
   gridBody: { padding: 10 },
   gridName: { fontSize: 13, fontWeight: "700", minHeight: 36, color: T.text, lineHeight: 18 },
   gridDesc: { 

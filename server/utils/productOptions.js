@@ -41,18 +41,10 @@ export const normalizeProductOptions = (options = []) =>
 export const buildProductOptionsFromSpecs = (specifications = [], explicitOptions = []) => {
   const rows = normalizeSpecifications(specifications);
   const productOptions = normalizeProductOptions(explicitOptions);
-  const optionKeys = new Set(productOptions.map((opt) => clean(opt.name || opt.label).toLowerCase()));
-  const displaySpecs = [];
-
-  for (const row of rows) {
-    const keyLower = row.key.toLowerCase();
-    const values = splitValues(row.value);
-    const isOptionKey = OPTION_KEY_HINTS.some((h) => keyLower.includes(h));
-    if ((isOptionKey || values.length > 1) && !optionKeys.has(keyLower)) {
-      productOptions.push({ label: row.key, name: row.key, values: values.map(normalizeValue).filter(Boolean) });
-      optionKeys.add(keyLower);
-     } else displaySpecs.push(row);
-  }
+  
+  // Only use explicitly defined product options from seller
+  // Do NOT auto-generate options from specifications
+  const displaySpecs = rows;
 
   return { productOptions, displaySpecs };
 };

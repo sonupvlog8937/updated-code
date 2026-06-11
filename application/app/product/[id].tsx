@@ -12,6 +12,8 @@ import {
   Animated,
   Dimensions,
   Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -21,8 +23,10 @@ import {
   View,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
+import { FooterActionButtons } from "@/src/components/FooterActionButtons";
 
 import { ProductDetailsComponent } from "@/src/components/ProductDetailsComponent";
+import type { ProductFooterActionState } from "@/src/components/ProductDetailsComponent";
 import { ProductImageCarousel } from "@/src/components/ProductImageCarousel";
 import { ProductReviewsSection } from "@/src/components/ProductReviewsSection";
 import { AppDispatch, RootState } from "@/src/store";
@@ -97,11 +101,19 @@ export default function ProductDetailScreen() {
   const { userData, myListData } = useSelector((state: RootState) => state.app);
 
   const [inWishlist, setInWishlist] = useState(false);
+  const [footerActionState, setFooterActionState] =
+    useState<ProductFooterActionState | null>(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
   const specOffsetY = useRef(0);
   const reviewsOffsetY = useRef(0);
+  const reviewsInfiniteLoaderRef = useRef<(() => void) | null>(null);
+  const scrollMetricsRef = useRef({
+    layoutHeight: 0,
+    offsetY: 0,
+    contentHeight: 0,
+  });
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -191,6 +203,79 @@ export default function ProductDetailScreen() {
     }
     setInWishlist((prev) => !prev);
   }, [userData?._id, router]);
+
+  const handleFooterActionStateChange = useCallback(
+    (nextState: ProductFooterActionState) => {
+      setFooterActionState((prev) => {
+        if (
+          prev &&
+          prev.isAdded === nextState.isAdded &&
+          prev.isLoading === nextState.isLoading &&
+          prev.isBuyingNow === nextState.isBuyingNow &&
+          prev.isOutOfStock === nextState.isOutOfStock &&
+          prev.onAddToCart === nextState.onAddToCart &&
+          prev.onBuyNow === nextState.onBuyNow
+        ) {
+          return prev;
+        }
+        return nextState;
+      });
+    },
+    [],
+  );
+
+  const maybeLoadMoreReviews = useCallback(
+    (
+      metrics: {
+        layoutHeight: number;
+        offsetY: number;
+        contentHeight: number;
+      } = scrollMetricsRef.current,
+    ) => {
+      if (!metrics.contentHeight) return;
+      const isNearBottom =
+        metrics.layoutHeight + metrics.offsetY >= metrics.contentHeight - 220;
+      if (isNearBottom) {
+        reviewsInfiniteLoaderRef.current?.();
+      }
+    },
+    [],
+  );
+
+  const registerReviewsInfiniteLoader = useCallback(
+    (loader: (() => void) | null) => {
+      reviewsInfiniteLoaderRef.current = loader;
+      if (loader) {
+        maybeLoadMoreReviews();
+      }
+    },
+    [maybeLoadMoreReviews],
+  );
+
+  const handleMainScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+      const metrics = {
+        layoutHeight: layoutMeasurement.height,
+        offsetY: contentOffset.y,
+        contentHeight: contentSize.height,
+      };
+      scrollMetricsRef.current = metrics;
+      maybeLoadMoreReviews(metrics);
+    },
+    [maybeLoadMoreReviews],
+  );
+
+  const handleMainContentSizeChange = useCallback(
+    (_width: number, height: number) => {
+      scrollMetricsRef.current = {
+        ...scrollMetricsRef.current,
+        contentHeight: height,
+      };
+      maybeLoadMoreReviews();
+    },
+    [maybeLoadMoreReviews],
+  );
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const sellerId = useMemo(() => {
@@ -354,7 +439,15 @@ export default function ProductDetailScreen() {
         ref={scrollViewRef}
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        onScroll={handleMainScroll}
+        onContentSizeChange={handleMainContentSizeChange}
+        scrollEventThrottle={16}
+        contentContainerStyle={[
+          styles.scrollContent,
+          footerActionState && !footerActionState.isOutOfStock
+            ? styles.scrollContentWithStickyFooter
+            : null,
+        ]}
       >
         <Animated.View style={{ opacity: fadeAnim }}>
           {/* ── Breadcrumb ── */}
@@ -444,6 +537,11 @@ export default function ProductDetailScreen() {
               gotoReviews={gotoReviews}
               gotoSpecs={gotoSpecs}
               onColorChange={handleCarouselImagesChange}
+              onColorSelectScrollToTop={() =>
+                scrollViewRef.current?.scrollTo({ y: 0, animated: true })
+              }
+              showInlineFooterActions={false}
+              onFooterActionStateChange={handleFooterActionStateChange}
             />
           )}
 
@@ -573,7 +671,7 @@ export default function ProductDetailScreen() {
           )}
 
           {/* ── More from seller ── */}
-          {productDetails.sellerInfo.preview &&
+          {/* {productDetails.sellerInfo.preview &&
             productDetails.sellerInfo.preview.length > 0 && (
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
@@ -606,21 +704,8 @@ export default function ProductDetailScreen() {
                   ))}
                 </View>
               </View>
-            )}
+            )} */}
 
-          {/* ── Reviews ── */}
-          {currentProduct && (
-            <View
-              onLayout={(e) => {
-                reviewsOffsetY.current = e.nativeEvent.layout.y;
-              }}
-            >
-              <ProductReviewsSection
-                productId={id!}
-                onReviewsCountChange={() => {}}
-              />
-            </View>
-          )}
 
           {/* ── Related products ── */}
           {productDetails.relatedProducts &&
@@ -745,8 +830,33 @@ export default function ProductDetailScreen() {
                   )}
               </View>
             )}
+
+          {/* ── Reviews ── */}
+          {currentProduct && (
+            <View
+              onLayout={(e) => {
+                reviewsOffsetY.current = e.nativeEvent.layout.y;
+              }}
+            >
+              <ProductReviewsSection
+                productId={id!}
+                onReviewsCountChange={() => {}}
+                registerInfiniteScrollLoader={registerReviewsInfiniteLoader}
+              />
+            </View>
+          )}
         </Animated.View>
       </ScrollView>
+
+      {footerActionState && !footerActionState.isOutOfStock && (
+        <FooterActionButtons
+          isAdded={footerActionState.isAdded}
+          isLoading={footerActionState.isLoading}
+          isBuyingNow={footerActionState.isBuyingNow}
+          onAddToCart={footerActionState.onAddToCart}
+          onBuyNow={footerActionState.onBuyNow}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -758,6 +868,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#f1f5f9" },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 40 },
+  scrollContentWithStickyFooter: { paddingBottom: 140 },
 
   // Skeleton / not-found
   skeletonWrap: { flex: 1, backgroundColor: "#fff" },

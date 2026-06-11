@@ -229,9 +229,28 @@ export const searchMarkets = async (req, res) => {
 
 export const nearbyMarkets = async (req, res) => {
   try {
-    const data = await findNearbyMarkets({ latitude: Number(req.query.latitude), longitude: Number(req.query.longitude), limit: Number(req.query.limit || 10) });
+    const { latitude, longitude, limit } = req.query;
+    
+    // Validate coordinates
+    if (!latitude || !longitude) {
+      return sendError(res, "Latitude and longitude are required", 400);
+    }
+
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+
+    if (isNaN(lat) || isNaN(lng)) {
+      return sendError(res, "Invalid coordinates provided", 400);
+    }
+
+    const data = await findNearbyMarkets({ latitude: lat, longitude: lng, limit: Number(limit || 10) });
+    
+    console.log(`✅ Nearby markets API - Found ${data.length} markets for (${lat}, ${lng})`);
     ok(res, { data });
-  } catch (error) { sendError(res, error); }
+  } catch (error) {
+    console.error("❌ Error in nearbyMarkets API:", error);
+    sendError(res, error);
+  }
 };
 
 export const getMarketDetail = async (req, res) => {

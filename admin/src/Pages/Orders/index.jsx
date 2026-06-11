@@ -846,6 +846,39 @@ const ReceiptModal = ({ order, onClose }) => {
                 {addr.pincode && ` – ${addr.pincode}`}
               </div>
               {addr?.country && <div className="ao-rcpt-info-muted">{addr.country}</div>}
+              {addr?.latitude && addr?.longitude && (
+                <div style={{ marginTop: '8px' }}>
+                  <a
+                    href={`https://www.google.com/maps?q=${addr.latitude},${addr.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: '#2563eb',
+                      textDecoration: 'none',
+                      padding: '4px 10px',
+                      background: '#eff6ff',
+                      border: '1px solid #bfdbfe',
+                      borderRadius: '6px',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = '#dbeafe';
+                      e.currentTarget.style.borderColor = '#93c5fd';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = '#eff6ff';
+                      e.currentTarget.style.borderColor = '#bfdbfe';
+                    }}
+                  >
+                    📍 View on Google Maps
+                  </a>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1341,6 +1374,39 @@ const isSellerView = isSellerRole(context?.userData?.role);
                             {[addr.city, addr.state].filter(Boolean).join(", ")}
                           </div>
                           <div className="ao-addr-pin">PIN {addr.pincode}</div>
+                          {addr?.latitude && addr?.longitude && (
+                            <div style={{ marginTop: '6px' }}>
+                              <a
+                                href={`https://www.google.com/maps?q=${addr.latitude},${addr.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  color: '#2563eb',
+                                  textDecoration: 'none',
+                                  padding: '3px 8px',
+                                  background: '#eff6ff',
+                                  border: '1px solid #bfdbfe',
+                                  borderRadius: '5px',
+                                  transition: 'all 0.15s'
+                                }}
+                                onMouseOver={(e) => {
+                                  e.currentTarget.style.background = '#dbeafe';
+                                  e.currentTarget.style.borderColor = '#93c5fd';
+                                }}
+                                onMouseOut={(e) => {
+                                  e.currentTarget.style.background = '#eff6ff';
+                                  e.currentTarget.style.borderColor = '#bfdbfe';
+                                }}
+                              >
+                                📍 View Location
+                              </a>
+                            </div>
+                          )}
                         </td>
 
                         {/* Amount */}

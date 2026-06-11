@@ -47,11 +47,21 @@ export default function VerifyScreen() {
     try {
       const res = await postData("/api/user/verify-email", { email, otp });
       if (res?.error === false) {
-        showToast("success", res?.message || "Email verified");
+        showToast("success", res?.message || "✅ Email verified successfully");
         router.replace("/login" as never);
       } else {
-        showToast("error", res?.message || "Invalid code");
+        const errorMsg = res?.message || "Invalid code";
+        if (errorMsg.toLowerCase().includes("expired")) {
+          showToast("error", "❌ Code expired. Request a new one.");
+        } else if (errorMsg.toLowerCase().includes("invalid")) {
+          showToast("error", "❌ Invalid code. Please check and try again.");
+        } else {
+          showToast("error", `❌ ${errorMsg}`);
+        }
       }
+    } catch (err) {
+      console.error("Verification error:", err);
+      showToast("error", "❌ Network error. Please try again.");
     } finally {
       setLoading(false);
     }

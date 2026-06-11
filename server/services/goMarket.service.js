@@ -62,10 +62,38 @@ export const haversineKm = (lat1, lon1, lat2, lon2) => {
 };
 
 export const findNearbyMarkets = async ({ latitude, longitude, limit = 10 }) => {
-  const markets = await Market.find({ status: "active" }).lean();
-  if (!latitude || !longitude) return markets.slice(0, limit);
-  return markets
-    .map((market) => ({ ...market, distanceKm: Number(haversineKm(latitude, longitude, market.latitude, market.longitude).toFixed(2)) }))
-    .sort((a, b) => a.distanceKm - b.distanceKm)
-    .slice(0, limit);
+  try {
+    const markets = await Market.find({ status: "active" }).lean();
+    
+    // If no valid coordinates provided, return all active markets
+    if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+      console.warn("⚠️ Invalid coordinates provided for nearby markets");
+      return markets.slice(0, limit);
+    }
+
+    // Filter markets that have valid latitude/longitude
+    const marketsWithCoords = markets.filter(
+      (m) => m.latitude != null && m.longitude != null && !isNaN(m.latitude) && !isNaN(m.longitude)
+    );
+
+    if (marketsWithCoords.length === 0) {
+      console.warn("⚠️ No markets with valid coordinates found");
+      return markets.slice(0, limit); // Fallback to all markets
+    }
+
+    // Calculate distance and sort by nearest
+    const nearby = marketsWithCoords
+      .map((market) => ({
+        ...market,
+        distanceKm: Number(haversineKm(latitude, longitude, market.latitude, market.longitude).toFixed(2))
+      }))
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, limit);
+
+    console.log(`✅ Found ${nearby.length} nearby markets for coordinates (${latitude}, ${longitude})`);
+    return nearby;
+  } catch (error) {
+    console.error("❌ Error finding nearby markets:", error);
+    throw error;
+  }
 };

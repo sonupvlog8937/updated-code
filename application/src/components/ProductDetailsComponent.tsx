@@ -35,11 +35,31 @@ interface ProductDetailsComponentProps {
   gotoReviews?: () => void;
   gotoSpecs?: () => void;
   onColorChange?: (images: string[]) => void;
+  onColorSelectScrollToTop?: () => void;
+  showInlineFooterActions?: boolean;
+  onFooterActionStateChange?: (state: ProductFooterActionState) => void;
+}
+export interface ProductFooterActionState {
+  isAdded: boolean;
+  isLoading: boolean;
+  isBuyingNow: boolean;
+  isOutOfStock: boolean;
+  onAddToCart: () => void;
+  onBuyNow: () => void;
 }
 
 export const ProductDetailsComponent: React.FC<
   ProductDetailsComponentProps
-> = ({ item, reviewsCount = 0, gotoReviews, gotoSpecs, onColorChange }) => {
+> = ({
+  item,
+  reviewsCount = 0,
+  gotoReviews,
+  gotoSpecs,
+  onColorChange,
+  onColorSelectScrollToTop,
+  showInlineFooterActions = true,
+  onFooterActionStateChange,
+}) => {
   // Redux
   const dispatch = useDispatch<AppDispatch>();
   const { userData, cartData, myListData } = useSelector(
@@ -173,7 +193,7 @@ export const ProductDetailsComponent: React.FC<
     setTimeout(() => setIsVariantLoading(false), 450);
   };
 
-  const validateVariantSelection = (): boolean => {
+  const validateVariantSelection = React.useCallback((): boolean => {
     if (
       item?.size?.length ||
       item?.productWeight?.length ||
@@ -187,36 +207,60 @@ export const ProductDetailsComponent: React.FC<
       }
     }
     return true;
-  };
+  }, [
+    item?.productAge?.length,
+    item?.productRam?.length,
+    item?.productWeight?.length,
+    item?.size?.length,
+    selectedTabName,
+    showToast,
+  ]);
 
-  const createProductItem = (product: any, qty: number): any => ({
-    _id: product?._id,
-    productTitle: product?.name,
-    image: selectedVariantImages?.[0] || product?.images?.[0],
-    rating: product?.rating,
-    price: activePrice,
-    oldPrice: activeOldPrice,
-    discount: activeDiscount,
-    quantity: qty,
-    subTotal: parseInt(String(activePrice * qty)),
-    productId: product?._id,
-    countInStock: product?.countInStock,
-    brand: product?.brand,
-    size: item?.size?.length > 0 ? selectedTabName : "",
-    weight: item?.productWeight?.length > 0 ? selectedTabName : "",
-    ram: item?.productRam?.length > 0 ? selectedTabName : "",
-    age: item?.productAge?.length > 0 ? selectedTabName : "",
-    color:
-      item?.colorOptions?.length > 0
-        ? item?.colorOptions?.[selectedColorIndex]?.name || ""
-        : "",
-    style:
-      item?.styleOptions?.length > 0
-        ? item?.styleOptions?.[selectedStyleIndex]?.name || ""
-        : "",
-  });
+  const createProductItem = React.useCallback(
+    (product: any, qty: number): any => ({
+      _id: product?._id,
+      productTitle: product?.name,
+      image: selectedVariantImages?.[0] || product?.images?.[0],
+      rating: product?.rating,
+      price: activePrice,
+      oldPrice: activeOldPrice,
+      discount: activeDiscount,
+      quantity: qty,
+      subTotal: parseInt(String(activePrice * qty)),
+      productId: product?._id,
+      countInStock: product?.countInStock,
+      brand: product?.brand,
+      size: item?.size?.length > 0 ? selectedTabName : "",
+      weight: item?.productWeight?.length > 0 ? selectedTabName : "",
+      ram: item?.productRam?.length > 0 ? selectedTabName : "",
+      age: item?.productAge?.length > 0 ? selectedTabName : "",
+      color:
+        item?.colorOptions?.length > 0
+          ? item?.colorOptions?.[selectedColorIndex]?.name || ""
+          : "",
+      style:
+        item?.styleOptions?.length > 0
+          ? item?.styleOptions?.[selectedStyleIndex]?.name || ""
+          : "",
+    }),
+    [
+      activeDiscount,
+      activeOldPrice,
+      activePrice,
+      item?.colorOptions,
+      item?.productAge,
+      item?.productRam,
+      item?.productWeight,
+      item?.size,
+      item?.styleOptions,
+      selectedColorIndex,
+      selectedStyleIndex,
+      selectedTabName,
+      selectedVariantImages,
+    ],
+  );
 
-  const addToCart = async () => {
+  const addToCart = React.useCallback(async () => {
     if (!userData?._id) {
       showToast("You are not logged in. Please login first", "error");
       return;
@@ -243,9 +287,17 @@ export const ProductDetailsComponent: React.FC<
       showToast(error?.message || "Failed to add to cart", "error");
       setIsLoading(false);
     }
-  };
+  }, [
+    createProductItem,
+    dispatch,
+    item,
+    quantity,
+    showToast,
+    userData?._id,
+    validateVariantSelection,
+  ]);
 
-  const handleBuyNow = async () => {
+  const handleBuyNow = React.useCallback(async () => {
     if (!userData?._id) {
       showToast("You are not logged in. Please login first", "error");
       return;
@@ -271,7 +323,15 @@ export const ProductDetailsComponent: React.FC<
     } finally {
       setIsBuyingNow(false);
     }
-  };
+  }, [
+    createProductItem,
+    item,
+    quantity,
+    router,
+    showToast,
+    userData?._id,
+    validateVariantSelection,
+  ]);
 
   const handleAddToMyList = async () => {
     if (!userData) {
@@ -350,7 +410,11 @@ export const ProductDetailsComponent: React.FC<
   };
 
   const handleColorSelect = (index: number): void => {
+    if (index === selectedColorIndex) return;
     setSelectedColorIndex(index);
+    requestAnimationFrame(() => {
+      onColorSelectScrollToTop?.();
+    });
   };
 
   // ── Delivery dates ──
@@ -384,6 +448,25 @@ export const ProductDetailsComponent: React.FC<
   });
 
   const isOutOfStock = item?.countInStock <= 0;
+
+  React.useEffect(() => {
+    onFooterActionStateChange?.({
+      isAdded,
+      isLoading,
+      isBuyingNow,
+      isOutOfStock,
+      onAddToCart: addToCart,
+      onBuyNow: handleBuyNow,
+    });
+  }, [
+    addToCart,
+    handleBuyNow,
+    isAdded,
+    isBuyingNow,
+    isLoading,
+    isOutOfStock,
+    onFooterActionStateChange,
+  ]);
 
   return (
     <View style={S.wrap}>
@@ -662,7 +745,7 @@ export const ProductDetailsComponent: React.FC<
               Out of Stock
             </Text>
           </View>
-        ) : (
+        ) : showInlineFooterActions ? (
           <View style={{ flexDirection: "row", gap: 10 }}>
             <TouchableOpacity
               style={[S.btnCart, { backgroundColor: isAdded ? "#111" : "#fff" }]}
@@ -701,7 +784,7 @@ export const ProductDetailsComponent: React.FC<
               )}
             </TouchableOpacity>
           </View>
-        )}
+        ) : null}
 
         {/* ── SHARE ── */}
         <View style={{ marginTop: 4 }}>

@@ -265,10 +265,17 @@ function ItemTile({ item, index, columns, onAddToCart, onWishlist, inWishlist }:
               </View>
             )}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 5 }}>
-              <View>
-                <Text style={S.tilePrice}>₹{item.price}</Text>
-                {item.originalPrice && item.originalPrice > item.price && (
-                  <Text style={S.tilePriceOld}>₹{item.originalPrice}</Text>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                  <Text style={S.tilePrice}>₹{item.price}</Text>
+                  {(item.oldPrice || item.originalPrice) && (item.oldPrice > item.price || item.originalPrice > item.price) && (
+                    <Text style={S.tilePriceOld}>₹{item.oldPrice || item.originalPrice}</Text>
+                  )}
+                </View>
+                {(item.oldPrice || item.originalPrice) && (item.oldPrice > item.price || item.originalPrice > item.price) && (
+                  <Text style={{ fontSize: 9, color: C.green, fontWeight: "600", marginTop: 1 }}>
+                    Save ₹{((item.oldPrice || item.originalPrice) - item.price)}
+                  </Text>
                 )}
               </View>
               {!isOutOfStock && (

@@ -1,5 +1,6 @@
 import { AnyAction, createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { fetchDataFromApi, postData } from "@/src/utils/api";
+import { setUserData } from "./appSlice";
 
 export const fetchGoMarkets = createAsyncThunk<any, string | undefined>("goMarket/fetchMarkets", async (search = "") => fetchDataFromApi(search ? `/api/go-market/markets/search?q=${encodeURIComponent(search)}` : "/api/go-market/markets?status=active&limit=20"));
 export const fetchGoNearbyMarkets = createAsyncThunk<any, { latitude: number; longitude: number }>("goMarket/fetchNearby", async ({ latitude, longitude }) => fetchDataFromApi(`/api/go-market/markets/nearby?latitude=${latitude}&longitude=${longitude}&limit=10`));
@@ -10,7 +11,21 @@ export const followGoShop = createAsyncThunk<any, string>("goMarket/followShop",
 export const unfollowGoShop = createAsyncThunk<any, string>("goMarket/unfollowShop", async (shopId) => postData("/api/go-market/unfollow-shop", { shopId }));
 export const followGoRestaurant = createAsyncThunk<any, string>("goMarket/followRestaurant", async (restaurantId) => postData("/api/go-market/follow-restaurant", { restaurantId }));
 export const unfollowGoRestaurant = createAsyncThunk<any, string>("goMarket/unfollowRestaurant", async (restaurantId) => postData("/api/go-market/unfollow-restaurant", { restaurantId }));
-export const savePreferredMarket = createAsyncThunk<any, string>("goMarket/savePreferred", async (marketId) => postData("/api/go-market/set-preferred-market", { marketId }));
+export const savePreferredMarket = createAsyncThunk<any, string>("goMarket/savePreferred", async (marketId, { dispatch, getState }) => {
+  const result = await postData("/api/go-market/set-preferred-market", { marketId });
+  // Update userData in app slice with new preferredMarketId
+  if (result?.success || result?.error === false) {
+    const state = getState() as any;
+    const userData = state.app.userData;
+    if (userData) {
+      dispatch(setUserData({
+        ...userData,
+        preferredMarketId: marketId
+      }));
+    }
+  }
+  return result;
+});
 
 interface GoMarketState { markets: any[]; nearbyMarkets: any[]; selectedMarket: any | null; groceryShops: any[]; restaurants: any[]; shopDetail: any | null; restaurantDetail: any | null; loading: boolean; error: string; activeTab: "grocery" | "restaurants"; }
 const initialState: GoMarketState = { markets: [], nearbyMarkets: [], selectedMarket: null, groceryShops: [], restaurants: [], shopDetail: null, restaurantDetail: null, loading: false, error: "", activeTab: "grocery" };

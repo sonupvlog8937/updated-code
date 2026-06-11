@@ -27,6 +27,7 @@ const GoMarketRestaurant = () => {
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [followBusy, setFollowBusy] = useState(false);
+  const [descExpanded, setDescExpanded] = useState(false);
 
  useEffect(() => { if (!isLogin) navigate("/login"); }, [isLogin, navigate]);
 
@@ -80,7 +81,40 @@ const GoMarketRestaurant = () => {
               <span className={`gmp-status ${restaurant?.isOpen ? "open" : "closed"}`}>{restaurant?.isOpen ? "Open" : "Closed"}</span>
             </div>
 
-             {restaurant?.description && <p style={{ fontSize: 14, color: "#475569", marginTop: 10, lineHeight: 1.55, maxWidth: 640 }}>{restaurant.description}</p>}
+             {restaurant?.description && (
+              <div style={{ marginTop: 10, maxWidth: 640 }}>
+                <p style={{ 
+                  fontSize: 14, 
+                  color: "#475569", 
+                  lineHeight: 1.55,
+                  display: '-webkit-box',
+                  WebkitLineClamp: descExpanded ? 'unset' : 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: descExpanded ? 'visible' : 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>
+                  {restaurant.description}
+                </p>
+                {restaurant.description.length > 100 && (
+                  <button 
+                    type="button"
+                    onClick={() => setDescExpanded(!descExpanded)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#3b82f6',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      padding: '4px 0',
+                      marginTop: 4
+                    }}
+                  >
+                    {descExpanded ? 'Show less' : 'Read more'}
+                  </button>
+                )}
+              </div>
+            )}
 
             <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
               <button type="button" className={`gmp-btn ${restaurant?.isFollowing ? "gmp-btn-outline" : "gmp-btn-primary"}`} disabled={followBusy} onClick={handleFollowToggle}>{restaurant?.isFollowing ? "✓ Following" : "❤️ Follow"}</button>

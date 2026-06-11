@@ -471,6 +471,17 @@ export default function GoMarketMarketScreen() {
           resizeMode="cover"
         />
         <View style={S.heroOverlay} />
+        
+        {/* Change Market Button */}
+        <TouchableOpacity 
+          style={S.changeMarketBtn}
+          onPress={() => router.push("/go-market?edit=true" as never)}
+          activeOpacity={0.85}
+        >
+          <Text style={{ fontSize: 14, marginRight: 4 }}>✏️</Text>
+          <Text style={S.changeMarketBtnTxt}>Change Market</Text>
+        </TouchableOpacity>
+        
         <View style={S.heroContent}>
           {market && (
             <View style={S.marketTypePill}>
@@ -767,6 +778,30 @@ const S = StyleSheet.create({
     fontSize: 12,
     color: "rgba(255,255,255,0.7)",
     marginTop: 5,
+  },
+  changeMarketBtn: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    borderRadius: T.r8,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.1)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 10,
+    zIndex: 999,
+  },
+  changeMarketBtnTxt: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: T.text,
   },
   backBtn: {
     position: "absolute",

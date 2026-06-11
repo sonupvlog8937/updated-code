@@ -13,6 +13,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import Animated from "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider as ReduxProvider } from "react-redux";
+import { LogBox } from "react-native";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProviders } from "@/src/components/AppProviders";
@@ -22,6 +23,12 @@ import { ToastHost } from "@/src/components/ToastHost";
 import { ScrollVisibilityProvider } from "@/src/context/ScrollVisibilityContext";
 import { store, useAppDispatch } from "@/src/store";
 import { fetchCategories, initAuthFromStorage } from "@/src/store/appSlice";
+
+// Suppress Reanimated warnings in development
+LogBox.ignoreLogs([
+  '[Reanimated] Reading from `value` during component render',
+  '[Reanimated] Writing to `value` during component render',
+]);
 
 SplashScreen.preventAutoHideAsync();
 

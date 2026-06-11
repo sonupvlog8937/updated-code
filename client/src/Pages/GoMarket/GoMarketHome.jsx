@@ -24,9 +24,12 @@ const GoMarketHome = () => {
     }
   }, [isLogin, navigate]);
 
-  // Auto-navigate to preferred market if exists
+  // Auto-navigate to preferred market if exists (skip if coming from edit)
   useEffect(() => {
-    if (isLogin && userData?.preferredMarketId) {
+    const params = new URLSearchParams(window.location.search);
+    const isFromEdit = params.get("edit") === "true";
+    
+    if (isLogin && userData?.preferredMarketId && !isFromEdit) {
       console.log("🎯 Auto-navigating to preferred market:", userData.preferredMarketId);
       navigate(`/go-market/market/${userData.preferredMarketId}`);
     }

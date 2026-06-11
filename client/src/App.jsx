@@ -264,18 +264,40 @@ function App() {
           duration: 3200,
           style: {
             fontFamily: "'Outfit', sans-serif",
-            fontSize: "13px",
+            fontSize: "14px",
             fontWeight: 500,
             letterSpacing: "0.01em",
             borderRadius: "12px",
             border: "1px solid rgba(0,0,0,0.08)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)",
-            padding: "12px 16px",
+            boxShadow: "0 10px 40px rgba(0,0,0,0.12), 0 3px 8px rgba(0,0,0,0.08)",
+            padding: "14px 16px",
             color: "#111",
             background: "#fff",
+            backdropFilter: "blur(8px)",
           },
-          success: { iconTheme: { primary: "#16a34a", secondary: "#fff" } },
-          error:   { iconTheme: { primary: "#dc2626", secondary: "#fff" } },
+          success: { 
+            style: {
+              background: "#F0FDF4",
+              border: "1px solid #86EFAC",
+              color: "#166534",
+            },
+            iconTheme: { primary: "#16a34a", secondary: "#F0FDF4" } 
+          },
+          error: { 
+            style: {
+              background: "#FEF2F2",
+              border: "1px solid #FECACA",
+              color: "#7F1D1D",
+            },
+            iconTheme: { primary: "#dc2626", secondary: "#FEF2F2" } 
+          },
+          loading: {
+            style: {
+              background: "#F0F9FF",
+              border: "1px solid #93C5FD",
+              color: "#1E3A8A",
+            },
+          },
         }}
       />
     </>

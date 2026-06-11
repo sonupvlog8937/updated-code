@@ -137,7 +137,14 @@ const OtpVerify = ({ email, onSuccess }) => {
       context.setIsLogin(true);
       setTimeout(onSuccess, 1200);
     } else {
-      context.alertBox('error', res?.message || 'OTP verification failed');
+      const errorMsg = res?.message || 'OTP verification failed';
+      if (errorMsg.toLowerCase().includes('expired')) {
+        context.alertBox('error', '❌ Code expired. Request a new one.');
+      } else if (errorMsg.toLowerCase().includes('invalid')) {
+        context.alertBox('error', '❌ Invalid code. Please check and try again.');
+      } else {
+        context.alertBox('error', `❌ ${errorMsg}`);
+      }
       setOtp(['', '', '', '', '', '']);
       inputsRef.current[0]?.focus();
     }
@@ -261,7 +268,17 @@ const Register = () => {
       context.alertBox('success', res?.message);
       setShowOtp(true);
     } else {
-      context.alertBox('error', res?.message || 'Registration failed');
+      // Better error messages based on API response
+      const errorMsg = res?.message || 'Registration failed';
+      if (errorMsg.toLowerCase().includes('already exists') || errorMsg.toLowerCase().includes('exist')) {
+        context.alertBox('error', '❌ Email already registered. Try logging in instead.');
+      } else if (errorMsg.toLowerCase().includes('invalid') && errorMsg.toLowerCase().includes('email')) {
+        context.alertBox('error', '❌ Invalid email format. Please check.');
+      } else if (errorMsg.toLowerCase().includes('weak') || errorMsg.toLowerCase().includes('password')) {
+        context.alertBox('error', '❌ Password is too weak. Use 6+ characters.');
+      } else {
+        context.alertBox('error', `❌ ${errorMsg}`);
+      }
     }
   };
 

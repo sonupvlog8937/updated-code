@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import {addReview, approveWalletRequest, authWithGoogle, changePasswordController, createSellerByAdminController, createWalletRequest, deleteMultiple, deleteUser, forgotPasswordController, getAllReviews, getAllUsers, getCommissionOverview, getReviews, getSellerStoreProfile, loginUserController, sendPhoneLoginOtpController, verifyPhoneLoginOtpController, logoutController, refreshToken, registerUserController, removeImageFromCloudinary, resetpassword, resendOtpController, updateUserAccessByAdminController, updateUserDetails, upsertSellerStoreProfile, userAvatarController, userDetails, verifyEmailController, verifyForgotPasswordOtp, registerSellerController, deleteMyAccount} from '../controllers/user.controller.js';
+import {addReview, approveWalletRequest, authWithGoogle, changePasswordController, createSellerByAdminController, createWalletRequest, deleteMultiple, deleteUser, forgotPasswordController, getAllReviews, getAllUsers, getCommissionOverview, getReviews, getSellerStoreProfile, loginUserController, sendPhoneLoginOtpController, verifyPhoneLoginOtpController, logoutController, refreshToken, registerUserController, removeImageFromCloudinary, resetpassword, resendOtpController, updateUserAccessByAdminController, updateUserDetails, upsertSellerStoreProfile, userAvatarController, userDetails, verifyEmailController, verifyForgotPasswordOtp, registerSellerController, deleteMyAccount, sendLoginOtpController, verifyLoginOtpController, sendRegisterOtpController, verifyRegisterOtpController} from '../controllers/user.controller.js';
 import {
   getQuickCommerceOutlet,
   updateQuickCommerceOutlet,
@@ -14,6 +14,13 @@ userRouter.post('/register',registerUserController)
 userRouter.post('/verify-email', verifyEmailController)
 userRouter.post('/resend-otp',resendOtpController)
 userRouter.post('/login',loginUserController)
+
+// OTP-based Email Login/Register
+userRouter.post('/send-login-otp', sendLoginOtpController)
+userRouter.post('/verify-login-otp', verifyLoginOtpController)
+userRouter.post('/send-register-otp', sendRegisterOtpController)
+userRouter.post('/verify-register-otp', verifyRegisterOtpController)
+
 userRouter.post('/login-phone-otp/send',sendPhoneLoginOtpController)
 userRouter.post('/login-phone-otp/verify',verifyPhoneLoginOtpController)
 userRouter.post('/authWithGoogle',authWithGoogle)

@@ -511,7 +511,43 @@ export const GoMarketShopCatalog = ({
 
       {optionProduct && (
         <div className="gmp-option-modal" onClick={() => setOptionProduct(null)}>
-          <div className="gmp-option-sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="gmp-option-sheet" onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setOptionProduct(null)}
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                border: '1px solid #e2e8f0',
+                background: '#fff',
+                color: '#64748b',
+                fontSize: 18,
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10,
+                transition: 'all 0.2s',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f1f5f9';
+                e.currentTarget.style.color = '#334155';
+                e.currentTarget.style.borderColor = '#cbd5e1';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#fff';
+                e.currentTarget.style.color = '#64748b';
+                e.currentTarget.style.borderColor = '#e2e8f0';
+              }}
+              aria-label="Close"
+            >
+              ×
+            </button>
             <div className="gmp-option-sheet-header">
               <div className="gmp-option-sheet-img">
                 {optionProduct.image && <img src={img(optionProduct.image)} alt={optionProduct.name} />}

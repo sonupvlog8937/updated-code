@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,7 @@ interface Review {
 interface ProductReviewsSectionProps {
   productId: string;
   onReviewsCountChange?: (count: number) => void;
+  registerInfiniteScrollLoader?: (loader: (() => void) | null) => void;
 }
 
 /**
@@ -38,8 +39,10 @@ interface ProductReviewsSectionProps {
 export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
   productId,
   onReviewsCountChange,
+  registerInfiniteScrollLoader,
 }) => {
   const { userData } = useSelector((state: RootState) => state.app);
+  const isFetchInFlightRef = useRef(false);
 
   // Reviews state
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -57,6 +60,8 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
   // Fetch reviews
   const fetchReviews = useCallback(
     async (pageNum = 1, reset = true) => {
+      if (!productId || isFetchInFlightRef.current) return;
+      isFetchInFlightRef.current = true;
       if (reset) {
         setLoading(true);
       } else {
@@ -70,14 +75,47 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
 
         if (res?.error === false) {
           const newReviews = res?.reviews || [];
+          const pagination = res?.pagination || {};
+          const resolvedPage = Math.max(
+            Number(pagination?.page ?? pageNum) || pageNum,
+            1
+          );
+          const resolvedLimit = Math.max(
+            Number(pagination?.limit ?? REVIEWS_PER_PAGE) || REVIEWS_PER_PAGE,
+            1
+          );
+          const rawTotal = pagination?.total ?? res?.total;
+          const parsedTotal =
+            rawTotal !== undefined && rawTotal !== null
+              ? Number(rawTotal)
+              : null;
+          const hasValidTotal =
+            parsedTotal !== null &&
+            Number.isFinite(parsedTotal) &&
+            parsedTotal >= 0;
+          const resolvedTotal = hasValidTotal ? parsedTotal : null;
           setReviews((prev) => (reset ? newReviews : [...prev, ...newReviews]));
-          setHasMore(newReviews.length === REVIEWS_PER_PAGE);
-          setTotalReviews(res?.total || newReviews.length);
-          onReviewsCountChange?.(res?.total || newReviews.length);
+          setPage(resolvedPage);
+          setHasMore(
+            resolvedTotal !== null
+              ? resolvedPage * resolvedLimit < resolvedTotal
+              : newReviews.length === resolvedLimit
+          );
+          setTotalReviews((prev) => {
+            if (resolvedTotal !== null) return resolvedTotal;
+            if (resolvedPage === 1) return newReviews.length;
+            return Math.max(prev, resolvedPage * resolvedLimit);
+          });
+          if (resolvedTotal !== null) {
+            onReviewsCountChange?.(resolvedTotal);
+          } else if (resolvedPage === 1) {
+            onReviewsCountChange?.(newReviews.length);
+          }
         }
       } catch (error) {
         console.error('Error fetching reviews:', error);
       } finally {
+        isFetchInFlightRef.current = false;
         setLoading(false);
         setLoadingMore(false);
       }
@@ -88,6 +126,9 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
   // Initial load
   useEffect(() => {
     if (productId) {
+      setPage(1);
+      setHasMore(false);
+      setTotalReviews(0);
       fetchReviews(1, true);
     }
   }, [productId, fetchReviews]);
@@ -136,11 +177,15 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
   }, [userData, newReview, newRating, productId, fetchReviews]);
 
   // Load more
-  const handleLoadMore = useCallback(() => {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchReviews(nextPage, false);
-  }, [page, fetchReviews]);
+  const loadMoreReviews = useCallback(() => {
+    if (loading || loadingMore || !hasMore || isFetchInFlightRef.current) return;
+    fetchReviews(page + 1, false);
+  }, [fetchReviews, hasMore, loading, loadingMore, page]);
+
+  useEffect(() => {
+    registerInfiniteScrollLoader?.(loadMoreReviews);
+    return () => registerInfiniteScrollLoader?.(null);
+  }, [loadMoreReviews, registerInfiniteScrollLoader]);
 
   // Star rating component
   const StarRating = ({
@@ -181,73 +226,6 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
         <Text style={styles.title}>Customer Reviews</Text>
         <Text style={styles.subtitle}>{totalReviews} reviews</Text>
       </View>
-
-      {/* Reviews List */}
-      {loading && reviews.length === 0 ? (
-        <View style={styles.centerLoader}>
-          <ActivityIndicator size="large" color={PRIMARY} />
-        </View>
-      ) : reviews.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="star-outline" size={48} color="#d1d5db" />
-          <Text style={styles.emptyText}>No reviews yet</Text>
-          <Text style={styles.emptySubText}>Be the first to review this product</Text>
-        </View>
-      ) : (
-        <View style={styles.reviewsList}>
-          {reviews.map((review) => (
-            <View key={review._id} style={styles.reviewCard}>
-              {/* User Info */}
-              <View style={styles.reviewHeader}>
-                {review.image ? (
-                  <Image
-                    source={{ uri: review.image }}
-                    style={styles.avatar}
-                  />
-                ) : (
-                  <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                    <Text style={styles.avatarInitial}>
-                      {review.userName?.charAt(0)?.toUpperCase() || 'U'}
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{review.userName}</Text>
-                  <Text style={styles.reviewDate}>
-                    {new Date(review.createdAt).toLocaleDateString('en-IN')}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Rating */}
-              <View style={styles.reviewRating}>
-                <StarRating value={review.rating} readonly size={16} />
-              </View>
-
-              {/* Review Text */}
-              <Text style={styles.reviewText}>{review.review}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Load More Button */}
-      {hasMore && (
-        <TouchableOpacity
-          style={styles.loadMoreBtn}
-          onPress={handleLoadMore}
-          disabled={loadingMore}
-        >
-          {loadingMore ? (
-            <ActivityIndicator size="small" color={PRIMARY} />
-          ) : (
-            <Text style={styles.loadMoreText}>
-              Load More ({totalReviews - reviews.length} remaining)
-            </Text>
-          )}
-        </TouchableOpacity>
-      )}
-
       {/* Add Review Form */}
       <View style={styles.formCard}>
         <Text style={styles.formTitle}>Add Your Review</Text>
@@ -357,6 +335,71 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
           </View>
         </View>
       </View>
+
+      {/* Reviews List */}
+      {loading && reviews.length === 0 ? (
+        <View style={styles.centerLoader}>
+          <ActivityIndicator size="large" color={PRIMARY} />
+        </View>
+      ) : reviews.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="star-outline" size={48} color="#d1d5db" />
+          <Text style={styles.emptyText}>No reviews yet</Text>
+          <Text style={styles.emptySubText}>Be the first to review this product</Text>
+        </View>
+      ) : (
+        <View style={styles.reviewsList}>
+          {reviews.map((review) => (
+            <View key={review._id} style={styles.reviewCard}>
+              {/* User Info */}
+              <View style={styles.reviewHeader}>
+                {review.image ? (
+                  <Image
+                    source={{ uri: review.image }}
+                    style={styles.avatar}
+                  />
+                ) : (
+                  <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                    <Text style={styles.avatarInitial}>
+                      {review.userName?.charAt(0)?.toUpperCase() || 'U'}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>{review.userName}</Text>
+                  <Text style={styles.reviewDate}>
+                    {new Date(review.createdAt).toLocaleDateString('en-IN')}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Rating */}
+              <View style={styles.reviewRating}>
+                <StarRating value={review.rating} readonly size={16} />
+              </View>
+
+              {/* Review Text */}
+              <Text style={styles.reviewText}>{review.review}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Infinite scroll status */}
+      {loadingMore && (
+        <View style={styles.infiniteLoaderRow}>
+          <ActivityIndicator size="small" color={PRIMARY} />
+          <Text style={styles.infiniteLoaderText}>Loading more reviews...</Text>
+        </View>
+      )}
+
+      {!hasMore && reviews.length > 0 && (
+        <View style={styles.endOfReviewsRow}>
+          <Text style={styles.endOfReviewsText}>You've reached the end of reviews</Text>
+        </View>
+      )}
+
+      
     </View>
   );
 };
@@ -435,18 +478,20 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: '#475569',
   },
-  loadMoreBtn: {
-    marginVertical: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderWidth: 1.5,
-    borderColor: PRIMARY,
-    borderRadius: 8,
+  infiniteLoaderRow: {
+    marginVertical: 10,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#eff6ff',
+    gap: 8,
   },
-  loadMoreText: { fontSize: 11, fontWeight: '600', color: PRIMARY },
+  infiniteLoaderText: { fontSize: 11, fontWeight: '600', color: '#64748b' },
+  endOfReviewsRow: {
+    marginTop: 6,
+    marginBottom: 4,
+    alignItems: 'center',
+  },
+  endOfReviewsText: { fontSize: 10, color: '#94a3b8', fontWeight: '500' },
   formCard: {
     backgroundColor: '#f8fafc',
     borderRadius: 10,

@@ -1081,6 +1081,7 @@ export default function CheckoutScreen() {
     [checkoutItems],
   );
   const [commerceSettings, setCommerceSettings] = useState<any>({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0 });
+  const [isFirstOrder, setIsFirstOrder] = useState(false);
   
   useEffect(() => { 
     fetchDataFromApi("/api/settings/commerce")
@@ -1097,11 +1098,26 @@ export default function CheckoutScreen() {
         console.error("❌ Checkout - Failed to fetch commerce settings:", error);
       });
   }, []);
+
+  useEffect(() => {
+    // Check if user has any previous orders
+    if (userData?._id) {
+      fetchDataFromApi(`/api/order/order-list/orders`)
+        .then((res) => {
+          console.log("✅ First Order Check - Response:", res);
+          setIsFirstOrder(res?.total === 0 || res?.data?.length === 0);
+        })
+        .catch((err) => {
+          console.error("❌ First Order Check Failed:", err);
+          setIsFirstOrder(false);
+        });
+    }
+  }, [userData]);
   
   const baseAfterDiscount = Math.max(subTotal - discount, 0);
   const freeByRule = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove;
-  const shipping = freeByRule ? 0 : Number(commerceSettings.shippingFee || 0);
-  const deliveryFee = freeByRule ? 0 : Number(commerceSettings.deliveryFee || 0);
+  const shipping = isFirstOrder ? 0 : (freeByRule ? 0 : Number(commerceSettings.shippingFee || 0));
+  const deliveryFee = isFirstOrder ? 0 : (freeByRule ? 0 : Number(commerceSettings.deliveryFee || 0));
   const total = baseAfterDiscount + shipping + deliveryFee;
 
   const removeCoupon = () => {
@@ -1546,6 +1562,28 @@ export default function CheckoutScreen() {
                 value={`-₹${discount.toLocaleString("en-IN")}`}
                 color={colors.success}
               />
+            )}
+            {isFirstOrder && (
+              <View
+                style={{
+                  backgroundColor: "#f0fdf4",
+                  borderColor: "#86efac",
+                  borderWidth: 1,
+                  borderRadius: 8,
+                  padding: 12,
+                  marginBottom: 4,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "600",
+                    color: "#15803d",
+                  }}
+                >
+                  🎉 First Order - FREE Shipping & Delivery!
+                </Text>
+              </View>
             )}
             <PriceRow
               label="Shipping"

@@ -72,7 +72,12 @@ const ForgotPassword = () => {
         history("/login")
       }
       else {
-        context.alertBox("error", res?.message);
+        const errorMsg = res?.message || 'Failed to reset password';
+        if (errorMsg.toLowerCase().includes('otp') || errorMsg.toLowerCase().includes('invalid')) {
+          context.alertBox('error', '❌ Invalid or expired OTP. Please try again.');
+        } else {
+          context.alertBox('error', `❌ ${errorMsg}`);
+        }
       }
     })
 

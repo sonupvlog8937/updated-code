@@ -27,6 +27,7 @@ type Props = {
   initialTotal?: number;
   onStatsChange?: (stats: { averageRating: number; totalReviews: number }) => void;
   onLoginRequired?: () => void;
+  onScroll?: number;
 };
 
 const T = { orange: "#FF6B2C", border: "#EBEBEB", textSoft: "#999", text: "#111", green: "#16A34A" };
@@ -40,6 +41,7 @@ export function ProductReviewsSection({
   initialTotal = 0,
   onStatsChange,
   onLoginRequired,
+  onScroll,
 }: Props) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [page, setPage] = useState(1);
@@ -116,6 +118,13 @@ export function ProductReviewsSection({
     setTotalReviews(totalNum);
     loadPage(1, false);
   }, [productId]);
+
+  // Auto-load more reviews when scrolling
+  useEffect(() => {
+    if (onScroll !== undefined && onScroll > 0 && hasMore && !loadingMore && !loading) {
+      loadPage(page + 1, true);
+    }
+  }, [onScroll, hasMore, loadingMore, loading, loadPage]);
 
   const submitReview = async () => {
     if (!isLogin) {
@@ -241,20 +250,11 @@ export function ProductReviewsSection({
             </>
           )}
           
-          {hasMore && (
-            <TouchableOpacity
-              style={S.loadMoreBtn}
-              onPress={() => loadPage(page + 1, true)}
-              disabled={loadingMore}
-            >
-              {loadingMore ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Text style={S.loadMoreTxt}>Load More Reviews</Text>
-                </>
-              )}
-            </TouchableOpacity>
+          {hasMore && loadingMore && (
+            <View style={S.loadingMoreContainer}>
+              <ActivityIndicator color={T.orange} size="small" />
+              <Text style={S.loadingMoreText}>Loading more reviews...</Text>
+            </View>
           )}
         </>
       )}
@@ -375,6 +375,19 @@ const S = StyleSheet.create({
   reviewStars: { color: "#F59E0B", fontSize: 11, marginTop: 2, marginBottom: 4, letterSpacing: 0.5 },
   reviewBody: { fontSize: 12, color: "#374151", lineHeight: 18, marginTop: 2 },
   reviewDate: { fontSize: 10, color: "#9CA3AF", marginTop: 4, fontWeight: "500" },
+  loadingMoreContainer: {
+    marginTop: 16,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  loadingMoreText: {
+    fontSize: 12,
+    color: T.textSoft,
+    fontWeight: "600",
+  },
   loadMoreBtn: {
     marginTop: 16,
     backgroundColor: T.orange,
