@@ -1,7 +1,71 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import { MyContext } from "../../App";
 import { editData, fetchDataFromApi } from "../../utils/api";
+
+const STORAGE_KEY = "orderSoundNotifications:v1";
+
+const readSettings = () => {
+  const fallback = { enabled: true, unlocked: false };
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    return { ...fallback, ...parsed };
+  } catch {
+    return fallback;
+  }
+};
+
+const writeSettings = (settings) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+};
+
+const playProfessionalOrderTone = (audioCtxRef) => {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return false;
+
+  const ctx = audioCtxRef.current || new AudioContextClass();
+  audioCtxRef.current = ctx;
+  if (ctx.state === "suspended") ctx.resume();
+
+  const now = ctx.currentTime;
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(0.0001, now);
+  master.gain.exponentialRampToValueAtTime(0.28, now + 0.025);
+  master.gain.exponentialRampToValueAtTime(0.0001, now + 1.25);
+  master.connect(ctx.destination);
+
+  const notes = [659.25, 880, 1174.66, 880];
+  notes.forEach((freq, idx) => {
+    const start = now + idx * 0.16;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = idx === 2 ? "triangle" : "sine";
+    osc.frequency.setValueAtTime(freq, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(idx === 2 ? 0.5 : 0.35, start + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
+    osc.connect(gain);
+    gain.connect(master);
+    osc.start(start);
+    osc.stop(start + 0.32);
+  });
+
+  const sparkle = ctx.createOscillator();
+  const sparkleGain = ctx.createGain();
+  sparkle.type = "sine";
+  sparkle.frequency.setValueAtTime(1760, now + 0.52);
+  sparkleGain.gain.setValueAtTime(0.0001, now + 0.52);
+  sparkleGain.gain.exponentialRampToValueAtTime(0.18, now + 0.56);
+  sparkleGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
+  sparkle.connect(sparkleGain);
+  sparkleGain.connect(master);
+  sparkle.start(now + 0.52);
+  sparkle.stop(now + 0.95);
+  return true;
+};
 
 const StoreOperations = () => {
   const context = useContext(MyContext);
@@ -21,6 +85,8 @@ const StoreOperations = () => {
     minOrderValue: 99,
     avgPrepMinutes: 25,
   });
+  const [soundSettings, setSoundSettings] = useState(() => readSettings());
+  const audioCtxRef = useRef(null);
 
   const load = () => {
     setLoading(true);
@@ -41,6 +107,10 @@ const StoreOperations = () => {
   };
 
   useEffect(() => { load(); }, [isGrocery]);
+
+  useEffect(() => {
+    writeSettings(soundSettings);
+  }, [soundSettings]);
 
   const save = () => {
     setSaving(true);
@@ -73,6 +143,27 @@ const StoreOperations = () => {
         load();
       }
     }).finally(() => setSaving(false));
+  };
+
+  const unlockAudio = useCallback(() => {
+    playProfessionalOrderTone(audioCtxRef);
+    setSoundSettings((prev) => ({ ...prev, unlocked: true, enabled: true }));
+    toast.success("Order sound enabled");
+  }, []);
+
+  const toggleSoundEnabled = () => {
+    setSoundSettings((prev) => {
+      const next = { ...prev, enabled: !prev.enabled };
+      if (next.enabled && !prev.unlocked) {
+        setTimeout(unlockAudio, 0);
+      }
+      return next;
+    });
+  };
+
+  const testSound = () => {
+    playProfessionalOrderTone(audioCtxRef);
+    toast.success("Test sound played");
   };
 
   if (loading) {
@@ -177,6 +268,81 @@ const StoreOperations = () => {
         <div style={{ fontSize: 13, color: "#475569" }}><strong>Address:</strong> {outlet?.address || "—"}</div>
         <div style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
           <strong>Catalog:</strong> {isGrocery ? `${outlet?.totalProducts || 0} products` : `${outlet?.totalItems || 0} menu items`}
+        </div>
+      </div>
+
+      <div className="ops-card">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16, borderBottom: "1px solid #e2e8f0" }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>📢 New order sound notifications</div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+              {soundSettings.enabled ? "Sound notifications are ON" : "Sound notifications are OFF"}
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`ops-switch ${soundSettings.enabled ? "on" : "off"}`}
+            onClick={toggleSoundEnabled}
+            aria-label="Toggle sound notifications"
+            style={{ marginRight: 0 }}
+          >
+            <span className="ops-switch-knob" style={{ left: soundSettings.enabled ? 25 : 3 }} />
+          </button>
+        </div>
+
+        <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
+          <button
+            type="button"
+            onClick={testSound}
+            style={{
+              flex: 1,
+              background: "#f1f5f9",
+              border: "1px solid #e2e8f0",
+              borderRadius: 10,
+              padding: "10px 16px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#475569",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = "#e2e8f0";
+              e.target.style.borderColor = "#cbd5e1";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = "#f1f5f9";
+              e.target.style.borderColor = "#e2e8f0";
+            }}
+          >
+            🔊 Test sound
+          </button>
+          {soundSettings.enabled && !soundSettings.unlocked && (
+            <button
+              type="button"
+              onClick={unlockAudio}
+              style={{
+                flex: 1,
+                background: theme.primary,
+                color: "#fff",
+                border: "none",
+                borderRadius: 10,
+                padding: "10px 16px",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => e.target.style.opacity = "0.9"}
+              onMouseLeave={(e) => e.target.style.opacity = "1"}
+            >
+              🔓 Enable sound
+            </button>
+          )}
+        </div>
+
+        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 12, lineHeight: 1.6 }}>
+          ℹ️ <strong>Tip:</strong> Enable notifications to get a sound alert whenever a new order arrives. This helps you respond quickly to customer orders.
         </div>
       </div>
     </>

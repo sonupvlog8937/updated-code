@@ -520,7 +520,10 @@ export const Sidebar = (props) => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       const { props: p, internalCat: cat, internalRating: rat, internalColors: col, price: pr } = latestRef.current;
-      p.setIsLoading(true);
+      const isLoadMore = p.page > 1;
+      if (isLoadMore) p.setLoadingMore?.(true);
+      else p.setIsLoading(true);
+      
       const minPrice = (p.selectedMinPrice !== null && p.selectedMinPrice !== undefined) ? p.selectedMinPrice : pr[0];
       const maxPrice = (p.selectedMaxPrice !== null && p.selectedMaxPrice !== undefined) ? p.selectedMaxPrice : pr[1];
       const payload = {
@@ -537,12 +540,24 @@ export const Sidebar = (props) => {
       const apiUrl = p.searchQuery ? `/api/product/search/get` : `/api/product/filters`;
       postData(apiUrl, payload)
         .then((res) => {
-          p.setProductsData(res); p.setIsLoading(false);
+          if (isLoadMore) {
+            p.setProductsData(prev => ({
+              ...res,
+              products: [...(prev?.products || []), ...(res?.products || [])]
+            }));
+          } else {
+            p.setProductsData(res);
+          }
+          p.setIsLoading(false);
+          p.setLoadingMore?.(false);
           p.setTotalPages(res?.totalPages || 1);
           if (p.setTotalProducts) p.setTotalProducts(res?.totalProducts || res?.total || 0);
-          window.scrollTo({ top: 0, behavior: "smooth" });
+          if (!isLoadMore) window.scrollTo({ top: 0, behavior: "smooth" });
         })
-        .catch(() => p.setIsLoading(false));
+        .catch(() => {
+          p.setIsLoading(false);
+          p.setLoadingMore?.(false);
+        });
     }, 150);
   }, []);
 

@@ -7,11 +7,11 @@
  * @returns {string}         - HTML string
  */
 const VerificationEmail = (username, otp) => {
-    const storeName  = process.env.STORE_NAME  || 'Zeedaddy';
-    const storeColor = process.env.STORE_COLOR || '#4CAF50';
-    const year       = new Date().getFullYear();
+  const storeName = process.env.STORE_NAME || 'Zeedaddy';
+  const storeColor = process.env.STORE_COLOR || '#4CAF50';
+  const year = new Date().getFullYear();
 
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -29,15 +29,26 @@ const VerificationEmail = (username, otp) => {
 
         <!-- Header -->
         <tr>
-          <td style="background:${storeColor};padding:28px 32px;text-align:center;">
-            <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">
-              ${storeName}
-            </h1>
-            <p style="margin:6px 0 0;color:rgba(255,255,255,0.88);font-size:14px;">
-              Email Verification
-            </p>
-          </td>
-        </tr>
+  <td style="background:${storeColor};padding:28px 32px;text-align:center;">
+
+    <img
+      src="https://res.cloudinary.com/dn7ko6gut/image/upload/v1781790824/z_3_gxncjh.png"
+      alt="${storeName}"
+      width="80"
+      height="80"
+      style="display:block;margin:0 auto 12px auto;border-radius:12px;"
+    />
+
+    <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">
+      ${storeName}
+    </h1>
+
+    <p style="margin:6px 0 0;color:rgba(255,255,255,0.88);font-size:14px;">
+      Email Verification
+    </p>
+
+  </td>
+</tr>
 
         <!-- Body -->
         <tr>

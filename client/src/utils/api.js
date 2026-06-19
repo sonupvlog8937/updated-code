@@ -79,12 +79,27 @@ export const getCachedDataFromApi = (url) => getCachedResponse(url);
 export const prefetchDataFromApi = (url, options = {}) =>
     fetchDataFromApi(url, { ...options, useCache: true });
 
-export const uploadImage = async (url, updatedData) => {
-    const params = {
-        headers: getAuthHeaders('multipart/form-data'),
-    };
-
-    return axios.put(apiUrl + url, updatedData, params);
+export const uploadImage = async (url, formData) => {
+    try {
+        console.log("📤 Client uploading to:", apiUrl + url);
+        
+        // For multipart/form-data, don't set Content-Type manually
+        // Let axios set it with proper boundary
+        const headers = {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        };
+        
+        const response = await axios.put(apiUrl + url, formData, { 
+            headers,
+            // Let browser/axios handle Content-Type for FormData
+        });
+        
+        console.log("✅ Client upload success:", response.data);
+        return response.data;
+    } catch (error) {
+        console.error("❌ Client upload error:", error.response?.data || error.message);
+        return error.response?.data || { error: true, message: "Upload failed" };
+    }
 }
 
 

@@ -132,7 +132,7 @@ export default function VerifyScreen() {
             style={{ marginTop: 18, alignItems: "center" }}
           >
             <Text style={{ color: colors.primary, fontSize: 13 }}>
-              Resend code
+              Resend code with sonu
             </Text>
           </Pressable>
         </ScrollView>

@@ -33,8 +33,10 @@ const GroceryAddProduct = () => {
   const [shop, setShop] = useState(null);
   const [categories, setCategories] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
+  const [subSubCategories, setSubSubCategories] = useState([]);
   const [categoryId, setCategoryId] = useState('');
   const [subCategoryId, setSubCategoryId] = useState('');
+  const [subSubCategoryId, setSubSubCategoryId] = useState('');
   const [previews, setPreviews] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMeta, setLoadingMeta] = useState(true);
@@ -48,6 +50,12 @@ const GroceryAddProduct = () => {
     countInStock: '',
     unit: 'piece',
     isFeatured: 'no',
+    keywords: '',
+    tags: '',
+    searchKeywords: '',
+    seoDescription: '',
+    attributes: '',
+    productType: '',
   });
   const [specifications, setSpecifications] = useState([{ key: '', value: '' }]);
   const [productOptions, setProductOptions] = useState([{ name: '', label: '', values: [] }]);
@@ -67,12 +75,25 @@ const GroceryAddProduct = () => {
     if (!categoryId) {
       setSubCategories([]);
       setSubCategoryId('');
+      setSubSubCategories([]);
+      setSubSubCategoryId('');
       return;
     }
     fetchDataFromApi(`/api/go-market/subcategories?parentId=${categoryId}&limit=100&status=active`).then((res) => {
       setSubCategories(res?.data || []);
     });
   }, [categoryId]);
+
+  useEffect(() => {
+    if (!subCategoryId) {
+      setSubSubCategories([]);
+      setSubSubCategoryId('');
+      return;
+    }
+    fetchDataFromApi(`/api/go-market/subcategories?parentId=${subCategoryId}&limit=100&status=active`).then((res) => {
+      setSubSubCategories(res?.data || []);
+    });
+  }, [subCategoryId]);
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -133,7 +154,14 @@ const GroceryAddProduct = () => {
       images: previews,
       categoryId: categoryId || undefined,
       subCategoryId: subCategoryId || undefined,
+      subSubCategoryId: subSubCategoryId || undefined,
       isFeatured: form.isFeatured === 'yes',
+      keywords: form.keywords.trim(),
+      tags: form.tags.trim(),
+      searchKeywords: form.searchKeywords.trim(),
+      seoDescription: form.seoDescription.trim(),
+      attributes: form.attributes.trim(),
+      productType: form.productType.trim(),
     };
 
     setIsLoading(true);
@@ -308,9 +336,87 @@ const GroceryAddProduct = () => {
                     ))}
                   </Select>
                 </div>
+                <div>
+                  <label style={labelStyle}>Product type</label>
+                  <input
+                    style={inputStyle}
+                    name="productType"
+                    value={form.productType}
+                    onChange={onChange}
+                    placeholder="e.g. Organic, Premium, Regular"
+                  />
+                </div>
                 <ProductSpecsEditor value={specifications} onChange={setSpecifications} accent="#059669" />
                 <div style={{ marginTop: 16 }}>
                   <ProductOptionsEditor value={productOptions} onChange={setProductOptions} accent="#059669" />
+                </div>
+              </div>
+            </div>
+
+            <div className="grocery-card" style={{ padding: 24, marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fef3c7', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <MdInfo size={18} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>SEO & Search Optimization</div>
+                  <div style={{ fontSize: 12, color: '#6b7280' }}>Help customers find your product easily</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={labelStyle}>Search keywords</label>
+                  <input
+                    style={inputStyle}
+                    name="searchKeywords"
+                    value={form.searchKeywords}
+                    onChange={onChange}
+                    placeholder="e.g. tomato, fresh tomato, red tomato, organic tomato (comma separated)"
+                  />
+                  <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>
+                    Words users might search for to find this product
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Product tags</label>
+                  <input
+                    style={inputStyle}
+                    name="tags"
+                    value={form.tags}
+                    onChange={onChange}
+                    placeholder="e.g. organic, fresh, local, seasonal (comma separated)"
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>SEO keywords</label>
+                  <input
+                    style={inputStyle}
+                    name="keywords"
+                    value={form.keywords}
+                    onChange={onChange}
+                    placeholder="e.g. grocery, vegetables, fresh produce (comma separated)"
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>SEO description</label>
+                  <textarea
+                    name="seoDescription"
+                    value={form.seoDescription}
+                    onChange={onChange}
+                    placeholder="Short description for search engines (150-160 characters recommended)"
+                    style={{ ...inputStyle, height: 80, padding: '12px 14px', resize: 'vertical' }}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Product attributes</label>
+                  <textarea
+                    name="attributes"
+                    value={form.attributes}
+                    onChange={onChange}
+                    placeholder="e.g. brand: Amul, origin: India, storage: refrigerated (key: value format, one per line)"
+                    style={{ ...inputStyle, height: 80, padding: '12px 14px', resize: 'vertical' }}
+                  />
                 </div>
               </div>
             </div>
@@ -335,7 +441,7 @@ const GroceryAddProduct = () => {
                   <div>
                     <label style={labelStyle}>Category *</label>
                     <Select size="small" sx={selectSx} value={categoryId} displayEmpty
-                      onChange={(e) => { setCategoryId(e.target.value); setSubCategoryId(''); }}>
+                      onChange={(e) => { setCategoryId(e.target.value); setSubCategoryId(''); setSubSubCategoryId(''); }}>
                       <MenuItem value="" disabled>Select category</MenuItem>
                       {categories.map((c) => <MenuItem key={c._id} value={c._id}>{c.name}</MenuItem>)}
                     </Select>
@@ -348,6 +454,16 @@ const GroceryAddProduct = () => {
                       {subCategories.map((sc) => <MenuItem key={sc._id} value={sc._id}>{sc.name}</MenuItem>)}
                     </Select>
                   </div>
+                </div>
+              )}
+              {subCategories.length > 0 && (
+                <div style={{ marginTop: 14 }}>
+                  <label style={labelStyle}>Sub-sub category</label>
+                  <Select size="small" sx={selectSx} value={subSubCategoryId} displayEmpty disabled={!subCategoryId}
+                    onChange={(e) => setSubSubCategoryId(e.target.value)}>
+                    <MenuItem value="">Optional</MenuItem>
+                    {subSubCategories.map((ssc) => <MenuItem key={ssc._id} value={ssc._id}>{ssc.name}</MenuItem>)}
+                  </Select>
                 </div>
               )}
             </div>

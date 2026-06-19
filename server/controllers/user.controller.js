@@ -123,6 +123,11 @@ async function createDefaultGoMarketStore({ seller, role, marketId, storeName, s
 }
 
 const sendVerificationOtpEmail = async ({ email, name, otp, subject }) => {
+    // 🔑 DEV MODE - Log OTP for testing
+    if (process.env.NODE_ENV === 'development') {
+        console.log('🔑 DEV OTP for', email, '→', otp);
+    }
+    
     const sent = await sendEmailFun({
         sendTo: email,
         subject: subject || `Verify your email – ${process.env.STORE_NAME || 'MyStore'}`,
@@ -1025,49 +1030,125 @@ export async function userDetails(request, response) {
 }
 
 
-// ─── Avatar Upload ────────────────────────────────────────────────────────────
-var imagesArr = [];
+// ─── Avatar Uploaddf ────────────────────────────────────────────────────────────
 export async function userAvatarController(request, response) {
+    console.log("🔵 Avatar upload endpoint hit");
+    console.log("🔵 Request user ID:", request.userId);
+    console.log("🔵 Request file:", request.file);
+    
     try {
-        imagesArr = [];
         const userId = request.userId;
-        const image  = request.files;
+        const image = request.file;
+
+        if (!image || !image.path) {
+            console.error("❌ No image file in request");
+            return response.status(400).json({
+                message: "No image file provided",
+                error: true, 
+                success: false
+            });
+        }
+
+        console.log("📸 File details:", {
+            filename: image.filename,
+            originalname: image.originalname,
+            mimetype: image.mimetype,
+            size: image.size,
+            path: image.path
+        });
 
         const user = await UserModel.findOne({ _id: userId });
         if (!user) {
-            return response.status(500).json({
+            console.error("❌ User not found:", userId);
+            // Clean up uploaded file
+            try {
+                fs.unlinkSync(image.path);
+            } catch (err) {
+                console.log("⚠️ Cleanup failed:", err.message);
+            }
+            return response.status(404).json({
                 message: "User not found",
-                error: true, success: false
+                error: true, 
+                success: false
             });
         }
 
-        const imgUrl      = user.avatar;
-        const urlArr      = imgUrl.split("/");
-        const avatar_image = urlArr[urlArr.length - 1];
-        const imageName   = avatar_image.split(".")[0];
+        console.log("✅ User found:", user.name);
 
-        if (imageName) {
-            await cloudinary.uploader.destroy(imageName);
+        // Delete old avatar from Cloudinary if exists
+        if (user.avatar) {
+            try {
+                const urlArr = user.avatar.split("/");
+                const avatar_image = urlArr[urlArr.length - 1];
+                const imageName = avatar_image.split(".")[0];
+                if (imageName && imageName.length > 5) { // Basic validation
+                    console.log("🗑️ Deleting old avatar:", imageName);
+                    await cloudinary.uploader.destroy(imageName);
+                    console.log("✅ Old avatar deleted");
+                }
+            } catch (err) {
+                console.log("⚠️ Failed to delete old avatar:", err.message);
+                // Continue with upload even if delete fails
+            }
         }
 
-        const options = { use_filename: true, unique_filename: false, overwrite: false };
+        // Upload new avatar to Cloudinary
+        console.log("📤 Starting Cloudinary upload...");
+        const options = { 
+            use_filename: false, 
+            unique_filename: true, 
+            overwrite: true,
+            folder: 'user-avatars',
+            resource_type: 'image',
+            transformation: [
+                { width: 400, height: 400, crop: 'fill', gravity: 'auto' },
+                { quality: 'auto:good', fetch_format: 'auto' }
+            ]
+        };
+        
+        const result = await cloudinary.uploader.upload(image.path, options);
+        console.log("✅ Cloudinary upload successful");
+        console.log("✅ New avatar URL:", result.secure_url);
 
-        for (let i = 0; i < image?.length; i++) {
-            await cloudinary.uploader.upload(image[i].path, options, function (error, result) {
-                imagesArr.push(result.secure_url);
-                fs.unlinkSync(`uploads/${request.files[i].filename}`);
-            });
+        // Delete local file
+        try {
+            fs.unlinkSync(image.path);
+            console.log("✅ Local file deleted");
+        } catch (err) {
+            console.log("⚠️ Failed to delete local file:", err.message);
         }
 
-        user.avatar = imagesArr[0];
+        // Update user avatar in database
+        user.avatar = result.secure_url;
         await user.save();
+        console.log("✅ User avatar updated in database");
 
-        return response.status(200).json({ _id: userId, avtar: imagesArr[0] });
+        return response.status(200).json({ 
+            error: false, 
+            success: true,
+            message: "Avatar updated successfully",
+            avatar: result.secure_url,
+            data: { avatar: result.secure_url }
+        });
 
     } catch (error) {
+        console.error("❌ Avatar upload error:", error);
+        console.error("❌ Error stack:", error.stack);
+        
+        // Clean up local file if exists
+        if (request.file?.path) {
+            try {
+                fs.unlinkSync(request.file.path);
+                console.log("✅ Cleanup: Local file deleted after error");
+            } catch (err) {
+                console.log("⚠️ Cleanup failed:", err.message);
+            }
+        }
+
         return response.status(500).json({
-            message: error.message || error,
-            error: true, success: false
+            message: error.message || "Failed to upload avatar",
+            error: true, 
+            success: false
         });
     }
 }
@@ -1842,6 +1923,8 @@ export async function sendRegisterOtpController(request, response) {
     try {
         const { name, email } = request.body;
 
+        console.log('🔹 send-register-otp called with:', { name, email });
+
         if (!name || !email) {
             return response.status(400).json({
                 message: "Name and email are required",
@@ -1851,8 +1934,11 @@ export async function sendRegisterOtpController(request, response) {
         }
 
         const existingUser = await UserModel.findOne({ email });
+        console.log('🔹 Existing user check:', existingUser ? 'User found' : 'User not found');
 
-        if (existingUser) {
+        // If user exists and is already active/verified, they should login instead
+        if (existingUser && existingUser.verify_email === true) {
+            console.log('🔹 User already verified, blocking registration');
             return response.status(400).json({
                 message: "User already registered with this email. Please login instead.",
                 error: true,
@@ -1862,20 +1948,34 @@ export async function sendRegisterOtpController(request, response) {
 
         // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        console.log('🔹 Generated OTP:', otp);
 
-        // Create temporary user with OTP
-        const user = new UserModel({
-            email,
-            password: "temp", // Will be set to null after verification
-            name,
-            register_otp: otp,
-            register_otp_expires: Date.now() + 10 * 60 * 1000, // 10 minutes
-            verify_email: false,
-            status: "Pending"
-        });
+        let user;
+        
+        // If user exists but is pending (verify_email=false), update their OTP
+        if (existingUser && existingUser.verify_email === false) {
+            console.log('🔹 Updating pending user with new OTP');
+            existingUser.name = name;
+            existingUser.register_otp = otp;
+            existingUser.register_otp_expires = Date.now() + 10 * 60 * 1000;
+            user = await existingUser.save();
+        } else {
+            console.log('🔹 Creating new pending user');
+            // Create new temporary user with OTP
+            user = new UserModel({
+                email,
+                password: "temp", // Will be set to null after verification
+                name,
+                register_otp: otp,
+                register_otp_expires: Date.now() + 10 * 60 * 1000, // 10 minutes
+                verify_email: false,
+                status: "Pending"
+            });
+            await user.save();
+            console.log('🔹 New user created with ID:', user._id);
+        }
 
-        await user.save();
-
+        console.log('🔹 Attempting to send email to:', email);
         const emailSent = await sendVerificationOtpEmail({
             email,
             name,
@@ -1883,9 +1983,14 @@ export async function sendRegisterOtpController(request, response) {
             subject: `Registration OTP – ${process.env.STORE_NAME || 'MyStore'}`,
         });
 
+        console.log('🔹 Email sent status:', emailSent ? 'SUCCESS' : 'FAILED');
+
         if (!emailSent) {
-            // Delete the temp user if email fails
-            await UserModel.findByIdAndDelete(user._id);
+            console.log('🔹 Email failed, cleaning up...');
+            // Delete the temp user if email fails (only if newly created)
+            if (!existingUser) {
+                await UserModel.findByIdAndDelete(user._id);
+            }
             return response.status(500).json({
                 message: "Could not send OTP email. Please try again.",
                 error: true,
@@ -1893,6 +1998,7 @@ export async function sendRegisterOtpController(request, response) {
             });
         }
 
+        console.log('🔹 Registration OTP process completed successfully');
         return response.status(200).json({
             message: "OTP sent to your email!",
             error: false,
@@ -1900,6 +2006,7 @@ export async function sendRegisterOtpController(request, response) {
         });
 
     } catch (error) {
+        console.error('❌ send-register-otp error:', error);
         return response.status(500).json({
             message: error.message || error,
             error: true,

@@ -308,7 +308,7 @@ export default function AccountScreen() {
                   >
                     {userData?.email}
                   </Text>
-                  <Text
+                  {/* <Text
                     style={[
                       styles.memberSince,
                       {
@@ -318,7 +318,7 @@ export default function AccountScreen() {
                     ]}
                   >
                     Member since 2024
-                  </Text>
+                  </Text> */}
                 </View>
                 <Pressable
                   onPress={() => router.push("/my-account" as never)}

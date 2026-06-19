@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.zeedaddy.app"
+      "bundleIdentifier": "com.zeedaddy.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +25,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.zeedaddy.app",
-      "versionCode": 11,
+      "versionCode": 16,
       "permissions": [
         "android.permission.INTERNET"
       ]
@@ -53,9 +56,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "f10f865b-3e97-46d2-8ba5-6e86605a05f7"
+        "projectId": "d12aec82-4eb9-4015-8c5b-94c03e95ff25"
       }
     },
-    "owner": "sonupvlog8937"
+    "owner": "sonuee15x"
   }
 }

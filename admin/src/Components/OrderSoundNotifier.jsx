@@ -1,4 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 import toast from "react-hot-toast";
 import { MyContext } from "../App";
 import { fetchDataFromApi } from "../utils/api";
@@ -41,18 +42,15 @@ const writeSettings = (settings) => {
 const playProfessionalOrderTone = (audioCtxRef) => {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) return false;
-
   const ctx = audioCtxRef.current || new AudioContextClass();
   audioCtxRef.current = ctx;
   if (ctx.state === "suspended") ctx.resume();
-
   const now = ctx.currentTime;
   const master = ctx.createGain();
   master.gain.setValueAtTime(0.0001, now);
   master.gain.exponentialRampToValueAtTime(0.28, now + 0.025);
   master.gain.exponentialRampToValueAtTime(0.0001, now + 1.25);
   master.connect(ctx.destination);
-
   const notes = [659.25, 880, 1174.66, 880];
   notes.forEach((freq, idx) => {
     const start = now + idx * 0.16;
@@ -68,7 +66,6 @@ const playProfessionalOrderTone = (audioCtxRef) => {
     osc.start(start);
     osc.stop(start + 0.32);
   });
-
   const sparkle = ctx.createOscillator();
   const sparkleGain = ctx.createGain();
   sparkle.type = "sine";
@@ -103,9 +100,7 @@ const OrderSoundNotifier = () => {
     return "";
   }, [isRider, isSeller]);
 
-  useEffect(() => {
-    writeSettings(settings);
-  }, [settings]);
+  useEffect(() => { writeSettings(settings); }, [settings]);
 
   const label = isRider ? "Rider assignment sound" : "New order sound";
   const eventText = isRider ? "New delivery assigned" : "New order received";
@@ -120,29 +115,20 @@ const OrderSoundNotifier = () => {
   const toggleEnabled = () => {
     setSettings((prev) => {
       const next = { ...prev, enabled: !prev.enabled };
-      if (next.enabled && !prev.unlocked) {
-        setTimeout(unlockAudio, 0);
-      }
+      if (next.enabled && !prev.unlocked) setTimeout(unlockAudio, 0);
       return next;
     });
   };
 
   const notifyForOrders = useCallback((orders) => {
     if (!orders.length) return;
-
     const sortedOrders = [...orders].sort((a, b) => orderDateMs(a) - orderDateMs(b));
     sortedOrders.forEach((order, index) => {
       window.setTimeout(() => {
         const amount = Number(order?.totalAmt || order?.amount || 0);
         const orderNo = orderKey(order).slice(-8).toUpperCase();
-        setLastEvent({
-          text: eventText,
-          orderNo,
-          at: new Date(),
-        });
-
+        setLastEvent({ text: eventText, orderNo, at: new Date() });
         if (settings.enabled) playProfessionalOrderTone(audioCtxRef);
-
         toast.custom((t) => (
           <div className={`order-sound-toast ${t.visible ? "order-sound-toast--show" : ""}`}>
             <div className="order-sound-toast__icon">{isRider ? "🛵" : "🔔"}</div>
@@ -164,19 +150,16 @@ const OrderSoundNotifier = () => {
     fetchDataFromApi(endpoint).then((res) => {
       const orders = normalizeOrders(res);
       const currentKeys = new Set(orders.map(orderKey).filter(Boolean));
-
       if (!hydratedRef.current) {
         knownKeysRef.current = currentKeys;
         hydratedRef.current = true;
         setStatus("ready");
         return;
       }
-
       const freshOrders = orders.filter((order) => {
         const key = orderKey(order);
         return key && !knownKeysRef.current.has(key);
       });
-
       currentKeys.forEach((key) => knownKeysRef.current.add(key));
       setStatus("ready");
       notifyForOrders(freshOrders);
@@ -189,38 +172,114 @@ const OrderSoundNotifier = () => {
     knownKeysRef.current = new Set();
     poll(true);
     pollTimerRef.current = window.setInterval(() => poll(true), POLL_INTERVAL_MS);
-    return () => {
-      if (pollTimerRef.current) window.clearInterval(pollTimerRef.current);
-    };
+    return () => { if (pollTimerRef.current) window.clearInterval(pollTimerRef.current); };
   }, [isActive, poll]);
 
   if (!isActive) return null;
 
-  const statusLabel = status === "offline" ? "Offline" : status === "checking" ? "Checking" : settings.enabled ? "On" : "Off";
+  const statusLabel =
+    status === "offline" ? "Offline"
+    : status === "checking" ? "Checking"
+    : settings.enabled ? "On" : "Off";
 
-  return (
-    <div className="order-sound-widget" aria-label="Order notification sound controls">
-      <div className="order-sound-widget__pulse" aria-hidden="true" />
-      <div className="order-sound-widget__body">
-        <div className="order-sound-widget__title">{label}</div>
-        <div className="order-sound-widget__meta">
-          {lastEvent ? `${lastEvent.text} #${lastEvent.orderNo}` : "Listening every 15 sec"}
+  const dotColor =
+    status === "offline" ? "#f44336"
+    : settings.enabled ? "#4caf50"
+    : "#bdbdbd";
+
+  const widget = (
+    <div
+      aria-label="Order notification sound controls"
+      style={{
+        position: "fixed",
+        top: "0px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 2147483647,           /* max possible z-index */
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        background: "#ffffff",
+        border: "1px solid #e0e0e0",
+        borderRadius: "10px",
+        padding: "7px 14px",
+        boxShadow: "0 2px 16px rgba(0,0,0,0.13)",
+        minWidth: "220px",
+        maxWidth: "90vw",
+        whiteSpace: "nowrap",
+        pointerEvents: "auto",
+      }}
+    >
+      {/* Pulse dot */}
+      <div
+        aria-hidden="true"
+        style={{
+          width: "8px",
+          height: "8px",
+          borderRadius: "50%",
+          flexShrink: 0,
+          background: dotColor,
+          boxShadow: settings.enabled && status !== "offline"
+            ? "0 0 0 3px rgba(76,175,80,0.20)"
+            : "none",
+        }}
+      />
+
+      {/* Text body */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: "12px", fontWeight: 600, color: "#212121", lineHeight: 1.3 }}>
+          {label}
+        </div>
+        <div style={{ fontSize: "11px", color: "#757575", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {lastEvent ? `${lastEvent.text} #${lastEvent.orderNo}` : ""}
         </div>
       </div>
+
+      {/* Toggle button */}
       <button
-        className={`order-sound-widget__toggle ${settings.enabled ? "order-sound-widget__toggle--on" : ""}`}
         onClick={toggleEnabled}
         type="button"
+        style={{
+          fontSize: "11px",
+          fontWeight: 600,
+          padding: "4px 10px",
+          borderRadius: "6px",
+          border: "none",
+          cursor: "pointer",
+          background: settings.enabled ? "#212121" : "#eeeeee",
+          color: settings.enabled ? "#ffffff" : "#616161",
+          transition: "background 0.2s, color 0.2s",
+          flexShrink: 0,
+        }}
       >
         {statusLabel}
       </button>
+
+      {/* Unlock button */}
       {settings.enabled && !settings.unlocked && (
-        <button className="order-sound-widget__unlock" onClick={unlockAudio} type="button">
+        <button
+          onClick={unlockAudio}
+          type="button"
+          style={{
+            fontSize: "11px",
+            fontWeight: 600,
+            padding: "4px 10px",
+            borderRadius: "6px",
+            border: "1px solid #212121",
+            cursor: "pointer",
+            background: "transparent",
+            color: "#212121",
+            flexShrink: 0,
+          }}
+        >
           Enable sound
         </button>
       )}
     </div>
   );
+
+  /* Portal — renders directly on <body>, bypasses ALL parent stacking contexts */
+  return ReactDOM.createPortal(widget, document.body);
 };
 
 export default OrderSoundNotifier;

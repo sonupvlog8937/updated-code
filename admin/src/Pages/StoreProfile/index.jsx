@@ -115,7 +115,7 @@ const StoreProfile = () => {
   const emptyForm = {
     storeName: "", description: "", location: "", contactNo: "",
     moreInfo: "", image: "", returnPolicy: "", shippingTime: "",
-    supportEmail: "", openHours: "",
+    supportEmail: "", openHours: "", storeStatus: "open",
   };
   const [form, setForm]         = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
@@ -130,6 +130,7 @@ const StoreProfile = () => {
           moreInfo: p.moreInfo || "", image: p.image || "",
           returnPolicy: p.returnPolicy || "", shippingTime: p.shippingTime || "",
           supportEmail: p.supportEmail || "", openHours: p.openHours || "",
+          storeStatus: p.storeStatus || "open",
         };
         setForm(data); setEditForm(data);
       }

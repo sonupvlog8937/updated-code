@@ -358,6 +358,29 @@ const css = `
   }
   .zd-copyright svg { color: var(--zd-primary); font-size: 14px; }
 
+  /* Bottom quick links */
+  .zd-bottom-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .zd-bottom-links a {
+    font-family: var(--ff-body);
+    font-size: 12px;
+    color: var(--zd-muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .zd-bottom-links a:hover { color: var(--zd-primary); }
+  .zd-bottom-links__sep {
+    color: rgba(0,0,0,0.2);
+    font-size: 12px;
+    user-select: none;
+  }
+  @media (max-width: 640px) { .zd-bottom-links { justify-content: center; } }
+
   .zd-payments { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .zd-pay-chip {
     background: #fff4ee;
@@ -469,14 +492,22 @@ const Footer = () => {
   ];
 
   const productLinks    = ["Prices drop","New products","Best sales","Contact us","Sitemap","Stores"];
-  const companyLinks    = ["Delivery","Legal Notice","Terms & Conditions","About us","Secure payment","Login"];
+  const companyLinks    = [
+    { label: "About Us",           to: "/about"            },
+    { label: "FAQ",                to: "/faq"              },
+    { label: "Delivery",           to: "/delivery-info"    },
+    { label: "Terms & Conditions", to: "/terms"            },
+    { label: "Legal Notice",       to: "/legal"            },
+    { label: "Secure Payment",     to: "/secure-payment"   },
+    { label: "Login",              to: "/login"            },
+  ];
   const socialLinks     = [
-    { Icon: FaFacebookF,  href: "#" },
-    { Icon: FaInstagram,  href: "#" },
-    { Icon: AiOutlineYoutube, href: "#" },
-    { Icon: FaTwitter,    href: "#" },
-    { Icon: FaPinterestP, href: "#" },
-    { Icon: FaLinkedinIn, href: "#" },
+    { Icon: FaFacebookF,  href: "https://www.facebook.com/share/18omUEzwUR/" },
+    { Icon: FaInstagram,  href: "https://www.instagram.com/zeedaddy15?utm_source=qr&igsh=MXFvZnRyemk2bXJxNA==" },
+    { Icon: AiOutlineYoutube, href: "https://www.youtube.com/@zeedaddy" },
+    { Icon: FaTwitter,    href: "https://x.com/zeedaddy15" },
+    { Icon: FaPinterestP, href: "https://zeedaddy.in" },
+    { Icon: FaLinkedinIn, href: "https://www.linkedin.com/in/zee-daddy-046732392?utm_source=share_via&utm_content=profile&utm_medium=member_android" },
   ];
 
   return (
@@ -515,11 +546,11 @@ const Footer = () => {
               <ul className="zd-contact-list">
                 <li>
                   <IoLocationOutline />
-                  <span>Makhdumpur, Jehanabad, Bihar, India – 804424</span>
+                  <span>Paibigha, Makhdumpur, Jehanabad, Bihar, India – 804424</span>
                 </li>
                 <li>
                   <IoMailOutline />
-                  <a href="mailto:sonuee15@gmail.com">sonuee15@gmail.com</a>
+                  <a href="mailto:sonupvlog8937@gmail.com">sonupvlog8937@gmail.com</a>
                 </li>
                 <li>
                   <IoCallOutline />
@@ -552,8 +583,13 @@ const Footer = () => {
             <div className="zd-nav-col">
               <h4>Our Company</h4>
               <ul>
-                {companyLinks.map(t => (
-                  <li key={t}><Link to="/" className="link">{t}</Link></li>
+                {companyLinks.map(({ label, to }) => (
+                  <li key={label}>
+                    <Link to={to} className="link">
+                      {label}
+                      {label === "FAQ" && <span className="zd-badge zd-badge--new">Help</span>}
+                    </Link>
+                  </li>
                 ))}
               </ul>
             </div>
@@ -638,6 +674,17 @@ const Footer = () => {
               <MdVerified />
               © 2026 Zeedaddy Online Shopping. All rights reserved.
             </p>
+
+            {/* Quick policy links */}
+            <nav className="zd-bottom-links" aria-label="Policy links">
+              <Link to="/about">About Us</Link>
+              <span className="zd-bottom-links__sep" aria-hidden="true">·</span>
+              <Link to="/faq">FAQ</Link>
+              <span className="zd-bottom-links__sep" aria-hidden="true">·</span>
+              <Link to="/terms">Terms</Link>
+              <span className="zd-bottom-links__sep" aria-hidden="true">·</span>
+              <Link to="/legal">Privacy</Link>
+            </nav>
 
             {/* Payments */}
             <PaymentChips />

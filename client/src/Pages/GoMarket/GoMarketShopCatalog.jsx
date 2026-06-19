@@ -78,6 +78,7 @@ export const GoMarketShopCatalog = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [optionProduct, setOptionProduct] = useState(null);
   const [quickSelections, setQuickSelections] = useState({});
+  const [shopData, setShopData] = useState(null);
 
   useEffect(() => {
     setSearch(initialQuery);
@@ -124,6 +125,10 @@ export const GoMarketShopCatalog = ({
           setTotalPages(res.pagination?.totalPages || 1);
           setTotal(res.pagination?.total ?? rows.length);
           setPage(pageNum);
+          // Store shop data for isOpen check
+          if (res.shop) {
+            setShopData(res.shop);
+          }
         }
       } finally {
         setLoading(false);
@@ -220,6 +225,11 @@ export const GoMarketShopCatalog = ({
   const { price: quickPrice, oldPrice: quickOldPrice } = optionProduct ? getSelectedOptionData() : { price: 0, oldPrice: 0 };
   const addProductWithOptions = async (product, selectedOptions = {}, priceOverride = null) => {
     if (!isLogin) { toast.error("Please login first"); navigate("/login"); return; }
+    // Check if shop is open
+    if (shopData && shopData.isOpen === false) {
+      toast.error("Shop is currently closed. You cannot add items to cart.");
+      return;
+    }
     const cartProduct = { _id: product._id, name: product.name, price: priceOverride ?? (product.discountPrice > 0 ? product.discountPrice : product.price), oldPrice: product.oldPrice || product.price, image: product.image, images: product.images || [product.image], countInStock: product.countInStock ?? product.stock ?? 99, rating: product.rating || product.averageRating || 0, brand: product.brand || "GoMarket", discount: product.discount, selectedOptions };
     await dispatch(addToCart({ product: cartProduct, userId: userData?._id, quantity: 1 }));
   };
@@ -472,7 +482,15 @@ export const GoMarketShopCatalog = ({
                   )}
                 </div>
                 <button className="gmp-card-icon gmp-card-heart" onClick={(e) => handleQuickWishlist(e, p)}>♡</button>
-                <button className="gmp-card-icon gmp-card-plus" onClick={(e) => handleQuickAdd(e, p)}>+</button>
+                <button 
+                  className="gmp-card-icon gmp-card-plus" 
+                  onClick={(e) => handleQuickAdd(e, p)}
+                  disabled={shopData && shopData.isOpen === false}
+                  style={{ 
+                    opacity: shopData && shopData.isOpen === false ? 0.5 : 1,
+                    cursor: shopData && shopData.isOpen === false ? 'not-allowed' : 'pointer'
+                  }}
+                >+</button>
                 <div className="gmp-product-body">
                   {p.brand && <div className="gmp-tile-brand">{p.brand}</div>}
                   <div className="gmp-product-name">{p.name}</div>

@@ -397,8 +397,8 @@ const Home = () => {
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
                 <button className="h-[46px] rounded-xl font-[700] text-[14px] text-white transition-all cta-orange"
                   onClick={() => { setShowLoginPopup(false); navigate("/login"); }}>Login Now</button>
-                <button className="h-[46px] rounded-xl font-[700] text-[14px] transition-all cta-outline"
-                  onClick={() => { setShowLoginPopup(false); navigate("/register"); }}>Register</button>
+                {/* <button className="h-[46px] rounded-xl font-[700] text-[14px] transition-all cta-outline"
+                  onClick={() => { setShowLoginPopup(false); navigate("/register"); }}>Register</button> */}
               </div>
               <button className="w-full text-[13px] py-1 transition-colors text-gray-400 hover:text-gray-600"
                 onClick={() => setShowLoginPopup(false)}>Canel</button>

@@ -29,47 +29,91 @@ const AccountSidebar = () => {
 
   }, [context?.userData])
 
-  let selectedImages = [];
-
-  const formdata = new FormData();
-
   const onChangeFile = async (e, apiEndPoint) => {
     try {
       setPreviews([]);
       const files = e.target.files;
+      
+      if (!files || files.length === 0) {
+        return;
+      }
+      
       setUploading(true);
 
+      // Create fresh FormData for each upload
+      const formdata = new FormData();
+      let validFileFound = false;
 
-      for (var i = 0; i < files.length; i++) {
-        if (files[i] && (files[i].type === "image/jpeg" || files[i].type === "image/jpg" ||
-          files[i].type === "image/png" ||
-          files[i].type === "image/webp")
-        ) {
-
-          const file = files[i];
-
-          selectedImages.push(file);
-          formdata.append(`avatar`, file);
-
-
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        if (file && (
+          file.type === "image/jpeg" || 
+          file.type === "image/jpg" ||
+          file.type === "image/png" ||
+          file.type === "image/webp"
+        )) {
+          formdata.append('avatar', file);
+          validFileFound = true;
+          console.log("📎 File added to FormData:", file.name, file.type);
         } else {
-          context.alertBox("error", "Please select a valid JPG , PNG or webp image file.");
+          context.alertBox("error", "Please select a valid JPG, PNG or WEBP image file.");
           setUploading(false);
-          return false;
+          return;
         }
       }
 
-      uploadImage("/api/user/user-avatar", formdata).then((res) => {
+      if (!validFileFound) {
         setUploading(false);
-        let avatar = [];
-        avatar.push(res?.data?.avtar);
-        setPreviews(avatar);
-        context.alertBox("success", "Profile picture updated successfully!");
-        fetchDataFromApi(`/api/user/user-details`).then((res) => {
-          context?.setUserData(res.data);
-        })
+        return;
+      }
 
-      })
+      console.log("📤 Uploading to:", apiEndPoint);
+      
+      uploadImage("/api/user/user-avatar", formdata)
+        .then((res) => {
+          console.log("📸 Client upload response:", res);
+          console.log("📸 Response type:", typeof res);
+          console.log("📸 Response keys:", res ? Object.keys(res) : "null");
+          
+          setUploading(false);
+          
+          // Check if response indicates success
+          const isSuccess = res?.error === false || res?.success === true;
+          console.log("📸 Is success:", isSuccess);
+          
+          if (isSuccess) {
+            // Extract avatar URL from various possible response formats
+            const avatarUrl = res?.avatar || res?.data?.avatar || res?.imageUrl || "";
+            console.log("✅ Avatar URL extracted:", avatarUrl);
+            
+            if (avatarUrl) {
+              setPreviews([avatarUrl]);
+              context.alertBox("success", "Profile picture updated successfully!");
+              
+              // Refresh user data
+              fetchDataFromApi(`/api/user/user-details`).then((userRes) => {
+                if (userRes?.data) {
+                  context?.setUserData(userRes.data);
+                }
+              });
+            } else {
+              console.error("⚠️ No avatar URL in response");
+              context.alertBox("warning", "Image uploaded but URL not found");
+            }
+          } else {
+            const errorMsg = res?.message || res?.error?.message || "Failed to upload profile picture";
+            console.error("❌ Upload failed:", errorMsg);
+            console.error("❌ Full response:", JSON.stringify(res, null, 2));
+            context.alertBox("error", errorMsg);
+          }
+        })
+        .catch((error) => {
+          console.error("❌ Upload error:", error);
+          console.error("❌ Error details:", error.message, error.response);
+          setUploading(false);
+          context.alertBox("error", error?.message || "Failed to upload profile picture");
+        });
 
     } catch (error) {
       console.log(error);

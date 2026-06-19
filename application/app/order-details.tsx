@@ -182,7 +182,7 @@ export default function OrderDetailsScreen() {
 
   const handleSubmitFeedback = async () => {
     if (!selectedReason || !order) {
-      showToast("Please select a reason", "error");
+      showToast("error", "Please select a reason");
       return;
     }
 
@@ -198,7 +198,7 @@ export default function OrderDetailsScreen() {
             reason: reasonText,
           }) as any
         ).unwrap();
-        showToast("Return request submitted to seller", "success");
+        showToast("success","Return request submitted to seller");
       } else {
         // Submit refund request to backend
         await dispatch(
@@ -207,7 +207,7 @@ export default function OrderDetailsScreen() {
             reason: reasonText,
           }) as any
         ).unwrap();
-        showToast("Refund request submitted to seller", "success");
+        showToast("success", "Refund request submitted to seller");
       }
 
       setFeedbackModalVisible(false);

@@ -338,7 +338,7 @@ export async function getUserOrderDetailsController(request, response) {
                 .populate('delivery_address userId deliveryAssignment.riderId');
         }
 
-        const total = orderlist?.length;
+        const total = page && limit ? await OrderModel.countDocuments({ userId: userId }) : (orderlist?.length || 0);
 
         return response.json({
             message: "order list",

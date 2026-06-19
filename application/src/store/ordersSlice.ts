@@ -143,20 +143,37 @@ export const fetchOrders = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
+      console.log(`📦 Fetching orders - page: ${page}, limit: ${limit}`);
       const res = await fetchDataFromApi(
         `/api/order/order-list/orders?page=${page}&limit=${limit}`
       );
 
+      console.log("📦 Orders API Response:", JSON.stringify(res, null, 2));
+
       if (res?.error === false || res?.success === true) {
+        const orders = res?.data || [];
+        const totalCount = res?.totalCount || res?.total || 0;
+        
+        console.log(`✅ Orders fetched successfully: ${orders.length} orders, total: ${totalCount}`);
+        console.log(`📋 Response keys:`, Object.keys(res));
+        console.log(`📋 Total variations check:`, {
+          totalCount: res?.totalCount,
+          total: res?.total,
+          count: res?.count,
+          totalPages: res?.totalPages
+        });
+        
         return {
-          orders: res?.data || [],
-          totalCount: res?.totalCount || res?.total || 0,
+          orders,
+          totalCount,
           page,
         };
       } else {
+        console.error("❌ Orders fetch failed:", res?.message);
         return rejectWithValue(res?.message || "Failed to fetch orders");
       }
     } catch (error: any) {
+      console.error("❌ Orders fetch error:", error);
       return rejectWithValue(error?.message || "Error fetching orders");
     }
   }
@@ -377,10 +394,18 @@ const ordersSlice = createSlice({
       .addCase(fetchOrders.fulfilled, (state, action) => {
         const { orders, totalCount, page } = action.payload;
 
+        console.log(`✅ Redux: Received ${orders.length} orders for page ${page}`);
+
         if (page === 1) {
+          // Replace orders on first page
           state.orders = orders;
+          console.log("📝 Redux: Replaced orders (page 1)");
         } else {
-          state.orders = [...state.orders, ...orders];
+          // Append orders for pagination, avoid duplicates
+          const existingIds = new Set(state.orders.map(o => o._id));
+          const newOrders = orders.filter((o: Order) => !existingIds.has(o._id));
+          state.orders = [...state.orders, ...newOrders];
+          console.log(`📝 Redux: Appended ${newOrders.length} new orders`);
         }
 
         state.totalCount = totalCount;
@@ -389,8 +414,12 @@ const ordersSlice = createSlice({
         state.loading = false;
         state.loadingMore = false;
 
+        console.log(`📊 Redux State: ${state.orders.length}/${totalCount} orders, hasMore: ${state.hasMore}`);
+
         // Apply filters after loading
         ordersSlice.caseReducers.applyFilters(state);
+        
+        console.log(`🔍 After filters: ${state.filteredOrders.length} filtered orders`);
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.loading = false;

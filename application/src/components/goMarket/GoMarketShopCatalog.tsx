@@ -30,9 +30,17 @@ type Props = {
   shopId: string;
   searchMode?: boolean;
   initialQuery?: string;
+  listHeader?: React.ReactElement; // Shop info header from parent
+  shopIsOpen?: boolean; // Store open/close status from parent
 };
 
-export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery = "" }: Props) {
+export function GoMarketShopCatalog({
+  shopId,
+  searchMode = false,
+  initialQuery = "",
+  shopIsOpen = true,
+  listHeader,
+}: Props) {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { isLogin, userData, myListData, cartData } = useAppSelector((s: any) => s.app);
@@ -81,7 +89,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
     (pageNum: number) => {
       const p = new URLSearchParams({
         page: String(pageNum),
-        limit: "16",
+        limit: "12",
         tab,
         search: debouncedSearch,
         ...(sort && sort !== "latest" ? { sort } : {}),
@@ -162,28 +170,44 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
   );
 
   const handleAddToCart = (product: any) => {
-    // Check if product has options
-    const hasOptions = (product.options?.length > 0) || (product.productOptions?.some((opt: any) => opt.values?.length > 0));
-    
+    // Check if shop is open
+    if (!shopIsOpen) {
+      showToast("error", "Shop is currently closed. You cannot add items to cart.");
+      return;
+    }
+
+    const hasOptions =
+      product.options?.length > 0 ||
+      product.productOptions?.some((opt: any) => opt.values?.length > 0);
+
     if (hasOptions) {
-      // Product has options, show dialog
       setSelectedProduct(product);
       setCartDialogVisible(true);
     } else {
-      // Product has no options, add directly to cart
       handleConfirmAddToCart(product, null, 1);
     }
   };
 
   const handleConfirmAddToCart = async (product: any, selectedOption: any, quantity: number) => {
-    const selectedOptionsData: Record<string, string> | undefined = selectedOption 
-      ? { option: String(selectedOption.name || '') } 
+    // Check if shop is open
+    if (!shopIsOpen) {
+      showToast("error", "Shop is currently closed. You cannot add items to cart.");
+      return;
+    }
+
+    const selectedOptionsData: Record<string, string> | undefined = selectedOption
+      ? { option: String(selectedOption.name || "") }
       : undefined;
-    
+
     const cartProduct = {
       _id: product._id,
       name: product.name || product.itemName || product.productName,
-      price: selectedOption?.price && selectedOption.price > 0 ? selectedOption.price : (product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price),
+      price:
+        selectedOption?.price && selectedOption.price > 0
+          ? selectedOption.price
+          : product.discountPrice && product.discountPrice > 0
+          ? product.discountPrice
+          : product.price,
       oldPrice: product.oldPrice || product.originalPrice || product.price,
       images: product.images || (product.image ? [product.image] : []),
       countInStock: product.countInStock ?? product.stock ?? 999,
@@ -195,7 +219,9 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
     };
 
     if (isLogin && (userData?._id || userData?.id)) {
-      await dispatch(addToCart({ product: cartProduct, userId: userData?._id || userData?.id, quantity }) as any).unwrap();
+      await dispatch(
+        addToCart({ product: cartProduct, userId: userData?._id || userData?.id, quantity }) as any,
+      ).unwrap();
       return;
     }
 
@@ -213,7 +239,12 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
       brand: cartProduct.brand,
       weight: cartProduct.weight,
     };
-    dispatch(setCartData([...cartData.filter((item: any) => item._id !== localItem._id), localItem]) as any);
+    dispatch(
+      setCartData([
+        ...cartData.filter((item: any) => item._id !== localItem._id),
+        localItem,
+      ]) as any,
+    );
     showToast("success", `${quantity}x ${cartProduct.name} added to cart`);
   };
 
@@ -232,7 +263,10 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
       productTitle: title,
       image: product.images?.[0] || product.image,
       rating: product.rating || product.averageRating || 0,
-      price: product.discountPrice && product.discountPrice > 0 ? product.discountPrice : product.price,
+      price:
+        product.discountPrice && product.discountPrice > 0
+          ? product.discountPrice
+          : product.price,
       oldPrice: product.oldPrice || product.originalPrice || product.price,
       productId: product._id,
       brand: product.brand || product.shopName || product.restaurantName || "GoMarket",
@@ -247,23 +281,19 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
   };
 
   const renderProduct = ({ item: p }: { item: any }) => {
-    // Server response structure:
-    // price = selling price (already calculated)
-    // oldPrice or mrp = original MRP
-    // discountPrice = selling price
-    // discount = discount percentage
-    
-    const sellingPrice = p.price || 0; // Server already sends selling price in 'price' field
-    const mrp = p.oldPrice || p.mrp || p.price; // MRP is in oldPrice or mrp field
-    const price = sellingPrice; // Display selling price
-    const oldPrice = mrp; // Display MRP as old price
+    const sellingPrice = p.price || 0;
+    const mrp = p.oldPrice || p.mrp || p.price;
+    const price = sellingPrice;
+    const oldPrice = mrp;
     const hasDiscount = mrp > 0 && sellingPrice > 0 && sellingPrice < mrp;
-    const discountPercent = p.discount || (hasDiscount ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0);
+    const discountPercent =
+      p.discount || (hasDiscount ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0);
     const saveAmount = hasDiscount ? mrp - sellingPrice : 0;
     const inWishlist = myListData?.some((item: any) => item?.productId === p._id);
     const rating = p.rating || p.averageRating || 0;
     const isOutOfStock = p.stock === 0 || p.inStock === false;
-    
+    const isStoreClosed = !shopIsOpen;
+
     return (
       <TouchableOpacity
         style={[S.tile, gridColumns === 1 && S.tileFull]}
@@ -271,7 +301,10 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
         activeOpacity={0.7}
       >
         <View style={S.tileImageWrap}>
-          <Image source={{ uri: gmImg(p.image, GO_MARKET_FALLBACK) }} style={S.tileImg} />
+          <Image
+            source={{ uri: gmImg(p.image, GO_MARKET_FALLBACK) }}
+            style={S.tileImg}
+          />
           {discountPercent > 0 && (
             <View style={S.discountBadge}>
               <Text style={S.discountText}>{discountPercent}% OFF</Text>
@@ -290,21 +323,25 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
               handleWishlist(p);
             }}
           >
-            <Text style={[S.wishlistIcon, inWishlist && S.wishlistIconActive]}>{inWishlist ? "♥" : "♡"}</Text>
+            <Text style={[S.wishlistIcon, inWishlist && S.wishlistIconActive]}>
+              {inWishlist ? "♥" : "♡"}
+            </Text>
           </TouchableOpacity>
         </View>
-        
+
         <View style={S.tileContent}>
-           <Text style={S.tileName} numberOfLines={1}>{p.name}</Text>
-          
+          <Text style={S.tileName} numberOfLines={1}>
+            {p.name}
+          </Text>
+
           {p.description && (
-            <Text style={S.tileDesc} numberOfLines={1}>{p.description}</Text>
+            <Text style={S.tileDesc} numberOfLines={1}>
+              {p.description}
+            </Text>
           )}
-          
-          {p.weight && (
-            <Text style={S.tileWeight}>{p.weight}</Text>
-          )}
-          
+
+          {p.weight && <Text style={S.tileWeight}>{p.weight}</Text>}
+
           {rating > 0 && (
             <View style={S.ratingRow}>
               <Text style={S.ratingStar}>⭐</Text>
@@ -314,7 +351,7 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
               )}
             </View>
           )}
-          
+
           <View style={S.priceRow}>
             <View style={S.priceCol}>
               <Text style={S.tilePrice}>₹{price}</Text>
@@ -327,9 +364,9 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
                 </>
               )}
             </View>
-            
-            {!isOutOfStock && (
-              <TouchableOpacity 
+
+            {!isOutOfStock && !isStoreClosed && (
+              <TouchableOpacity
                 style={S.addBtn}
                 onPress={(e) => {
                   e.stopPropagation();
@@ -346,8 +383,15 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
     );
   };
 
+  // ─── List Header ────────────────────────────────────────────────────────────
+  // listHeader (shop info card + banner) comes from parent _id_.tsx
+  // Catalog controls (search, tabs, filters) are rendered below it
   const ListHeader = (
     <View>
+      {/* Shop info header passed from _id_.tsx */}
+      {listHeader ?? null}
+
+      {/* Search bar */}
       {!searchMode && (
         <>
           <View style={S.searchRow}>
@@ -371,7 +415,11 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
           {showSuggestions && suggestions.length > 0 && (
             <View style={S.suggestBox}>
               {suggestions.map((s) => (
-                <TouchableOpacity key={s._id} style={S.suggestRow} onPress={() => goSearch(s.label)}>
+                <TouchableOpacity
+                  key={s._id}
+                  style={S.suggestRow}
+                  onPress={() => goSearch(s.label)}
+                >
                   <Text style={S.suggestTxt}>{s.label}</Text>
                 </TouchableOpacity>
               ))}
@@ -380,14 +428,19 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
         </>
       )}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.chips}>
+      {/* Tabs + Sort + Filters row */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={S.chips}
+      >
         {TABS.map((t) => (
           <TouchableOpacity
             key={t.key}
             style={[S.chip, tab === t.key && S.chipOn]}
             onPress={() => {
               if (tab !== t.key) {
-                setProducts([]); // Clear products immediately
+                setProducts([]);
                 setTab(t.key);
                 loadPage(1, false, true);
               }
@@ -397,18 +450,26 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
             <Text style={[S.chipTxt, tab === t.key && S.chipTxtOn]}>{t.label}</Text>
           </TouchableOpacity>
         ))}
-        <TouchableOpacity 
-          style={[S.chip, sort !== "latest" && S.chipOn]} 
+        <TouchableOpacity
+          style={[S.chip, sort !== "latest" && S.chipOn]}
           onPress={() => setSortModalVisible(true)}
         >
           <Text style={[S.chipTxt, sort !== "latest" && S.chipTxtOn]}>
-            {sort === "latest" ? "Sort" : `Sort: ${SORT_OPTIONS.find(o => o.key === sort)?.label || "Sort"}`}
+            {sort === "latest"
+              ? "Sort"
+              : `Sort: ${SORT_OPTIONS.find((o) => o.key === sort)?.label || "Sort"}`}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[S.chip, filtersOpen && S.chipOn]} onPress={() => setFiltersOpen(!filtersOpen)}>
+        <TouchableOpacity
+          style={[S.chip, filtersOpen && S.chipOn]}
+          onPress={() => setFiltersOpen(!filtersOpen)}
+        >
           <Text style={[S.chipTxt, filtersOpen && S.chipTxtOn]}>Filters</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={S.gridToggle} onPress={() => setGridColumns(gridColumns === 2 ? 1 : 2)}>
+        <TouchableOpacity
+          style={S.gridToggle}
+          onPress={() => setGridColumns(gridColumns === 2 ? 1 : 2)}
+        >
           <Text style={S.gridToggleText}>{gridColumns === 2 ? "▤ 1 row" : "▦ 2 row"}</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -422,10 +483,17 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
 
       {filtersOpen && (
         <View style={S.filterPanel}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.chips}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={S.chips}
+          >
             <TouchableOpacity
               style={[S.chip, !categoryId && S.chipOn]}
-              onPress={() => { setCategoryId(""); setSubCategoryId(""); }}
+              onPress={() => {
+                setCategoryId("");
+                setSubCategoryId("");
+              }}
             >
               <Text style={[S.chipTxt, !categoryId && S.chipTxtOn]}>All categories</Text>
             </TouchableOpacity>
@@ -433,14 +501,23 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
               <TouchableOpacity
                 key={c._id}
                 style={[S.chip, categoryId === c._id && S.chipOn]}
-                onPress={() => { setCategoryId(c._id); setSubCategoryId(""); }}
+                onPress={() => {
+                  setCategoryId(c._id);
+                  setSubCategoryId("");
+                }}
               >
-                <Text style={[S.chipTxt, categoryId === c._id && S.chipTxtOn]}>{c.name}</Text>
+                <Text style={[S.chipTxt, categoryId === c._id && S.chipTxtOn]}>
+                  {c.name}
+                </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
           {subCats.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[S.chips, { marginTop: 8 }]}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[S.chips, { marginTop: 8 }]}
+            >
               <TouchableOpacity
                 style={[S.chip, !subCategoryId && S.chipOn]}
                 onPress={() => setSubCategoryId("")}
@@ -453,14 +530,28 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
                   style={[S.chip, subCategoryId === sc._id && S.chipOn]}
                   onPress={() => setSubCategoryId(sc._id)}
                 >
-                  <Text style={[S.chipTxt, subCategoryId === sc._id && S.chipTxtOn]}>{sc.name}</Text>
+                  <Text style={[S.chipTxt, subCategoryId === sc._id && S.chipTxtOn]}>
+                    {sc.name}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           )}
           <View style={[S.chips, { flexWrap: "wrap", marginTop: 8 }]}>
-            <TextInput style={S.miniInput} placeholder="Min ₹" keyboardType="numeric" value={minPrice} onChangeText={setMinPrice} />
-            <TextInput style={S.miniInput} placeholder="Max ₹" keyboardType="numeric" value={maxPrice} onChangeText={setMaxPrice} />
+            <TextInput
+              style={S.miniInput}
+              placeholder="Min ₹"
+              keyboardType="numeric"
+              value={minPrice}
+              onChangeText={setMinPrice}
+            />
+            <TextInput
+              style={S.miniInput}
+              placeholder="Max ₹"
+              keyboardType="numeric"
+              value={maxPrice}
+              onChangeText={setMaxPrice}
+            />
             {[4, 3, 2].map((r) => (
               <TouchableOpacity
                 key={r}
@@ -470,14 +561,19 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
                 <Text style={[S.chipTxt, minRating === r && S.chipTxtOn]}>{r}★+</Text>
               </TouchableOpacity>
             ))}
-            <TouchableOpacity style={[S.chip, inStock && S.chipOn]} onPress={() => setInStock(!inStock)}>
+            <TouchableOpacity
+              style={[S.chip, inStock && S.chipOn]}
+              onPress={() => setInStock(!inStock)}
+            >
               <Text style={[S.chipTxt, inStock && S.chipTxtOn]}>In stock</Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
 
-      {loading && !products.length && <ActivityIndicator color="#2563eb" style={{ marginVertical: 20 }} />}
+      {loading && !products.length && (
+        <ActivityIndicator color="#2563eb" style={{ marginVertical: 20 }} />
+      )}
     </View>
   );
 
@@ -489,8 +585,10 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
         data={products}
         keyExtractor={(p) => p._id}
         numColumns={gridColumns}
-        columnWrapperStyle={gridColumns === 2 ? { gap: 10, paddingHorizontal: 14 } : undefined}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        columnWrapperStyle={
+          gridColumns === 2 ? { gap: 10, paddingHorizontal: 14 } : undefined
+        }
+        contentContainerStyle={{ paddingBottom: 100 }}
         ListHeaderComponent={ListHeader}
         renderItem={renderProduct}
         onEndReached={() => {
@@ -498,18 +596,21 @@ export function GoMarketShopCatalog({ shopId, searchMode = false, initialQuery =
             loadPage(page + 1, true);
           }
         }}
-        onEndReachedThreshold={0.3}
+        onEndReachedThreshold={0.4}
         scrollEventThrottle={16}
-        maxToRenderPerBatch={10}
+        maxToRenderPerBatch={12}
         updateCellsBatchingPeriod={50}
-        initialNumToRender={16}
+        initialNumToRender={12}
         ListFooterComponent={
-          loadingMore ? <ActivityIndicator color="#2563eb" style={{ marginVertical: 16 }} /> : null
+          loadingMore ? (
+            <ActivityIndicator color="#2563eb" style={{ marginVertical: 16 }} />
+          ) : null
         }
         ListEmptyComponent={
           !loading ? <Text style={S.empty}>No products found.</Text> : null
         }
       />
+
       <SortModal
         visible={sortModalVisible}
         selectedSort={sort}
@@ -544,7 +645,12 @@ const S = StyleSheet.create({
     backgroundColor: "#fff",
   },
   searchInput: { flex: 1, fontSize: 14, color: "#0f172a" },
-  searchBtn: { backgroundColor: "#2563eb", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  searchBtn: {
+    backgroundColor: "#2563eb",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
   searchBtnTxt: { color: "#fff", fontWeight: "800", fontSize: 12 },
   suggestBox: {
     marginHorizontal: 14,
@@ -580,11 +686,7 @@ const S = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 10,
   },
-  tabLoadingText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#2563eb",
-  },
+  tabLoadingText: { fontSize: 13, fontWeight: "600", color: "#2563eb" },
   filterPanel: { paddingBottom: 8 },
   gridToggle: {
     borderWidth: 1.5,
@@ -594,11 +696,7 @@ const S = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: "#E8F5E1",
   },
-  gridToggleText: {
-    fontSize: 13,
-    fontWeight: "900",
-    color: "#2D5016",
-  },
+  gridToggleText: { fontSize: 13, fontWeight: "900", color: "#2D5016" },
   miniInput: {
     borderWidth: 1,
     borderColor: "#e2e8f0",
@@ -610,7 +708,7 @@ const S = StyleSheet.create({
   },
   tile: {
     flex: 1,
-    maxWidth: '48%',
+    maxWidth: "48%",
     backgroundColor: "#fff",
     borderRadius: 16,
     borderWidth: 1,
@@ -623,21 +721,14 @@ const S = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  tileFull: {
-    maxWidth: "100%",
-    marginHorizontal: 14,
-  },
+  tileFull: { maxWidth: "100%", marginHorizontal: 14 },
   tileImageWrap: {
     position: "relative",
     width: "100%",
     height: 140,
     backgroundColor: "#f8fafc",
   },
-  tileImg: { 
-    width: "100%", 
-    height: "100%",
-    resizeMode: "cover",
-  },
+  tileImg: { width: "100%", height: "100%", resizeMode: "cover" },
   discountBadge: {
     position: "absolute",
     top: 8,
@@ -652,24 +743,21 @@ const S = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  discountText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 0.3,
-  },
+  discountText: { color: "#fff", fontSize: 10, fontWeight: "900", letterSpacing: 0.3 },
   outOfStockOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0, 0, 0, 0.65)",
     justifyContent: "center",
     alignItems: "center",
   },
-  outOfStockText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 0.5,
+  outOfStockText: { color: "#fff", fontSize: 13, fontWeight: "800", letterSpacing: 0.5 },
+  storeClosedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(211, 47, 47, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
   },
+  storeClosedText: { color: "#fff", fontSize: 13, fontWeight: "800", letterSpacing: 0.5 },
   wishlistBtn: {
     position: "absolute",
     top: 8,
@@ -686,74 +774,26 @@ const S = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-    wishlistBtnActive: {
-    backgroundColor: "#FF3B30",
-  },
-  wishlistIcon: {
-    fontSize: 16,
-    color: "#FF3B30",
-  },
-  wishlistIconActive: {
-    color: "#fff",
-  },
-  tileContent: {
-    padding: 10,
-    minHeight: 132,
-  },
-  tileName: { 
-    fontSize: 13, 
-    fontWeight: "700", 
+  wishlistBtnActive: { backgroundColor: "#FF3B30" },
+  wishlistIcon: { fontSize: 16, color: "#FF3B30" },
+  wishlistIconActive: { color: "#fff" },
+  tileContent: { padding: 10, minHeight: 132 },
+  tileName: {
+    fontSize: 13,
+    fontWeight: "700",
     color: "#0f172a",
     lineHeight: 17,
     marginBottom: 4,
   },
-  tileDesc: {
-    fontSize: 10,
-    color: "#64748b",
-    lineHeight: 13,
-    marginBottom: 4,
-  },
-  tileWeight: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#64748b",
-    marginBottom: 6,
-  },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    marginBottom: 8,
-  },
-  ratingStar: {
-    fontSize: 11,
-  },
-  ratingText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  reviewCount: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#94a3b8",
-  },
-  priceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  priceCol: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  tilePrice: { 
-    fontSize: 16, 
-    fontWeight: "900", 
-    color: "#2D5016",
-    letterSpacing: -0.3,
-  },
+  tileDesc: { fontSize: 10, color: "#64748b", lineHeight: 13, marginBottom: 4 },
+  tileWeight: { fontSize: 11, fontWeight: "600", color: "#64748b", marginBottom: 6 },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 3, marginBottom: 8 },
+  ratingStar: { fontSize: 11 },
+  ratingText: { fontSize: 11, fontWeight: "700", color: "#0f172a" },
+  reviewCount: { fontSize: 10, fontWeight: "600", color: "#94a3b8" },
+  priceRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  priceCol: { flexDirection: "row", alignItems: "center", gap: 6 },
+  tilePrice: { fontSize: 16, fontWeight: "900", color: "#2D5016", letterSpacing: -0.3 },
   originalPrice: {
     fontSize: 12,
     fontWeight: "600",
@@ -782,11 +822,6 @@ const S = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  addBtnText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-    lineHeight: 20,
-  },
+  addBtnText: { color: "#fff", fontSize: 18, fontWeight: "700", lineHeight: 20 },
   empty: { textAlign: "center", color: "#94a3b8", padding: 32 },
 });

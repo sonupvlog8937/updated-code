@@ -128,10 +128,21 @@ interface FilterBottomSheetProps {
   catData?: any[];
 }
 
+/* ── Dialog type — stores WHICH filter opened, not a selectedValues snapshot ── */
+type DialogType = 'brand' | 'size' | 'type' | 'color' | 'weight' | 'ram' | null;
+
+interface DialogMeta {
+  type: DialogType;
+  title: string;
+  options: any[];
+  getKey: (item: any) => any;
+  getLabel: (item: any) => string;
+  onApply: (values: any[]) => void;
+}
+
 const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
   visible,
   onClose,
-  /* filter state */
   selectedBrands,          setSelectedBrands,
   selectedSizes,           setSelectedSizes,
   selectedProductTypes,    setSelectedProductTypes,
@@ -143,14 +154,11 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
   selectedColors,          setSelectedColors,
   activeFiltersCount,
   onResetAllFilters,
-  /* data */
   productsData,
 }) => {
   const slideAnim = useRef(new Animated.Value(0)).current;
 
-  /* Section open states */
   type SectionKey = 'category' | 'brand' | 'size' | 'type' | 'price' | 'sale' | 'color' | 'stock' | 'discount' | 'weight' | 'ram' | 'rating';
-  
   const [open, setOpen] = useState<Record<SectionKey, boolean>>({
     category: true, brand: true, size: true, type: true,
     price: true, sale: false, color: true, stock: false,
@@ -158,39 +166,27 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
   });
   const toggle = (k: SectionKey) => setOpen((p) => ({ ...p, [k]: !p[k] }));
 
-  /* Price state */
   const [priceMin, setPriceMin] = useState<number>(0);
   const [priceMax, setPriceMax] = useState<number>(60000);
   const [activePricePreset, setActivePricePreset] = useState<number | null>(null);
-
-  /* Rating internal */
   const [ratings, setRatings] = useState<number[]>([]);
 
-  /* Stable filter options from API data */
   const filterOptions = productsData?.filterOptions || {};
   const products      = productsData?.products || [];
-  const brands       = filterOptions.brands?.length ? filterOptions.brands : [...new Set(products.map((p: any) => p?.brand?.trim()).filter(Boolean))];
-  const sizes        = filterOptions.sizes?.length ? filterOptions.sizes : [...new Set(products.flatMap((p: any) => p?.size || []).filter(Boolean))];
-  const types        = filterOptions.productTypes?.length ? filterOptions.productTypes : [...new Set(products.map((p: any) => p?.productType || p?.thirdSubCatName || p?.catName).filter(Boolean))];
-  const weights      = filterOptions.weights?.length ? filterOptions.weights : [...new Set(products.flatMap((p: any) => p?.productWeight || []).filter(Boolean))];
-  const ramOpts      = filterOptions.ramOptions?.length ? filterOptions.ramOptions : [...new Set(products.flatMap((p: any) => p?.productRam || []).filter(Boolean))];
-  const colorMap     = new Map<string, string>();
+  const brands  = filterOptions.brands?.length       ? filterOptions.brands       : [...new Set(products.map((p: any) => p?.brand?.trim()).filter(Boolean))] as string[];
+  const sizes   = filterOptions.sizes?.length        ? filterOptions.sizes        : [...new Set(products.flatMap((p: any) => p?.size || []).filter(Boolean))] as string[];
+  const types   = filterOptions.productTypes?.length ? filterOptions.productTypes : [...new Set(products.map((p: any) => p?.productType || p?.thirdSubCatName || p?.catName).filter(Boolean))] as string[];
+  const weights = filterOptions.weights?.length      ? filterOptions.weights      : [...new Set(products.flatMap((p: any) => p?.productWeight || []).filter(Boolean))] as string[];
+  const ramOpts = filterOptions.ramOptions?.length   ? filterOptions.ramOptions   : [...new Set(products.flatMap((p: any) => p?.productRam || []).filter(Boolean))] as string[];
+
+  const colorMap = new Map<string, string>();
   if (filterOptions.colors?.length) filterOptions.colors.forEach((n: string) => colorMap.set(n, ''));
   else products.forEach((p: any) => (p?.colorOptions || []).forEach((c: any) => { if (c?.name && !colorMap.has(c.name)) colorMap.set(c.name, c.code || ''); }));
   const colors = Array.from(colorMap, ([name, code]) => ({ name, code }));
 
-  /* Dialog state */
-  interface DialogConfig {
-    title: string;
-    options: any[];
-    selectedValues: any[];
-    onApply: (values: any[]) => void;
-    getKey: (item: any) => any;
-    getLabel: (item: any) => string;
-  }
-  const [dialogCfg, setDialogCfg] = useState<DialogConfig | null>(null);
+  /* ── Dialog state: only stores WHICH filter to open, NOT selectedValues ── */
+  const [dialogMeta, setDialogMeta] = useState<DialogMeta | null>(null);
 
-  /* Slide animation */
   useEffect(() => {
     Animated.spring(slideAnim, {
       toValue: visible ? 1 : 0,
@@ -201,12 +197,12 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
 
   const totalProducts = productsData?.totalProducts || productsData?.total || 0;
 
-  /* Multiselect helper */
   const multi = <T,>(arr: T[], setFn: React.Dispatch<React.SetStateAction<T[]>>, val: T) =>
     setFn(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
 
-  /* Render limited options with "See more" → opens FilterOptionModal */
+  /* ── renderOptions: openDialog stores meta only, selectedValues fetched live ── */
   interface RenderOptionsParams<T> {
+    dialogType: DialogType;
     title: string;
     options: T[];
     selectedValues: any[];
@@ -216,13 +212,16 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
     getLabel?: (item: T) => string;
     limit?: number;
   }
-  
-  const renderOptions = <T,>({ title, options, selectedValues, onToggle, onApply, getKey, getLabel, limit = 6 }: RenderOptionsParams<T>) => {
-    const visible = options.slice(0, limit);
+
+  const renderOptions = <T,>({
+    dialogType, title, options, selectedValues,
+    onToggle, onApply, getKey, getLabel, limit = 6,
+  }: RenderOptionsParams<T>) => {
+    const preview = options.slice(0, limit);
     const hasMore = options.length > limit;
     return (
       <>
-        {visible.map((opt) => {
+        {preview.map((opt) => {
           const key = getKey(opt);
           return (
             <CheckRow
@@ -237,13 +236,36 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
         {hasMore && (
           <TouchableOpacity
             style={styles.moreBtn}
-            onPress={() => setDialogCfg({ title, options, selectedValues, onApply, getKey, getLabel: (o: any) => String(getLabel ? getLabel(o) : getKey(o)) })}
+            onPress={() =>
+              setDialogMeta({
+                type: dialogType,
+                title,
+                options,
+                getKey,
+                getLabel: (o: any) => String(getLabel ? getLabel(o) : getKey(o)),
+                onApply,
+              })
+            }
           >
             <Text style={styles.moreBtnText}>+{options.length - limit} more</Text>
           </TouchableOpacity>
         )}
       </>
     );
+  };
+
+  /* ── Derive LIVE selectedValues for the open dialog ── */
+  const liveSelectedForDialog = (): any[] => {
+    if (!dialogMeta) return [];
+    switch (dialogMeta.type) {
+      case 'brand':  return selectedBrands || [];
+      case 'size':   return selectedSizes || [];
+      case 'type':   return selectedProductTypes || [];
+      case 'color':  return selectedColors || [];
+      case 'weight': return selectedWeights || [];
+      case 'ram':    return selectedRamOptions || [];
+      default:       return [];
+    }
   };
 
   return (
@@ -254,21 +276,14 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      {/* Backdrop */}
       <Pressable style={styles.backdrop} onPress={onClose} />
 
-      {/* Bottom sheet */}
       <Animated.View
         style={[
           styles.sheet,
-          {
-            transform: [{
-              translateY: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [800, 0] }),
-            }],
-          },
+          { transform: [{ translateY: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [800, 0] }) }] },
         ]}
       >
-        {/* Handle */}
         <View style={styles.handle} />
 
         {/* Header */}
@@ -292,7 +307,7 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
           </View>
         </View>
 
-        {/* Total products badge */}
+        {/* Total badge */}
         {totalProducts > 0 && (
           <View style={styles.totalBadge}>
             <View>
@@ -303,52 +318,48 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
           </View>
         )}
 
-        {/* Scrollable filter sections */}
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
 
-          {/* ── Brand ── */}
+          {/* Brand */}
           {brands.length > 0 && (
             <Section title="Brand" isOpen={open.brand} onToggle={() => toggle('brand')}>
               {renderOptions({
-                title: 'Brand', options: brands,
+                dialogType: 'brand', title: 'Brand', options: brands,
                 selectedValues: selectedBrands || [],
                 onToggle: (b: string) => multi(selectedBrands, setSelectedBrands, b),
                 onApply: (v: string[]) => setSelectedBrands(v),
-                getKey: (b: string) => b,
-                getLabel: (b: string) => b,
+                getKey: (b: string) => b, getLabel: (b: string) => b,
               })}
             </Section>
           )}
 
-          {/* ── Size ── */}
+          {/* Size */}
           {sizes.length > 0 && (
             <Section title="Size" isOpen={open.size} onToggle={() => toggle('size')}>
               {renderOptions({
-                title: 'Size', options: sizes,
+                dialogType: 'size', title: 'Size', options: sizes,
                 selectedValues: selectedSizes || [],
                 onToggle: (s: string) => multi(selectedSizes, setSelectedSizes, s),
                 onApply: (v: string[]) => setSelectedSizes(v),
-                getKey: (s: string) => s,
-                getLabel: (s: string) => s,
+                getKey: (s: string) => s, getLabel: (s: string) => s,
               })}
             </Section>
           )}
 
-          {/* ── Type ── */}
+          {/* Type */}
           {types.length > 0 && (
             <Section title="Type" isOpen={open.type} onToggle={() => toggle('type')}>
               {renderOptions({
-                title: 'Product Type', options: types,
+                dialogType: 'type', title: 'Product Type', options: types,
                 selectedValues: selectedProductTypes || [],
                 onToggle: (t: string) => multi(selectedProductTypes, setSelectedProductTypes, t),
                 onApply: (v: string[]) => setSelectedProductTypes(v),
-                getKey: (t: string) => t,
-                getLabel: (t: string) => t,
+                getKey: (t: string) => t, getLabel: (t: string) => t,
               })}
             </Section>
           )}
 
-          {/* ── Price ── */}
+          {/* Price */}
           <Section title="Price" isOpen={open.price} onToggle={() => toggle('price')}>
             {activePricePreset !== null && (
               <View style={styles.activePriceTag}>
@@ -374,7 +385,6 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
                 </TouchableOpacity>
               ))}
             </ScrollView>
-
             <Text style={styles.sliderLabel}>Custom Range</Text>
             <View style={styles.priceVals}>
               <Text style={styles.priceVal}>₹{priceMin.toLocaleString('en-IN')}</Text>
@@ -382,26 +392,24 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
               <Text style={styles.priceVal}>₹{priceMax.toLocaleString('en-IN')}</Text>
             </View>
             <Slider
-              minimumValue={0} maximumValue={60000} step={100}
-              value={priceMin}
+              minimumValue={0} maximumValue={60000} step={100} value={priceMin}
               onValueChange={(v) => { setPriceMin(Math.min(v, priceMax - 100)); setActivePricePreset(null); }}
               minimumTrackTintColor="#0d0d12" maximumTrackTintColor="#e8e8f0"
               thumbTintColor="#0d0d12" style={{ marginTop: 4 }}
             />
             <Slider
-              minimumValue={0} maximumValue={60000} step={100}
-              value={priceMax}
+              minimumValue={0} maximumValue={60000} step={100} value={priceMax}
               onValueChange={(v) => { setPriceMax(Math.max(v, priceMin + 100)); setActivePricePreset(null); }}
               minimumTrackTintColor="#e8e8f0" maximumTrackTintColor="#0d0d12"
               thumbTintColor="#0d0d12"
             />
           </Section>
 
-          {/* ── Color ── */}
+          {/* Color */}
           {colors.length > 0 && (
             <Section title="Colour" isOpen={open.color} onToggle={() => toggle('color')}>
               {renderOptions({
-                title: 'Colour', options: colors,
+                dialogType: 'color', title: 'Colour', options: colors,
                 selectedValues: selectedColors || [],
                 onToggle: (c: { name: string; code: string }) => multi(selectedColors, setSelectedColors, c.name),
                 onApply: (v: string[]) => setSelectedColors(v),
@@ -411,86 +419,67 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
             </Section>
           )}
 
-          {/* ── Availability ── */}
+          {/* Availability */}
           <Section title="Availability" isOpen={open.stock} onToggle={() => toggle('stock')}>
-            <CheckRow
-              label="In Stock"
-              checked={selectedStockStatus === 'inStock'}
-              onToggle={() => setSelectedStockStatus(selectedStockStatus === 'inStock' ? 'all' : 'inStock')}
-              colorSwatch={null}
-            />
-            <CheckRow
-              label="Out of Stock"
-              checked={selectedStockStatus === 'outOfStock'}
-              onToggle={() => setSelectedStockStatus(selectedStockStatus === 'outOfStock' ? 'all' : 'outOfStock')}
-              colorSwatch={null}
-            />
+            <CheckRow label="In Stock" checked={selectedStockStatus === 'inStock'}
+              onToggle={() => setSelectedStockStatus(selectedStockStatus === 'inStock' ? 'all' : 'inStock')} colorSwatch={null} />
+            <CheckRow label="Out of Stock" checked={selectedStockStatus === 'outOfStock'}
+              onToggle={() => setSelectedStockStatus(selectedStockStatus === 'outOfStock' ? 'all' : 'outOfStock')} colorSwatch={null} />
           </Section>
 
-          {/* ── Discount ── */}
+          {/* Discount */}
           <Section title="Discount" isOpen={open.discount} onToggle={() => toggle('discount')}>
             {DISCOUNT_BANDS.map((b) => (
-              <CheckRow
-                key={b.min}
-                label={b.label}
+              <CheckRow key={b.min} label={b.label}
                 checked={(selectedDiscountRanges || []).includes(b.min)}
                 onToggle={() => multi(selectedDiscountRanges, setSelectedDiscountRanges, b.min)}
-                colorSwatch={null}
-              />
+                colorSwatch={null} />
             ))}
           </Section>
 
-          {/* ── Sale Only ── */}
+          {/* Offers */}
           <Section title="Offers" isOpen={open.sale} onToggle={() => toggle('sale')}>
             <View style={styles.switchRow}>
               <Text style={styles.switchLabel}>Sale Items Only</Text>
-              <Switch
-                value={selectedSaleOnly}
-                onValueChange={setSelectedSaleOnly}
-                trackColor={{ false: '#e8e8f0', true: '#0d0d12' }}
-                thumbColor="#fff"
-              />
+              <Switch value={selectedSaleOnly} onValueChange={setSelectedSaleOnly}
+                trackColor={{ false: '#e8e8f0', true: '#0d0d12' }} thumbColor="#fff" />
             </View>
           </Section>
 
-          {/* ── Weight ── */}
+          {/* Weight */}
           {weights.length > 0 && (
             <Section title="Weight" isOpen={open.weight} onToggle={() => toggle('weight')}>
               {renderOptions({
-                title: 'Weight', options: weights,
+                dialogType: 'weight', title: 'Weight', options: weights,
                 selectedValues: selectedWeights || [],
                 onToggle: (w: string) => multi(selectedWeights, setSelectedWeights, w),
                 onApply: (v: string[]) => setSelectedWeights(v),
-                getKey: (w: string) => w,
-                getLabel: (w: string) => w,
+                getKey: (w: string) => w, getLabel: (w: string) => w,
               })}
             </Section>
           )}
 
-          {/* ── RAM ── */}
+          {/* RAM */}
           {ramOpts.length > 0 && (
             <Section title="RAM" isOpen={open.ram} onToggle={() => toggle('ram')}>
               {renderOptions({
-                title: 'RAM', options: ramOpts,
+                dialogType: 'ram', title: 'RAM', options: ramOpts,
                 selectedValues: selectedRamOptions || [],
                 onToggle: (r: string) => multi(selectedRamOptions, setSelectedRamOptions, r),
                 onApply: (v: string[]) => setSelectedRamOptions(v),
-                getKey: (r: string) => r,
-                getLabel: (r: string) => r,
+                getKey: (r: string) => r, getLabel: (r: string) => r,
               })}
             </Section>
           )}
 
-          {/* ── Rating ── */}
+          {/* Rating */}
           <Section title="Rating" isOpen={open.rating} onToggle={() => toggle('rating')}>
             {RATING_STARS.map((star) => (
-              <CheckRow
-                key={star}
+              <CheckRow key={star}
                 label={`${'★'.repeat(star)}${'☆'.repeat(5 - star)}  & up`}
                 checked={ratings.includes(star)}
                 onToggle={() => setRatings((p) => p.includes(star) ? p.filter((x) => x !== star) : [...p, star])}
-                colorSwatch={null}
-              />
+                colorSwatch={null} />
             ))}
           </Section>
 
@@ -501,9 +490,7 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
         <View style={styles.footer}>
           <TouchableOpacity style={styles.applyBtn} onPress={onClose}>
             <Ionicons name="checkmark-circle" size={16} color="#fff" />
-            <Text style={styles.applyText}>
-              Apply{activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
-            </Text>
+            <Text style={styles.applyText}>Apply{activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.cancelFooterBtn} onPress={onClose}>
             <Ionicons name="close" size={14} color="#374151" />
@@ -512,17 +499,17 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
         </View>
       </Animated.View>
 
-      {/* FilterOptionModal — for "see more" */}
-      {dialogCfg && (
+      {/* FilterOptionModal — selectedValues fetched LIVE from state, never stale */}
+      {dialogMeta && (
         <FilterOptionModal
-          visible={Boolean(dialogCfg)}
-          onClose={() => setDialogCfg(null)}
-          title={dialogCfg.title}
-          options={dialogCfg.options}
-          selectedValues={dialogCfg.selectedValues}
-          onApplySelection={dialogCfg.onApply}
-          getOptionKey={dialogCfg.getKey}
-          getOptionLabel={dialogCfg.getLabel}
+          visible={Boolean(dialogMeta)}
+          onClose={() => setDialogMeta(null)}
+          title={dialogMeta.title}
+          options={dialogMeta.options}
+          selectedValues={liveSelectedForDialog()}   // ← always fresh
+          onApplySelection={dialogMeta.onApply}
+          getOptionKey={dialogMeta.getKey}
+          getOptionLabel={dialogMeta.getLabel}
         />
       )}
     </Modal>
@@ -530,21 +517,14 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
 };
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
-  },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   sheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
     maxHeight: '88%', paddingTop: 8,
     shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.14, shadowRadius: 20, elevation: 24,
   },
-  handle: {
-    width: 36, height: 4, borderRadius: 2,
-    backgroundColor: '#e0e0e8', alignSelf: 'center', marginBottom: 12,
-  },
-
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#e0e0e8', alignSelf: 'center', marginBottom: 12 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 12,
@@ -555,67 +535,45 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   resetBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(232,54,42,0.08)',
-    borderWidth: 1, borderColor: 'rgba(232,54,42,0.2)',
+    backgroundColor: 'rgba(232,54,42,0.08)', borderWidth: 1, borderColor: 'rgba(232,54,42,0.2)',
     borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
   },
   resetText: { fontSize: 12, fontWeight: '600', color: '#E8362A' },
-  closeBtn: {
-    width: 30, height: 30, borderRadius: 8,
-    backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center',
-  },
-
+  closeBtn: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center' },
   totalBadge: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginHorizontal: 16, marginVertical: 10,
-    padding: 10, borderRadius: 12,
-    backgroundColor: '#0d0d12',
+    marginHorizontal: 16, marginVertical: 10, padding: 10, borderRadius: 12, backgroundColor: '#0d0d12',
   },
   totalNum:   { fontSize: 22, fontWeight: '800', color: '#fff' },
   totalLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 1 },
   totalDot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E8362A' },
-
-  scroll: { paddingHorizontal: 16 },
-
-  moreBtn: { paddingVertical: 4 },
+  scroll:     { paddingHorizontal: 16 },
+  moreBtn:    { paddingVertical: 4 },
   moreBtnText: { fontSize: 12, fontWeight: '600', color: '#2563eb' },
-
-  /* Price */
   activePriceTag: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#0d0d12', borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start',
-    marginBottom: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#0d0d12',
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginBottom: 8,
   },
   activePriceText: { fontSize: 11, fontWeight: '700', color: '#fff' },
-
   pricePreset: {
     marginRight: 6, paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1.5, borderColor: '#e8e8f0',
-    backgroundColor: '#f8f8fb',
+    borderRadius: 20, borderWidth: 1.5, borderColor: '#e8e8f0', backgroundColor: '#f8f8fb',
   },
   pricePresetActive: { backgroundColor: '#f0f0fa', borderColor: '#c7c7ef' },
   pricePresetText: { fontSize: 12, fontWeight: '500', color: '#374151' },
   pricePresetTextActive: { color: '#0d0d12', fontWeight: '700' },
-
   sliderLabel: { fontSize: 11, color: '#9ca3af', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 6, marginBottom: 4 },
   priceVals:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   priceVal:   { backgroundColor: '#f8f8fb', borderWidth: 1, borderColor: '#e8e8f0', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, fontSize: 12, fontWeight: '700', color: '#0d0d12' },
   priceDash:  { fontSize: 12, color: '#9ca3af' },
-
-  /* Switch */
-  switchRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
+  switchRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
   switchLabel: { fontSize: 13, fontWeight: '500', color: '#374151' },
-
-  /* Footer */
   footer: {
-    flexDirection: 'row', gap: 8,
-    padding: 16, paddingBottom: 28,
+    flexDirection: 'row', gap: 8, padding: 16, paddingBottom: 28,
     borderTopWidth: 1, borderTopColor: '#f0f0f5',
   },
   applyBtn: {
-    flex: 1, height: 46, borderRadius: 12,
-    backgroundColor: '#0d0d12',
+    flex: 1, height: 46, borderRadius: 12, backgroundColor: '#0d0d12',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
   },
   applyText: { fontSize: 14, fontWeight: '700', color: '#fff' },

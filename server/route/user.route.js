@@ -25,7 +25,7 @@ userRouter.post('/login-phone-otp/send',sendPhoneLoginOtpController)
 userRouter.post('/login-phone-otp/verify',verifyPhoneLoginOtpController)
 userRouter.post('/authWithGoogle',authWithGoogle)
 userRouter.get('/logout',auth,logoutController);
-userRouter.put('/user-avatar',auth,upload.array('avatar'),userAvatarController);
+userRouter.put('/user-avatar',auth,upload.single('avatar'),userAvatarController);
 userRouter.delete('/deteleImage',auth,removeImageFromCloudinary);
 userRouter.put('/:id',auth,updateUserDetails);
 userRouter.post('/forgot-password',forgotPasswordController)

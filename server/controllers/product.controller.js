@@ -239,6 +239,11 @@ const buildSearchSuggestions = (
       item?.subCat,
       item?.thirdsubCat,
       ...(item?.keywords || []),
+      item?.title,
+      item?.searchKeywords,
+      item?.seoDescription,
+      item?.attributes,
+      item?.productType,
     ].forEach((value) => {
       const normalized = normalizeSearchText(value);
       if (
@@ -966,6 +971,11 @@ export async function getProductsBySellerPublic(request, response) {
         { catName: searchRegex },
         { subCat: searchRegex },
         { thirdsubCat: searchRegex },
+        { title: searchRegex },
+        { searchKeywords: searchRegex },
+        { seoDescription: searchRegex },
+        { attributes: searchRegex },
+        { productType: searchRegex },
       ];
     }
 
@@ -2057,16 +2067,36 @@ export async function productSearchSuggestions(request, response) {
         { keywords: new RegExp(query, "i") },
         { catName: new RegExp(query, "i") },
         { subCat: new RegExp(query, "i") },
+        { title: new RegExp(query, "i") },
+        { searchKeywords: new RegExp(query, "i") },
+        { seoDescription: new RegExp(query, "i") },
+        { attributes: new RegExp(query, "i") },
+        { productType: new RegExp(query, "i") },
       ]
     })
-    .select("name brand catName subCat image price discount")
+    .select("name brand catName subCat image price discount title searchKeywords seoDescription attributes productType")
     .limit(200)
     .lean();
 
     // Use fuzzy matching to rank suggestions
     const suggestions = rankSuggestions(query, products, {
       limit: 8,
-      getLabel: (p) => p.name,
+      getLabel: (p) => {
+        // Combine all SEO fields for better fuzzy matching
+        const searchFields = [
+          p.name,
+          p.brand,
+          p.catName,
+          p.subCat,
+          p.title || "",
+          p.searchKeywords || "",
+          p.seoDescription || "",
+          p.attributes || "",
+          p.productType || "",
+          ...(p.keywords || []),
+        ].filter(Boolean).join(" ");
+        return searchFields;
+      },
     }).map((p) => ({
       _id: p._id,
       name: p.name,
@@ -2148,11 +2178,11 @@ export async function searchProductController(request, response) {
 
     const intentPhraseMatchers = intentPhrases.map(phrase => {
       const r = new RegExp(phrase, "i");
-      return { $or: [{ name:r },{ brand:r },{ description:r },{ keywords:r },{ catName:r },{ subCat:r },{ thirdsubCat:r }] };
+      return { $or: [{ name:r },{ brand:r },{ description:r },{ keywords:r },{ catName:r },{ subCat:r },{ thirdsubCat:r },{ title:r },{ searchKeywords:r },{ seoDescription:r },{ attributes:r },{ productType:r }] };
     });
     const termBasedMatcher = queryParts.map(term => {
       const r = new RegExp(term, "i");
-      return { $or: [{ name:r },{ brand:r },{ description:r },{ keywords:r },{ catName:r },{ subCat:r },{ thirdsubCat:r }] };
+      return { $or: [{ name:r },{ brand:r },{ description:r },{ keywords:r },{ catName:r },{ subCat:r },{ thirdsubCat:r },{ title:r },{ searchKeywords:r },{ seoDescription:r },{ attributes:r },{ productType:r }] };
     });
 
     // ✅ FIX: fetch + filterOptions parallel mein
@@ -2161,7 +2191,8 @@ export async function searchProductController(request, response) {
         $or: [
           { name: fullQueryRegex }, { brand: fullQueryRegex }, { description: fullQueryRegex },
           { keywords: fullQueryRegex }, { catName: fullQueryRegex }, { subCat: fullQueryRegex },
-          { thirdsubCat: fullQueryRegex },
+          { thirdsubCat: fullQueryRegex }, { title: fullQueryRegex }, { searchKeywords: fullQueryRegex },
+          { seoDescription: fullQueryRegex }, { attributes: fullQueryRegex }, { productType: fullQueryRegex },
           ...intentPhraseMatchers,
           ...(termBasedMatcher.length ? [{ $and: termBasedMatcher }] : []),
         ],
@@ -2174,7 +2205,7 @@ export async function searchProductController(request, response) {
     const correctedTokens = getMeaningfulSearchTokens(correctedQuery || cleanQuery);
 
     let scoredProducts = products.map(item => {
-      const data = [item?.name, item?.brand, item?.catName, item?.subCat, item?.thirdsubCat, item?.description, ...(item?.keywords||[])]
+      const data = [item?.name, item?.brand, item?.catName, item?.subCat, item?.thirdsubCat, item?.description, ...(item?.keywords||[]), item?.title, item?.searchKeywords, item?.seoDescription, item?.attributes, item?.productType]
         .map(f => normalizeSearchText(f)).filter(Boolean);
       let score = 0;
       for (const term of correctedTokens) {
@@ -2193,7 +2224,7 @@ export async function searchProductController(request, response) {
       const fbTokens      = getMeaningfulSearchTokens(fbCorrection || cleanQuery);
 
       scoredProducts = fuzzyFallback.map(item => {
-        const fields = [item?.name, ...(item?.keywords||[]), item?.brand].map(f => normalizeSearchText(f)).filter(Boolean);
+        const fields = [item?.name, ...(item?.keywords||[]), item?.brand, item?.title, item?.searchKeywords, item?.seoDescription, item?.attributes, item?.productType].map(f => normalizeSearchText(f)).filter(Boolean);
         const dist = Math.min(...fields.map(f => Math.min(...f.split(" ").filter(Boolean).map(w => Math.min(...fbTokens.map(t => levenshteinDistance(t,w)))))));
         return { item, distance: dist };
       }).filter(e => e.distance <= 2).sort((a,b) => a.distance-b.distance).map(e => e.item);

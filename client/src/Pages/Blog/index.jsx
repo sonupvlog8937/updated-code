@@ -14,7 +14,7 @@ const Blog = () => {
     // Page load hote hi top par push karein
     window.scrollTo(0, 0);
 
-    // Global loading start karein (jo aapne App.jsx mein handle kiya hai)
+    // Global loading start karein (jo aapne App.jsx dafdfmein handle kiya hai)
     dispatch(setGlobalLoading(true));
     setIsLoading(true);
 

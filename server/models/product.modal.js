@@ -25,6 +25,12 @@ const productSchema = mongoose.Schema(
     size:          [{ type: String, default: null }],
     productWeight: [{ type: String, default: null }],
     keywords:      [{ type: String, default: "" }],
+    tags:          [{ type: String, default: "" }],
+    searchKeywords: { type: String, default: "" },
+    seoDescription: { type: String, default: "" },
+    attributes:     { type: String, default: "" },
+    title:         { type: String, default: "" },
+    productType:   { type: String, default: "" },
     colorOptions: [
       {
         name:   { type: String, default: "" },
@@ -75,8 +81,8 @@ productSchema.index({ catId: 1, price: 1 });          // price filter inside cat
 
 // --- Text index for search ---
 productSchema.index(
-  { name: "text", brand: "text", catName: "text", subCat: "text", thirdsubCat: "text", keywords: "text" },
-  { weights: { name: 10, brand: 5, keywords: 5, catName: 3, subCat: 2, thirdsubCat: 1 }, name: "product_text_search" },
+  { name: "text", brand: "text", catName: "text", subCat: "text", thirdsubCat: "text", keywords: "text", tags: "text", searchKeywords: "text", seoDescription: "text", attributes: "text", title: "text", productType: "text" },
+  { weights: { name: 10, brand: 5, keywords: 5, tags: 4, searchKeywords: 4, title: 5, catName: 3, subCat: 2, thirdsubCat: 1, seoDescription: 2, attributes: 2, productType: 2 }, name: "product_text_search" },
 );
 
 const ProductModel = mongoose.model("Product", productSchema);

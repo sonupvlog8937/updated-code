@@ -124,8 +124,8 @@ export const deleteData = async (
       hasAuth: !!headers.Authorization,
     });
 
-    // Create axios config
-    const config = { headers };
+    // Create axios config with proper typing
+    const config: { headers: Record<string, string>; data?: any } = { headers };
     
     // Only add data if provided
     if (data) {
@@ -172,11 +172,32 @@ export const uploadImage = async (
   formData: FormData,
 ): Promise<any> => {
   try {
-    const headers = await getAuthHeaders("multipart/form-data");
-    const res = await axios.put(API_URL + url, formData, { headers });
+    const token = await getToken();
+    console.log("📤 Uploading image to:", API_URL + url);
+    console.log("📤 Token present:", !!token);
+    
+    // For multipart/form-data, don't set Content-Type manually
+    // Let axios/fetch set it with proper boundary
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token || ""}`,
+    };
+    
+    console.log("📤 FormData prepared for upload");
+    
+    const res = await axios.post(API_URL + url, formData, { 
+      headers,
+      transformRequest: (data) => data, // Don't transform FormData
+    });
+    
+    console.log("✅ Upload success:", res.data);
     return res.data;
   } catch (error) {
     const err = error as AxiosError;
+    console.error("❌ Upload error:", {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status,
+    });
     return err.response?.data ?? { error: true, message: "Upload failed" };
   }
 };

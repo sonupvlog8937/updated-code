@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import AccountSidebar from "../../components/AccountSidebar";
 import { fetchDataFromApi, postData } from "../../utils/api";
-import Pagination from "@mui/material/Pagination";
 import {
   MdOutlineShoppingBag, MdLocalShipping, MdCheckCircle,
   MdPending, MdCancel, MdKeyboardArrowDown, MdKeyboardArrowUp,
@@ -131,6 +130,16 @@ const CSS = `
   .ord-return-note { font-size:11px; color:#6b7280; margin-top:10px; text-align:right; }
 
   .ord-pagination { display: flex; justify-content: center; padding: 20px 24px 24px; }
+  .ord-loading-spinner {
+    width: 24px; height: 24px; border: 3px solid #f3f4f6;
+    border-top: 3px solid #E8362A; border-radius: 50%;
+    animation: ord-spin 0.8s linear infinite;
+  }
+  @keyframes ord-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  .ord-loading-container {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; padding: 24px; font-size: 13px; color: #6b7280; font-weight: 600;
+  }
 `;
 
 /* ── Status ── */
@@ -185,14 +194,63 @@ const getStepState = (orderStatus, step) => {
 ═══════════════════════════ */
 const Orders = () => {
   const [openOrder, setOpenOrder] = useState(null);
-  const [orders,    setOrders]    = useState([]);
+  const [orders,    setOrders]    = useState({ data: [], totalPages: 1, total: 0 });
   const [page,      setPage]      = useState(1);
+  const [loading,   setLoading]   = useState(false);
+  const [hasMore,   setHasMore]   = useState(true);
+  const observerRef = useRef(null);
 
   useEffect(() => {
+    console.log(`📦 Client: Fetching orders page ${page}`);
+    setLoading(true);
     fetchDataFromApi(`/api/order/order-list/orders?page=${page}&limit=5`).then((res) => {
-      if (res?.error === false) setOrders(res);
+      console.log("📦 Client: Orders API Response:", res);
+      if (res?.error === false) {
+        setOrders(prev => {
+          const newData = page === 1 ? res.data : [...prev.data, ...res.data];
+          console.log(`✅ Client: Updated orders - ${newData.length}/${res.totalPages} pages`);
+          return {
+            ...res,
+            data: newData
+          };
+        });
+        setHasMore(page < res.totalPages);
+      } else {
+        console.error("❌ Client: Failed to fetch orders:", res?.message);
+      }
+      setLoading(false);
+    }).catch(err => {
+      console.error("❌ Client: Error fetching orders:", err);
+      setLoading(false);
     });
   }, [page]);
+
+  useEffect(() => {
+    if (loading || !hasMore) {
+      console.log("⏭️ Client: Skipping observer setup", { loading, hasMore });
+      return;
+    }
+    
+    console.log("👀 Client: Setting up IntersectionObserver");
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        console.log("🔄 Client: Sentinel visible, loading next page");
+        setPage(p => p + 1);
+      }
+    }, { threshold: 0.1 });
+
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+      console.log("✅ Client: Observer attached to sentinel");
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observer.unobserve(observerRef.current);
+        console.log("🧹 Client: Observer cleaned up");
+      }
+    };
+  }, [loading, hasMore]);
 
   const [loadingReturnId, setLoadingReturnId] = useState("");
 
@@ -205,8 +263,15 @@ const Orders = () => {
     setLoadingReturnId(orderId);
     const res = await postData(`/api/order/return-request/${orderId}`, { reason: reason || "Customer requested return" });
     if (res?.success) {
-      const refreshed = await fetchDataFromApi(`/api/order/order-list/orders?page=${page}&limit=5`);
-      if (refreshed?.error === false) setOrders(refreshed);
+      setOrders(prev => ({
+        ...prev,
+        data: prev.data.map(o => o._id === orderId ? {
+          ...o,
+          returnRequest: res.data.returnRequest,
+          refund: res.data.refund,
+          order_status: res.data.order_status
+        } : o)
+      }));
     } else {
       window.alert(res?.message || "Return request failed");
     }
@@ -230,7 +295,7 @@ const Orders = () => {
             <div className="ord-header">
               <div className="ord-header-left">
                 <h2>My Orders</h2>
-                <p><span>{orders?.data?.length || 0}</span> orders found</p>
+                <p><span>{orders?.total || 0}</span> orders found</p>
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:7,
                 background:"#f8f8fb", border:"1px solid #eef0f6",
@@ -473,19 +538,11 @@ const Orders = () => {
               );
             })}
 
-            {/* Pagination */}
-            {orders?.totalPages > 1 && (
-              <div className="ord-pagination">
-                <Pagination
-                  showFirstButton showLastButton
-                  count={orders?.totalPages}
-                  page={page}
-                  onChange={(e, v) => setPage(v)}
-                  sx={{
-                    "& .MuiPaginationItem-root": { fontFamily:"'DM Sans',sans-serif", fontWeight:600 },
-                    "& .Mui-selected": { background:"#0a0a0f !important", color:"#fff" },
-                  }}
-                />
+            {/* Infinite Scroll Sentinel */}
+            {hasMore && (
+              <div ref={observerRef} className="ord-loading-container">
+                <div className="ord-loading-spinner" />
+                <span>Loading more orders...</span>
               </div>
             )}
 

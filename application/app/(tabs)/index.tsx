@@ -34,8 +34,6 @@ import Animated, {
   ZoomIn,
   SlideInRight,
 } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
-
 import {
   useAppDispatch,
   useAppSelector,
@@ -642,7 +640,7 @@ function LoginModal({ visible, onClose, onLogin, onRegister }: {
               </Animated.View>
 
               <ModalButton onPress={onLogin}    label="Login Now"      variant="primary" icon="log-in"   delay={760} />
-              <ModalButton onPress={onRegister} label="Create Account" variant="outline" icon="user-plus" delay={860} />
+              {/* <ModalButton onPress={onRegister} label="Create Account" variant="outline" icon="user-plus" delay={860} /> */}
 
               <Animated.View entering={FadeInDown.delay(960).duration(360)}>
                 <Pressable onPress={onClose} style={ms.skipBtn}>
@@ -878,7 +876,10 @@ const HomeScreen: React.FC = () => {
           />
         }
         scrollEventThrottle={16}
-        removeClippedSubviews={Platform.OS === 'android'}
+        removeClippedSubviews={false}
+        windowSize={21}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
         overScrollMode="never"
       />
     </SafeAreaView>

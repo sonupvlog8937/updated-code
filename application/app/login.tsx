@@ -1,4 +1,4 @@
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -26,11 +26,9 @@ import Animated, {
   Easing,
   FadeInDown,
   FadeInUp,
-  runOnJS,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useColors } from "@/hooks/useColors";
 import { useAppDispatch } from "@/src/store";
 import {
   fetchCartItems,
@@ -45,9 +43,8 @@ const { width, height } = Dimensions.get("window");
 const IS_SMALL = width < 375;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
-// ─── Vibrant Theme Colors ─────────────────────────────────────────
+// ─── Theme Colors ─────────────────────────────────────────────────
 const THEME = {
   gradientStart: "#667eea",
   gradientMid: "#764ba2",
@@ -64,28 +61,21 @@ const THEME = {
   textMuted: "rgba(255,255,255,0.5)",
   btnGradientStart: "#ff6b6b",
   btnGradientEnd: "#ee5a24",
-  socialGoogle: "#ffffff",
-  socialApple: "#000000",
 };
 
 // ─── Animated Input Field ─────────────────────────────────────────
 interface AnimatedFieldProps extends React.ComponentProps<typeof TextInput> {
   icon: keyof typeof Feather.glyphMap;
-  rightIcon?: keyof typeof Feather.glyphMap;
-  onRightPress?: () => void;
   onFocus?: (e?: any) => void;
   delay?: number;
 }
 
-export const Field: React.FC<AnimatedFieldProps> = ({
+const Field: React.FC<AnimatedFieldProps> = ({
   icon,
-  rightIcon,
-  onRightPress,
   onFocus,
   delay = 0,
   ...rest
 }) => {
-  const colors = useColors();
   const [isFocused, setIsFocused] = useState(false);
   const borderAnim = useSharedValue(0);
   const scaleAnim = useSharedValue(1);
@@ -93,7 +83,7 @@ export const Field: React.FC<AnimatedFieldProps> = ({
 
   useEffect(() => {
     iconAnim.value = withDelay(delay, withSpring(1, { damping: 12, stiffness: 120 }));
-  }, []);
+  }, [delay]);
 
   const handleFocus = useCallback(
     (e?: any) => {
@@ -128,7 +118,6 @@ export const Field: React.FC<AnimatedFieldProps> = ({
 
   return (
     <View style={{ position: "relative" }}>
-      {/* Glow effect behind input */}
       <Animated.View
         style={[
           {
@@ -167,11 +156,6 @@ export const Field: React.FC<AnimatedFieldProps> = ({
           onBlur={handleBlur}
           style={[styles.input, { color: THEME.textPrimary }, rest.style]}
         />
-        {rightIcon ? (
-          <Pressable onPress={onRightPress} hitSlop={8}>
-            <Feather name={rightIcon} size={18} color={THEME.textSecondary} />
-          </Pressable>
-        ) : null}
       </Animated.View>
     </View>
   );
@@ -235,7 +219,6 @@ function AnimatedButton({
         end={{ x: 1, y: 1 }}
         style={styles.btnGradient}
       >
-        {/* Shimmer overlay */}
         <Animated.View
           style={[
             {
@@ -255,50 +238,7 @@ function AnimatedButton({
   );
 }
 
-// ─── Social Button ────────────────────────────────────────────────
-function SocialButton({
-  icon,
-  iconColor,
-  label,
-  bgColor,
-  textColor,
-  onPress,
-  delay = 0,
-}: {
-  icon: string;
-  iconColor: string;
-  label: string;
-  bgColor: string;
-  textColor: string;
-  onPress: () => void;
-  delay?: number;
-}) {
-  const scale = useSharedValue(1);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <Animated.View entering={FadeInDown.delay(delay).duration(500).springify()}>
-      <AnimatedPressable
-        onPress={onPress}
-        onPressIn={() => {
-          scale.value = withSpring(0.96, { damping: 15, stiffness: 300 });
-        }}
-        onPressOut={() => {
-          scale.value = withSpring(1, { damping: 15, stiffness: 300 });
-        }}
-        style={[styles.socialBtn, { backgroundColor: bgColor }, animStyle]}
-      >
-        <Ionicons name={icon as any} size={20} color={iconColor} />
-        <Text style={[styles.socialBtnText, { color: textColor }]}>{label}</Text>
-      </AnimatedPressable>
-    </Animated.View>
-  );
-}
-
-// ─── Floating Orb Decoration ──────────────────────────────────────
+// ─── Floating Orb ─────────────────────────────────────────────────
 function FloatingOrb({
   size,
   color,
@@ -328,7 +268,7 @@ function FloatingOrb({
         true,
       ),
     );
-  }, []);
+  }, [delay]);
 
   const style = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -355,16 +295,19 @@ function FloatingOrb({
 
 // ─── Main Screen ──────────────────────────────────────────────────
 export default function LoginScreen() {
-  const colors = useColors();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  
+  // Step management: "email" | "otp" | "name"
+  const [step, setStep] = useState<"email" | "otp" | "name">("email");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPwd, setShowPwd] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [name, setName] = useState("");
+  const [isNewUser, setIsNewUser] = useState(false);
   const [loading, setLoading] = useState(false);
+  
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Entrance animations
   const headerOpacity = useSharedValue(0);
   const headerTranslateY = useSharedValue(30);
   const formOpacity = useSharedValue(0);
@@ -387,66 +330,196 @@ export default function LoginScreen() {
     opacity: formOpacity.value,
   }));
 
-  const onLogin = async () => {
-    if (!email.trim() || !password) {
-      showToast("error", "Email and password are required");
+  // Step 1: Send OTP to email (works for both new and existing users)
+  const handleEmailSubmit = async () => {
+    if (!email.trim() || !email.includes("@")) {
+      showToast("error", "❌ Please enter a valid email address");
       return;
     }
+    
     setLoading(true);
     try {
-      const res = await postData("/api/user/login", { email, password });
+      // Try existing user login OTP first
+      const res = await postData("/api/user/send-login-otp", { email: email.trim() });
+      
       if (res?.error === false) {
-        await AsyncStorage.setItem("accessToken", res?.data?.accesstoken || "");
-        await AsyncStorage.setItem(
-          "refreshToken",
-          res?.data?.refreshToken || "",
-        );
-        await AsyncStorage.setItem("userEmail", email);
-        dispatch(setIsLogin(true));
-        dispatch(fetchUserDetails());
-        dispatch(fetchCartItems());
-        dispatch(fetchMyListData());
-        showToast("success", "Welcome back!");
+        // User exists and is active
+        setIsNewUser(false);
+        setStep("otp");
+        showToast("success", "✅ OTP sent to your email!");
+      } else if (
+        res?.message?.toLowerCase().includes("not found") ||
+        res?.message?.toLowerCase().includes("not registered")
+      ) {
+        // New user - send registration OTP with temporary name
+        const registerRes = await postData("/api/user/send-register-otp", {
+          email: email.trim(),
+          name: "User", // Temporary name, will be updated after OTP verification
+        });
 
-        setTimeout(() => {
-          router.replace("/" as never);
-        }, 800);
-      } else {
-        // Better error messages based on API response
-        const errorMsg = res?.message || "Login failed";
-        if (errorMsg.toLowerCase().includes("not found") || errorMsg.toLowerCase().includes("user")) {
-          showToast("error", "❌ User not found. Please check your email.");
-        } else if (errorMsg.toLowerCase().includes("password") || errorMsg.toLowerCase().includes("incorrect")) {
-          showToast("error", "❌ Incorrect password. Please try again.");
-        } else if (errorMsg.toLowerCase().includes("invalid")) {
-          showToast("error", "❌ Invalid email format. Please check.");
+        if (registerRes?.error === false) {
+          setIsNewUser(true);
+          setStep("otp");
+          showToast("success", "✅ OTP sent to your email!");
         } else {
-          showToast("error", `❌ ${errorMsg}`);
+          showToast("error", `❌ ${registerRes?.message || "Failed to send OTP"}`);
         }
+      } else {
+        showToast("error", `❌ ${res?.message || "Failed to send OTP"}`);
       }
     } catch (err) {
-      console.error("Login error:", err);
+      console.error("Send OTP error:", err);
       showToast("error", "❌ Network error. Please check your connection.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEmailFocus = () => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-    }, 300);
+  // Step 2: Verify OTP
+  const handleVerifyOtp = async () => {
+    if (!otp.trim() || otp.length < 4) {
+      showToast("error", "❌ Please enter valid OTP");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      if (isNewUser) {
+        // New user - just verify OTP is correct, then ask for name
+        setStep("name");
+        showToast("success", "✅ OTP verified! Please enter your name");
+        setLoading(false);
+      } else {
+        // Existing user - login directly
+        const res = await postData("/api/user/verify-login-otp", {
+          email,
+          otp: otp.trim(),
+        });
+
+        if (res?.error === false) {
+          await AsyncStorage.setItem("accessToken", res?.data?.accesstoken || "");
+          await AsyncStorage.setItem("refreshToken", res?.data?.refreshToken || "");
+          await AsyncStorage.setItem("userEmail", email);
+          dispatch(setIsLogin(true));
+          dispatch(fetchUserDetails());
+          dispatch(fetchCartItems());
+          dispatch(fetchMyListData());
+
+          showToast("success", "✅ Welcome back!");
+
+          setTimeout(() => {
+            router.replace("/" as never);
+          }, 800);
+        } else {
+          showToast("error", `❌ ${res?.message || "Invalid OTP"}`);
+        }
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error("Verify OTP error:", err);
+      showToast("error", "❌ Network error. Please check your connection.");
+      setLoading(false);
+    }
   };
 
-  const handlePasswordFocus = () => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollTo({ y: 50, animated: true });
-    }, 300);
+  // Step 3: Complete registration with name (for new users)
+  const handleNameSubmit = async () => {
+    if (!name.trim() || name.trim().length < 2) {
+      showToast("error", "❌ Please enter your name (minimum 2 characters)");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      // Re-verify with actual name to complete registration
+      const res = await postData("/api/user/verify-register-otp", {
+        email,
+        otp: otp.trim(),
+        name: name.trim(),
+      });
+
+      if (res?.error === false) {
+        await AsyncStorage.setItem("accessToken", res?.data?.accesstoken || "");
+        await AsyncStorage.setItem("refreshToken", res?.data?.refreshToken || "");
+        await AsyncStorage.setItem("userEmail", email);
+        dispatch(setIsLogin(true));
+        dispatch(fetchUserDetails());
+        dispatch(fetchCartItems());
+        dispatch(fetchMyListData());
+
+        showToast("success", `🎉 Welcome ${name.trim()}!`);
+
+        setTimeout(() => {
+          router.replace("/" as never);
+        }, 800);
+      } else {
+        showToast("error", `❌ ${res?.message || "Failed to complete registration"}`);
+      }
+    } catch (err) {
+      console.error("Complete registration error:", err);
+      showToast("error", "❌ Network error. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleBack = () => {
+    if (step === "otp") {
+      setStep("email");
+      setOtp("");
+    } else if (step === "name") {
+      setStep("otp");
+      setName("");
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setLoading(true);
+    try {
+      const endpoint = isNewUser ? "/api/user/send-register-otp" : "/api/user/send-login-otp";
+      const payload = isNewUser
+        ? { email: email.trim(), name: "User" }
+        : { email: email.trim() };
+
+      const res = await postData(endpoint, payload);
+      if (res?.error === false) {
+        showToast("success", "✅ OTP resent to your email!");
+      } else {
+        showToast("error", `❌ ${res?.message || "Failed to resend OTP"}`);
+      }
+    } catch (err) {
+      console.error("Resend OTP error:", err);
+      showToast("error", "❌ Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Heading based on step
+  const getHeaderContent = () => {
+    switch (step) {
+      case "email":
+        return {
+          title: "Welcome ✨",
+          subtitle: "Enter your email to get started",
+        };
+      case "otp":
+        return {
+          title: "Verify OTP 🔐",
+          subtitle: `We sent a code to ${email}`,
+        };
+      case "name":
+        return {
+          title: "Almost there! 👋",
+          subtitle: "Please tell us your name",
+        };
+    }
+  };
+
+  const headerContent = getHeaderContent();
 
   return (
     <View style={{ flex: 1 }}>
-      {/* Gradient Background */}
       <LinearGradient
         colors={[THEME.gradientStart, THEME.gradientMid, THEME.gradientEnd]}
         start={{ x: 0, y: 0 }}
@@ -454,7 +527,6 @@ export default function LoginScreen() {
         style={StyleSheet.absoluteFillObject}
       />
 
-      {/* Floating Orbs */}
       <FloatingOrb size={120} color="#feca57" top={60} left={-30} delay={0} />
       <FloatingOrb size={80} color="#ff6b6b" top={height * 0.35} left={width - 60} delay={400} />
       <FloatingOrb size={60} color="#48dbfb" top={height * 0.7} left={20} delay={800} />
@@ -472,9 +544,20 @@ export default function LoginScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Header */}
+            {step !== "email" && (
+              <Animated.View
+                entering={FadeInUp.duration(400)}
+                style={styles.backBtn}
+              >
+                <Pressable onPress={handleBack} hitSlop={12}>
+                  <View style={styles.backBtnInner}>
+                    <Feather name="arrow-left" size={20} color={THEME.textPrimary} />
+                  </View>
+                </Pressable>
+              </Animated.View>
+            )}
+
             <Animated.View style={[styles.headerSection, headerStyle]}>
-              {/* App Logo / Brand */}
               <View style={styles.logoContainer}>
                 <LinearGradient
                   colors={["#ff6b6b", "#feca57"]}
@@ -485,122 +568,118 @@ export default function LoginScreen() {
                   <Feather name="shopping-bag" size={28} color="#fff" />
                 </LinearGradient>
               </View>
-              <Text style={styles.heading}>Welcome back ✨</Text>
-              <Text style={styles.sub}>
-                Sign in to continue your shopping journey
-              </Text>
+              <Text style={styles.heading}>{headerContent.title}</Text>
+              <Text style={styles.sub}>{headerContent.subtitle}</Text>
             </Animated.View>
 
-            {/* Form Card */}
             <Animated.View style={[styles.formCard, formStyle]}>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Email Address</Text>
-                <Field
-                  icon="mail"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  editable={!loading}
-                  onFocus={handleEmailFocus}
-                  delay={500}
-                />
+              {step === "email" && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Email Address</Text>
+                  <Field
+                    icon="mail"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    editable={!loading}
+                    delay={500}
+                  />
 
-                <Text style={[styles.label, { marginTop: 14 }]}>Password</Text>
-                <Field
-                  icon="lock"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPwd}
-                  rightIcon={showPwd ? "eye-off" : "eye"}
-                  onRightPress={() => setShowPwd((v) => !v)}
-                  editable={!loading}
-                  onFocus={handlePasswordFocus}
-                  delay={600}
-                />
+                  <Animated.View
+                    entering={FadeInDown.delay(700).duration(500).springify()}
+                    style={{ marginTop: 20 }}
+                  >
+                    <AnimatedButton
+                      onPress={handleEmailSubmit}
+                      loading={loading}
+                      label="Continue"
+                      loadingLabel="Checking..."
+                    />
+                  </Animated.View>
+                </View>
+              )}
 
-                <Pressable
-                  onPress={() => router.push("/forgot-password" as never)}
-                  style={styles.forgotRow}
-                >
-                  <Text style={styles.forgotLink}>Forgot password?</Text>
-                </Pressable>
-              </View>
+              {step === "otp" && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Enter OTP</Text>
+                  <Field
+                    icon="lock"
+                    placeholder="Enter 6-digit OTP"
+                    value={otp}
+                    onChangeText={setOtp}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    editable={!loading}
+                    delay={500}
+                  />
 
-              {/* Sign In Button */}
-              <Animated.View
-                entering={FadeInDown.delay(700).duration(500).springify()}
-              >
-                <AnimatedButton
-                  onPress={onLogin}
-                  loading={loading}
-                  label="Sign In"
-                  loadingLabel="Signing In..."
-                />
-              </Animated.View>
+                  <Animated.View
+                    entering={FadeInDown.delay(700).duration(500).springify()}
+                    style={{ marginTop: 20 }}
+                  >
+                    <AnimatedButton
+                      onPress={handleVerifyOtp}
+                      loading={loading}
+                      label="Verify OTP"
+                      loadingLabel="Verifying..."
+                    />
+                  </Animated.View>
 
-              {/* Divider */}
-              <Animated.View
-                entering={FadeInDown.delay(800).duration(400)}
-                style={styles.divider}
-              >
-                <View style={styles.line} />
-                <Text style={styles.orText}>or continue with</Text>
-                <View style={styles.line} />
-              </Animated.View>
+                  <Animated.View
+                    entering={FadeInDown.delay(800).duration(400)}
+                    style={styles.resendRow}
+                  >
+                    <Text style={styles.resendText}>Didn't receive OTP? </Text>
+                    <Pressable onPress={handleResendOtp} disabled={loading}>
+                      <Text style={styles.resendLink}>Resend</Text>
+                    </Pressable>
+                  </Animated.View>
+                </View>
+              )}
 
-              {/* Social Buttons */}
-              {/* <View style={styles.socialRow}>
-                <SocialButton
-                  icon="logo-google"
-                  iconColor="#EA4335"
-                  label="Google"
-                  bgColor={THEME.socialGoogle}
-                  textColor="#333"
-                  onPress={() => showToast("info", "Google login coming soon")}
-                  delay={900}
-                />
-                <SocialButton
-                  icon="logo-apple"
-                  iconColor="#fff"
-                  label="Apple"
-                  bgColor={THEME.socialApple}
-                  textColor="#fff"
-                  onPress={() => showToast("info", "Apple login coming soon")}
-                  delay={1000}
-                />
-              </View> */}
+              {step === "name" && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Your Name</Text>
+                  <Field
+                    icon="user"
+                    placeholder="Enter your full name"
+                    value={name}
+                    onChangeText={setName}
+                    autoCapitalize="words"
+                    editable={!loading}
+                    delay={500}
+                  />
 
-              {/* Phone login */}
-              <Animated.View
-                entering={FadeInDown.delay(1100).duration(400).springify()}
-              >
-                <Pressable
-                  onPress={() =>
-                    showToast("info", "Phone OTP login coming soon")
-                  }
-                  style={styles.phoneBtn}
-                >
-                  <Feather name="phone" size={16} color={THEME.textSecondary} />
-                  <Text style={styles.phoneBtnText}>Continue with Phone</Text>
-                </Pressable>
-              </Animated.View>
+                  <Animated.View
+                    entering={FadeInDown.delay(700).duration(500).springify()}
+                    style={{ marginTop: 20 }}
+                  >
+                    <AnimatedButton
+                      onPress={handleNameSubmit}
+                      loading={loading}
+                      label="Complete Registration"
+                      loadingLabel="Completing..."
+                    />
+                  </Animated.View>
+                </View>
+              )}
             </Animated.View>
 
-            {/* Sign Up Link */}
-            <Animated.View
-              entering={FadeInUp.delay(1200).duration(500)}
-              style={styles.signupLink}
-            >
-              <Pressable onPress={() => router.push("/register" as never)}>
-                <Text style={styles.signupText}>
-                  Don't have an account?{" "}
-                  <Text style={styles.signupBold}>Sign up free</Text>
-                </Text>
-              </Pressable>
-            </Animated.View>
+            {step === "email" && (
+              <Animated.View
+                entering={FadeInUp.delay(1200).duration(500)}
+                style={styles.signupLink}
+              >
+                <Pressable onPress={() => router.push("/contact" as never)}>
+                  <Text style={styles.signupText}>
+                    Need help?{" "}
+                    <Text style={styles.signupBold}>Contact Support</Text>
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -618,7 +697,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  // Header
+  backBtn: {
+    position: "absolute",
+    top: 10,
+    left: 20,
+    zIndex: 10,
+  },
+  backBtnInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: THEME.cardBg,
+    borderWidth: 1,
+    borderColor: THEME.cardBorder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
   headerSection: {
     alignItems: "center",
     marginBottom: 24,
@@ -655,14 +750,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 
-  // Form Card (glassmorphism)
   formCard: {
     backgroundColor: THEME.cardBg,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: THEME.cardBorder,
     padding: IS_SMALL ? 18 : 24,
-    // Subtle shadow for depth
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.15,
@@ -680,7 +773,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
 
-  // Input Field
   field: {
     flexDirection: "row",
     alignItems: "center",
@@ -696,20 +788,25 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
 
-  // Forgot
-  forgotRow: {
-    alignSelf: "flex-end",
-    marginTop: 8,
+  resendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
   },
-  forgotLink: {
+  resendText: {
     fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_400Regular",
+    color: THEME.textSecondary,
+  },
+  resendLink: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
     color: THEME.accentAlt,
+    textDecorationLine: "underline",
   },
 
-  // Button
   signInBtn: {
-    marginTop: 20,
     borderRadius: 14,
     overflow: "hidden",
     shadowColor: THEME.btnGradientStart,
@@ -732,68 +829,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Divider
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginVertical: 20,
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.2)",
-  },
-  orText: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    color: THEME.textMuted,
-    textTransform: "lowercase",
-  },
-
-  // Social Buttons
-  socialRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  socialBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: IS_SMALL ? 12 : 14,
-    borderRadius: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  socialBtnText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-  },
-
-  // Phone button
-  phoneBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: IS_SMALL ? 12 : 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: THEME.cardBorder,
-    marginTop: 12,
-  },
-  phoneBtnText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    color: THEME.textSecondary,
-  },
-
-  // Sign Up
   signupLink: {
     marginTop: 24,
     alignItems: "center",

@@ -91,7 +91,7 @@ const LoadingSkeleton = () => (
 );
 
 // ─── Animated Product Card Wrapper ──────────────────────────────
-const AnimatedProductCard = ({ item, index }: { item: Product; index: number }) => {
+const AnimatedProductCard = React.memo(({ item, isNew, localIndex }: { item: Product; isNew: boolean; localIndex: number }) => {
   const scale = useSharedValue(1);
 
   const cardStyle = useAnimatedStyle(() => ({
@@ -100,7 +100,7 @@ const AnimatedProductCard = ({ item, index }: { item: Product; index: number }) 
 
   return (
     <Animated.View
-      entering={FadeInUp.delay(Math.min(index * 60, 400)).duration(500).springify().damping(14)}
+      entering={isNew ? FadeInUp.delay(Math.min(localIndex * 60, 300)).duration(450).springify().damping(14) : undefined}
       style={[{ width: '48.5%' }, cardStyle]}
     >
       <AnimatedPressable
@@ -116,7 +116,11 @@ const AnimatedProductCard = ({ item, index }: { item: Product; index: number }) 
       </AnimatedPressable>
     </Animated.View>
   );
-};
+}, (prevProps, nextProps) => {
+  // Prevent re-render when only animation props change
+  return prevProps.item._id === nextProps.item._id && 
+         prevProps.isNew === nextProps.isNew;
+});
 
 // ─── Pulsing Dots Loader ────────────────────────────────────────
 const PulsingDots = () => {
@@ -250,12 +254,15 @@ const AllProductsSection: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  // Track how many items existed before last load — only new items animate
+  const prevCountRef = useRef(0);
 
   useEffect(() => {
     fetchDataFromApi(`/api/product/getAllProducts?page=1&limit=${PRODUCTS_PER_PAGE}`)
       .then(res => {
         const prods = res?.products || [];
         const tot = res?.totalProducts ?? res?.total ?? 0;
+        prevCountRef.current = 0;
         setProducts(prods);
         setTotal(tot);
         setHasMore(prods.length < tot);
@@ -274,6 +281,7 @@ const AllProductsSection: React.FC = () => {
         const newProds = res?.products || [];
         const tot = res?.totalProducts ?? res?.total ?? total;
         setProducts(prev => {
+          prevCountRef.current = prev.length; // remember old count before appending
           const updated = [...prev, ...newProds];
           setHasMore(updated.length < tot);
           return updated;
@@ -286,10 +294,18 @@ const AllProductsSection: React.FC = () => {
   }, [page, loadingMore, hasMore, total]);
 
   const renderItem = useCallback(
-    ({ item, index }: { item: Product; index: number }) => (
-      <AnimatedProductCard item={item} index={index} />
-    ),
-    [],
+    ({ item, index }: { item: Product; index: number }) => {
+      const isNew = index >= prevCountRef.current;
+      const localIndex = isNew ? index - prevCountRef.current : index;
+      return (
+        <AnimatedProductCard
+          item={item}
+          isNew={isNew}
+          localIndex={localIndex}
+        />
+      );
+    },
+    [prevCountRef.current],
   );
 
   const renderFooter = () => {
@@ -384,13 +400,15 @@ const AllProductsSection: React.FC = () => {
         columnWrapperStyle={styles.row}
         renderItem={renderItem}
         onEndReached={loadMore}
-        onEndReachedThreshold={0.3}
+        onEndReachedThreshold={0.5}
         ListFooterComponent={renderFooter}
         scrollEnabled={false}
         nestedScrollEnabled={true}
         initialNumToRender={10}
-        maxToRenderPerBatch={5}
-        updateCellsBatchingPeriod={50}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={30}
+        windowSize={21}
+        removeClippedSubviews={false}
       />
     </View>
   );

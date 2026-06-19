@@ -106,7 +106,7 @@ const Header = () => {
   return (
     <>
       <header
-        className={`w-full h-[auto] py-2 ${context.isSidebarOpen === true ? "pl-[22%]" : "pl-5"
+        className={`w-full h-[auto] py-0 ${context.isSidebarOpen === true ? "pl-[22%]" : "pl-5"
           } ${context.isSidebarOpen === true && context?.windowWidth < 992 && '!pl-80'} shadow-md pr-7 bg-[#fff]  flex items-center justify-between transition-all fixed top-0 left-0 z-[50]`}
       >
         <div className="part1 flex items-center gap-4">
@@ -121,7 +121,7 @@ const Header = () => {
               <Link to="/">
                 <img
                   src={localStorage.getItem('logo')}
-                  className="w-[170px] md:w-[200px]"
+                  className="w-[170px] md:w-[150px]"
                 />
               </Link>
             </div>
@@ -138,11 +138,11 @@ const Header = () => {
         </div>
 
         <div className="part2  flex items-center justify-end gap-5">
-          <IconButton aria-label="cart">
+          {/* <IconButton aria-label="cart">
             <StyledBadge badgeContent={4} color="secondary">
               <FaRegBell />
             </StyledBadge>
-          </IconButton>
+          </IconButton> */}
 
           {context.isLogin === true ? (
             <div className="relative">

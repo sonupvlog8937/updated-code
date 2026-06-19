@@ -60,7 +60,6 @@ export default function GoMarketProductScreen() {
   const userId = userData?._id || userData?.id;
   const userName = userData?.name;
 
-  // Login protection - redirect to login if not authenticated
   useEffect(() => {
     if (!isLogin) {
       router.replace("/login" as never);
@@ -75,22 +74,45 @@ export default function GoMarketProductScreen() {
   const [offers, setOffers] = useState<any[]>([]);
   const [related, setRelated] = useState<any[]>([]);
   const [relatedPage, setRelatedPage] = useState(1);
-  const [relatedTotalPages, setRelatedTotalPages] = useState(1);
+  const [totalRelatedCount, setTotalRelatedCount] = useState(0);
   const [loadingRelated, setLoadingRelated] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [reviewScrollTrigger, setReviewScrollTrigger] = useState(0);
+  const [shopData, setShopData] = useState<any>(null);
 
   const loadProduct = useCallback(() => {
     const endpoint =
       kind === "restaurant"
         ? `/api/go-market/catalog/restaurant-item/${id}`
         : `/api/go-market/catalog/grocery-product/${id}`;
+    
     return fetchDataFromApi(endpoint).then((res) => {
       if (res?.success || res?.error === false) {
         setData(res);
-        setRelated(res.related || []);
+        
+        // Store shop/restaurant data for isOpen check
+        if (kind === "restaurant" && res.restaurant) {
+          setShopData(res.restaurant);
+        } else if (kind !== "restaurant" && res.shop) {
+          setShopData(res.shop);
+        }
+        
+        // Get related products - handle multiple field names
+        const relatedData = res.related || res.relatedProducts || res.suggestionProducts || [];
+        setRelated(relatedData);
         setRelatedPage(1);
-        setRelatedTotalPages(res.relatedPagination?.totalPages || 1);
+        
+        // Get total count - handle multiple field names
+        let totalCount = relatedData.length;
+        if (res.relatedTotal) totalCount = res.relatedTotal;
+        else if (res.totalRelated) totalCount = res.totalRelated;
+        else if (res.relatedPagination?.total) totalCount = res.relatedPagination.total;
+        else if (res.relatedPagination?.totalItems) totalCount = res.relatedPagination.totalItems;
+        else if (res.relatedCount) totalCount = res.relatedCount;
+        
+        console.log('[Product Load] Related:', relatedData.length, 'Total:', totalCount);
+        setTotalRelatedCount(totalCount);
+        
         setSelectedOptions({});
         const offerParams = new URLSearchParams({
           audience: kind === "restaurant" ? "restaurant" : "grocery",
@@ -117,15 +139,9 @@ export default function GoMarketProductScreen() {
 
   const productImages = product ? ((Array.isArray(product.images) && product.images.length > 0 ? product.images : [product.image]).filter(Boolean)) : [];
   
-  // Only show options if:
-  // 1. productOptions array exists and has items
-  // 2. After normalization, there are valid options with multiple values
-  // 3. Options were added intentionally by seller (not test/dummy data)
   const productOptions: any[] = normalizeProductOptions(product?.productOptions || []);
 
-  // Calculate current price based on selected options
   const calculatePriceFromOptions = () => {
-    // Check if any option with price is selected
     let hasOptionWithPrice = false;
     let optionPrice = 0;
     let optionOldPrice = 0;
@@ -142,7 +158,6 @@ export default function GoMarketProductScreen() {
       }
     });
     
-    // If option has its own price, show that exact price instead of adding to base price
     if (hasOptionWithPrice) {
       return {
         price: optionPrice,
@@ -150,7 +165,6 @@ export default function GoMarketProductScreen() {
       };
     }
     
-    // Otherwise, show base product price
     return {
       price: product?.price || 0,
       oldPrice: product?.oldPrice || product?.price || 0,
@@ -167,22 +181,62 @@ export default function GoMarketProductScreen() {
     productOptions.every((opt: any) => String(selectedOptions[opt.name || opt.label] || "").trim());
 
   const loadMoreRelated = async () => {
-    if (relatedPage >= relatedTotalPages || loadingRelated) return;
+    const ITEMS_PER_PAGE = 8;
+    const itemsLoaded = related.length;
+    
+    if (itemsLoaded >= totalRelatedCount || loadingRelated) {
+      console.log(`[Load More] Already have all: ${itemsLoaded}/${totalRelatedCount}`);
+      return;
+    }
+    
+    const nextPage = Math.floor(itemsLoaded / ITEMS_PER_PAGE) + 1;
+    console.log(`[Load More] Fetching page ${nextPage}. Have ${itemsLoaded}, Total ${totalRelatedCount}`);
+    
     setLoadingRelated(true);
-    const next = relatedPage + 1;
     try {
-      const res = await fetchDataFromApi(
-        `/api/go-market/catalog/grocery-product/${id}?relatedPage=${next}&relatedLimit=8`,
-      );
+      // Use page & limit params
+      const endpoint = kind === "restaurant"
+        ? `/api/go-market/catalog/restaurant-item/${id}?page=${nextPage}&limit=${ITEMS_PER_PAGE}`
+        : `/api/go-market/catalog/grocery-product/${id}?page=${nextPage}&limit=${ITEMS_PER_PAGE}`;
+      
+      console.log(`[Load More] URL: ${endpoint}`);
+      const res = await fetchDataFromApi(endpoint);
+      console.log(`[Load More] Response:`, res);
+      
       if (res?.success || res?.error === false) {
-        setRelated((prev) => [...prev, ...(res.related || [])]);
-        setRelatedPage(next);
-        setRelatedTotalPages(res.relatedPagination?.totalPages || next);
+        // Try multiple field names
+        const newItems = res.related || res.relatedProducts || res.data || res.products || [];
+        console.log(`[Load More] Got ${newItems.length} items`);
+        
+        if (newItems.length > 0) {
+          setRelated((prev) => {
+            const updated = [...prev, ...newItems];
+            console.log(`[Load More] Total: ${updated.length}`);
+            return updated;
+          });
+          
+          // Update total
+          let backendTotal = totalRelatedCount;
+          if (res.relatedTotal) backendTotal = res.relatedTotal;
+          else if (res.totalRelated) backendTotal = res.totalRelated;
+          else if (res.total) backendTotal = res.total;
+          else if (res.count) backendTotal = res.count;
+          
+          setTotalRelatedCount(backendTotal);
+        } else {
+          setTotalRelatedCount(itemsLoaded);
+        }
+      } else {
+        setTotalRelatedCount(itemsLoaded);
       }
+    } catch (error) {
+      console.error(`[Load More] Error:`, error);
+      setTotalRelatedCount(itemsLoaded);
     } finally {
       setLoadingRelated(false);
     }
   };
+
   const cartProduct = product
     ? {
         _id: product._id,
@@ -214,12 +268,15 @@ export default function GoMarketProductScreen() {
       showToast("error", "Out of stock");
       return;
     }
+    // Check if shop/restaurant is open
+    if (shopData && shopData.isOpen === false) {
+      showToast("error", kind === "restaurant" ? "Restaurant is currently closed. You cannot add items to cart." : "Shop is currently closed. You cannot add items to cart.");
+      return;
+    }
     setBusy(true);
     try {
       await dispatch(addToCart({ product: cartProduct, userId, quantity: qty })).unwrap();
-      // Toast is shown by Redux action
     } catch (e: any) {
-      // Error toast is shown by Redux action
       console.error("Add to cart failed:", e);
     } finally {
       setBusy(false);
@@ -238,6 +295,11 @@ export default function GoMarketProductScreen() {
     }
     if (!cartProduct?.countInStock) {
       showToast("error", "Out of stock");
+      return;
+    }
+    // Check if shop/restaurant is open
+    if (shopData && shopData.isOpen === false) {
+      showToast("error", kind === "restaurant" ? "Restaurant is currently closed. You cannot buy this item." : "Shop is currently closed. You cannot buy this item.");
       return;
     }
     showToast("success", "Ready for checkout");
@@ -274,6 +336,8 @@ export default function GoMarketProductScreen() {
     );
   }
 
+  const hasMoreProducts = related.length < totalRelatedCount;
+
   return (
     <View style={S.root}>
       <StatusBar barStyle="dark-content" />
@@ -286,7 +350,6 @@ export default function GoMarketProductScreen() {
           const { contentSize, layoutMeasurement, contentOffset } = nativeEvent;
           const remaining = contentSize.height - layoutMeasurement.height - contentOffset.y;
           
-          // Trigger review infinity scrolling when near bottom (within 800px)
           if (remaining < 800) {
             setReviewScrollTrigger((prev) => prev + 1);
           }
@@ -318,7 +381,6 @@ export default function GoMarketProductScreen() {
               </View>
             )}
           />
-          {/* Pagination Dots */}
           {productImages.length > 1 && (
             <View style={S.paginationDots}>
               {productImages.map((_: any, index: number) => (
@@ -401,6 +463,21 @@ export default function GoMarketProductScreen() {
           <Text style={[S.stock, { color: product.countInStock > 0 ? T.green : "#DC2626" }]}>
             {product.countInStock > 0 ? `✓ ${product.countInStock} available` : "Currently unavailable"}
           </Text>
+
+          {shopData && shopData.isOpen === false && (
+            <View style={{
+              marginTop: 12,
+              padding: 12,
+              backgroundColor: "#FEF2F2",
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: "#FECACA",
+            }}>
+              <Text style={{ color: "#DC2626", fontSize: 12, fontWeight: "700" }}>
+                {kind === "restaurant" ? "🔴 Restaurant is currently closed" : "🔴 Shop is currently closed"}
+              </Text>
+            </View>
+          )}
         </View>
 
         {specs.length > 0 && (
@@ -451,7 +528,7 @@ export default function GoMarketProductScreen() {
             <Text style={S.relatedSubtitle}>Similar products you might enjoy</Text>
             <FlatList
               data={related}
-              keyExtractor={(item) => item._id}
+              keyExtractor={(item, idx) => `${item._id || idx}`}
               numColumns={2}
               columnWrapperStyle={{ gap: 12 }}
               scrollEnabled={false}
@@ -503,7 +580,9 @@ export default function GoMarketProductScreen() {
                 );
               }}
             />
-            {relatedPage < relatedTotalPages && (
+            
+            {/* Load More Button */}
+            {hasMoreProducts && (
               <TouchableOpacity
                 style={{
                   marginTop: 16,
@@ -525,18 +604,26 @@ export default function GoMarketProductScreen() {
                   <>
                     <ActivityIndicator size="small" color="#475569" />
                     <Text style={{ fontSize: 14, fontWeight: "600", color: "#475569" }}>
-                      Loading more...
+                      Loading...
                     </Text>
                   </>
                 ) : (
                   <>
                     <Text style={{ fontSize: 16 }}>↓</Text>
                     <Text style={{ fontSize: 14, fontWeight: "600", color: "#475569" }}>
-                      Load More Products
+                      Load More
                     </Text>
                   </>
                 )}
               </TouchableOpacity>
+            )}
+            
+            {!hasMoreProducts && related.length > 0 && totalRelatedCount > 0 && (
+              <View style={{ marginTop: 16, padding: 14, backgroundColor: "#dcfce7", borderRadius: 12, alignItems: "center" }}>
+                <Text style={{ fontSize: 13, fontWeight: "600", color: "#16a34a" }}>
+                  ✓ All {totalRelatedCount} products loaded
+                </Text>
+              </View>
             )}
           </View>
         )}
@@ -559,10 +646,18 @@ export default function GoMarketProductScreen() {
 
       {/* Sticky Footer with Action Buttons */}
       <View style={S.stickyFooter}>
-        <TouchableOpacity style={[S.cartBtn, busy && S.actionDisabled]} onPress={addCart} disabled={busy}>
+        <TouchableOpacity 
+          style={[S.cartBtn, busy && S.actionDisabled, shopData && shopData.isOpen === false && S.actionDisabled]} 
+          onPress={addCart} 
+          disabled={busy || (shopData && shopData.isOpen === false)}
+        >
           <Text style={S.cartBtnTxt}>{busy ? "Adding…" : "🛒 Add to cart"}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[S.buyBtn, busy && S.actionDisabled]} onPress={buyNow} disabled={busy}>
+        <TouchableOpacity 
+          style={[S.buyBtn, busy && S.actionDisabled, shopData && shopData.isOpen === false && S.actionDisabled]} 
+          onPress={buyNow} 
+          disabled={busy || (shopData && shopData.isOpen === false)}
+        >
           <Text style={S.buyBtnTxt}>⚡ Buy now</Text>
         </TouchableOpacity>
       </View>
@@ -571,20 +666,11 @@ export default function GoMarketProductScreen() {
 }
 
 const S = StyleSheet.create({
-  actionDisabled: {
-    opacity: 0.7,
-  },
+  actionDisabled: { opacity: 0.7 },
   root: { flex: 1, backgroundColor: T.bg },
   scroll: { paddingBottom: 120 },
-  imageSliderContainer: {
-    position: "relative",
-    width: "100%",
-  },
-  heroImg: {
-    width: "100%",
-    aspectRatio: 1,
-    backgroundColor: "#eee"
-  },
+  imageSliderContainer: { position: "relative", width: "100%" },
+  heroImg: { width: "100%", aspectRatio: 1, backgroundColor: "#eee" },
   paginationDots: {
     position: "absolute",
     bottom: 16,
@@ -648,21 +734,9 @@ const S = StyleSheet.create({
   optChipTxtOn: { color: T.white },
   qtyRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 16 },
   qtyBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: T.border, alignItems: "center", justifyContent: "center" },
-  cartBtn: {
-    flex: 1,
-    backgroundColor: T.black,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
+  cartBtn: { flex: 1, backgroundColor: T.black, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
   cartBtnTxt: { color: T.white, fontWeight: "800", fontSize: 15 },
-  buyBtn: {
-    flex: 1,
-    backgroundColor: "#DC2626",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
+  buyBtn: { flex: 1, backgroundColor: "#DC2626", borderRadius: 12, paddingVertical: 14, alignItems: "center" },
   buyBtnTxt: { color: T.white, fontWeight: "800", fontSize: 15 },
   stock: { marginTop: 12, fontSize: 12, fontWeight: "700" },
   block: { backgroundColor: T.white, marginHorizontal: 14, marginBottom: 12, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: T.border },
@@ -673,8 +747,6 @@ const S = StyleSheet.create({
   specVal: { flex: 1, fontSize: 13, color: T.text },
   review: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
   muted: { fontSize: 13, color: T.textSoft, marginTop: 4 },
-  
-  // Grid Card Styles (2 columns)
   gridCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
@@ -689,60 +761,16 @@ const S = StyleSheet.create({
     position: "relative",
   },
   gridImg: { width: "100%", height: 140, backgroundColor: "#eee" },
-  gridBadge: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "#DC2626",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    zIndex: 1,
-  },
-  gridBadgeText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "800",
-  },
+  gridBadge: { position: "absolute", top: 8, right: 8, backgroundColor: "#DC2626", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, zIndex: 1 },
+  gridBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
   gridBody: { padding: 10 },
   gridName: { fontSize: 13, fontWeight: "700", minHeight: 36, color: T.text, lineHeight: 18 },
-  gridDesc: { 
-    fontSize: 10, 
-    color: T.textSoft, 
-    marginTop: 3,
-    lineHeight: 14,
-    minHeight: 14,
-  },
-  gridRatingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 4,
-  },
-  gridRatingStar: {
-    fontSize: 10,
-  },
-  gridRatingText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: T.text,
-  },
+  gridDesc: { fontSize: 10, color: T.textSoft, marginTop: 3, lineHeight: 14, minHeight: 14 },
+  gridRatingRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  gridRatingStar: { fontSize: 10 },
+  gridRatingText: { fontSize: 11, fontWeight: "700", color: T.text },
   gridMetaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" },
   gridPrice: { fontSize: 15, fontWeight: "900", color: T.orange },
   gridMrp: { fontSize: 10, color: T.textSoft, textDecorationLine: "line-through" },
   gridDiscount: { marginTop: 4, fontSize: 10, fontWeight: "800", color: T.green },
-
-  // Load More Button
-  loadMoreBtn: {
-    backgroundColor: T.orange,
-    borderRadius: 12,
-    padding: 14,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  loadMoreBtnText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#fff",
-  },
 });

@@ -1,40 +1,11 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppContext } from "../../hooks/useAppContext";
 import { postData } from "../../utils/api";
 import CircularProgress from "@mui/material/CircularProgress";
-import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { firebaseApp } from "../../firebase";
-
-const auth = getAuth(firebaseApp);
-const googleProvider = new GoogleAuthProvider();
-
-// ─── Eye Icon SVG ─────────────────────────────────────────────────────────────
-const EyeIcon = ({ open }) =>
-  open ? (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  ) : (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-      <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  );
-
-// ─── Google SVG ───────────────────────────────────────────────────────────────
-const GoogleIcon = () => (
-  <svg viewBox="0 0 48 48" className="w-5 h-5 flex-shrink-0">
-    <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-    <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
-    <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
-    <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
-  </svg>
-);
 
 // ─── Floating Label Input ─────────────────────────────────────────────────────
-const FloatingInput = ({ label, type, name, value, onChange, disabled, rightSlot }) => {
+const FloatingInput = ({ label, type, name, value, onChange, disabled }) => {
   const [focused, setFocused] = useState(false);
   const active = focused || value?.length > 0;
 
@@ -51,41 +22,22 @@ const FloatingInput = ({ label, type, name, value, onChange, disabled, rightSlot
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           className="login-input"
-          autoComplete={name === "password" ? "current-password" : "email"}
+          autoComplete={name === "email" ? "email" : "off"}
         />
-        {rightSlot && <div className="login-input-right">{rightSlot}</div>}
       </div>
-    </div>
-  );
-};
-
-// ─── Strength Meter (for visual polish on password) ───────────────────────────
-const PasswordStrength = ({ password }) => {
-  if (!password) return null;
-  const score = [/.{8,}/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((r) => r.test(password)).length;
-  const labels = ["", "Weak", "Fair", "Good", "Strong"];
-  const colors = ["", "#ef4444", "#f97316", "#eab308", "#22c55e"];
-  return (
-    <div className="pw-strength">
-      <div className="pw-bars">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="pw-bar" style={{ background: i <= score ? colors[score] : "#e5e7eb" }} />
-        ))}
-      </div>
-      <span className="pw-label" style={{ color: colors[score] }}>{labels[score]}</span>
     </div>
   );
 };
 
 // ─── Main Login Component ─────────────────────────────────────────────────────
 const Login = () => {
+  // Step management: "email" | "otp" | "name"
+  const [step, setStep] = useState("email");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [name, setName] = useState("");
+  const [isNewUser, setIsNewUser] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isPasswordShow, setIsPasswordShow] = useState(false);
-  const [formFields, setFormFields] = useState({ email: "", password: "" });
-  const [phoneData, setPhoneData] = useState({ phone: "", otp: "" });
-  const [isPhoneMode, setIsPhoneMode] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [shake, setShake] = useState(false);
 
   const context = useAppContext();
@@ -95,214 +47,233 @@ const Login = () => {
     window.scrollTo(0, 0);
     const token = localStorage.getItem("accessToken");
     if (token) history("/");
-
-    // Pre-fill remembered email
-    const saved = localStorage.getItem("rememberedEmail");
-    if (saved) setFormFields((p) => ({ ...p, email: saved }));
   }, []);
-
-  const onChangeInput = (e) => {
-    const { name, value } = e.target;
-    setFormFields((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const onPhoneInputChange = (e) => {
-  const { name, value } = e.target;
-
-  setPhoneData((prev) => ({
-    ...prev,
-    [name]: value
-  }));
-};
 
   const triggerShake = () => {
     setShake(true);
     setTimeout(() => setShake(false), 500);
   };
 
-  const forgotPassword = () => {
-    if (!formFields.email) {
-      context.alertBox("error", "Please enter your email first");
-      return;
-    }
-    localStorage.setItem("userEmail", formFields.email);
-    localStorage.setItem("actionType", "forgot-password");
-    postData("/api/user/forgot-password", { email: formFields.email }).then((res) => {
-      if (res?.error === false) {
-        context.alertBox("success", res?.message);
-        history("/verify");
-      } else {
-        context.alertBox("error", res?.message);
-      }
-    });
-  };
-
-  const valideValue = Object.values(formFields).every((el) => el);
-
-  const normalizePhone = (value) => value.replace(/\D/g, "");
-
-  const sendPhoneOtp = async () => {
-    const normalizedPhone = normalizePhone(phoneData.phone);
-
-    if (!normalizedPhone || normalizedPhone.length < 10) {
-      context.alertBox("error", "Please enter valid phone number");
-      triggerShake();
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      context.setGlobalLoading(true);
-
-      const res = await postData("/api/user/login-phone-otp/send", { mobile: normalizedPhone });
-
-      if (res?.error !== true) {
-        setPhoneData((prev) => ({ ...prev, phone: normalizedPhone, otp: "" }));
-        setOtpSent(true);
-        context.alertBox("success", res?.message || "OTP sent successfully");
-      } else {
-        context.alertBox("error", res?.message || "Unable to send OTP");
-        triggerShake();
-      }
-    } catch (error) {
-      context.alertBox("error", error?.message || "Unable to send OTP");
-      triggerShake();
-    } finally {
-      setIsLoading(false);
-      context.setGlobalLoading(false);
-    }
-  };
-
-  const verifyPhoneOtp = async () => {
-    const normalizedPhone = normalizePhone(phoneData.phone);
-
-    if (!normalizedPhone || normalizedPhone.length < 10) {
-      context.alertBox("error", "Please enter valid phone number");
-      triggerShake();
-      return;
-    }
-
-    if (!phoneData.otp || phoneData.otp.length < 6) {
-      context.alertBox("error", "Please enter valid OTP");
-      triggerShake();
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      context.setGlobalLoading(true);
-
-      const res = await postData("/api/user/login-phone-otp/verify", {
-        mobile: normalizedPhone,
-        otp: phoneData.otp,
-      }, { withCredentials: true });
-
-      if (res?.error !== true) {
-        localStorage.setItem("accessToken", res?.data?.accesstoken);
-        localStorage.setItem("refreshToken", res?.data?.refreshToken);
-        context.setIsLogin(true);
-        context.alertBox("success", res?.message);
-        setPhoneData({ phone: "", otp: "" });
-        setOtpSent(false);
-        history("/");
-      } else {
-        const errorMsg = res?.message || "OTP verification failed";
-        if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("incorrect")) {
-          context.alertBox("error", "❌ Invalid OTP. Please check and try again.");
-        } else if (errorMsg.toLowerCase().includes("expired")) {
-          context.alertBox("error", "❌ OTP expired. Request a new one.");
-        } else {
-          context.alertBox("error", `❌ ${errorMsg}`);
-        }
-        triggerShake();
-      }
-    } catch (error) {
-      context.alertBox("error", error?.message || "OTP verification failed");
-      triggerShake();
-    } finally {
-      setIsLoading(false);
-      context.setGlobalLoading(false);
-    }
-  };
-
-  const handleSubmit = (e) => {
+  // Step 1: Send OTP to email (works for both new and existing users)
+  const handleEmailSubmit = async (e) => {
     e.preventDefault();
-    if (!formFields.email) { context.alertBox("error", "Please enter email"); triggerShake(); return; }
-    if (!formFields.password) { context.alertBox("error", "Please enter password"); triggerShake(); return; }
+    if (!email.trim() || !email.includes("@")) {
+      context.alertBox("error", "❌ Please enter a valid email address");
+      triggerShake();
+      return;
+    }
 
     setIsLoading(true);
     context.setGlobalLoading(true);
 
-    postData("/api/user/login", formFields, { withCredentials: true }).then((res) => {
-      if (res?.error !== true) {
-        if (rememberMe) localStorage.setItem("rememberedEmail", formFields.email);
-        else localStorage.removeItem("rememberedEmail");
+    try {
+      // Try existing user login OTP first
+      const res = await postData("/api/user/send-login-otp", { email: email.trim() });
 
-        localStorage.setItem("accessToken", res?.data?.accesstoken);
-        localStorage.setItem("refreshToken", res?.data?.refreshToken);
-        context.setIsLogin(true);
-        context.alertBox("success", res?.message);
-        setFormFields({ email: "", password: "" });
-        history("/");
-      } else {
-        // Better error messages based on API response
-        const errorMsg = res?.message || "Login failed";
-        if (errorMsg.toLowerCase().includes("not found") || errorMsg.toLowerCase().includes("user")) {
-          context.alertBox("error", "❌ User not found. Please check your email.");
-        } else if (errorMsg.toLowerCase().includes("password") || errorMsg.toLowerCase().includes("incorrect")) {
-          context.alertBox("error", "❌ Incorrect password. Please try again.");
-        } else if (errorMsg.toLowerCase().includes("invalid")) {
-          context.alertBox("error", "❌ Invalid email format. Please check.");
+      if (res?.error === false) {
+        // User exists and is active
+        setIsNewUser(false);
+        setStep("otp");
+        context.alertBox("success", "✅ OTP sent to your email!");
+      } else if (
+        res?.message?.toLowerCase().includes("not found") ||
+        res?.message?.toLowerCase().includes("not registered")
+      ) {
+        // New user - send registration OTP with temporary name
+        const registerRes = await postData("/api/user/send-register-otp", {
+          email: email.trim(),
+          name: "User", // Temporary name, will be updated after OTP verification
+        });
+
+        if (registerRes?.error === false) {
+          setIsNewUser(true);
+          setStep("otp");
+          context.alertBox("success", "✅ OTP sent to your email!");
         } else {
-          context.alertBox("error", `❌ ${errorMsg}`);
+          context.alertBox("error", `❌ ${registerRes?.message || "Failed to send OTP"}`);
+          triggerShake();
         }
+      } else {
+        context.alertBox("error", `❌ ${res?.message || "Failed to send OTP"}`);
         triggerShake();
       }
+    } catch (err) {
+      console.error("Send OTP error:", err);
+      context.alertBox("error", "❌ Network error. Please check your connection.");
+      triggerShake();
+    } finally {
       setIsLoading(false);
       context.setGlobalLoading(false);
-    }).catch((err) => {
-      console.error("Login error:", err);
+    }
+  };
+
+  // Step 2: Verify OTP
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    if (!otp.trim() || otp.length < 4) {
+      context.alertBox("error", "❌ Please enter valid OTP");
+      triggerShake();
+      return;
+    }
+
+    setIsLoading(true);
+    context.setGlobalLoading(true);
+
+    try {
+      if (isNewUser) {
+        // New user - just verify OTP is correct, then ask for name
+        setStep("name");
+        context.alertBox("success", "✅ OTP verified! Please enter your name");
+        setIsLoading(false);
+        context.setGlobalLoading(false);
+      } else {
+        // Existing user - login directly
+        const res = await postData("/api/user/verify-login-otp", {
+          email,
+          otp: otp.trim(),
+        }, { withCredentials: true });
+
+        if (res?.error === false) {
+          localStorage.setItem("accessToken", res?.data?.accesstoken);
+          localStorage.setItem("refreshToken", res?.data?.refreshToken);
+          localStorage.setItem("userEmail", email);
+          context.setIsLogin(true);
+
+          context.alertBox("success", "✅ Welcome back!");
+
+          // Reset form
+          setEmail("");
+          setOtp("");
+          setName("");
+          setStep("email");
+
+          setTimeout(() => {
+            history("/");
+          }, 800);
+        } else {
+          context.alertBox("error", `❌ ${res?.message || "Invalid OTP"}`);
+          triggerShake();
+        }
+        setIsLoading(false);
+        context.setGlobalLoading(false);
+      }
+    } catch (err) {
+      console.error("Verify OTP error:", err);
       context.alertBox("error", "❌ Network error. Please check your connection.");
       triggerShake();
       setIsLoading(false);
       context.setGlobalLoading(false);
-    });
+    }
   };
 
-  const authWithGoogle = () => {
+  // Step 3: Complete registration with name (for new users)
+  const handleNameSubmit = async (e) => {
+    e.preventDefault();
+    if (!name.trim() || name.trim().length < 2) {
+      context.alertBox("error", "❌ Please enter your name (minimum 2 characters)");
+      triggerShake();
+      return;
+    }
+
     setIsLoading(true);
     context.setGlobalLoading(true);
-    signInWithPopup(auth, googleProvider)
-      .then(async (result) => {
-        const user = result.user;
-        const idToken = await user.getIdToken();
-        const fields = {
-          name: user.providerData[0].displayName,
-          email: user.providerData[0].email,
-          password: null,
-          avatar: user.providerData[0].photoURL,
-          mobile: user.providerData[0].phoneNumber,
-          role: "USER",
-          firebaseUid: user.uid,
-          idToken,
-        };
-        postData("/api/user/authWithGoogle", fields).then((res) => {
-          if (res?.error !== true) {
-            localStorage.setItem("userEmail", fields.email);
-            localStorage.setItem("accessToken", res?.data?.accesstoken);
-            localStorage.setItem("refreshToken", res?.data?.refreshToken);
-            context.setIsLogin(true);
-            context.alertBox("success", res?.message);
-            history("/");
-          } else {
-            context.alertBox("error", res?.message);
-          }
-          setIsLoading(false);
-          context.setGlobalLoading(false);
-        });
-      })
-      .catch(() => { setIsLoading(false); context.setGlobalLoading(false); });
+
+    try {
+      // Re-verify with actual name to complete registration
+      const res = await postData("/api/user/verify-register-otp", {
+        email,
+        otp: otp.trim(),
+        name: name.trim(),
+      }, { withCredentials: true });
+
+      if (res?.error === false) {
+        localStorage.setItem("accessToken", res?.data?.accesstoken);
+        localStorage.setItem("refreshToken", res?.data?.refreshToken);
+        localStorage.setItem("userEmail", email);
+        context.setIsLogin(true);
+
+        context.alertBox("success", `🎉 Welcome ${name.trim()}!`);
+
+        // Reset form
+        setEmail("");
+        setOtp("");
+        setName("");
+        setStep("email");
+
+        setTimeout(() => {
+          history("/");
+        }, 800);
+      } else {
+        context.alertBox("error", `❌ ${res?.message || "Failed to complete registration"}`);
+        triggerShake();
+      }
+    } catch (err) {
+      console.error("Complete registration error:", err);
+      context.alertBox("error", "❌ Network error. Please check your connection.");
+      triggerShake();
+    } finally {
+      setIsLoading(false);
+      context.setGlobalLoading(false);
+    }
   };
+
+  const handleBack = () => {
+    if (step === "otp") {
+      setStep("email");
+      setOtp("");
+    } else if (step === "name") {
+      setStep("otp");
+      setName("");
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setIsLoading(true);
+    context.setGlobalLoading(true);
+    
+    try {
+      const endpoint = isNewUser ? "/api/user/send-register-otp" : "/api/user/send-login-otp";
+      const payload = isNewUser
+        ? { email: email.trim(), name: "User" }
+        : { email: email.trim() };
+
+      const res = await postData(endpoint, payload);
+      if (res?.error === false) {
+        context.alertBox("success", "✅ OTP resent to your email!");
+      } else {
+        context.alertBox("error", `❌ ${res?.message || "Failed to resend OTP"}`);
+      }
+    } catch (err) {
+      console.error("Resend OTP error:", err);
+      context.alertBox("error", "❌ Network error. Please try again.");
+    } finally {
+      setIsLoading(false);
+      context.setGlobalLoading(false);
+    }
+  };
+
+  // Heading based on step
+  const getHeaderContent = () => {
+    switch (step) {
+      case "email":
+        return {
+          title: "Welcome back",
+          subtitle: "Enter your email to get started",
+        };
+      case "otp":
+        return {
+          title: "Verify OTP 🔐",
+          subtitle: `We sent a code to ${email}`,
+        };
+      case "name":
+        return {
+          title: "Almost there! 👋",
+          subtitle: "Please tell us your name",
+        };
+    }
+  };
+
+  const headerContent = getHeaderContent();
 
   return (
     <>
@@ -328,145 +299,184 @@ const Login = () => {
                   </defs>
                 </svg>
               </div>
-              <h2 className="login-title">Welcome back</h2>
-              <p className="login-subtitle">Sign in to your account to continue</p>
+              <h2 className="login-title">{headerContent.title}</h2>
+              <p className="login-subtitle">{headerContent.subtitle}</p>
             </div>
 
-             <form onSubmit={(e) => { if (!isPhoneMode) handleSubmit(e); else e.preventDefault(); }} className="login-form" noValidate>
-              {/* <div className="login-mode-switch">
-                <button
-                  type="button"
-                  className={`mode-btn ${!isPhoneMode ? "active" : ""}`}
-                  onClick={() => setIsPhoneMode(false)}
+            {/* EMAIL STEP */}
+            {step === "email" && (
+              <form onSubmit={handleEmailSubmit} className="login-form" noValidate>
+                <FloatingInput
+                  label="Email address"
+                  type="email"
+                  name="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
-                >
-                  Email
-                </button>
+                />
+
                 <button
-                  type="button"
-                  className={`mode-btn ${isPhoneMode ? "active" : ""}`}
-                  onClick={() => setIsPhoneMode(true)}
-                  disabled={isLoading}
+                  type="submit"
+                  disabled={isLoading || !email.trim()}
+                  className="btn-primary"
                 >
-                  Phone OTP
-                </button>
-              </div> */}
-
-              {!isPhoneMode ? (
-                <>
-                  {/* Email */}
-                  <FloatingInput
-                    label="Email address"
-                    type="email"
-                    name="email"
-                    value={formFields.email}
-                    onChange={onChangeInput}
-                    disabled={isLoading}
-                  />
-
-                  {/* Password */}
-                  <FloatingInput
-                    label="Password"
-                    type={isPasswordShow ? "text" : "password"}
-                    name="password"
-                    value={formFields.password}
-                    onChange={onChangeInput}
-                    disabled={isLoading}
-                    rightSlot={
-                      <button type="button" className="eye-btn" onClick={() => setIsPasswordShow(!isPasswordShow)}>
-                        <EyeIcon open={isPasswordShow} />
-                      </button>
-                    }
-                  />
-
-                  {/* Remember + Forgot */}
-                  <div className="login-meta">
-                    <label className="remember-label">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        className="remember-checkbox"
-                      />
-                      <span className="remember-custom" />
-                      <span className="remember-text">Remember me</span>
-                    </label>
-                    <button type="button" className="forgot-btn" onClick={forgotPassword}>
-                      Forgot password?
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <FloatingInput
-                    label="Phone number"
-                    type="tel"
-                    name="phone"
-                    value={phoneData.phone}
-                    onChange={onPhoneInputChange}
-                    disabled={isLoading}
-                  />
-
-                  {otpSent && (
-                    <FloatingInput
-                      label="Enter OTP"
-                      type="text"
-                      name="otp"
-                      value={phoneData.otp}
-                      onChange={onPhoneInputChange}
-                      disabled={isLoading}
-                    />
+                  {isLoading ? (
+                    <span className="flex items-center gap-2 justify-center">
+                      <CircularProgress size={18} color="inherit" />
+                      <span>Checking...</span>
+                    </span>
+                  ) : (
+                    <span className="btn-content">
+                      <span>Continue</span>
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                        className="w-4 h-4"
+                      >
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
+                    </span>
                   )}
+                </button>
 
+                <p className="login-footer-text">
+                  Need help?{" "}
+                  <Link to="/contact" className="auth-link">
+                    Contact Support →
+                  </Link>
+                </p>
+              </form>
+            )}
+
+            {/* OTP STEP */}
+            {step === "otp" && (
+              <form onSubmit={handleVerifyOtp} className="login-form" noValidate>
+                <button
+                  type="button"
+                  className="back-btn"
+                  onClick={handleBack}
+                  disabled={isLoading}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                    className="w-5 h-5"
+                  >
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
+                  </svg>
+                  Back
+                </button>
+
+                <FloatingInput
+                  label="Enter 6-digit OTP"
+                  type="text"
+                  name="otp"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  disabled={isLoading}
+                />
+
+                <button
+                  type="submit"
+                  disabled={isLoading || !otp.trim()}
+                  className="btn-primary"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center gap-2 justify-center">
+                      <CircularProgress size={18} color="inherit" />
+                      <span>Verifying...</span>
+                    </span>
+                  ) : (
+                    <span className="btn-content">
+                      <span>Verify OTP</span>
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                        className="w-4 h-4"
+                      >
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+
+                <p className="resend-text">
+                  Didn't receive OTP?{" "}
                   <button
                     type="button"
-                    className="btn-secondary"
-                    onClick={otpSent ? verifyPhoneOtp : sendPhoneOtp}
+                    className="resend-link"
+                    onClick={handleResendOtp}
                     disabled={isLoading}
                   >
-                    {otpSent ? "Verify OTP & Login" : "Send OTP"}
+                    Resend
                   </button>
-                </>
-              )}
+                </p>
+              </form>
+            )}
 
-              {/* Submit */}
-              <button type="submit" disabled={isPhoneMode || !valideValue || isLoading} className="btn-primary">
-                {isLoading ? (
-                  <span className="flex items-center gap-2 justify-center">
-                    <CircularProgress size={18} color="inherit" />
-                    <span>Signing in…</span>
-                  </span>
-                ) : (
-                  <span className="btn-content">
-                    <span>Sign In</span>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </span>
-                )}
-              </button>
+            {/* NAME STEP */}
+            {step === "name" && (
+              <form onSubmit={handleNameSubmit} className="login-form" noValidate>
+                <button
+                  type="button"
+                  className="back-btn"
+                  onClick={handleBack}
+                  disabled={isLoading}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                    className="w-5 h-5"
+                  >
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
+                  </svg>
+                  Back
+                </button>
 
-             
-              <div className="divider">
-                <span className="divider-line" />
-                <span className="divider-text">or continue with</span>
-                <span className="divider-line" />
-              </div>
+                <FloatingInput
+                  label="Your full name"
+                  type="text"
+                  name="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={isLoading}
+                />
 
-             
-              <button type="button" className="btn-google" onClick={authWithGoogle} disabled={isLoading}>
-                <GoogleIcon />
-                <span>Continue with Google</span>
-              </button>
-
-              {/* Register link */}
-              <p className="login-footer-text">
-                Don't have an account?{" "}
-                <Link to="/register" className="auth-link">
-                  Create one free →
-                </Link>
-              </p>
-            </form>
+                <button
+                  type="submit"
+                  disabled={isLoading || !name.trim()}
+                  className="btn-primary"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center gap-2 justify-center">
+                      <CircularProgress size={18} color="inherit" />
+                      <span>Completing...</span>
+                    </span>
+                  ) : (
+                    <span className="btn-content">
+                      <span>Complete Registration</span>
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                        className="w-4 h-4"
+                      >
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </section>
@@ -585,30 +595,32 @@ const loginStyles = `
   /* Form */
   .login-form { display: flex; flex-direction: column; gap: 1rem; }
 
-  .login-mode-switch {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    background: #f3f4f6;
-    border-radius: 10px;
-    padding: 4px;
-    gap: 6px;
-  }
-  .mode-btn {
-    border: none;
-    border-radius: 8px;
-    padding: 8px 10px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #6b7280;
+  /* Back button */
+  .back-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
     background: transparent;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    color: #6b7280;
+    font-size: 0.875rem;
+    font-weight: 600;
     cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    align-self: flex-start;
   }
-  .mode-btn.active {
-    background: #fff;
-    color: #FF6B00;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  .back-btn:hover:not(:disabled) {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    color: #374151;
   }
-
+  .back-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 
   /* Floating input */
   .login-input-wrap { position: relative; }
@@ -659,90 +671,30 @@ const loginStyles = `
     font-family: inherit;
     font-weight: 500;
   }
-  .login-input-right {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-  }
-  .eye-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px; height: 32px;
-    border-radius: 8px;
-    border: none;
-    background: transparent;
-    color: #9ca3af;
-    cursor: pointer;
-    transition: color 0.15s, background 0.15s;
-  }
-  .eye-btn:hover { color: #FF6B00; background: rgba(255,107,0,0.08); }
 
-  /* Remember + Forgot */
-  .login-meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: -0.25rem 0;
+  /* Resend OTP */
+  .resend-text {
+    text-align: center;
+    font-size: 0.8375rem;
+    color: #6b7280;
+    margin: 0;
   }
-  .remember-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    user-select: none;
-  }
-  .remember-checkbox { display: none; }
-  .remember-custom {
-    width: 18px; height: 18px;
-    border: 1.5px solid #d1d5db;
-    border-radius: 5px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s;
-    flex-shrink: 0;
-  }
-  .remember-checkbox:checked + .remember-custom {
-    background: linear-gradient(135deg, #FF6B00, #FF9500);
-    border-color: transparent;
-    box-shadow: 0 2px 8px rgba(255,107,0,0.3);
-  }
-  .remember-checkbox:checked + .remember-custom::after {
-    content: '';
-    display: block;
-    width: 5px; height: 9px;
-    border: 2px solid #fff;
-    border-top: none;
-    border-left: none;
-    transform: rotate(45deg) translateY(-1px);
-  }
-  .remember-text { font-size: 0.8125rem; color: #6b7280; font-weight: 500; }
-  .forgot-btn {
-    font-size: 0.8125rem;
-    font-weight: 600;
+  .resend-link {
     color: #FF6B00;
+    font-weight: 700;
     background: none;
     border: none;
     cursor: pointer;
     padding: 0;
     font-family: inherit;
-    transition: color 0.15s, opacity 0.15s;
+    font-size: inherit;
+    text-decoration: underline;
+    transition: opacity 0.15s;
   }
-  .forgot-btn:hover { opacity: 0.75; }
+  .resend-link:hover:not(:disabled) { opacity: 0.75; }
+  .resend-link:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* Primary button */
-
-  .btn-secondary {
-    height: 48px;
-    border-radius: 12px;
-    border: 1px solid #FF6B00;
-    background: #fff7ed;
-    color: #c2410c;
-    font-weight: 700;
-    cursor: pointer;
-  }
   .btn-primary {
     width: 100%;
     padding: 0.875rem 1.5rem;
@@ -787,56 +739,6 @@ const loginStyles = `
     justify-content: center;
     gap: 8px;
   }
-
-  /* Ripple effect */
-  .btn-primary::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 60%);
-    opacity: 0;
-    transition: opacity 0.4s;
-    transform: scale(0);
-  }
-  .btn-primary:active::after { opacity: 1; transform: scale(2); transition: none; }
-
-  /* Divider */
-  .divider {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0.5rem 0 0;
-  }
-  .divider-line { flex: 1; height: 1px; background: #e5e7eb; }
-  .divider-text { font-size: 0.75rem; color: #9ca3af; font-weight: 500; white-space: nowrap; }
-
-  /* Google button */
-  .btn-google {
-    width: 100%;
-    padding: 0.8125rem 1.5rem;
-    background: #fff;
-    color: #374151;
-    font-family: inherit;
-    font-size: 0.9rem;
-    font-weight: 600;
-    border: 1.5px solid #e5e7eb;
-    border-radius: 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    transition: all 0.18s;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  }
-  .btn-google:hover:not(:disabled) {
-    border-color: #d1d5db;
-    background: #f9fafb;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    transform: translateY(-1px);
-  }
-  .btn-google:active:not(:disabled) { transform: translateY(0); }
-  .btn-google:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* Footer text */
   .login-footer-text {

@@ -21,20 +21,22 @@ import {
   Dimensions,
   Easing,
   Image,
+  LayoutAnimation,
   Linking,
   Platform,
-  ScrollView,
   Share,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  LayoutAnimation,
   UIManager,
+  View,
 } from "react-native";
 
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -62,7 +64,8 @@ const T = {
 const { width: SCREEN_W } = Dimensions.get("window");
 const BANNER_H = 180;
 const LOGO_SIZE = 68;
-const STATUS_H = Platform.OS === "android" ? (StatusBar.currentHeight ?? 20) : 44;
+const STATUS_H =
+  Platform.OS === "android" ? (StatusBar.currentHeight ?? 20) : 44;
 
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -121,9 +124,24 @@ function LoadingSkeleton() {
     <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: 10 }}>
       <ShimmerBox width="100%" height={BANNER_H} borderRadius={0} />
       <View style={[S.infoCard, { marginTop: -16 }]}>
-        <ShimmerBox width={LOGO_SIZE} height={LOGO_SIZE} borderRadius={14} style={{ alignSelf: "center", marginTop: -30, marginBottom: 8 }} />
-        <ShimmerBox width={130} height={14} borderRadius={6} style={{ alignSelf: "center", marginBottom: 5 }} />
-        <ShimmerBox width={95} height={10} borderRadius={4} style={{ alignSelf: "center", marginBottom: 10 }} />
+        <ShimmerBox
+          width={LOGO_SIZE}
+          height={LOGO_SIZE}
+          borderRadius={14}
+          style={{ alignSelf: "center", marginTop: -30, marginBottom: 8 }}
+        />
+        <ShimmerBox
+          width={130}
+          height={14}
+          borderRadius={6}
+          style={{ alignSelf: "center", marginBottom: 5 }}
+        />
+        <ShimmerBox
+          width={95}
+          height={10}
+          borderRadius={4}
+          style={{ alignSelf: "center", marginBottom: 10 }}
+        />
         <View style={{ flexDirection: "row", justifyContent: "center", gap: 5 }}>
           {[0, 1, 2, 3].map((i) => (
             <ShimmerBox key={i} width={52} height={20} borderRadius={10} />
@@ -183,7 +201,17 @@ function StatChip({
   );
 }
 
-function ShopBadge({ label, icon, bgColor, textColor }: { label: string; icon: string; bgColor: string; textColor: string }) {
+function ShopBadge({
+  label,
+  icon,
+  bgColor,
+  textColor,
+}: {
+  label: string;
+  icon: string;
+  bgColor: string;
+  textColor: string;
+}) {
   return (
     <View style={[S.shopBadge, { backgroundColor: bgColor }]}>
       <Text style={{ fontSize: 10, marginRight: 4 }}>{icon}</Text>
@@ -247,9 +275,18 @@ function ActionButton({
         ]}
       >
         {busy ? (
-          <ActivityIndicator size="small" color={filled ? (isFollowing ? T.text : T.white) : T.text} />
+          <ActivityIndicator
+            size="small"
+            color={filled ? (isFollowing ? T.text : T.white) : T.text}
+          />
         ) : (
-          <Text style={[S.actionBtnTxt, filled && !isFollowing && S.actionBtnTxtFilled, filled && isFollowing && S.actionBtnTxtFollowing]}>
+          <Text
+            style={[
+              S.actionBtnTxt,
+              filled && !isFollowing && S.actionBtnTxtFilled,
+              filled && isFollowing && S.actionBtnTxtFollowing,
+            ]}
+          >
             {icon ? `${icon} ${label}` : label}
           </Text>
         )}
@@ -258,16 +295,40 @@ function ActionButton({
   );
 }
 
-function FadeIn({ children, delay = 0, style }: { children: React.ReactNode; delay?: number; style?: object }) {
+function FadeIn({
+  children,
+  delay = 0,
+  style,
+}: {
+  children: React.ReactNode;
+  delay?: number;
+  style?: object;
+}) {
   const op = useRef(new Animated.Value(0)).current;
   const ty = useRef(new Animated.Value(12)).current;
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(op, { toValue: 1, duration: 300, delay, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.spring(ty, { toValue: 0, speed: 20, bounciness: 6, delay, useNativeDriver: true } as any),
+      Animated.timing(op, {
+        toValue: 1,
+        duration: 300,
+        delay,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(ty, {
+        toValue: 0,
+        speed: 20,
+        bounciness: 6,
+        delay,
+        useNativeDriver: true,
+      } as any),
     ]).start();
   }, []);
-  return <Animated.View style={[{ opacity: op, transform: [{ translateY: ty }] }, style]}>{children}</Animated.View>;
+  return (
+    <Animated.View style={[{ opacity: op, transform: [{ translateY: ty }] }, style]}>
+      {children}
+    </Animated.View>
+  );
 }
 
 export default function GoMarketShopDetails() {
@@ -300,7 +361,9 @@ export default function GoMarketShopDetails() {
   const loadShop = useCallback(() => {
     if (!id) return;
     setLoading(true);
-    fetchDataFromApi(`/api/go-market/grocery-shops/${id}/catalog?limit=1&page=1`)
+    fetchDataFromApi(
+      `/api/go-market/grocery-shops/${id}/catalog?limit=1&page=1`
+    )
       .then((res) => {
         if (res?.success || res?.error === false) {
           setShop(res.shop);
@@ -386,7 +449,9 @@ export default function GoMarketShopDetails() {
         <View style={S.centered}>
           <Text style={S.notFoundIcon}>🏪</Text>
           <Text style={S.notFoundTitle}>Shop not found</Text>
-          <Text style={S.notFoundSub}>This shop may have been removed or is unavailable.</Text>
+          <Text style={S.notFoundSub}>
+            This shop may have been removed or is unavailable.
+          </Text>
           <TouchableOpacity style={S.goBackBtn} onPress={() => router.back()}>
             <Text style={S.goBackBtnTxt}>Go Back</Text>
           </TouchableOpacity>
@@ -399,178 +464,231 @@ export default function GoMarketShopDetails() {
   const productRating = shop.productAverageRating ?? shop.rating ?? 0;
   const productReviews = shop.productReviewCount ?? shop.totalReviews ?? 0;
   const isOpen = shop.isOpen ?? shop.status === "open";
-
   const descShort = (shop.description || "").length > 80;
+
+  // ─── Shop Info Header ──────────────────────────────────────────────────────
+  // Passed to GoMarketShopCatalog as listHeader so it renders inside FlatList.
+  // This removes the outer ScrollView and enables native infinite scroll.
+  const shopInfoHeader = (
+    <View style={{ paddingTop: STATUS_H - 44 }}>
+      {/* Banner */}
+      <View style={S.bannerWrap}>
+        <Image
+          source={{ uri: gmImg(shop.shopBanner, GO_MARKET_FALLBACK) }}
+          style={S.banner}
+          resizeMode="cover"
+        />
+        <View style={S.bannerOverlay} />
+        <View
+          style={[
+            S.statusBadge,
+            {
+              backgroundColor: isOpen
+                ? "rgba(107,195,74,0.92)"
+                : "rgba(211,47,47,0.92)",
+            },
+          ]}
+        >
+          <View
+            style={[
+              S.statusDot,
+              { backgroundColor: isOpen ? "#A5D6A7" : "#EF9A9A" },
+            ]}
+          />
+          <Text style={S.statusText}>{isOpen ? "Open Now" : "Closed"}</Text>
+        </View>
+        <View style={S.categoryBadge}>
+          <Text style={{ fontSize: 11, marginRight: 4 }}>🛒</Text>
+          <Text style={S.categoryBadgeTxt}>Grocery</Text>
+        </View>
+      </View>
+
+      {/* Info Card */}
+      <FadeIn delay={0}>
+        <Animated.View
+          style={[
+            S.infoCard,
+            {
+              opacity: cardOpacity,
+              transform: [{ translateY: cardSlide }],
+            },
+          ]}
+        >
+          <View style={S.logoWrap}>
+            <Image
+              source={{ uri: gmImg(shop.shopLogo, GO_MARKET_LOGO_FALLBACK) }}
+              style={S.logo}
+              resizeMode="cover"
+            />
+            <View style={S.onlineDot} />
+          </View>
+
+          <Text style={S.shopName}>{shop.shopName}</Text>
+
+          {(shop.isPureVeg || shop.hasFastDelivery) && (
+            <View style={S.badgesRow}>
+              {shop.isPureVeg && (
+                <ShopBadge
+                  label="Pure Veg"
+                  icon="🌿"
+                  bgColor={T.greenLight}
+                  textColor={T.green}
+                />
+              )}
+              {shop.hasFastDelivery && (
+                <ShopBadge
+                  label="Fast Delivery"
+                  icon="⚡"
+                  bgColor="#FFF3E0"
+                  textColor="#E65100"
+                />
+              )}
+            </View>
+          )}
+
+          {!!shop.address && (
+            <View style={S.addressRow}>
+              <Text style={S.addressIcon}>📍</Text>
+              <Text style={S.shopAddr} numberOfLines={2}>
+                {shop.address}
+              </Text>
+            </View>
+          )}
+
+          {shop.openingHours && (
+            <View style={S.addressRow}>
+              <Text style={S.addressIcon}>🕐</Text>
+              <Text style={S.shopAddr} numberOfLines={1}>
+                {shop.openingHours}
+              </Text>
+            </View>
+          )}
+
+          <View style={S.divider} />
+
+          <View style={S.statsRow}>
+            <StatChip
+              icon="⭐"
+              value={Number(productRating || 0).toFixed(1)}
+              label="Rating"
+              delay={0}
+            />
+            <StatChip
+              icon="👥"
+              value={formatCount(followersN)}
+              label="Followers"
+              delay={50}
+            />
+            <StatChip
+              icon="💬"
+              value={formatCount(productReviews)}
+              label="Reviews"
+              delay={100}
+            />
+            <StatChip
+              icon="📦"
+              value={formatCount(shop.totalProducts || 0)}
+              label="Products"
+              delay={150}
+            />
+          </View>
+
+          {!!shop.description && (
+            <View>
+              <Text
+                style={S.desc}
+                numberOfLines={descExpanded ? undefined : 2}
+              >
+                {shop.description}
+              </Text>
+              {descShort && (
+                <TouchableOpacity
+                  onPress={() => {
+                    LayoutAnimation.configureNext(
+                      LayoutAnimation.Presets.easeInEaseOut
+                    );
+                    setDescExpanded(!descExpanded);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={S.descToggle}>
+                    {descExpanded ? "Show less ▲" : "Read more ▼"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          <View style={S.divider} />
+
+          <View style={S.actions}>
+            <ActionButton
+              label={shop.isFollowing ? "Following" : "Follow"}
+              icon={shop.isFollowing ? "✓" : "❤️"}
+              filled={true}
+              busy={followBusy}
+              onPress={handleFollow}
+              flex={2}
+              isFollowing={shop.isFollowing}
+            />
+            <ActionButton
+              label="Share"
+              icon="↗"
+              filled={false}
+              onPress={() =>
+                Share.share({ message: `${shop.shopName}\n${shop.address}` })
+              }
+              flex={1}
+            />
+            {!!shop.ownerId?.mobile && (
+              <ActionButton
+                label="Call"
+                icon="📞"
+                filled={false}
+                onPress={() => Linking.openURL(`tel:${shop.ownerId.mobile}`)}
+                flex={1}
+              />
+            )}
+          </View>
+        </Animated.View>
+      </FadeIn>
+
+      {/* Products Section Header */}
+      <FadeIn delay={60}>
+        <Animated.View
+          style={{
+            opacity: sectionOpacity,
+            transform: [{ translateY: sectionSlide }],
+          }}
+        >
+          <View style={S.sectionHeader}>
+            <View style={S.sectionTitleWrap}>
+              <View style={S.sectionAccent} />
+              <Text style={S.secTitle}>Products</Text>
+            </View>
+            <View style={S.productCountBadge}>
+              <Text style={S.productCountTxt}>
+                {formatCount(shop.totalProducts || 0)}
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+      </FadeIn>
+    </View>
+  );
 
   return (
     <View style={S.root}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      <ScrollView
-        style={S.scroll}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 16, paddingTop: STATUS_H - 44 }}
-      >
-        {/* Banner */}
-        <View style={S.bannerWrap}>
-          <Image
-            source={{ uri: gmImg(shop.shopBanner, GO_MARKET_FALLBACK) }}
-            style={S.banner}
-            resizeMode="cover"
-          />
-          <View style={S.bannerOverlay} />
-          {/* Status Badge */}
-          <View style={[S.statusBadge, { backgroundColor: isOpen ? "rgba(107,195,74,0.92)" : "rgba(211,47,47,0.92)" }]}>
-            <View style={[S.statusDot, { backgroundColor: isOpen ? "#A5D6A7" : "#EF9A9A" }]} />
-            <Text style={S.statusText}>{isOpen ? "Open Now" : "Closed"}</Text>
-          </View>
-          {/* Grocery Badge */}
-          <View style={S.categoryBadge}>
-            <Text style={{ fontSize: 11, marginRight: 4 }}>🛒</Text>
-            <Text style={S.categoryBadgeTxt}>Grocery</Text>
-          </View>
-        </View>
+      {/* GoMarketShopCatalog now owns the ONLY FlatList/scroll.
+          shopInfoHeader (banner + info card + section title) is injected
+          as ListHeaderComponent so infinite scroll works natively. */}
+      {id ? (
+        <GoMarketShopCatalog shopId={id} listHeader={shopInfoHeader} shopIsOpen={isOpen} />
+      ) : null}
 
-        {/* Info Card */}
-        <FadeIn delay={0}>
-          <Animated.View
-            style={[
-              S.infoCard,
-              {
-                opacity: cardOpacity,
-                transform: [{ translateY: cardSlide }],
-              },
-            ]}
-          >
-            <View style={S.logoWrap}>
-              <Image
-                source={{ uri: gmImg(shop.shopLogo, GO_MARKET_LOGO_FALLBACK) }}
-                style={S.logo}
-                resizeMode="cover"
-              />
-              <View style={S.onlineDot} />
-            </View>
-
-            <Text style={S.shopName}>{shop.shopName}</Text>
-
-            {/* Shop Badges */}
-            {(shop.isPureVeg || shop.hasFastDelivery) && (
-              <View style={S.badgesRow}>
-                {shop.isPureVeg && <ShopBadge label="Pure Veg" icon="🌿" bgColor={T.greenLight} textColor={T.green} />}
-                {shop.hasFastDelivery && <ShopBadge label="Fast Delivery" icon="⚡" bgColor="#FFF3E0" textColor="#E65100" />}
-              </View>
-            )}
-
-            {!!shop.address && (
-              <View style={S.addressRow}>
-                <Text style={S.addressIcon}>📍</Text>
-                <Text style={S.shopAddr} numberOfLines={2}>
-                  {shop.address}
-                </Text>
-              </View>
-            )}
-
-            {shop.openingHours && (
-              <View style={S.addressRow}>
-                <Text style={S.addressIcon}>🕐</Text>
-                <Text style={S.shopAddr} numberOfLines={1}>
-                  {shop.openingHours}
-                </Text>
-              </View>
-            )}
-
-            <View style={S.divider} />
-
-            {/* Stats */}
-            <View style={S.statsRow}>
-              <StatChip icon="⭐" value={Number(productRating || 0).toFixed(1)} label="Rating" delay={0} />
-              <StatChip icon="👥" value={formatCount(followersN)} label="Followers" delay={50} />
-              <StatChip icon="💬" value={formatCount(productReviews)} label="Reviews" delay={100} />
-              <StatChip icon="📦" value={formatCount(shop.totalProducts || 0)} label="Products" delay={150} />
-            </View>
-
-            {!!shop.description && (
-              <View>
-                <Text style={S.desc} numberOfLines={descExpanded ? undefined : 2}>
-                  {shop.description}
-                </Text>
-                {descShort && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                      setDescExpanded(!descExpanded);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={S.descToggle}>{descExpanded ? "Show less ▲" : "Read more ▼"}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            <View style={S.divider} />
-
-            {/* Action Buttons */}
-            <View style={S.actions}>
-              <ActionButton
-                label={shop.isFollowing ? "Following" : "Follow"}
-                icon={shop.isFollowing ? "✓" : "❤️"}
-                filled={true}
-                busy={followBusy}
-                onPress={handleFollow}
-                flex={2}
-                isFollowing={shop.isFollowing}
-              />
-              <ActionButton
-                label="Share"
-                icon="↗"
-                filled={false}
-                onPress={() =>
-                  Share.share({ message: `${shop.shopName}\n${shop.address}` })
-                }
-                flex={1}
-              />
-              {!!shop.ownerId?.mobile && (
-                <ActionButton
-                  label="Call"
-                  icon="📞"
-                  filled={false}
-                  onPress={() =>
-                    Linking.openURL(`tel:${shop.ownerId.mobile}`)
-                  }
-                  flex={1}
-                />
-              )}
-            </View>
-          </Animated.View>
-        </FadeIn>
-
-        {/* Products Section */}
-        <FadeIn delay={60}>
-          <Animated.View
-            style={{
-              opacity: sectionOpacity,
-              transform: [{ translateY: sectionSlide }],
-            }}
-          >
-            <View style={S.sectionHeader}>
-              <View style={S.sectionTitleWrap}>
-                <View style={S.sectionAccent} />
-                <Text style={S.secTitle}>Products</Text>
-              </View>
-              <View style={S.productCountBadge}>
-                <Text style={S.productCountTxt}>
-                  {formatCount(shop.totalProducts || 0)}
-                </Text>
-              </View>
-            </View>
-
-            {id ? <GoMarketShopCatalog shopId={id} /> : null}
-          </Animated.View>
-        </FadeIn>
-      </ScrollView>
-
-      {/* Sticky Cart Button */}
+      {/* Sticky Cart Button — absolute over the FlatList */}
       <TouchableOpacity
         style={S.stickyCartBtn}
         onPress={() => setCartDialogVisible(true)}
@@ -592,19 +710,16 @@ export default function GoMarketShopDetails() {
 
 const S = StyleSheet.create({
   root: { flex: 1, backgroundColor: T.bg },
-  scroll: { flex: 1 },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center", gap: 10, padding: 16 },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+    padding: 16,
+  },
 
-  bannerWrap: {
-    height: BANNER_H,
-    overflow: "hidden",
-    backgroundColor: "#C8D5B8",
-  },
-  banner: {
-    width: SCREEN_W,
-    height: BANNER_H,
-    backgroundColor: "#C8D5B8",
-  },
+  bannerWrap: { height: BANNER_H, overflow: "hidden", backgroundColor: "#C8D5B8" },
+  banner: { width: SCREEN_W, height: BANNER_H, backgroundColor: "#C8D5B8" },
   bannerOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(26,26,26,0.20)",
@@ -645,12 +760,7 @@ const S = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  categoryBadgeTxt: {
-    color: T.white,
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
+  categoryBadgeTxt: { color: T.white, fontSize: 10, fontWeight: "700", letterSpacing: 0.3 },
 
   infoCard: {
     marginHorizontal: 10,
@@ -670,12 +780,7 @@ const S = StyleSheet.create({
     elevation: 3,
   },
 
-  logoWrap: {
-    alignSelf: "center",
-    marginTop: -30,
-    marginBottom: 8,
-    position: "relative",
-  },
+  logoWrap: { alignSelf: "center", marginTop: -30, marginBottom: 8, position: "relative" },
   logo: {
     width: LOGO_SIZE,
     height: LOGO_SIZE,
@@ -735,13 +840,7 @@ const S = StyleSheet.create({
     paddingHorizontal: 8,
   },
   addressIcon: { fontSize: 10, marginTop: 0.5, color: T.textSoft },
-  shopAddr: {
-    fontSize: 10,
-    color: T.textSoft,
-    textAlign: "center",
-    lineHeight: 13,
-    flex: 1,
-  },
+  shopAddr: { fontSize: 10, color: T.textSoft, textAlign: "center", lineHeight: 13, flex: 1 },
 
   divider: {
     height: 0.8,
@@ -750,12 +849,7 @@ const S = StyleSheet.create({
     marginHorizontal: -4,
   },
 
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 5,
-    flexWrap: "wrap",
-  },
+  statsRow: { flexDirection: "row", justifyContent: "center", gap: 5, flexWrap: "wrap" },
   statChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -774,36 +868,13 @@ const S = StyleSheet.create({
     elevation: 1,
   },
   statChipIcon: { fontSize: 11 },
-  statChipVal: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: T.text,
-    letterSpacing: -0.2,
-  },
-  statChipLabel: {
-    fontSize: 8,
-    fontWeight: "600",
-    color: T.textMuted,
-    marginTop: 0.5,
-  },
+  statChipVal: { fontSize: 11, fontWeight: "800", color: T.text, letterSpacing: -0.2 },
+  statChipLabel: { fontSize: 8, fontWeight: "600", color: T.textMuted, marginTop: 0.5 },
 
-  desc: {
-    fontSize: 10,
-    color: T.textSoft,
-    lineHeight: 14,
-    marginBottom: 2,
-  },
-  descToggle: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: T.greenAccent,
-    marginTop: 2,
-  },
+  desc: { fontSize: 10, color: T.textSoft, lineHeight: 14, marginBottom: 2 },
+  descToggle: { fontSize: 9, fontWeight: "800", color: T.greenAccent, marginTop: 2 },
 
-  actions: {
-    flexDirection: "row",
-    gap: 5,
-  },
+  actions: { flexDirection: "row", gap: 5 },
   actionBtn: {
     paddingVertical: 10,
     borderRadius: 10,
@@ -819,26 +890,11 @@ const S = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  actionBtnFollowing: {
-    backgroundColor: T.greenLight,
-    borderColor: T.text,
-  },
-  actionBtnNotFollowing: {
-    backgroundColor: T.red,
-    borderColor: T.red,
-  },
-  actionBtnTxt: {
-    color: T.text,
-    fontWeight: "800",
-    fontSize: 10,
-    letterSpacing: -0.2,
-  },
-  actionBtnTxtFilled: {
-    color: T.white,
-  },
-  actionBtnTxtFollowing: {
-    color: T.text,
-  },
+  actionBtnFollowing: { backgroundColor: T.greenLight, borderColor: T.text },
+  actionBtnNotFollowing: { backgroundColor: T.red, borderColor: T.red },
+  actionBtnTxt: { color: T.text, fontWeight: "800", fontSize: 10, letterSpacing: -0.2 },
+  actionBtnTxtFilled: { color: T.white },
+  actionBtnTxtFollowing: { color: T.text },
 
   sectionHeader: {
     flexDirection: "row",
@@ -848,41 +904,19 @@ const S = StyleSheet.create({
     marginBottom: 6,
     marginTop: 4,
   },
-  sectionTitleWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  sectionAccent: {
-    width: 2.5,
-    height: 16,
-    borderRadius: 1.5,
-    backgroundColor: T.green,
-  },
-  secTitle: {
-    fontSize: 13,
-    fontWeight: "900",
-    color: T.text,
-    letterSpacing: -0.3,
-  },
+  sectionTitleWrap: { flexDirection: "row", alignItems: "center", gap: 5 },
+  sectionAccent: { width: 2.5, height: 16, borderRadius: 1.5, backgroundColor: T.green },
+  secTitle: { fontSize: 13, fontWeight: "900", color: T.text, letterSpacing: -0.3 },
   productCountBadge: {
     backgroundColor: T.greenLight,
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  productCountTxt: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: T.green,
-  },
+  productCountTxt: { fontSize: 9, fontWeight: "700", color: T.green },
 
   notFoundIcon: { fontSize: 40 },
-  notFoundTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: T.text,
-  },
+  notFoundTitle: { fontSize: 14, fontWeight: "800", color: T.text },
   notFoundSub: {
     fontSize: 11,
     color: T.textSoft,
@@ -896,11 +930,7 @@ const S = StyleSheet.create({
     backgroundColor: T.green,
     borderRadius: 10,
   },
-  goBackBtnTxt: {
-    color: T.white,
-    fontWeight: "800",
-    fontSize: 11,
-  },
+  goBackBtnTxt: { color: T.white, fontWeight: "800", fontSize: 11 },
 
   stickyCartBtn: {
     position: "absolute",
@@ -923,13 +953,6 @@ const S = StyleSheet.create({
     justifyContent: "center",
     gap: 10,
   },
-  cartIcon: {
-    fontSize: 24,
-  },
-  cartBtnText: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: T.white,
-    letterSpacing: 0.3,
-  },
+  cartIcon: { fontSize: 24 },
+  cartBtnText: { fontSize: 16, fontWeight: "900", color: T.white, letterSpacing: 0.3 },
 });

@@ -48,6 +48,7 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [optionProduct, setOptionProduct] = useState(null);
   const [quickSelections, setQuickSelections] = useState({});
+  const [restaurantData, setRestaurantData] = useState(null);
 
   useEffect(() => setSearch(initialQuery), [initialQuery]);
 
@@ -79,6 +80,10 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
         setTotal(res.pagination?.total || 0);
         setPage(pageNum);
         onRestaurant?.(res.restaurant);
+        // Store restaurant data for isOpen check
+        if (res.restaurant) {
+          setRestaurantData(res.restaurant);
+        }
       }
     } finally {
       setLoading(false);
@@ -104,7 +109,16 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
   const optionGroups = normalizeProductOptions(optionProduct?.productOptions || []);
   const quickPrice = optionGroups.reduce((price, opt) => { const key = opt.name || opt.label; const found = (opt.values || []).find((v) => v.label === quickSelections[key] || v.value === quickSelections[key]); return Number(found?.price) > 0 ? Number(found.price) : price; }, Number(optionProduct?.price || 0));
   const quickOldPrice = optionGroups.reduce((oldPrice, opt) => { const key = opt.name || opt.label; const found = (opt.values || []).find((v) => v.label === quickSelections[key] || v.value === quickSelections[key]); return Number(found?.oldPrice) > 0 ? Number(found.oldPrice) : oldPrice; }, Number(optionProduct?.oldPrice || optionProduct?.price || 0));
-  const addProductWithOptions = async (product, selectedOptions = {}, priceOverride = null) => { if (!isLogin) { toast.error("Please login first"); navigate("/login"); return; } const name = product.itemName || product.name; await dispatch(addToCart({ product: { _id: product._id, name, price: priceOverride ?? product.price, oldPrice: product.oldPrice || product.price, image: product.image, images: product.images || [product.image], countInStock: product.countInStock ?? 99, rating: product.rating || product.averageRating || 0, brand: product.brand || "GoMarket Restaurant", discount: product.discount, selectedOptions }, userId: userData?._id, quantity: 1 })); };
+  const addProductWithOptions = async (product, selectedOptions = {}, priceOverride = null) => {
+    if (!isLogin) { toast.error("Please login first"); navigate("/login"); return; }
+    // Check if restaurant is open
+    if (restaurantData && restaurantData.isOpen === false) {
+      toast.error("Restaurant is currently closed. You cannot add items to cart.");
+      return;
+    }
+    const name = product.itemName || product.name;
+    await dispatch(addToCart({ product: { _id: product._id, name, price: priceOverride ?? product.price, oldPrice: product.oldPrice || product.price, image: product.image, images: product.images || [product.image], countInStock: product.countInStock ?? 99, rating: product.rating || product.averageRating || 0, brand: product.brand || "GoMarket Restaurant", discount: product.discount, selectedOptions }, userId: userData?._id, quantity: 1 }));
+  };
   const handleQuickAdd = (e, product) => { e.preventDefault(); e.stopPropagation(); const options = normalizeProductOptions(product.productOptions || []); if (options.length) { setOptionProduct(product); setQuickSelections({}); return; } addProductWithOptions(product); };
   const handleQuickWishlist = async (e, product) => { e.preventDefault(); e.stopPropagation(); if (!isLogin) { toast.error("Please login first"); navigate("/login"); return; } if (myListData?.some((item) => item?.productId === product._id)) { toast.success("Already in wishlist"); return; } const name = product.itemName || product.name; const res = await postData("/api/myList/add", { productTitle: name, image: product.image, rating: product.rating || product.averageRating || 0, price: product.price, oldPrice: product.oldPrice || product.price, productId: product._id, brand: product.brand || "GoMarket Restaurant", discount: product.discount }); if (res?.error === false) { toast.success("Added to wishlist"); dispatch(fetchMyListData()); } else toast.error(res?.message || "Wishlist failed"); };
   const confirmOptionAdd = () => { if (!optionGroups.every((opt) => quickSelections[opt.name || opt.label])) { toast.error("Select all options"); return; } addProductWithOptions(optionProduct, quickSelections, quickPrice); setOptionProduct(null); setQuickSelections({}); };
@@ -169,7 +183,15 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
                   )}
                 </div>
                 <button className="gmp-card-icon gmp-card-heart" onClick={(e) => handleQuickWishlist(e, item)}>♡</button>
-                <button className="gmp-card-icon gmp-card-plus" onClick={(e) => handleQuickAdd(e, item)}>+</button>
+                <button 
+                  className="gmp-card-icon gmp-card-plus" 
+                  onClick={(e) => handleQuickAdd(e, item)}
+                  disabled={restaurantData && restaurantData.isOpen === false}
+                  style={{ 
+                    opacity: restaurantData && restaurantData.isOpen === false ? 0.5 : 1,
+                    cursor: restaurantData && restaurantData.isOpen === false ? 'not-allowed' : 'pointer'
+                  }}
+                >+</button>
                 <div className="gmp-product-body">
                   <div className="gmp-product-name">{item.itemName}</div>
                   {item.description && (

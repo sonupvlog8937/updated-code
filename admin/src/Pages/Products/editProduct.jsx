@@ -50,8 +50,13 @@ const EditProduct = () => {
         specifications: [{ key: '', value: '' }],
         bannerTitleName: '',
         bannerimages: [],
-        isDisplayOnHomeBanner: false
-
+        isDisplayOnHomeBanner: false,
+        tags: "",
+        searchKeywords: "",
+        seoDescription: "",
+        attributes: "",
+        title: "",
+        productType: ""
     })
 
 
@@ -132,7 +137,13 @@ const EditProduct = () => {
                 specifications: (res?.product?.specifications || []).length !== 0 ? res?.product?.specifications : [{ key: '', value: '' }],
                 bannerTitleName: res?.product?.bannerTitleName,
                 bannerimages: res?.product?.bannerimages,
-                isDisplayOnHomeBanner: res?.product?.isDisplayOnHomeBanner
+                isDisplayOnHomeBanner: res?.product?.isDisplayOnHomeBanner,
+                tags: (res?.product?.tags || []).join(', '),
+                searchKeywords: res?.product?.searchKeywords || '',
+                seoDescription: res?.product?.seoDescription || '',
+                attributes: res?.product?.attributes || '',
+                title: res?.product?.title || '',
+                productType: res?.product?.productType || ''
             })
 
 
@@ -444,7 +455,15 @@ const EditProduct = () => {
             specifications: (formFields.specifications || []).filter((item) => item.key && item.value),
             keywords: formFields.keywords
                 ? formFields.keywords.split(',').map((item) => item.trim()).filter(Boolean)
-                : []
+                : [],
+            tags: formFields.tags
+                ? formFields.tags.split(',').map((item) => item.trim()).filter(Boolean)
+                : [],
+            searchKeywords: formFields.searchKeywords || '',
+            seoDescription: formFields.seoDescription || '',
+            attributes: formFields.attributes || '',
+            title: formFields.title || formFields.name,
+            productType: formFields.productType || ''
         };
 
         setIsLoading(true);
@@ -482,6 +501,13 @@ const EditProduct = () => {
 
                     <div className='grid grid-cols-1 mb-3'>
                         <div className='col'>
+                            <h3 className='text-[14px] font-[500] mb-1 text-black'>Display Title (product page)</h3>
+                            <input type="text" placeholder='Leave blank to use product name' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="title" value={formFields.title} onChange={onChangeInput} />
+                        </div>
+                    </div>
+
+                    <div className='grid grid-cols-1 mb-3'>
+                        <div className='col'>
                             <h3 className='text-[14px] font-[500] mb-1 text-black'>Product Description</h3>
                             <textarea type="text" className='w-full h-[140px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="description" value={formFields.description} onChange={onChangeInput} />
                         </div>
@@ -491,6 +517,32 @@ const EditProduct = () => {
                         <div className='col'>
                             <h3 className='text-[14px] font-[500] mb-1 text-black'>Search Keywords (comma separated)</h3>
                             <input type="text" placeholder='example: tshirt, cotton, summer wear' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="keywords" value={formFields.keywords} onChange={onChangeInput} />
+                        </div>
+                    </div>
+
+                    <div className='bg-white border border-gray-200 rounded-lg mb-3 p-4'>
+                        <h3 className='text-[14px] font-[500] mb-3 text-black'>SEO & Search Optimization</h3>
+                        <div className='grid grid-cols-1 gap-3'>
+                            <div className='col'>
+                                <h3 className='text-[13px] font-[500] mb-1 text-gray-700'>Product Tags (comma separated)</h3>
+                                <input type="text" placeholder='e.g. trending, new, bestseller' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="tags" value={formFields.tags} onChange={onChangeInput} />
+                            </div>
+                            <div className='col'>
+                                <h3 className='text-[13px] font-[500] mb-1 text-gray-700'>Search Keywords</h3>
+                                <input type="text" placeholder='Additional search terms for better matching' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="searchKeywords" value={formFields.searchKeywords} onChange={onChangeInput} />
+                            </div>
+                            <div className='col'>
+                                <h3 className='text-[13px] font-[500] mb-1 text-gray-700'>SEO Description</h3>
+                                <textarea type="text" placeholder='Short description for search engines' className='w-full h-[80px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="seoDescription" value={formFields.seoDescription} onChange={onChangeInput} />
+                            </div>
+                            <div className='col'>
+                                <h3 className='text-[13px] font-[500] mb-1 text-gray-700'>Product Attributes</h3>
+                                <input type="text" placeholder='e.g. waterproof, wireless, bluetooth' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="attributes" value={formFields.attributes} onChange={onChangeInput} />
+                            </div>
+                            <div className='col'>
+                                <h3 className='text-[13px] font-[500] mb-1 text-gray-700'>Product Type</h3>
+                                <input type="text" placeholder='e.g. Electronics, Clothing, Home' className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm' name="productType" value={formFields.productType} onChange={onChangeInput} />
+                            </div>
                         </div>
                     </div>
 

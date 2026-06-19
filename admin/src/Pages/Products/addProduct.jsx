@@ -76,6 +76,7 @@ const MarketplaceAddProduct = () => {
         colorOptions: [{ name: '', code: '', images: '' }],
         specifications: [{ key: '', value: '' }],
         bannerTitleName: '', bannerimages: [], isDisplayOnHomeBanner: false,
+        tags: '', searchKeywords: '', seoDescription: '', attributes: '', title: '', productType: '',
     });
 
     const [productCat, setProductCat] = useState('');
@@ -232,6 +233,12 @@ const MarketplaceAddProduct = () => {
                 .filter((item) => item.name),
             specifications: (formFields.specifications || []).filter((item) => item.key && item.value),
             keywords: formFields.keywords ? formFields.keywords.split(',').map((s) => s.trim()).filter(Boolean) : [],
+            tags: formFields.tags ? formFields.tags.split(',').map((s) => s.trim()).filter(Boolean) : [],
+            searchKeywords: formFields.searchKeywords || '',
+            seoDescription: formFields.seoDescription || '',
+            attributes: formFields.attributes || '',
+            title: formFields.title || formFields.name,
+            productType: formFields.productType || '',
         };
         setIsLoading(true);
         postData('/api/product/create', payload).then((res) => {
@@ -260,11 +267,35 @@ const MarketplaceAddProduct = () => {
                             <Field label="Product Name *">
                                 <input style={inp} type="text" name="name" value={formFields.name} onChange={onChangeInput} placeholder="e.g. iPhone 15 Pro Max 256GB" />
                             </Field>
+                            <Field label="Display Title (product page)">
+                                <input style={inp} type="text" name="title" value={formFields.title} onChange={onChangeInput} placeholder="Leave blank to use product name" />
+                            </Field>
                             <Field label="Product Description *">
                                 <textarea style={{ ...inp, height: 120, padding: '10px 12px', resize: 'vertical' }} name="description" value={formFields.description} onChange={onChangeInput} placeholder="Detailed product description…" />
                             </Field>
                             <Field label="Search Keywords (comma separated)">
                                 <input style={inp} type="text" name="keywords" value={formFields.keywords} onChange={onChangeInput} placeholder="e.g. tshirt, cotton, summer wear" />
+                            </Field>
+                        </div>
+                    </SectionCard>
+
+                    {/* ── SEO & Search Optimization ── */}
+                    <SectionCard icon={<TbListDetails size={15} />} iconBg="#fef3c7" iconColor="#b45309" title="SEO & Search Optimization" subtitle="Improve product discoverability">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <Field label="Product Tags (comma separated)">
+                                <input style={inp} type="text" name="tags" value={formFields.tags} onChange={onChangeInput} placeholder="e.g. trending, new, bestseller" />
+                            </Field>
+                            <Field label="Search Keywords">
+                                <input style={inp} type="text" name="searchKeywords" value={formFields.searchKeywords} onChange={onChangeInput} placeholder="Additional search terms for better matching" />
+                            </Field>
+                            <Field label="SEO Description">
+                                <textarea style={{ ...inp, height: 80, padding: '10px 12px', resize: 'vertical' }} name="seoDescription" value={formFields.seoDescription} onChange={onChangeInput} placeholder="Short description for search engines" />
+                            </Field>
+                            <Field label="Product Attributes">
+                                <input style={inp} type="text" name="attributes" value={formFields.attributes} onChange={onChangeInput} placeholder="e.g. waterproof, wireless, bluetooth" />
+                            </Field>
+                            <Field label="Product Type">
+                                <input style={inp} type="text" name="productType" value={formFields.productType} onChange={onChangeInput} placeholder="e.g. Electronics, Clothing, Home" />
                             </Field>
                         </div>
                     </SectionCard>

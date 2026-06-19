@@ -89,7 +89,7 @@ const sortForCatalogTab = (tab) => {
 };
 
 const buildGroceryCatalogFilter = async (req, shopId) => {
-  const filter = buildQuery({ ...req.query, shopId }, ["name", "description", "title"]);
+  const filter = buildQuery({ ...req.query, shopId }, ["name", "description", "title", "keywords", "tags", "searchKeywords", "seoDescription", "attributes"]);
   if (req.query.inStock === "true") filter.stock = { $gt: 0 };
   if (String(req.query.tab || "").toLowerCase() === "featured") filter.isFeatured = true;
   if (req.query.categoryId && isObjectId(req.query.categoryId)) filter.categoryId = req.query.categoryId;
@@ -496,13 +496,25 @@ export const shopProductSearchSuggestions = async (req, res) => {
     if (!q) return ok(res, { suggestions: [] });
 
     const products = await GroceryProduct.find({ shopId })
-      .select("name title")
+      .select("name title keywords tags searchKeywords seoDescription attributes")
       .limit(200)
       .lean();
 
     const suggestions = rankSuggestions(q, products, {
       limit: 8,
-      getLabel: (p) => displayProductTitle(p, p.name),
+      getLabel: (p) => {
+        // Combine all SEO fields for better fuzzy matching
+        const searchFields = [
+          displayProductTitle(p, p.name),
+          p.title || "",
+          p.keywords || "",
+          p.tags || "",
+          p.searchKeywords || "",
+          p.seoDescription || "",
+          p.attributes || "",
+        ].filter(Boolean).join(" ");
+        return searchFields;
+      },
     }).map((p) => ({
       _id: p._id,
       label: displayProductTitle(p, p.name),
@@ -554,7 +566,7 @@ export const searchShopProducts = async (req, res) => {
 };
 
 const buildRestaurantCatalogFilter = (req, restaurantId) => {
-  const filter = buildQuery({ ...req.query, restaurantId }, ["itemName", "description", "title"]);
+  const filter = buildQuery({ ...req.query, restaurantId }, ["itemName", "description", "title", "keywords", "tags", "searchKeywords", "seoDescription", "attributes"]);
   const tab = String(req.query.tab || "featured").toLowerCase();
   if (tab === "featured") filter.isFeatured = true;
   if (req.query.availableOnly === "true" || req.query.inStock === "true") filter.isAvailable = { $ne: false };
@@ -655,10 +667,22 @@ export const restaurantItemSearchSuggestions = async (req, res) => {
     if (!isObjectId(restaurantId)) return sendError(res, "Invalid restaurant id", 400);
     const q = String(req.query.q || req.query.search || "").trim();
     if (!q) return ok(res, { suggestions: [] });
-    const items = await RestaurantItem.find({ restaurantId }).select("itemName title").limit(200).lean();
+    const items = await RestaurantItem.find({ restaurantId }).select("itemName title keywords tags searchKeywords seoDescription attributes").limit(200).lean();
     const suggestions = rankSuggestions(q, items, {
       limit: 8,
-      getLabel: (p) => displayProductTitle(p, p.itemName),
+      getLabel: (p) => {
+        // Combine all SEO fields for better fuzzy matching
+        const searchFields = [
+          displayProductTitle(p, p.itemName),
+          p.title || "",
+          p.keywords || "",
+          p.tags || "",
+          p.searchKeywords || "",
+          p.seoDescription || "",
+          p.attributes || "",
+        ].filter(Boolean).join(" ");
+        return searchFields;
+      },
     }).map((p) => ({ _id: p._id, label: displayProductTitle(p, p.itemName), type: "dish" }));
     ok(res, { suggestions });
   } catch (error) {

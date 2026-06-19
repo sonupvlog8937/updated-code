@@ -14,9 +14,9 @@ export const resources = {
   owners: { model: ShopOwner, label: "Shop owner", searchFields: ["name", "email", "mobile"] },
   "grocery-shops": { model: GroceryShop, label: "Grocery shop", searchFields: ["shopName", "address", "description"], populate: "marketId ownerId" },
   restaurants: { model: Restaurant, label: "Restaurant", searchFields: ["restaurantName", "address", "description"], populate: "marketId ownerId" },
-  products: { model: GroceryProduct, label: "Grocery product", searchFields: ["name", "description"], populate: "shopId categoryId subCategoryId" },
+  products: { model: GroceryProduct, label: "Grocery product", searchFields: ["name", "description", "title", "keywords", "tags", "searchKeywords", "seoDescription", "attributes"], populate: "shopId categoryId subCategoryId" },
   menus: { model: RestaurantMenu, label: "Restaurant menu", searchFields: ["menuName", "description"], populate: "restaurantId" },
-  items: { model: RestaurantItem, label: "Restaurant item", searchFields: ["itemName", "description"], populate: "restaurantId menuId categoryId" },
+  items: { model: RestaurantItem, label: "Restaurant item", searchFields: ["itemName", "description", "title", "keywords", "tags", "searchKeywords", "seoDescription", "attributes"], populate: "restaurantId menuId categoryId" },
   categories: { model: GoMarketCategory, label: "Go Market category", searchFields: ["name", "description"] },
   subcategories: { model: GoMarketSubCategory, label: "Go Market sub category", searchFields: ["name", "description"], populate: "parentId" },
 };

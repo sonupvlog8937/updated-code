@@ -19,6 +19,7 @@ import {
   LayoutAnimation,
   UIManager,
   Easing,
+  FlatList,
 } from "react-native";
 import {
   addToCart,
@@ -45,6 +46,7 @@ const BANNER_H = 220;
 const LOGO_SIZE = 70;
 const FALLBACK = "https://placehold.co/800x420/2d2416/9d7d4d?text=Restaurant";
 const STATUS_H = Platform.OS === "android" ? (StatusBar.currentHeight ?? 20) : 24;
+const ITEMS_PER_PAGE = 12;
 
 // Restaurant Theme Colors
 const C = {
@@ -197,7 +199,7 @@ function MenuRow({ item, index }: { item: any; index: number }) {
   );
 }
 
-function ItemTile({ item, index, columns, onAddToCart, onWishlist, inWishlist }: { item: any; index: number; columns: 1 | 2; onAddToCart: (item: any) => void; onWishlist: (item: any) => void; inWishlist: boolean }) {
+function ItemTile({ item, index, columns, onAddToCart, onWishlist, inWishlist, restaurantIsOpen }: { item: any; index: number; columns: 1 | 2; onAddToCart: (item: any) => void; onWishlist: (item: any) => void; inWishlist: boolean; restaurantIsOpen: boolean }) {
   const router = useRouter();
   const sc = useRef(new Animated.Value(1)).current;
   const imgOp = useRef(new Animated.Value(0)).current;
@@ -210,6 +212,7 @@ function ItemTile({ item, index, columns, onAddToCart, onWishlist, inWishlist }:
   const rating = item.rating || item.averageRating || 0;
   const reviewCount = item.reviewCount || item.totalReviews || 0;
   const isOutOfStock = item.stock === 0 || item.inStock === false;
+  const isRestaurantClosed = !restaurantIsOpen;
   const itemName = item.itemName || item.name || item.productName;
 
   return (
@@ -230,6 +233,11 @@ function ItemTile({ item, index, columns, onAddToCart, onWishlist, inWishlist }:
             {isOutOfStock && (
               <View style={S.outOfStockOverlay}>
                 <Text style={S.outOfStockText}>Out of Stock</Text>
+              </View>
+            )}
+            {isRestaurantClosed && !isOutOfStock && (
+              <View style={S.storeClosedOverlay}>
+                <Text style={S.storeClosedText}>Store Closed</Text>
               </View>
             )}
             {isVeg !== undefined && (
@@ -278,7 +286,7 @@ function ItemTile({ item, index, columns, onAddToCart, onWishlist, inWishlist }:
                   </Text>
                 )}
               </View>
-              {!isOutOfStock && (
+              {!isOutOfStock && !isRestaurantClosed && (
                 <TouchableOpacity 
                   style={S.addBtn} 
                   activeOpacity={0.75}
@@ -345,8 +353,12 @@ export default function GoMarketRestaurantDetails() {
   const { isLogin, userData, myListData, cartData } = useAppSelector((s: any) => s.app);
   const [authChecked, setAuthChecked] = useState(false);
   const [tab, setTab] = useState<"featured" | "popular" | "latest">("featured");
-  const [catalogItems, setCatalogItems] = useState<any[]>([]);
+  const [allCatalogItems, setAllCatalogItems] = useState<any[]>([]); // ALL items (pagination handled)
+  const [displayedItems, setDisplayedItems] = useState<any[]>([]); // Items to show (12, 24, 36...)
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogLoadingMore, setCatalogLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMorePages, setHasMorePages] = useState(true);
   const [sort, setSort] = useState("latest");
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [gridColumns, setGridColumns] = useState<1 | 2>(2);
@@ -358,6 +370,7 @@ export default function GoMarketRestaurantDetails() {
   const [cartDialogVisible, setCartDialogVisible] = useState(false);
   const [cartViewDialogVisible, setCartViewDialogVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const searchFocused = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -377,23 +390,55 @@ export default function GoMarketRestaurantDetails() {
   }, [dispatch, id]);
 
   const buildCatalogParams = useCallback((pageNum: number) => {
-    const p = new URLSearchParams({ tab, limit: "12", page: String(pageNum), ...(sort && sort !== "latest" ? { sort } : {}) });
+    const p = new URLSearchParams({ tab, limit: String(ITEMS_PER_PAGE), page: String(pageNum), ...(sort && sort !== "latest" ? { sort } : {}) });
     if (search.trim()) p.set("q", search.trim());
     return p;
   }, [tab, sort, search]);
 
   const loadCatalogPage = useCallback(async (pageNum: number) => {
     if (!id) return;
-    setCatalogLoading(true);
+    
+    if (pageNum === 1) {
+      setCatalogLoading(true);
+      setCatalogLoadingMore(false);
+      setAllCatalogItems([]);
+      setDisplayedItems([]);
+    } else {
+      setCatalogLoadingMore(true);
+    }
+    
     try {
       const params = buildCatalogParams(pageNum);
-      const res = await fetchDataFromApi(`/api/go-market/restaurants/${id}/catalog?${params}`);
+      const url = `/api/go-market/restaurants/${id}/catalog?${params}`;
+      const res = await fetchDataFromApi(url);
+      
       if (res?.success || res?.error === false) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setCatalogItems(res.data || []);
+        const newItems = res.data || [];
+        
+        if (pageNum === 1) {
+          // First page - replace all
+          setAllCatalogItems(newItems);
+          setDisplayedItems(newItems.slice(0, ITEMS_PER_PAGE));
+        } else {
+          // Append new items
+          setAllCatalogItems((prev) => [...prev, ...newItems]);
+          setDisplayedItems((prev) => [...prev, ...newItems.slice(0, ITEMS_PER_PAGE)]);
+        }
+        
+        // Check if there are more pages
+        setHasMorePages(newItems.length === ITEMS_PER_PAGE);
+        setCurrentPage(pageNum);
+      } else {
+        console.warn("API Error:", res);
       }
+    } catch (error) {
+      console.error("Fetch Error:", error);
     } finally {
-      setCatalogLoading(false);
+      if (pageNum === 1) {
+        setCatalogLoading(false);
+      } else {
+        setCatalogLoadingMore(false);
+      }
     }
   }, [id, buildCatalogParams]);
 
@@ -417,7 +462,6 @@ export default function GoMarketRestaurantDetails() {
     const q = query.trim();
     setSearch(q);
     setShowSuggestions(false);
-    setCatalogItems([]);
     loadCatalogPage(1);
   };
 
@@ -425,7 +469,18 @@ export default function GoMarketRestaurantDetails() {
     setSearch("");
     setSuggestions([]);
     setShowSuggestions(false);
-    setCatalogItems([]);
+  };
+
+  const handleScroll = (event: any) => {
+    if (catalogLoading || catalogLoadingMore || !hasMorePages) return;
+    
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const scrollPosition = contentOffset.y + layoutMeasurement.height;
+    const distanceFromBottom = contentSize.height - scrollPosition;
+    
+    if (distanceFromBottom < 300 && displayedItems.length < allCatalogItems.length + ITEMS_PER_PAGE) {
+      loadCatalogPage(currentPage + 1);
+    }
   };
 
   const onSearchFocus = () => Animated.timing(searchFocused, { toValue: 1, duration: 180, useNativeDriver: false }).start();
@@ -462,20 +517,31 @@ export default function GoMarketRestaurantDetails() {
   };
 
   const handleAddToCart = (product: any) => {
-    // Check if product has options
+    // Check if restaurant is open
+    const isOpen = restaurant.isOpen ?? restaurant.status === "open";
+    if (!isOpen) {
+      showToast("error", "Restaurant is currently closed. You cannot add items to cart.");
+      return;
+    }
+
     const hasOptions = (product.options?.length > 0) || (product.productOptions?.some((opt: any) => opt.values?.length > 0));
     
     if (hasOptions) {
-      // Product has options, show dialog
       setSelectedProduct(product);
       setCartDialogVisible(true);
     } else {
-      // Product has no options, add directly to cart
       handleConfirmAddToCart(product, null, 1);
     }
   };
 
   const handleConfirmAddToCart = async (product: any, selectedOption: any, quantity: number) => {
+    // Check if restaurant is open
+    const isOpen = restaurant.isOpen ?? restaurant.status === "open";
+    if (!isOpen) {
+      showToast("error", "Restaurant is currently closed. You cannot add items to cart.");
+      return;
+    }
+
     const name = product.name || product.itemName || product.productName;
     const cartProduct = {
       _id: product._id,
@@ -551,8 +617,12 @@ export default function GoMarketRestaurantDetails() {
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100, paddingTop: Platform.OS === "ios" ? 24 : (StatusBar.currentHeight ?? 0) }}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        nestedScrollEnabled={true}
       >
         <View style={{ height: BANNER_H, overflow: "hidden" }}>
           <Image
@@ -561,7 +631,6 @@ export default function GoMarketRestaurantDetails() {
           />
           <View style={S.bannerGradient} />
           
-          {/* Restaurant Name & Badge Overlay */}
           <View style={S.bannerOverlay}>
             <Text style={S.bannerName} numberOfLines={1}>
               {restaurant.restaurantName}
@@ -721,32 +790,48 @@ export default function GoMarketRestaurantDetails() {
         <View style={{ paddingHorizontal: 12 }}>
           <SectionHead
             title={`${tab[0].toUpperCase()}${tab.slice(1)} Dishes`}
-            count={catalogItems.length}
+            count={displayedItems.length}
           />
 
           {menus.length > 0 && tab === "featured" && !search ? menus.slice(0, 3).map((m: any, i: number) => <MenuRow key={m._id} item={m} index={i} />) : null}
 
-          {catalogLoading && !catalogItems.length ? (
+          {catalogLoading && !displayedItems.length ? (
             <View style={S.loadingWrap}>
               <ActivityIndicator color={C.accent} size="large" />
               <Text style={S.loadingText}>Finding dishes…</Text>
             </View>
-          ) : catalogItems.length === 0 ? (
+          ) : displayedItems.length === 0 ? (
             <EmptyState query={search} />
           ) : (
-           <View style={[S.grid, gridColumns === 1 && S.gridOne]}>
-              {catalogItems.map((item: any, i: number) => (
-               <ItemTile
-                  key={item._id}
-                  item={item}
-                  index={i}
-                  columns={gridColumns}
-                  onAddToCart={handleAddToCart}
-                  onWishlist={handleWishlist}
-                  inWishlist={myListData?.some((w: any) => w?.productId === item._id)}
-                />
-              ))}
-            </View>
+            <>
+              <View style={[S.grid, gridColumns === 1 && S.gridOne]}>
+                {displayedItems.map((item: any, i: number) => (
+                  <ItemTile
+                    key={item._id}
+                    item={item}
+                    index={i}
+                    columns={gridColumns}
+                    onAddToCart={handleAddToCart}
+                    onWishlist={handleWishlist}
+                    inWishlist={myListData?.some((w: any) => w?.productId === item._id)}
+                    restaurantIsOpen={isOpen}
+                  />
+                ))}
+              </View>
+              
+              {catalogLoadingMore && (
+                <View style={S.loadingWrap}>
+                  <ActivityIndicator color={C.accent} size="small" />
+                  <Text style={S.loadingText}>Loading more…</Text>
+                </View>
+              )}
+              
+              {!catalogLoadingMore && !hasMorePages && displayedItems.length > 0 && (
+                <View style={S.loadingWrap}>
+                  <Text style={S.loadingText}>✓ All dishes loaded</Text>
+                </View>
+              )}
+            </>
           )}
         </View>
       </ScrollView>
@@ -767,7 +852,6 @@ export default function GoMarketRestaurantDetails() {
         onAddToCart={handleConfirmAddToCart}
       />
 
-      {/* Sticky Cart Button */}
       <TouchableOpacity
         style={S.stickyCartBtn}
         onPress={() => setCartViewDialogVisible(true)}
@@ -1102,6 +1186,18 @@ const S = StyleSheet.create({
     alignItems: "center",
   },
   outOfStockText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  storeClosedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(211, 47, 47, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  storeClosedText: {
     color: "#fff",
     fontSize: 11,
     fontWeight: "800",

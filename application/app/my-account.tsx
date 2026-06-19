@@ -80,6 +80,8 @@ export default function MyProfileScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const userData = useAppSelector((s) => s.app.userData);
+  const cartCount = useAppSelector((s) => s.app.cartData?.length || 0);
+  const wishCount = useAppSelector((s) => s.app.myListData?.length || 0);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -169,15 +171,15 @@ export default function MyProfileScreen() {
 
       const res = await uploadImage("/api/user/user-avatar", formData);
 
-      if (res?.data?.avtar) {
+      if (res?.error === false || res?.success === true) {
         setFormState((prev) => ({
           ...prev,
-          avatar: res.data.avtar,
+          avatar: res?.avatar || res?.data?.avatar || "",
         }));
         showToast("success", "Profile picture updated!");
         await dispatch(fetchUserDetails());
       } else {
-        showToast("error", "Failed to upload image");
+        showToast("error", res?.message || "Failed to upload image");
       }
     } catch (error) {
       showToast("error", "Error uploading image");
@@ -578,13 +580,35 @@ export default function MyProfileScreen() {
                   />
 
                   <View style={{ gap: 10, marginTop: 20 }}>
-                    <PrimaryButton
+                    {/* <PrimaryButton
                       title={isSaving ? "Saving..." : "Save Changes"}
                       onPress={saveChanges}
                       loading={isSaving}
                       fullWidth
                       size="lg"
-                    />
+                    /> */}
+                    <Pressable
+                      onPress={saveChanges}
+                      disabled={isSaving}
+                      style={[
+                        styles.cancelBtn,
+                        {
+                          backgroundColor: colors.primary,
+                          borderColor: colors.border,
+                          opacity: isSaving ? 0.5 : 1,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          color: colors.foreground,
+                          fontFamily: "Inter_600SemiBold",
+                          fontSize: 14,
+                        }}
+                      >
+                        Save Change
+                      </Text>
+                    </Pressable>
                     <Pressable
                       onPress={cancelEdit}
                       disabled={isSaving}
@@ -764,6 +788,333 @@ export default function MyProfileScreen() {
                     </Text>
                   </View>
                 </View>
+
+                {/* Account Statistics */}
+                <View
+                  style={[
+                    styles.statsSection,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      marginTop: 16,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color: colors.foreground,
+                      fontFamily: "Inter_700Bold",
+                      fontSize: 14,
+                      marginBottom: 12,
+                    }}
+                  >
+                    Account Statistics
+                  </Text>
+                  <View style={styles.statsGrid}>
+                    <StatBox
+                      icon="package"
+                      label="Total Orders"
+                      value="—"
+                      color={colors.info || colors.primary}
+                      bgColor={colors.accent}
+                      colors={colors}
+                    />
+                    <StatBox
+                      icon="heart"
+                      label="Wishlist"
+                      value={String(wishCount)}
+                      color={colors.destructive || colors.primary}
+                      bgColor={colors.accent}
+                      colors={colors}
+                    />
+                    <StatBox
+                      icon="shopping-cart"
+                      label="Cart Items"
+                      value={String(cartCount)}
+                      color={colors.warning || colors.primary}
+                      bgColor={colors.accent}
+                      colors={colors}
+                    />
+                  </View>
+                </View>
+
+                {/* Preferences Section */}
+                <Text
+                  style={{
+                    color: colors.foreground,
+                    fontFamily: "Inter_700Bold",
+                    fontSize: 16,
+                    marginTop: 24,
+                    marginBottom: 12,
+                  }}
+                >
+                  Preferences
+                </Text>
+
+                <Pressable
+                  onPress={() => router.push("/notification-settings" as never)}
+                  style={[
+                    styles.actionCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 10,
+                      backgroundColor: colors.accent,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Feather name="bell" size={18} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: colors.foreground,
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 14,
+                      }}
+                    >
+                      Notification Settings
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.mutedForeground,
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                    >
+                      Manage your notification preferences
+                    </Text>
+                  </View>
+                  <Feather
+                    name="chevron-right"
+                    size={20}
+                    color={colors.mutedForeground}
+                  />
+                </Pressable>
+
+                <Pressable
+                  onPress={() => router.push("/offers" as never)}
+                  style={[
+                    styles.actionCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      marginTop: 10,
+                    },
+                  ]}
+                >
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 10,
+                      backgroundColor: colors.accent,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Feather name="tag" size={18} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: colors.foreground,
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 14,
+                      }}
+                    >
+                      Offers & Coupons
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.mutedForeground,
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                    >
+                      View available discounts and offers
+                    </Text>
+                  </View>
+                  <Feather
+                    name="chevron-right"
+                    size={20}
+                    color={colors.mutedForeground}
+                  />
+                </Pressable>
+
+                {/* Support Section */}
+                <Text
+                  style={{
+                    color: colors.foreground,
+                    fontFamily: "Inter_700Bold",
+                    fontSize: 16,
+                    marginTop: 24,
+                    marginBottom: 12,
+                  }}
+                >
+                  Support
+                </Text>
+
+                <Pressable
+                  onPress={() => router.push("/blog" as never)}
+                  style={[
+                    styles.actionCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 10,
+                      backgroundColor: colors.accent,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Feather name="book-open" size={18} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: colors.foreground,
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 14,
+                      }}
+                    >
+                      Blog & Tips
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.mutedForeground,
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                    >
+                      Read helpful articles and tips
+                    </Text>
+                  </View>
+                  <Feather
+                    name="chevron-right"
+                    size={20}
+                    color={colors.mutedForeground}
+                  />
+                </Pressable>
+
+                <Pressable
+                  onPress={() => router.push("/privacy-policy" as never)}
+                  style={[
+                    styles.actionCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      marginTop: 10,
+                    },
+                  ]}
+                >
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 10,
+                      backgroundColor: colors.accent,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Feather name="shield" size={18} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: colors.foreground,
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 14,
+                      }}
+                    >
+                      Privacy & Policy
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.mutedForeground,
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                    >
+                      Read our privacy policy
+                    </Text>
+                  </View>
+                  <Feather
+                    name="chevron-right"
+                    size={20}
+                    color={colors.mutedForeground}
+                  />
+                </Pressable>
+
+                {/* Delete Account */}
+                <Pressable
+                  onPress={() => {
+                    // Add delete account confirmation
+                    showToast("info", "Delete account feature coming soon");
+                  }}
+                  style={[
+                    styles.actionCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.destructive || colors.border,
+                      marginTop: 24,
+                    },
+                  ]}
+                >
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 10,
+                      backgroundColor: withOpacity(colors.destructive || colors.primary, 0.1),
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Feather name="trash-2" size={18} color={colors.destructive || colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: colors.destructive || colors.foreground,
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 14,
+                      }}
+                    >
+                      Delete Account
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.mutedForeground,
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                    >
+                      Permanently delete your account
+                    </Text>
+                  </View>
+                  <Feather
+                    name="chevron-right"
+                    size={20}
+                    color={colors.mutedForeground}
+                  />
+                </Pressable>
               </>
             )}
           </View>
@@ -868,13 +1219,34 @@ export default function MyProfileScreen() {
             </View>
 
             <View style={{ gap: 10, marginTop: 24 }}>
-              <PrimaryButton
+              {/* <PrimaryButton
                 title={isChangingPassword ? "Changing..." : "Change Password"}
                 onPress={changePassword}
                 loading={isChangingPassword}
                 fullWidth
                 size="lg"
-              />
+              /> */}
+              <Pressable
+                      onPress={changePassword}
+                      style={[
+                        styles.cancelBtn,
+                        {
+                          backgroundColor: colors.primary,
+                          borderColor: colors.border,
+                          opacity: isSaving ? 0.5 : 1,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          color: colors.foreground,
+                          fontFamily: "Inter_600SemiBold",
+                          fontSize: 14,
+                        }}
+                      >
+                        Change Password
+                      </Text>
+                    </Pressable>
               <Pressable
                 onPress={() => {
                   setShowPasswordModal(false);
@@ -1101,6 +1473,67 @@ const FormField = ({
   );
 };
 
+const StatBox = ({
+  icon,
+  label,
+  value,
+  color,
+  bgColor,
+  colors,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  value: string;
+  color: string;
+  bgColor: string;
+  colors: any;
+}) => {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: bgColor,
+        borderRadius: 12,
+        padding: 12,
+        alignItems: "center",
+      }}
+    >
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: color,
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 8,
+        }}
+      >
+        <Feather name={icon} size={18} color="#ffffff" />
+      </View>
+      <Text
+        style={{
+          color: colors.foreground,
+          fontFamily: "Inter_700Bold",
+          fontSize: 16,
+          marginBottom: 2,
+        }}
+      >
+        {value}
+      </Text>
+      <Text
+        style={{
+          color: colors.mutedForeground,
+          fontFamily: "Inter_500Medium",
+          fontSize: 11,
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
@@ -1165,6 +1598,15 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 14,
     borderWidth: 1,
+  },
+  statsSection: {
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    gap: 12,
   },
   field: {
     flexDirection: "row",
