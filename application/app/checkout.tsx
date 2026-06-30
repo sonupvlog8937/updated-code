@@ -38,40 +38,18 @@ if (
 const { width } = Dimensions.get("window");
 const IS_SMALL = width < 375;
 
-// ─── Available Coupons ───────────────────────────────────────────────────────
+// ─── Available Coupons (Fetched from API) ────────────────────────────────────
 interface Coupon {
+  _id?: string;
   code: string;
   discount: number;
+  discountType?: "percentage" | "fixed";
   minOrder: number;
-  label: string;
+  maxDiscount?: number;
+  label?: string;
+  expiryDate?: string;
+  isActive?: boolean;
 }
-
-const AVAILABLE_COUPONS: Coupon[] = [
-  {
-    code: "ZEED20",
-    discount: 0,
-    minOrder: 200,
-    label: "₹20 off on orders above ₹200",
-  },
-  {
-    code: "FIRST50",
-    discount: 0,
-    minOrder: 0,
-    label: "₹50 off on your first order",
-  },
-  {
-    code: "SAVE100",
-    discount: 0,
-    minOrder: 500,
-    label: "₹100 off on orders above ₹500",
-  },
-  {
-    code: "WELCOME30",
-    discount: 0,
-    minOrder: 300,
-    label: "₹30 off on orders above ₹300",
-  },
-];
 
 // Helper function to get product attributes
 const getProductAttributes = (product: any): string[] => {
@@ -634,6 +612,7 @@ const CouponSection = ({
   setDiscount,
   subTotal,
   onRemove,
+  checkoutItems = [],
 }: {
   coupon: string;
   setCoupon: (v: string) => void;
@@ -641,11 +620,73 @@ const CouponSection = ({
   setDiscount: (v: number) => void;
   subTotal: number;
   onRemove: () => void;
+  checkoutItems?: any[];
 }) => {
   const colors = useColors();
   const successAnim = useRef(new Animated.Value(0)).current;
   const [expanded, setExpanded] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
+  const [loadingCoupons, setLoadingCoupons] = useState(false);
+  const [applyingCoupon, setApplyingCoupon] = useState(false); // Loading state for apply button
   const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  // Extract shopId/restaurantId from cart items
+  const orderContext = useMemo(() => {
+    if (!checkoutItems || checkoutItems.length === 0) return {};
+    
+    const firstItem = checkoutItems[0];
+    
+    // Check for grocery shop
+    if (firstItem.shopId) {
+      return { shopId: firstItem.shopId };
+    }
+    
+    // Check for restaurant
+    if (firstItem.restaurantId) {
+      return { restaurantId: firstItem.restaurantId };
+    }
+    
+    // Check for product ID (for specific product coupons)
+    if (firstItem.productId) {
+      return { productId: firstItem.productId };
+    }
+    
+    return {};
+  }, [checkoutItems]);
+
+  // Fetch available coupons from API with context
+  useEffect(() => {
+    const fetchCoupons = async () => {
+      setLoadingCoupons(true);
+      try {
+        // Build query params based on order context
+        const params = new URLSearchParams();
+        if (orderContext.shopId) params.append('shopId', orderContext.shopId);
+        if (orderContext.restaurantId) params.append('restaurantId', orderContext.restaurantId);
+        if (orderContext.productId) params.append('productId', orderContext.productId);
+        
+        const endpoint = `/api/coupon/active${params.toString() ? `?${params.toString()}` : ''}`;
+        console.log("🎫 Fetching coupons:", endpoint, orderContext);
+        
+        const res = await fetchDataFromApi(endpoint);
+        if (res && Array.isArray(res)) {
+          // Filter only active and non-expired coupons
+          const activeCoupons = res.filter((c: any) => {
+            const isActive = c.isActive !== false;
+            const notExpired = !c.expiryDate || new Date(c.expiryDate) > new Date();
+            return isActive && notExpired;
+          });
+          console.log("✅ Available coupons:", activeCoupons.length);
+          setAvailableCoupons(activeCoupons);
+        }
+      } catch (error) {
+        console.error("❌ Failed to fetch coupons:", error);
+      } finally {
+        setLoadingCoupons(false);
+      }
+    };
+    fetchCoupons();
+  }, [orderContext.shopId, orderContext.restaurantId, orderContext.productId]);
 
   useEffect(() => {
     if (discount > 0) {
@@ -674,21 +715,65 @@ const CouponSection = ({
     setExpanded((p) => !p);
   };
 
-  const applyCoupon = (couponCode: string) => {
-    const found = AVAILABLE_COUPONS.find((c) => c.code === couponCode);
-    if (found) {
-      if (found.minOrder > subTotal) {
-        showToast("error", `Minimum order ₹${found.minOrder} required`);
+  const calculateDiscount = (couponData: Coupon, orderTotal: number) => {
+    if (couponData.discountType === "percentage") {
+      const discountAmount = (orderTotal * couponData.discount) / 100;
+      return couponData.maxDiscount
+        ? Math.min(discountAmount, couponData.maxDiscount)
+        : discountAmount;
+    }
+    return couponData.discount;
+  };
+
+  const applyCoupon = async (couponCode: string) => {
+    setApplyingCoupon(true); // Start loading
+    try {
+      console.log("🎫 Applying coupon:", couponCode, "Context:", orderContext);
+      
+      // Validate coupon via API with shop/restaurant context
+      const res = await postData("/api/coupon/validate", {
+        code: couponCode.toUpperCase(),
+        orderTotal: subTotal,
+        ...orderContext, // Pass shopId/restaurantId/productId
+      });
+
+      console.log("📥 Validation response:", res);
+
+      if (res?.error) {
+        showToast("error", res.message || "Invalid coupon code");
+        setApplyingCoupon(false);
         return;
       }
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setCoupon(couponCode);
-      setDiscount(found.discount);
-      setExpanded(false);
-      showToast(
-        "success",
-        `${couponCode} applied! ₹${found.discount} discount`,
-      );
+
+      if (res?.coupon) {
+        const couponData = res.coupon;
+        
+        // Check minimum order
+        if (couponData.minOrder > subTotal) {
+          showToast("error", `Minimum order ₹${couponData.minOrder} required`);
+          setApplyingCoupon(false);
+          return;
+        }
+
+        // Calculate discount
+        const discountAmount = calculateDiscount(couponData, subTotal);
+        
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setCoupon(couponCode.toUpperCase());
+        setDiscount(Math.round(discountAmount));
+        setExpanded(false);
+        
+        const discountText = couponData.discountType === "percentage"
+          ? `${couponData.discount}% off (₹${Math.round(discountAmount)})`
+          : `₹${discountAmount} off`;
+        
+        showToast("success", `${couponCode.toUpperCase()} applied! ${discountText}`);
+      }
+    } catch (error) {
+      console.error("❌ Apply coupon error:", error);
+      showToast("error", "Failed to apply coupon. Please try again.");
+    } finally {
+      setApplyingCoupon(false); // Stop loading
     }
   };
 
@@ -769,79 +854,121 @@ const CouponSection = ({
         </View>
         <Pressable
           onPress={() => applyCoupon(coupon)}
-          disabled={!coupon.trim()}
+          disabled={!coupon.trim() || applyingCoupon}
           style={[
             couponStyles.applyBtn,
             {
-              backgroundColor: coupon.trim() ? colors.primary : colors.border,
-              opacity: coupon.trim() ? 1 : 0.5,
+              backgroundColor: coupon.trim() && !applyingCoupon ? colors.primary : colors.border,
+              opacity: coupon.trim() && !applyingCoupon ? 1 : 0.5,
             },
           ]}
         >
-          <Text style={couponStyles.applyText}>Apply</Text>
+          {applyingCoupon ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={couponStyles.applyText}>Apply</Text>
+          )}
         </Pressable>
       </View>
 
+      {/* Show available coupons button */}
+      {availableCoupons.length > 0 && (
+        <Pressable onPress={toggle} style={couponStyles.expandBtn}>
+          <View style={couponStyles.expandHeader}>
+            <Feather name="gift" size={14} color={colors.primary} />
+            <Text style={[couponStyles.expandTitle, { color: colors.foreground }]}>
+              {availableCoupons.length} {availableCoupons.length === 1 ? 'coupon' : 'coupons'} available
+            </Text>
+          </View>
+          <Animated.View style={{ transform: [{ rotate }] }}>
+            <Feather name="chevron-down" size={18} color={colors.mutedForeground} />
+          </Animated.View>
+        </Pressable>
+      )}
+
       {expanded && (
         <View style={[couponStyles.list, { borderTopColor: colors.border }]}>
-          {AVAILABLE_COUPONS.map((c) => {
-            const isDisabled = c.minOrder > subTotal;
-            return (
-              <Pressable
-                key={c.code}
-                onPress={() => !isDisabled && applyCoupon(c.code)}
-                disabled={isDisabled}
-                style={[
-                  couponStyles.couponItem,
-                  { borderColor: colors.border, opacity: isDisabled ? 0.5 : 1 },
-                ]}
-              >
-                <View
+          {loadingCoupons ? (
+            <View style={{ padding: 20, alignItems: "center" }}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : availableCoupons.length === 0 ? (
+            <View style={{ padding: 20, alignItems: "center" }}>
+              <Text style={[{ color: colors.mutedForeground, fontSize: 12 }]}>
+                No coupons available
+              </Text>
+            </View>
+          ) : (
+            availableCoupons.map((c) => {
+              const isDisabled = c.minOrder > subTotal;
+              const discountText = c.discountType === "percentage"
+                ? `${c.discount}% off${c.maxDiscount ? ` (upto ₹${c.maxDiscount})` : ""}`
+                : `₹${c.discount} off`;
+              
+              return (
+                <Pressable
+                  key={c._id || c.code}
+                  onPress={() => !isDisabled && !applyingCoupon && applyCoupon(c.code)}
+                  disabled={isDisabled || applyingCoupon}
                   style={[
-                    couponStyles.couponCodeBox,
-                    {
-                      backgroundColor: colors.primary + "15",
-                      borderColor: colors.primary + "40",
+                    couponStyles.couponItem,
+                    { 
+                      borderColor: colors.border, 
+                      opacity: (isDisabled || applyingCoupon) ? 0.5 : 1 
                     },
                   ]}
                 >
-                  <Text
-                    style={[couponStyles.couponCode, { color: colors.primary }]}
-                  >
-                    {c.code}
-                  </Text>
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text
+                  <View
                     style={[
-                      couponStyles.couponLabel,
-                      { color: colors.foreground },
+                      couponStyles.couponCodeBox,
+                      {
+                        backgroundColor: colors.primary + "15",
+                        borderColor: colors.primary + "40",
+                      },
                     ]}
                   >
-                    {c.label}
-                  </Text>
-                  {isDisabled && (
+                    <Text
+                      style={[couponStyles.couponCode, { color: colors.primary }]}
+                    >
+                      {c.code}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
                     <Text
                       style={[
-                        couponStyles.couponMinOrder,
-                        { color: colors.destructive },
+                        couponStyles.couponLabel,
+                        { color: colors.foreground },
                       ]}
                     >
-                      Min order ₹{c.minOrder} required
+                      {c.label || `${discountText} on orders above ₹${c.minOrder}`}
                     </Text>
+                    {isDisabled && (
+                      <Text
+                        style={[
+                          couponStyles.couponMinOrder,
+                          { color: colors.destructive },
+                        ]}
+                      >
+                        Min order ₹{c.minOrder} required
+                      </Text>
+                    )}
+                  </View>
+                  {applyingCoupon ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <View
+                      style={[
+                        couponStyles.discountBadge,
+                        { backgroundColor: colors.primary },
+                      ]}
+                    >
+                      <Text style={couponStyles.discountText}>{discountText}</Text>
+                    </View>
                   )}
-                </View>
-                <View
-                  style={[
-                    couponStyles.discountBadge,
-                    { backgroundColor: colors.primary },
-                  ]}
-                >
-                  <Text style={couponStyles.discountText}>₹{c.discount}</Text>
-                </View>
-              </Pressable>
-            );
-          })}
+                </Pressable>
+              );
+            })
+          )}
         </View>
       )}
     </View>
@@ -902,6 +1029,7 @@ const couponStyles = StyleSheet.create({
     paddingVertical: 10,
     borderWidth: 1,
     borderRadius: 10,
+    borderColor: "rgba(99,102,241,0.2)",
   },
   expandHeader: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
   expandTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
@@ -1472,6 +1600,7 @@ export default function CheckoutScreen() {
             setDiscount={setDiscount}
             subTotal={subTotal}
             onRemove={removeCoupon}
+            checkoutItems={checkoutItems}
           />
         </AnimatedSection>
 

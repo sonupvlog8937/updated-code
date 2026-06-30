@@ -1,42 +1,45 @@
-import dotenv from "dotenv";
-import nodemailer from "nodemailer";
+import { Resend } from 'resend';
 
-dotenv.config();
+const resendClient = process.env.RESEND_API_KEY
+    ? new Resend(process.env.RESEND_API_KEY)
+    : null;
 
-function createTransporter() {
-  const emailUser = process.env.EMAIL;
-  const emailPass = process.env.EMAIL_PASS;
-
-  if (!emailUser || !emailPass) {
-    throw new Error("Missing EMAIL or EMAIL_PASS environment variables");
+/**
+ * Sends email using Resend API
+ */
+async function sendEmail(to, subject, text, html) {
+  if (!resendClient) {
+    console.error('❌ Resend API key not configured');
+    return { success: false, error: 'Resend API key not configured' };
   }
 
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: (process.env.SMTP_SECURE || "fase") === "false",
-    auth: {
-      user: emailUser,
-      pass: emailPass,
-    },
-  });
-}
-
-// Function to send email
-async function sendEmail(to, subject, text, html) {
   try {
-    const transporter = createTransporter();
+    const fromAddress =
+        process.env.RESEND_FROM ||
+        process.env.EMAIL_FROM ||
+        'onboarding@resend.dev';
+    const fromName = process.env.STORE_NAME || 'Zeedaddy';
+    const from = fromAddress.includes('<')
+        ? fromAddress
+        : `${fromName} <${fromAddress}>`;
 
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL,
-      to: Array.isArray(to) ? to.join(",") : to, // ✅ Array ko string mein convert
-      subject,
-      text,
-      html,
+    const { data, error } = await resendClient.emails.send({
+        from,
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        text,
+        html,
     });
-    return { success: true, messageId: info.messageId };
+
+    if (error) {
+        console.error('❌ Resend email error:', error);
+        return { success: false, error: error.message };
+    }
+
+    console.log(`📧 Resend email sent → ${to} | ID: ${data?.id}`);
+    return { success: true, messageId: data?.id };
   } catch (error) {
-    console.error("Error sending email:", error);
+    console.error('❌ Error sending email:', error);
     return { success: false, error: error.message };
   }
 }

@@ -49,6 +49,7 @@ import DualBanner from '@/src/components/DualBanner';
 import BannerGrid from '@/src/components/BannerGrid';
 import ProductItem from '@/src/components/ProductItem';
 import AllProductsSection from '@/src/components/AllProductsSection';
+import GoMarketPromoCard from "@/src/components/GoMarketPromoCard";
 
 import {
   Product,
@@ -800,6 +801,8 @@ const HomeScreen: React.FC = () => {
       {/* Category pills */}
       {catData.length > 0 && <HomeCatSlider data={catData} />}
 
+      {/* <GoMarketPromoCard /> */}
+
       {/* Featured Products */}
       <View style={s.section}>
         <SectionHeader
@@ -819,6 +822,8 @@ const HomeScreen: React.FC = () => {
         />
         <ProductRow products={homepageLatest} isLoading={homePageLoading} />
       </View>
+
+      <GoMarketPromoCard />
 
       {/* Countdown Timer */}
       <CountdownTimer />

@@ -63,7 +63,7 @@ const couponSchema = new mongoose.Schema(
     },
     audience: {
       type: String,
-      enum: ["global", "grocery", "restaurant"],
+      enum: ["global", "grocery", "restaurant", "fashion", "electronics", "medical", "beauty", "home_kitchen", "gifts_toys", "books_stationery", "jewellery", "hardware", "automobile"],
       default: "global",
       index: true,
     },

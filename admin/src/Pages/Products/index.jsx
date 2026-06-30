@@ -23,7 +23,38 @@ import 'yet-another-react-lightbox/styles.css';
 
 const label = { inputProps: { 'aria-label': 'Checkbox demo' } };
 
-const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
+// All seller types that can manage products
+const SELLER_ROLES = [
+    'SELLER',
+    'GROCERY_SELLER',
+    'RESTAURANT_SELLER',
+    'FASHION_SELLER',
+    'ELECTRONICS_SELLER',
+    'MEDICAL_SELLER',
+    'BEAUTY_SELLER',
+    'HOME_KITCHEN_SELLER',
+    'GIFTS_TOYS_SELLER',
+    'BOOKS_STATIONERY_SELLER',
+    'JEWELLERY_SELLER',
+    'HARDWARE_SELLER',
+    'AUTOMOBILE_SELLER',
+];
+
+// All GoMarket shop sellers (use grocery-style product management)
+const GO_MARKET_SHOP_SELLERS = [
+    'GROCERY_SELLER',
+    'FASHION_SELLER',
+    'ELECTRONICS_SELLER',
+    'MEDICAL_SELLER',
+    'BEAUTY_SELLER',
+    'HOME_KITCHEN_SELLER',
+    'GIFTS_TOYS_SELLER',
+    'BOOKS_STATIONERY_SELLER',
+    'JEWELLERY_SELLER',
+    'HARDWARE_SELLER',
+    'AUTOMOBILE_SELLER',
+];
+
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
 
 const columns = [
@@ -79,7 +110,8 @@ export const Products = () => {
     const context = useContext(MyContext);
     const isGrocerySeller = context?.userData?.role === 'GROCERY_SELLER';
     const isRestaurantSeller = context?.userData?.role === 'RESTAURANT_SELLER';
-    const isSpecialtySeller = isGrocerySeller || isRestaurantSeller;
+    const isGoMarketShopSeller = GO_MARKET_SHOP_SELLERS.includes(context?.userData?.role);
+    const isSpecialtySeller = isGoMarketShopSeller || isRestaurantSeller;
     const tableColumns = columns.map((col) =>
         col.id === 'stock' && isRestaurantSeller ? { ...col, label: 'AVAILABILITY' } : col
     );
@@ -225,7 +257,7 @@ export const Products = () => {
     };
 
     const quickToggleStock = (product) => {
-        if (!isGrocerySeller) return;
+        if (!isGoMarketShopSeller) return;
         const nextStock = product.countInStock > 0 ? 0 : 50;
         patchData(`/api/product/seller/grocery-stock/${product._id}`, { stock: nextStock }).then((res) => {
             const body = res?.data;
@@ -257,12 +289,12 @@ export const Products = () => {
             {/* ── Page Header ── */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
                 <div>
-                    <h1 style={{ fontSize: 22, fontWeight: 700, color: isGrocerySeller ? '#064e3b' : isRestaurantSeller ? '#7c2d12' : '#111827', margin: 0 }}>
-                        {isGrocerySeller ? 'My Grocery Products' : isRestaurantSeller ? 'My Menu Items' : 'Products'}
+                    <h1 style={{ fontSize: 22, fontWeight: 700, color: isGoMarketShopSeller ? '#064e3b' : isRestaurantSeller ? '#7c2d12' : '#111827', margin: 0 }}>
+                        {isGoMarketShopSeller ? 'My Shop Products' : isRestaurantSeller ? 'My Menu Items' : 'Products'}
                     </h1>
                     <p style={{ fontSize: 13, color: '#6b7280', margin: '4px 0 0' }}>
-                        {isGrocerySeller
-                            ? 'Quick-commerce inventory — stock, pricing, and minutes delivery'
+                        {isGoMarketShopSeller
+                            ? 'Quick-commerce inventory — stock, pricing, and fast delivery'
                             : isRestaurantSeller
                                 ? 'Kitchen menu — availability and prep-ready items'
                                 : 'Manage your product catalogue'}
@@ -276,25 +308,25 @@ export const Products = () => {
                     <Button variant="contained" startIcon={<IoMdAdd size={16} />}
                         onClick={() => context.setIsOpenFullScreenPanel({ open: true, model: 'Add Product' })}
                         style={{
-                            background: isGrocerySeller
+                            background: isGoMarketShopSeller
                                 ? 'linear-gradient(135deg, #10b981, #059669)'
                                 : isRestaurantSeller
                                     ? 'linear-gradient(135deg, #f97316, #ea580c)'
                                     : '#111827',
                             borderRadius: 8, textTransform: 'none', fontWeight: 600, fontSize: 13, boxShadow: 'none',
                         }}>
-                        {isGrocerySeller ? 'Add Grocery Item' : isRestaurantSeller ? 'Add Menu Item' : 'Add Product'}
+                        {isGoMarketShopSeller ? 'Add Product' : isRestaurantSeller ? 'Add Menu Item' : 'Add Product'}
                     </Button>
                 </div>
             </div>
 
             {/* ── Stats ── */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 20 }}>
-                <StatCard lbl="Total Items" value={totalCount || '--'} color={isGrocerySeller ? '#059669' : isRestaurantSeller ? '#ea580c' : '#7c3aed'} bg={isGrocerySeller ? '#d1fae5' : isRestaurantSeller ? '#ffedd5' : '#ede9fe'} icon={<TbPackage />} label="Total Items" />
+                <StatCard lbl="Total Items" value={totalCount || '--'} color={isGoMarketShopSeller ? '#059669' : isRestaurantSeller ? '#ea580c' : '#7c3aed'} bg={isGoMarketShopSeller ? '#d1fae5' : isRestaurantSeller ? '#ffedd5' : '#ede9fe'} icon={<TbPackage />} label="Total Items" />
                 {!isRestaurantSeller && (
                     <StatCard lbl="Out of Stock" value={outOfStock || 0} color="#dc2626" bg="#fee2e2" icon={<FaBoxOpen />} label="Out of Stock" />
                 )}
-                {isGrocerySeller ? (
+                {isGoMarketShopSeller ? (
                     <StatCard lbl="Low Stock" value={lowStockCount || 0} color="#d97706" bg="#fef3c7" icon={<IoMdAdd />} label="Low Stock" />
                 ) : isRestaurantSeller ? (
                     <StatCard lbl="On Menu" value={totalCount || 0} color="#ea580c" bg="#ffedd5" icon={<IoMdAdd />} label="On Menu" />
@@ -439,10 +471,10 @@ export const Products = () => {
                                             <TableCell>
                                                 <div>
                                                     <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
-                                                        {product?.oldPrice?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
+                                                        {product?.price?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
                                                     </div>
                                                     <div style={{ fontSize: 11, color: '#9ca3af', textDecoration: 'line-through' }}>
-                                                        {product?.price?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
+                                                        {product?.oldPrice?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
                                                     </div>
                                                     {product?.discount > 0 && (
                                                         <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: 10 }}>
@@ -459,7 +491,7 @@ export const Products = () => {
 
                                             {/* Stock / Availability */}
                                             <TableCell>
-                                                {isGrocerySeller ? (
+                                                {isGoMarketShopSeller ? (
                                                     <button type="button" onClick={() => quickToggleStock(product)}
                                                         style={{ fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, padding: '3px 9px', borderRadius: 20, border: 'none', cursor: 'pointer' }}
                                                         title="Tap to toggle in/out of stock">

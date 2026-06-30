@@ -61,10 +61,13 @@ export const getQuickCommerceOutlet = async (req, res) => {
     const userId = req.userId;
     const email = req.currentUser?.email;
 
-    if (role === "GROCERY_SELLER") {
+    // All GoMarket shop sellers (grocery, fashion, electronics, etc.) use GroceryShop model
+    const GO_MARKET_SHOP_SELLERS = ['GROCERY_SELLER', 'FASHION_SELLER', 'ELECTRONICS_SELLER', 'MEDICAL_SELLER', 'BEAUTY_SELLER', 'HOME_KITCHEN_SELLER', 'GIFTS_TOYS_SELLER', 'BOOKS_STATIONERY_SELLER', 'JEWELLERY_SELLER', 'HARDWARE_SELLER', 'AUTOMOBILE_SELLER'];
+    
+    if (GO_MARKET_SHOP_SELLERS.includes(role)) {
       const shop = await getSellerGroceryShop(userId, email);
       if (!shop) {
-        return res.status(404).json({ error: true, success: false, message: "Grocery shop not found" });
+        return res.status(404).json({ error: true, success: false, message: "Shop not found" });
       }
       return res.status(200).json({
         error: false,
@@ -110,7 +113,7 @@ export const getQuickCommerceOutlet = async (req, res) => {
       });
     }
 
-    return res.status(403).json({ error: true, success: false, message: "Quick commerce outlet is only for grocery and restaurant sellers" });
+    return res.status(403).json({ error: true, success: false, message: "Quick commerce outlet is only for GoMarket sellers" });
   } catch (error) {
     return res.status(500).json({ error: true, success: false, message: error.message || error });
   }
@@ -129,10 +132,13 @@ export const updateQuickCommerceOutlet = async (req, res) => {
     if (minOrderValue !== undefined) patch.minOrderValue = Math.max(0, Number(minOrderValue) || 0);
     if (avgPrepMinutes !== undefined) patch.avgPrepMinutes = Math.max(5, Math.min(90, Number(avgPrepMinutes) || 25));
 
-    if (role === "GROCERY_SELLER") {
+    // All GoMarket shop sellers (grocery, fashion, electronics, etc.) use GroceryShop model
+    const GO_MARKET_SHOP_SELLERS = ['GROCERY_SELLER', 'FASHION_SELLER', 'ELECTRONICS_SELLER', 'MEDICAL_SELLER', 'BEAUTY_SELLER', 'HOME_KITCHEN_SELLER', 'GIFTS_TOYS_SELLER', 'BOOKS_STATIONERY_SELLER', 'JEWELLERY_SELLER', 'HARDWARE_SELLER', 'AUTOMOBILE_SELLER'];
+    
+    if (GO_MARKET_SHOP_SELLERS.includes(role)) {
       const shop = await getSellerGroceryShop(userId, email);
       if (!shop) {
-        return res.status(404).json({ error: true, success: false, message: "Grocery shop not found" });
+        return res.status(404).json({ error: true, success: false, message: "Shop not found" });
       }
       const GroceryShop = (await import("../models/groceryShop.model.js")).default;
       const updated = await GroceryShop.findByIdAndUpdate(shop._id, patch, { new: true }).lean();
@@ -184,7 +190,10 @@ export const getQuickCommerceDashboard = async (req, res) => {
     const userId = req.userId;
     const email = req.currentUser?.email;
 
-    if (!["GROCERY_SELLER", "RESTAURANT_SELLER"].includes(role)) {
+    // All GoMarket shop sellers (grocery, fashion, electronics, etc.) use GroceryShop model
+    const GO_MARKET_SHOP_SELLERS = ['GROCERY_SELLER', 'FASHION_SELLER', 'ELECTRONICS_SELLER', 'MEDICAL_SELLER', 'BEAUTY_SELLER', 'HOME_KITCHEN_SELLER', 'GIFTS_TOYS_SELLER', 'BOOKS_STATIONERY_SELLER', 'JEWELLERY_SELLER', 'HARDWARE_SELLER', 'AUTOMOBILE_SELLER'];
+    
+    if (!GO_MARKET_SHOP_SELLERS.includes(role) && role !== "RESTAURANT_SELLER") {
       return res.status(403).json({ error: true, success: false, message: "Not allowed" });
     }
 
@@ -216,7 +225,7 @@ export const getQuickCommerceDashboard = async (req, res) => {
     let catalog = { totalItems: 0, lowStock: 0, outOfStock: 0, unavailable: 0 };
     let outletRes = null;
 
-    if (role === "GROCERY_SELLER") {
+    if (GO_MARKET_SHOP_SELLERS.includes(role)) {
       const shop = await getSellerGroceryShop(userId, email);
       if (shop) {
         const products = await GroceryProduct.find({ shopId: shop._id }).select("stock name").lean();
@@ -231,7 +240,7 @@ export const getQuickCommerceDashboard = async (req, res) => {
           minOrderValue: shop.minOrderValue ?? 99,
         };
       }
-    } else {
+    } else if (role === "RESTAURANT_SELLER") {
       const restaurant = await getSellerRestaurant(userId, email);
       if (restaurant) {
         const items = await RestaurantItem.find({ restaurantId: restaurant._id }).select("isAvailable itemName").lean();

@@ -187,6 +187,13 @@ function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () 
 }
 
 // ─── Main screen ───────────────────────────────────────────────────────────────
+
+const sortFollowedOutlets = (rows: any[]) =>
+  [...rows].sort((a, b) =>
+    Number(Boolean(b.isFollowing)) - Number(Boolean(a.isFollowing)) ||
+    (Number(b.rating || 0) - Number(a.rating || 0)) ||
+    String(a.displayName || "").localeCompare(String(b.displayName || ""))
+  );
 export default function GoMarketMarketScreen() {
   const { marketId } = useLocalSearchParams<{ marketId: string }>();
   const router = useRouter();
@@ -220,7 +227,7 @@ export default function GoMarketMarketScreen() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [type, setType] = useState<"all" | "grocery" | "restaurant">("all");
+  const [type, setType] = useState<"all" | "grocery" | "restaurant" | "fashion" | "electronics" | "medical" | "beauty" | "home_kitchen" | "gifts_toys" | "books_stationery" | "jewellery" | "hardware" | "automobile">("all");
   const [sort, setSort] = useState("rating");
   const [openOnly, setOpenOnly] = useState(false);
   const [minRating, setMinRating] = useState(0);
@@ -352,7 +359,7 @@ export default function GoMarketMarketScreen() {
       wasFollowing ? next.delete(o._id) : next.add(o._id);
       return next;
     });
-    setOutlets((prev) => prev.map((x) => x._id === o._id ? { ...x, isFollowing: !wasFollowing, followerCount: (x.followerCount || 0) + (wasFollowing ? -1 : 1) } : x));
+    setOutlets((prev) => sortFollowedOutlets(prev.map((x) => x._id === o._id ? { ...x, isFollowing: !wasFollowing, followerCount: Math.max(0, (x.followerCount || 0) + (wasFollowing ? -1 : 1)) } : x)));
     try {
       const action = wasFollowing
         ? (isRestaurant ? unfollowGoRestaurant : unfollowGoShop)
@@ -361,7 +368,7 @@ export default function GoMarketMarketScreen() {
       showToast("success", wasFollowing ? "Unfollowed" : `Following ${o.displayName}`);
     } catch {
       // Revert on failure
-      setOutlets((prev) => prev.map((x) => x._id === o._id ? { ...x, isFollowing: wasFollowing, followerCount: (x.followerCount || 0) + (wasFollowing ? 1 : -1) } : x));
+      setOutlets((prev) => sortFollowedOutlets(prev.map((x) => x._id === o._id ? { ...x, isFollowing: wasFollowing, followerCount: Math.max(0, (x.followerCount || 0) + (wasFollowing ? 1 : -1)) } : x)));
       showToast("error", "Failed to update follow");
     }
   };
@@ -500,21 +507,39 @@ export default function GoMarketMarketScreen() {
 
       {/* Filters container */}
       <View style={S.filtersContainer}>
-        {/* Type tabs */}
-        <View style={S.typeTabsRow}>
-          {(["all", "grocery", "restaurant"] as const).map((k) => (
+        {/* Type tabs - Horizontal Scrollable */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingBottom: 12 }}
+        >
+          {[
+            { k: "all", l: "All Shops", icon: "🏪" },
+            { k: "grocery", l: "Grocery", icon: "🛒" },
+            { k: "restaurant", l: "Restaurant", icon: "🍽" },
+            { k: "fashion", l: "Fashion", icon: "👕" },
+            { k: "electronics", l: "Electronics", icon: "📱" },
+            { k: "medical", l: "Medical", icon: "💊" },
+            { k: "beauty", l: "Beauty", icon: "💄" },
+            { k: "home_kitchen", l: "Home & Kitchen", icon: "🏠" },
+            { k: "gifts_toys", l: "Gifts & Toys", icon: "🎁" },
+            { k: "books_stationery", l: "Books & Stationery", icon: "📚" },
+            { k: "jewellery", l: "Jewellery", icon: "💎" },
+            { k: "hardware", l: "Hardware", icon: "🔧" },
+            { k: "automobile", l: "Automobile", icon: "🚗" },
+          ].map(({ k, l, icon }) => (
             <TouchableOpacity
               key={k}
-              style={[S.typeTab, type === k && S.typeTabOn]}
-              onPress={() => setType(k)}
+              style={[S.chip, type === k && S.chipOn]}
+              onPress={() => setType(k as any)}
               activeOpacity={0.8}
             >
-              <Text style={[S.typeTabTxt, type === k && S.typeTabTxtOn]}>
-                {k === "all" ? "All" : k === "grocery" ? "🛒  Grocery" : "🍽  Restaurants"}
+              <Text style={[S.chipTxt, type === k && S.chipTxtOn]}>
+                {icon}  {l}
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
         {/* Search bar */}
         <View style={{ position: "relative", zIndex: 100 }}>

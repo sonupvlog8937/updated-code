@@ -15,7 +15,7 @@ import {
 import { RiMoneyRupeeCircleLine, RiVipCrownLine } from "react-icons/ri";
 import { BsGraphUp, BsLightningCharge } from "react-icons/bs";
 
-const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER"];
+const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER", "FASHION_SELLER", "ELECTRONICS_SELLER", "MEDICAL_SELLER", "BEAUTY_SELLER", "HOME_KITCHEN_SELLER", "GIFTS_TOYS_SELLER", "BOOKS_STATIONERY_SELLER", "JEWELLERY_SELLER", "HARDWARE_SELLER", "AUTOMOBILE_SELLER"];
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

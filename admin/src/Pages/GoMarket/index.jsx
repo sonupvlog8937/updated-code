@@ -276,8 +276,27 @@ const GoMarketAdminPage = () => {
   const Icon = config.icon;
   const context = useContext(MyContext);
   const userRole = context?.userData?.role || "";
-  const sellerCategoryType =
-    userRole === "GROCERY_SELLER" ? "grocery" : userRole === "RESTAURANT_SELLER" ? "restaurant" : "";
+  
+  // Map seller role to category type
+  const getRoleCategoryType = (role) => {
+    const mapping = {
+      GROCERY_SELLER: "grocery",
+      RESTAURANT_SELLER: "restaurant",
+      FASHION_SELLER: "fashion",
+      ELECTRONICS_SELLER: "electronics",
+      MEDICAL_SELLER: "medical",
+      BEAUTY_SELLER: "beauty",
+      HOME_KITCHEN_SELLER: "home_kitchen",
+      GIFTS_TOYS_SELLER: "gifts_toys",
+      BOOKS_STATIONERY_SELLER: "books_stationery",
+      JEWELLERY_SELLER: "jewellery",
+      HARDWARE_SELLER: "hardware",
+      AUTOMOBILE_SELLER: "automobile",
+    };
+    return mapping[role] || "";
+  };
+  
+  const sellerCategoryType = getRoleCategoryType(userRole);
   const isSpecialtySeller = Boolean(sellerCategoryType);
 
   useEffect(() => {

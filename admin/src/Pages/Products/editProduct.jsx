@@ -410,7 +410,7 @@ const EditProduct = () => {
 
 
         if (formFields?.oldPrice === "") {
-            context.alertBox("error", "Please enter product old Price");
+            context.alertBox("error", "Please enter product MRP Price");
             return false;
         }
 
@@ -648,7 +648,7 @@ const EditProduct = () => {
 
 
                         <div className='col'>
-                            <h3 className='text-[14px] font-[500] mb-1  text-black'>Product Old Price</h3>
+                            <h3 className='text-[14px] font-[500] mb-1  text-black'>Product MRP Price</h3>
                             <input type="number" className='w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] rounded-sm p-3 text-sm ' name="oldPrice" value={formFields.oldPrice} onChange={onChangeInput} />
                         </div>
 
@@ -921,7 +921,15 @@ const EditProduct = () => {
 const EditProductRoute = () => {
     const context = useContext(MyContext);
     const role = context?.userData?.role;
-    if (role === 'GROCERY_SELLER') {
+    
+    // All GoMarket shop sellers use GroceryEditProduct
+    const GO_MARKET_SHOP_SELLERS = [
+        'GROCERY_SELLER', 'FASHION_SELLER', 'ELECTRONICS_SELLER', 'MEDICAL_SELLER',
+        'BEAUTY_SELLER', 'HOME_KITCHEN_SELLER', 'GIFTS_TOYS_SELLER',
+        'BOOKS_STATIONERY_SELLER', 'JEWELLERY_SELLER', 'HARDWARE_SELLER', 'AUTOMOBILE_SELLER'
+    ];
+    
+    if (GO_MARKET_SHOP_SELLERS.includes(role)) {
         return <GroceryEditProduct />;
     }
     if (role === 'RESTAURANT_SELLER') {

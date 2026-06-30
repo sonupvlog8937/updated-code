@@ -24,10 +24,19 @@ export default function VerifyScreen() {
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendTimer, setResendTimer] = useState(60);
 
   useEffect(() => {
     AsyncStorage.getItem("userEmail").then(setEmail);
   }, []);
+
+  // Countdown timer for resend
+  useEffect(() => {
+    if (resendTimer <= 0) return;
+    const id = setTimeout(() => setResendTimer((t) => t - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendTimer]);
 
   const onChange = (i: number, v: string) => {
     const ch = v.replace(/[^0-9]/g, "").slice(0, 1);
@@ -64,6 +73,24 @@ export default function VerifyScreen() {
       showToast("error", "❌ Network error. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onResend = async () => {
+    setResending(true);
+    try {
+      const res = await postData("/api/user/resend-otp", { email });
+      if (res?.error === false) {
+        showToast("success", "New OTP sent to your email!");
+        setResendTimer(60);
+      } else {
+        showToast("error", res?.message || "Failed to resend OTP");
+      }
+    } catch (err) {
+      console.error("Resend error:", err);
+      showToast("error", "❌ Network error. Please try again.");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -127,14 +154,23 @@ export default function VerifyScreen() {
               {loading ? "Verifying..." : "Verify"}
             </Text>
           </Pressable>
-          <Pressable
-            onPress={() => showToast("info", "Resend coming soon")}
-            style={{ marginTop: 18, alignItems: "center" }}
-          >
-            <Text style={{ color: colors.primary, fontSize: 13 }}>
-              Resend code with sonu
-            </Text>
-          </Pressable>
+          <View style={{ marginTop: 18, alignItems: "center" }}>
+            {resendTimer > 0 ? (
+              <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>
+                Resend in {resendTimer}s
+              </Text>
+            ) : (
+              <Pressable
+                onPress={onResend}
+                disabled={resending}
+                style={{ opacity: resending ? 0.5 : 1 }}
+              >
+                <Text style={{ color: colors.primary, fontSize: 13, fontFamily: "Inter_600SemiBold" }}>
+                  {resending ? "Sending..." : "Resend code"}
+                </Text>
+              </Pressable>
+            )}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -109,9 +109,17 @@ const sellerOwnerFilter = async (req) => {
   return ownerIds.length ? { ownerId: { $in: ownerIds } } : { ownerId: req.userId };
 };
 
+// All GoMarket shop sellers
+const GO_MARKET_SHOP_SELLERS = [
+  'GROCERY_SELLER', 'FASHION_SELLER', 'ELECTRONICS_SELLER', 'MEDICAL_SELLER',
+  'BEAUTY_SELLER', 'HOME_KITCHEN_SELLER', 'GIFTS_TOYS_SELLER',
+  'BOOKS_STATIONERY_SELLER', 'JEWELLERY_SELLER', 'HARDWARE_SELLER', 'AUTOMOBILE_SELLER'
+];
+
 const pickDefined = (payload) =>
   Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
-router.get("/seller/grocery-shop", auth, authorizeRole("GROCERY_SELLER"), async (req, res) => {
+
+router.get("/seller/grocery-shop", auth, authorizeRole(...GO_MARKET_SHOP_SELLERS), async (req, res) => {
   try {
     const shop = await getSellerGroceryShop(req.userId, req.currentUser?.email);
     if (!shop) return res.json({ success: false, message: "Shop not found" });
@@ -121,7 +129,7 @@ router.get("/seller/grocery-shop", auth, authorizeRole("GROCERY_SELLER"), async 
   }
 });
 
-router.put("/seller/grocery-shop", auth, authorizeRole("GROCERY_SELLER"), async (req, res) => {
+router.put("/seller/grocery-shop", auth, authorizeRole(...GO_MARKET_SHOP_SELLERS), async (req, res) => {
   try {
     const GroceryShop = (await import("../models/groceryShop.model.js")).default;
     const { shopName, shopBanner, shopLogo, address, description } = req.body;

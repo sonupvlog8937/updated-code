@@ -10,7 +10,7 @@ import {
 import { useInfiniteScroll } from "./hooks/useInfiniteScroll";
 
 const SORT_OPTIONS = [
-  { value: "rating", label: "Top rated" },
+  { value: "rating", label: "Following + top rated" },
   { value: "name", label: "Name A–Z" },
   { value: "followers", label: "Most popular" },
   { value: "newest", label: "Newest" },
@@ -278,9 +278,19 @@ const GoMarketMarket = () => {
 
         <div className="gmp-chip-row" style={{ marginTop: 16 }}>
           {[
-            { k: "all", l: `All (${(counts.grocery || 0) + (counts.restaurant || 0)})` },
-            { k: "grocery", l: `Grocery (${counts.grocery || 0})` },
-            { k: "restaurant", l: `Restaurants (${counts.restaurant || 0})` },
+            { k: "all", l: "🏪 All Shops", icon: "🏪" },
+            { k: "grocery", l: "🛒 Grocery", icon: "🛒" },
+            { k: "restaurant", l: "🍽 Restaurant", icon: "🍽" },
+            { k: "fashion", l: "👕 Fashion", icon: "👕" },
+            { k: "electronics", l: "📱 Electronics", icon: "📱" },
+            { k: "medical", l: "💊 Medical", icon: "💊" },
+            { k: "beauty", l: "💄 Beauty", icon: "💄" },
+            { k: "home_kitchen", l: "🏠 Home & Kitchen", icon: "🏠" },
+            { k: "gifts_toys", l: "🎁 Gifts & Toys", icon: "🎁" },
+            { k: "books_stationery", l: "📚 Books & Stationery", icon: "📚" },
+            { k: "jewellery", l: "💎 Jewellery", icon: "💎" },
+            { k: "hardware", l: "🔧 Hardware", icon: "🔧" },
+            { k: "automobile", l: "🚗 Automobile", icon: "🚗" },
           ].map((t) => (
             <button
               key={t.k}
@@ -325,10 +335,7 @@ const GoMarketMarket = () => {
           activeFiltersCount={activeFiltersCount}
           filters={(
             <>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600 }}>
-                <input type="checkbox" checked={openOnly} onChange={(e) => { setOpenOnly(e.target.checked); }} />
-                Open now
-              </label>
+              
               <select
                 className="gmp-select"
                 style={{ width: "auto", paddingLeft: 12, height: 38 }}

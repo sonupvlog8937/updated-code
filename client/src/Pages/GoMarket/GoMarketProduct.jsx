@@ -376,7 +376,7 @@ const GoMarketProduct = () => {
               )}
             </div>
 
-            {offers.length > 0 && (
+            {/* {offers.length > 0 && (
               <div style={{ margin: "12px 0", display: "grid", gap: 8 }}>
                 {offers.slice(0, 3).map((offer) => (
                   <div key={offer._id || offer.code} style={{ border: "1px dashed #f97316", background: "#fff7ed", borderRadius: 12, padding: 10 }}>
@@ -385,7 +385,7 @@ const GoMarketProduct = () => {
                   </div>
                 ))}
               </div>
-            )}
+            )} */}
 
             <GoMarketProductOptions
               options={productOptions}

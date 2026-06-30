@@ -62,10 +62,10 @@ const GroceryAddProduct = () => {
 
   useEffect(() => {
     Promise.all([
-      fetchDataFromApi('/api/go-market/grocery-shops?limit=1'),
+      fetchDataFromApi('/api/go-market/seller/grocery-shop'),
       fetchDataFromApi('/api/go-market/categories?type=grocery&limit=100&status=active'),
     ]).then(([shopRes, catRes]) => {
-      setShop(shopRes?.data?.[0] || null);
+      setShop(shopRes?.shop || null);
       setCategories(catRes?.data || []);
       setLoadingMeta(false);
     });

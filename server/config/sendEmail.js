@@ -1,91 +1,60 @@
-import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 
-const resendClient = process.env.RESEND_API_KEY
-    ? new Resend(process.env.RESEND_API_KEY)
-    : null;
+// Initialize Resend client
+let resendClient = null;
 
-function getSmtpCredentials() {
-    const user = process.env.SMTP_USER || process.env.EMAIL;
-    const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
-    if (!user || !pass) return null;
-    return { user, pass };
-}
-
-async function sendViaSmtp({ sendTo, subject, text, html }) {
-    const credentials = getSmtpCredentials();
-    if (!credentials) return false;
-
-    const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: Number(process.env.SMTP_PORT || 465),
-        secure: String(process.env.SMTP_SECURE ?? 'true') === 'true',
-        auth: credentials,
-    });
-
-    const fromName = process.env.STORE_NAME || 'Zeedaddy';
-    const info = await transporter.sendMail({
-        from: `"${fromName}" <${credentials.user}>`,
-        to: Array.isArray(sendTo) ? sendTo.join(',') : sendTo,
-        subject,
-        text,
-        html,
-    });
-
-    console.log(`📧 SMTP email sent → ${sendTo} | ID: ${info.messageId}`);
-    return true;
-}
-
-async function sendViaResend({ sendTo, subject, text, html }) {
-    if (!resendClient) return false;
-
-    const fromAddress =
-        process.env.RESEND_FROM ||
-        process.env.EMAIL_FROM ||
-        'onboarding@resend.dev';
-    const fromName = process.env.STORE_NAME || 'Zeedaddy';
-    const from = fromAddress.includes('<')
-        ? fromAddress
-        : `${fromName} <${fromAddress}>`;
-
-    const { data, error } = await resendClient.emails.send({
-        from,
-        to: Array.isArray(sendTo) ? sendTo : [sendTo],
-        subject,
-        text,
-        html,
-    });
-
-    if (error) {
-        console.error('❌ Resend email error:', error);
-        return false;
+try {
+    if (process.env.RESEND_API_KEY) {
+        resendClient = new Resend(process.env.RESEND_API_KEY);
+        console.log('✅ Resend client initialized');
+    } else {
+        console.warn('⚠️ RESEND_API_KEY not found in environment variables');
     }
-
-    console.log(`📧 Resend email sent → ${sendTo} | ID: ${data?.id}`);
-    return true;
+} catch (error) {
+    console.error('❌ Failed to initialize Resend client:', error);
 }
 
 /**
- * Sends email via SMTP (Gmail) first, then Resend as fallback.
+ * Sends email using Resend API
  */
 const sendEmailFun = async ({ sendTo, subject, text = '', html }) => {
-    try {
-        if (await sendViaSmtp({ sendTo, subject, text, html })) {
-            return true;
-        }
-    } catch (error) {
-        console.error('❌ SMTP send error:', error.message);
+    console.log('📧 Attempting to send email to:', sendTo);
+    
+    if (!resendClient) {
+        console.error('❌ Resend client not initialized - check RESEND_API_KEY');
+        return false;
     }
 
     try {
-        if (await sendViaResend({ sendTo, subject, text, html })) {
-            return true;
-        }
-    } catch (error) {
-        console.error('❌ Resend send error:', error.message);
-    }
+        const fromAddress = process.env.RESEND_FROM || 'onboarding@resend.dev';
+        const fromName = process.env.STORE_NAME || 'Zeedaddy';
+        const from = fromAddress.includes('<')
+            ? fromAddress
+            : `${fromName} <${fromAddress}>`;
 
-    return false;
+        console.log('📧 Sending from:', from);
+        console.log('📧 Subject:', subject);
+
+        const { data, error } = await resendClient.emails.send({
+            from,
+            to: Array.isArray(sendTo) ? sendTo : [sendTo],
+            subject,
+            text: text || `Email from ${fromName}`,
+            html: html || text,
+        });
+
+        if (error) {
+            console.error('❌ Resend API error:', JSON.stringify(error, null, 2));
+            return false;
+        }
+
+        console.log(`✅ Email sent successfully → ${sendTo} | ID: ${data?.id}`);
+        return true;
+    } catch (error) {
+        console.error('❌ Exception while sending email:', error.message);
+        console.error('Stack trace:', error.stack);
+        return false;
+    }
 };
 
 export default sendEmailFun;

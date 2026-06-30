@@ -25,7 +25,23 @@ import fs from "fs";
 import mongoose from "mongoose";
 
 const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER"];
-const isSellerRole = (role) => SELLER_ROLES.includes(role);
+
+// All GoMarket shop sellers (use grocery-style product management with GroceryShop model)
+const GO_MARKET_SHOP_SELLERS = [
+  "GROCERY_SELLER",
+  "FASHION_SELLER",
+  "ELECTRONICS_SELLER",
+  "MEDICAL_SELLER",
+  "BEAUTY_SELLER",
+  "HOME_KITCHEN_SELLER",
+  "GIFTS_TOYS_SELLER",
+  "BOOKS_STATIONERY_SELLER",
+  "JEWELLERY_SELLER",
+  "HARDWARE_SELLER",
+  "AUTOMOBILE_SELLER",
+];
+
+const isSellerRole = (role) => SELLER_ROLES.includes(role) || GO_MARKET_SHOP_SELLERS.includes(role);
 
 const resolveRequestRole = async (request) => {
   if (request.currentUser?.role) return request.currentUser.role;
@@ -398,11 +414,12 @@ export async function createProduct(request, response) {
     const imageList = [...new Set([...uploadedImages, ...requestImages, request.body.image].filter(Boolean))];
     const imageUrl = imageList[0] || "";
 
-    if (role === "GROCERY_SELLER") {
+    // All GoMarket shop sellers (Fashion, Electronics, Grocery, etc.) use GroceryShop model
+    if (GO_MARKET_SHOP_SELLERS.includes(role)) {
       const shop = await getSellerGroceryShop(request.userId, request.currentUser.email);
       if (!shop) {
         return response.status(400).json({
-          message: "No grocery shop found. Please complete store setup first.",
+          message: "No shop found. Please complete store setup first.",
           error: true,
           success: false,
         });
@@ -535,7 +552,7 @@ export async function createProduct(request, response) {
 export async function getAllProducts(request, response) {
   try {
     const page = parseInt(request.query.page) || 1;
-    const limit = parseInt(request.query.limit) || 10;
+    const limit = parseInt(request.query.limit) || 25;
     const total = await ProductModel.countDocuments();
     const products = await ProductModel.find()
       .populate("seller", "name email role status storeProfile")
@@ -1081,7 +1098,8 @@ export async function getSellerProducts(request, response) {
   try {
     const role = request.currentUser?.role;
 
-    if (role === "GROCERY_SELLER") {
+    // All GoMarket shop sellers (Fashion, Electronics, etc.) use GroceryShop model
+    if (GO_MARKET_SHOP_SELLERS.includes(role)) {
       const shop = await getSellerGroceryShop(request.userId, request.currentUser.email);
       if (!shop) {
         return response.status(200).json({ error: false, success: true, products: [], total: 0 });

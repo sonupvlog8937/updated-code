@@ -20,10 +20,23 @@ import Restaurant from '../models/restaurant.model.js';
 import GroceryProduct from '../models/groceryProduct.model.js';
 import RestaurantItem from '../models/restaurantItem.model.js';
 
-const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
-const ALL_PANEL_ROLES = ['ADMIN', 'USER', ...SELLER_ROLES];
+// All seller roles (13 types total)
+const SELLER_ROLES = [
+    'SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER', 
+    'FASHION_SELLER', 'ELECTRONICS_SELLER', 'MEDICAL_SELLER', 
+    'BEAUTY_SELLER', 'HOME_KITCHEN_SELLER', 'GIFTS_TOYS_SELLER', 
+    'BOOKS_STATIONERY_SELLER', 'JEWELLERY_SELLER', 'HARDWARE_SELLER', 
+    'AUTOMOBILE_SELLER'
+];
+
+// All allowed panel roles (16 types: 13 sellers + ADMIN + USER + DELIVERY_RIDER)
+const ALL_PANEL_ROLES = ['ADMIN', 'USER', 'DELIVERY_RIDER', ...SELLER_ROLES];
+
+// Roles allowed for public signup
 const PUBLIC_SIGNUP_SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER', 'DELIVERY_RIDER'];
+
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
+
 const normalizePanelRole = (role, fallback = 'SELLER') => {
     const normalized = String(role || fallback).trim().toUpperCase();
     return ALL_PANEL_ROLES.includes(normalized) ? normalized : fallback;
@@ -184,31 +197,18 @@ export async function registerUserController(request, response) {
 
         const existingUser = await UserModel.findOne({ email });
         if (existingUser) {
-            // Agar user hai but verify nahi kiya → naya OTP bhejo
-            if (existingUser.verify_email === false) {
-                const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-                existingUser.otp = newOtp;
-                existingUser.otpExpires = Date.now() + 10 * 60 * 1000;
-                await existingUser.save();
-
-                await sendVerificationOtpEmail({
-                    email,
-                    name: existingUser.name,
-                    otp: newOtp,
-                });
-
-                return response.status(200).json({
-                    success: true,
-                    error: false,
-                    message: "OTP resent! Please check your email to verify your account.",
+            // Agar user verify ho chuka hai → error return karo
+            if (existingUser.verify_email === true) {
+                return response.json({
+                    message: "User already registered with this email",
+                    error: true,
+                    success: false
                 });
             }
-
-            return response.json({
-                message: "User already registered with this email",
-                error: true,
-                success: false
-            });
+            
+            // Agar user hai but verify nahi kiya → purana account delete karo aur naya banao
+            // Taki user fresh start kar sake
+            await UserModel.findByIdAndDelete(existingUser._id);
         }
 
         // Generate 6-digit OTP
@@ -224,6 +224,7 @@ export async function registerUserController(request, response) {
             otp: verifyCode,
             otpExpires: Date.now() + 10 * 60 * 1000, // 10 minutes
             verify_email: false,
+            status: "Active", // Set status to Active so user can re-register and get OTP
         });
 
         await user.save();

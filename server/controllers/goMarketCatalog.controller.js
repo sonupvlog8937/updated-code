@@ -159,16 +159,21 @@ const buildShopFilterMeta = async (shopId) => {
 const sendError = (res, error, status = 500) =>
   res.status(status).json({ error: true, success: false, message: error.message || error });
 
+const followedFirst = (a, b) => Number(Boolean(b.isFollowing)) - Number(Boolean(a.isFollowing));
+const byRatingDesc = (a, b) => (b.rating || 0) - (a.rating || 0);
+const byNameAsc = (a, b) => String(a.displayName || "").localeCompare(String(b.displayName || ""));
+
 const resolveOutletSort = (sortKey) => {
   const map = {
-    rating: (a, b) => (b.rating || 0) - (a.rating || 0),
-    rating_asc: (a, b) => (a.rating || 0) - (b.rating || 0),
-    name: (a, b) => String(a.displayName).localeCompare(String(b.displayName)),
-    name_desc: (a, b) => String(b.displayName).localeCompare(String(a.displayName)),
-    followers: (a, b) => (b.followerCount || 0) - (a.followerCount || 0),
-    newest: (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+    rating: (a, b) => byRatingDesc(a, b) || (b.followerCount || 0) - (a.followerCount || 0) || byNameAsc(a, b),
+    rating_asc: (a, b) => (a.rating || 0) - (b.rating || 0) || byNameAsc(a, b),
+    name: byNameAsc,
+    name_desc: (a, b) => String(b.displayName || "").localeCompare(String(a.displayName || "")),
+    followers: (a, b) => (b.followerCount || 0) - (a.followerCount || 0) || byRatingDesc(a, b) || byNameAsc(a, b),
+    newest: (a, b) => new Date(b.createdAt) - new Date(a.createdAt) || byRatingDesc(a, b) || byNameAsc(a, b),
   };
-  return map[sortKey] || map.rating;
+  const selectedSort = map[sortKey] || map.rating;
+  return (a, b) => followedFirst(a, b) || selectedSort(a, b);
 };
 
 const mapGroceryOutlet = (shop, userId = null, baseUrl = "") => {

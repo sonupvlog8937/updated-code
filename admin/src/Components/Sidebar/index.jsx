@@ -22,13 +22,23 @@ import {
 import { MyContext } from "../../App";
 import { fetchDataFromApi } from "../../utils/api";
 
-const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER'];
+const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER', 'FASHION_SELLER', 'ELECTRONICS_SELLER', 'MEDICAL_SELLER', 'BEAUTY_SELLER', 'HOME_KITCHEN_SELLER', 'GIFTS_TOYS_SELLER', 'BOOKS_STATIONERY_SELLER', 'JEWELLERY_SELLER', 'HARDWARE_SELLER', 'AUTOMOBILE_SELLER'];
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
 const roleLabels = {
   ADMIN: '🛡️ Admin Panel',
   SELLER: '🏪 Seller Panel',
   GROCERY_SELLER: '🛒 Grocery Seller Panel',
   RESTAURANT_SELLER: '🍽️ Restaurant Seller Panel',
+  FASHION_SELLER: '👕 Fashion Seller Panel',
+  ELECTRONICS_SELLER: '📱 Electronics Seller Panel',
+  MEDICAL_SELLER: '💊 Medical Seller Panel',
+  BEAUTY_SELLER: '💄 Beauty Seller Panel',
+  HOME_KITCHEN_SELLER: '🏠 Home & Kitchen Seller Panel',
+  GIFTS_TOYS_SELLER: '🎁 Gifts & Toys Seller Panel',
+  BOOKS_STATIONERY_SELLER: '📚 Books & Stationery Seller Panel',
+  JEWELLERY_SELLER: '💎 Jewellery Seller Panel',
+  HARDWARE_SELLER: '🔧 Hardware Seller Panel',
+  AUTOMOBILE_SELLER: '🚗 Automobile Seller Panel',
   DELIVERY_RIDER: '🚴 Delivery Rider Panel',
 };
 
@@ -43,6 +53,15 @@ const Sidebar = () => {
   const isGrocerySeller = userRole === "GROCERY_SELLER";
   const isRestaurantSeller = userRole === "RESTAURANT_SELLER";
   const isDeliveryRider = userRole === "DELIVERY_RIDER";
+  
+  // Check if seller is GoMarket type (all shop sellers including grocery, fashion, etc.)
+  const GO_MARKET_SHOP_SELLERS = [
+    "GROCERY_SELLER", "FASHION_SELLER", "ELECTRONICS_SELLER", "MEDICAL_SELLER",
+    "BEAUTY_SELLER", "HOME_KITCHEN_SELLER", "GIFTS_TOYS_SELLER", "BOOKS_STATIONERY_SELLER",
+    "JEWELLERY_SELLER", "HARDWARE_SELLER", "AUTOMOBILE_SELLER"
+  ];
+  const isGoMarketShopSeller = GO_MARKET_SHOP_SELLERS.includes(userRole);
+  const isGoMarketSeller = isGoMarketShopSeller || isRestaurantSeller;
 
   const [openGroups, setOpenGroups] = useState({ catalog: false, media: false, banners: false, goMarket: false });
   const toggleGroup = (key) => setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -215,15 +234,17 @@ const Sidebar = () => {
 
           {isSeller && (
             <>
-              <GroupLabel label={isGrocerySeller || isRestaurantSeller ? "Quick Commerce" : "My Store"} />
-              {(isGrocerySeller || isRestaurantSeller) && (
+              <GroupLabel label={isGoMarketSeller ? "Quick Commerce" : "My Store"} />
+              {isGoMarketSeller && (
                 <>
-                  <NavItem to="/seller/store-ops" icon={IoStorefrontOutline} label={isGrocerySeller ? "Store Operations" : "Kitchen Operations"} />
-                  <NavItem to={isGrocerySeller ? "/seller/go-market/shop" : "/seller/go-market/restaurant"} icon={IoStorefrontOutline} label={isGrocerySeller ? "Shop Profile (GoMarket)" : "Restaurant Profile (GoMarket)"} />
+                  <NavItem to="/seller/store-ops" icon={IoStorefrontOutline} label={isRestaurantSeller ? "Kitchen Operations" : "Store Operations"} />
+                  <NavItem to={isRestaurantSeller ? "/seller/go-market/restaurant" : "/seller/go-market/shop"} icon={IoStorefrontOutline} label={isRestaurantSeller ? "Restaurant Profile (GoMarket)" : "Shop Profile (GoMarket)"} />
                   <NavItem to="/coupons" icon={MdLocalOffer} label="Coupons & Offers" />
                 </>
               )}
-              <NavItem to="/seller/store-profile" icon={IoStorefrontOutline} label="Store Profile" />
+              {!isGoMarketSeller && (
+                <NavItem to="/seller/store-profile" icon={IoStorefrontOutline} label="Store Profile" />
+              )}
               <NavItem to="/wallet/transactions" icon={IoWalletOutline} label="Wallet & Transactions" />
             </>
           )}

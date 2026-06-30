@@ -65,13 +65,13 @@ const GroceryEditProduct = () => {
     if (!productId) return;
 
     Promise.all([
-      fetchDataFromApi('/api/go-market/grocery-shops?limit=1'),
+      fetchDataFromApi('/api/go-market/seller/grocery-shop'),
       fetchDataFromApi('/api/go-market/categories?type=grocery&limit=100&status=active'),
       fetchDataFromApi(`/api/go-market/products/${productId}`).catch(() => 
         fetchDataFromApi(`/api/product/${productId}`)
       ),
     ]).then(([shopRes, catRes, prodRes]) => {
-      setShop(shopRes?.data?.[0] || null);
+      setShop(shopRes?.shop || null);
       setCategories(catRes?.data || []);
 
       // Handle different API response structures

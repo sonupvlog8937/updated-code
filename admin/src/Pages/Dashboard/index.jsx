@@ -16,8 +16,15 @@ import Products from "../Products";
 import QuickCommerceDashboard from "../QuickCommerce/QuickCommerceDashboard";
 import { Link } from "react-router-dom";
 
-const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER"];
+const SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER', 'FASHION_SELLER', 'ELECTRONICS_SELLER', 'MEDICAL_SELLER', 'BEAUTY_SELLER', 'HOME_KITCHEN_SELLER', 'GIFTS_TOYS_SELLER', 'BOOKS_STATIONERY_SELLER', 'JEWELLERY_SELLER', 'HARDWARE_SELLER', 'AUTOMOBILE_SELLER'];
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
+
+// GoMarket shop sellers - all shop types (grocery, fashion, electronics, etc.)
+const GO_MARKET_SHOP_SELLERS = [
+  "GROCERY_SELLER", "FASHION_SELLER", "ELECTRONICS_SELLER", "MEDICAL_SELLER",
+  "BEAUTY_SELLER", "HOME_KITCHEN_SELLER", "GIFTS_TOYS_SELLER", "BOOKS_STATIONERY_SELLER",
+  "JEWELLERY_SELLER", "HARDWARE_SELLER", "AUTOMOBILE_SELLER"
+];
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 const IconBox      = () => <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>;
@@ -681,8 +688,10 @@ const Dashboard = () => {
   const [lastSync,           setLastSync]            = useState(null);
 
   const context       = useContext(MyContext);
- const isSellerPanel = isSellerRole(context?.userData?.role);
-  const isQuickCommerceSeller = ["GROCERY_SELLER", "RESTAURANT_SELLER"].includes(context?.userData?.role);
+  const isSellerPanel = isSellerRole(context?.userData?.role);
+  
+  // Check if seller is a QuickCommerce seller (all shop sellers + restaurant)
+  const isQuickCommerceSeller = GO_MARKET_SHOP_SELLERS.includes(context?.userData?.role) || context?.userData?.role === "RESTAURANT_SELLER";
 
   useEffect(() => {
     context?.setProgress(30);

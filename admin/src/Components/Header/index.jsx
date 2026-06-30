@@ -290,15 +290,29 @@ const Header = () => {
             </IconButton>
             <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
               <span className="text-gray-800">
-                {context?.isOpenFullScreenPanel?.model === "Add Product" && context?.userData?.role === "GROCERY_SELLER"
-                  ? "Add Grocery Product"
-                  : context?.isOpenFullScreenPanel?.model === "Add Product" && context?.userData?.role === "RESTAURANT_SELLER"
-                    ? "Add Menu Item"
-                    : context?.isOpenFullScreenPanel?.model === "Edit Product" && context?.userData?.role === "GROCERY_SELLER"
-                      ? "Edit Grocery Item"
-                      : context?.isOpenFullScreenPanel?.model === "Edit Product" && context?.userData?.role === "RESTAURANT_SELLER"
-                        ? "Edit Menu Item"
-                        : context?.isOpenFullScreenPanel?.model}
+                {(() => {
+                  const GO_MARKET_SHOP_SELLERS = [
+                    'GROCERY_SELLER', 'FASHION_SELLER', 'ELECTRONICS_SELLER', 'MEDICAL_SELLER',
+                    'BEAUTY_SELLER', 'HOME_KITCHEN_SELLER', 'GIFTS_TOYS_SELLER',
+                    'BOOKS_STATIONERY_SELLER', 'JEWELLERY_SELLER', 'HARDWARE_SELLER', 'AUTOMOBILE_SELLER'
+                  ];
+                  const role = context?.userData?.role;
+                  const model = context?.isOpenFullScreenPanel?.model;
+                  
+                  if (model === "Add Product" && GO_MARKET_SHOP_SELLERS.includes(role)) {
+                    return "Add Shop Product";
+                  }
+                  if (model === "Add Product" && role === "RESTAURANT_SELLER") {
+                    return "Add Menu Item";
+                  }
+                  if (model === "Edit Product" && GO_MARKET_SHOP_SELLERS.includes(role)) {
+                    return "Edit Shop Product";
+                  }
+                  if (model === "Edit Product" && role === "RESTAURANT_SELLER") {
+                    return "Edit Menu Item";
+                  }
+                  return model;
+                })()}
               </span>
             </Typography>
 

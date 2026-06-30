@@ -4,7 +4,7 @@ import {
   getSellerRestaurant,
 } from "../utils/goMarketSellerCatalog.js";
 
-const SELLER_ROLES = ["GROCERY_SELLER", "RESTAURANT_SELLER"];
+const SELLER_ROLES = ["GROCERY_SELLER", "RESTAURANT_SELLER", "FASHION_SELLER", "ELECTRONICS_SELLER", "MEDICAL_SELLER", "BEAUTY_SELLER", "HOME_KITCHEN_SELLER", "GIFTS_TOYS_SELLER", "BOOKS_STATIONERY_SELLER", "JEWELLERY_SELLER", "HARDWARE_SELLER", "AUTOMOBILE_SELLER"];
 
 const isCouponLive = (coupon) => {
   const now = new Date();
@@ -57,16 +57,45 @@ const publicCouponQuery = (request) => {
 };
 
 const sellerScope = async (request) => {
-  if (request.currentUser?.role === "GROCERY_SELLER") {
-    const shop = await getSellerGroceryShop(request.userId, request.currentUser?.email);
-    if (!shop) throw Object.assign(new Error("Seller grocery shop not found"), { statusCode: 404 });
-    return { audience: "grocery", shopId: shop._id, restaurantId: null, createdBy: request.userId };
-  }
-  if (request.currentUser?.role === "RESTAURANT_SELLER") {
+  // Map all shop seller roles (non-restaurant)
+  const SHOP_SELLER_ROLES = [
+    "GROCERY_SELLER", "FASHION_SELLER", "ELECTRONICS_SELLER", "MEDICAL_SELLER",
+    "BEAUTY_SELLER", "HOME_KITCHEN_SELLER", "GIFTS_TOYS_SELLER", "BOOKS_STATIONERY_SELLER",
+    "JEWELLERY_SELLER", "HARDWARE_SELLER", "AUTOMOBILE_SELLER"
+  ];
+  
+  const ROLE_TO_AUDIENCE = {
+    GROCERY_SELLER: "grocery",
+    RESTAURANT_SELLER: "restaurant",
+    FASHION_SELLER: "fashion",
+    ELECTRONICS_SELLER: "electronics",
+    MEDICAL_SELLER: "medical",
+    BEAUTY_SELLER: "beauty",
+    HOME_KITCHEN_SELLER: "home_kitchen",
+    GIFTS_TOYS_SELLER: "gifts_toys",
+    BOOKS_STATIONERY_SELLER: "books_stationery",
+    JEWELLERY_SELLER: "jewellery",
+    HARDWARE_SELLER: "hardware",
+    AUTOMOBILE_SELLER: "automobile",
+  };
+  
+  const userRole = request.currentUser?.role;
+  
+  // Handle restaurant seller
+  if (userRole === "RESTAURANT_SELLER") {
     const restaurant = await getSellerRestaurant(request.userId, request.currentUser?.email);
     if (!restaurant) throw Object.assign(new Error("Seller restaurant not found"), { statusCode: 404 });
     return { audience: "restaurant", restaurantId: restaurant._id, shopId: null, createdBy: request.userId };
   }
+  
+  // Handle all shop-based sellers (grocery, fashion, electronics, etc.)
+  if (SHOP_SELLER_ROLES.includes(userRole)) {
+    const shop = await getSellerGroceryShop(request.userId, request.currentUser?.email);
+    if (!shop) throw Object.assign(new Error("Seller shop not found"), { statusCode: 404 });
+    const audience = ROLE_TO_AUDIENCE[userRole] || "grocery";
+    return { audience, shopId: shop._id, restaurantId: null, createdBy: request.userId };
+  }
+  
   return null;
 };
 
@@ -86,13 +115,15 @@ export const getActiveCouponsController = async (request, response) => {
     const data = coupons.filter(isCouponLive).map((coupon) => ({
       _id: coupon._id,
       code: coupon.code,
+      discount: coupon.value,
+      discountType: coupon.type === "percentage" ? "percentage" : "fixed",
+      minOrder: coupon.minOrderAmount || 0,
+      maxDiscount: coupon.maxDiscountAmount,
+      label: coupon.title || coupon.description,
       title: coupon.title,
       description: coupon.description,
-      type: coupon.type,
-      value: coupon.value,
-      minOrderAmount: coupon.minOrderAmount,
-      maxDiscountAmount: coupon.maxDiscountAmount,
-      expiresAt: coupon.expiresAt,
+      expiryDate: coupon.expiresAt,
+      isActive: coupon.isActive,
       audience: coupon.audience,
       shopId: coupon.shopId,
       restaurantId: coupon.restaurantId,
@@ -100,7 +131,7 @@ export const getActiveCouponsController = async (request, response) => {
       restaurantItemIds: coupon.restaurantItemIds,
     }));
 
-    return response.status(200).json({ success: true, error: false, data });
+    return response.status(200).json(data);
   } catch (error) {
     return response.status(500).json({ success: false, error: true, message: error.message || error });
   }
@@ -108,8 +139,9 @@ export const getActiveCouponsController = async (request, response) => {
 
 export const validateCouponController = async (request, response) => {
   try {
-    const { code = "", orderAmount = 0, shopId, restaurantId, productId, restaurantItemId } = request.body || {};
+    const { code = "", orderAmount = 0, orderTotal = 0, shopId, restaurantId, productId, restaurantItemId } = request.body || {};
     const normalizedCode = String(code).trim().toUpperCase();
+    const totalAmount = Number(orderTotal || orderAmount || 0);
 
     if (!normalizedCode) {
       return response.status(400).json({ success: false, error: true, message: "Coupon code is required" });
@@ -120,25 +152,54 @@ export const validateCouponController = async (request, response) => {
       return response.status(404).json({ success: false, error: true, message: "Invalid or expired coupon" });
     }
 
+    // Check coupon scope - improved logic for all shop types
     const matchesScope =
+      // Global coupon - valid everywhere
       coupon.audience === "global" ||
+      
+      // Shop-scoped coupons (grocery, fashion, electronics, etc.)
+      // Valid if: coupon has shopId AND it matches the cart's shopId
+      (shopId && coupon.shopId && String(coupon.shopId) === String(shopId)) ||
+      
+      // Restaurant-scoped coupons
+      // Valid if: coupon has restaurantId AND it matches the cart's restaurantId
+      (restaurantId && coupon.restaurantId && String(coupon.restaurantId) === String(restaurantId)) ||
+      
+      // Generic audience without specific shop (legacy support)
       (coupon.audience === "grocery" && (shopId || productId) && !coupon.shopId && !(coupon.productIds || []).length) ||
       (coupon.audience === "restaurant" && (restaurantId || restaurantItemId) && !coupon.restaurantId && !(coupon.restaurantItemIds || []).length) ||
-      (shopId && String(coupon.shopId || "") === String(shopId)) ||
-      (restaurantId && String(coupon.restaurantId || "") === String(restaurantId)) ||
+      
+      // Product-specific coupons
       (productId && (coupon.productIds || []).some((id) => String(id) === String(productId))) ||
       (restaurantItemId && (coupon.restaurantItemIds || []).some((id) => String(id) === String(restaurantItemId)));
 
     if (!matchesScope) {
-      return response.status(400).json({ success: false, error: true, message: "Coupon is not valid for this item", discountAmount: 0 });
+      return response.status(400).json({ success: false, error: true, message: "This coupon is not valid for this shop", discountAmount: 0 });
     }
 
-    const result = computeDiscount(coupon, Number(orderAmount || 0));
+    const result = computeDiscount(coupon, totalAmount);
     if (!result.valid) {
       return response.status(400).json({ success: false, error: true, message: result.message, discountAmount: 0 });
     }
 
-    return response.status(200).json({ success: true, error: false, ...result, code: coupon.code });
+    // Return coupon data in application-friendly format
+    return response.status(200).json({ 
+      success: true, 
+      error: false, 
+      message: result.message,
+      discountAmount: result.discountAmount,
+      coupon: {
+        _id: coupon._id,
+        code: coupon.code,
+        discount: result.discountAmount,
+        discountType: coupon.type === "percentage" ? "percentage" : "fixed",
+        minOrder: coupon.minOrderAmount || 0,
+        maxDiscount: coupon.maxDiscountAmount,
+        label: coupon.title || coupon.description,
+        expiryDate: coupon.expiresAt,
+        isActive: coupon.isActive,
+      }
+    });
   } catch (error) {
     return response.status(500).json({ success: false, error: true, message: error.message || error });
   }

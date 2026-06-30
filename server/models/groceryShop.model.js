@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 const groceryShopSchema = new mongoose.Schema({
   marketId: { type: mongoose.Schema.Types.ObjectId, ref: "Market", required: true, index: true },
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "ShopOwner", required: true, index: true },
+  shopType: { 
+    type: String, 
+    enum: ["grocery", "fashion", "electronics", "medical", "beauty", "home_kitchen", "gifts_toys", "books_stationery", "jewellery", "hardware", "automobile"],
+    default: "grocery",
+    index: true
+  },
   shopName: { type: String, required: true, trim: true, index: true },
   shopBanner: { type: String, default: "" },
   shopLogo: { type: String, default: "" },

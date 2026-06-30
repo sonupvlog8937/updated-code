@@ -305,6 +305,7 @@ export default function LoginScreen() {
   const [name, setName] = useState("");
   const [isNewUser, setIsNewUser] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -474,7 +475,7 @@ export default function LoginScreen() {
   };
 
   const handleResendOtp = async () => {
-    setLoading(true);
+    setIsResending(true);
     try {
       const endpoint = isNewUser ? "/api/user/send-register-otp" : "/api/user/send-login-otp";
       const payload = isNewUser
@@ -491,7 +492,7 @@ export default function LoginScreen() {
       console.error("Resend OTP error:", err);
       showToast("error", "❌ Network error. Please try again.");
     } finally {
-      setLoading(false);
+      setIsResending(false);
     }
   };
 
@@ -632,8 +633,10 @@ export default function LoginScreen() {
                     style={styles.resendRow}
                   >
                     <Text style={styles.resendText}>Didn't receive OTP? </Text>
-                    <Pressable onPress={handleResendOtp} disabled={loading}>
-                      <Text style={styles.resendLink}>Resend</Text>
+                    <Pressable onPress={handleResendOtp} disabled={loading || isResending}>
+                      <Text style={[styles.resendLink, (loading || isResending) && { opacity: 0.5 }]}>
+                        {isResending ? "Sending..." : "Resend"}
+                      </Text>
                     </Pressable>
                   </Animated.View>
                 </View>

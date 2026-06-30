@@ -7,6 +7,7 @@ import BannerLoading from "../../components/LoadingSkeleton/bannerLoading";
 import { MdArrowRightAlt } from "react-icons/md";
 import { Link, useNavigate } from "react-router-dom";
 import { FaBolt, FaRegCopy, FaStar } from "react-icons/fa";
+import GoMarketPromoCard from "../../components/GoMarketPromoCard.jsx";
 import "./style.css";
 
 // ✅ FIX 1: Heavy components — lazy load karo
@@ -46,7 +47,7 @@ const REVIEWS = [
 ];
 
 // ─── All Products Section ─────────────────────────────────────────────────────
-const PRODUCTS_PER_PAGE = 10;
+const PRODUCTS_PER_PAGE = 25;
 
 const AllProductsSection = () => {
   const [allProducts, setAllProducts] = useState([]);
@@ -437,6 +438,8 @@ const Home = () => {
         </div>
       )}
 
+      {/* <GoMarketPromoCard /> */}
+
       {/* ─── Popular Products ────────────────────────────────────────────── */}
       <section className="bg-white py-6">
         <div className="container">
@@ -481,7 +484,7 @@ const Home = () => {
       </section>
 
       {/* ─── Flash Sale Banner ───────────────────────────────────────────── */}
-      <section className="py-4 bg-white">
+      {/* <section className="py-4 bg-white">
         <div className="container">
           <div className="relative overflow-hidden rounded-2xl px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 flex-wrap"
             style={{ background: "linear-gradient(135deg, #FF6B2B 0%, #FF8C55 50%, #FFB347 100%)", boxShadow: "0 12px 40px rgba(255,107,43,0.3)" }}>
@@ -519,7 +522,7 @@ const Home = () => {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* ─── Product Banner V2 + Side Banners ───────────────────────────── */}
       <section className="py-4 pt-0 bg-white">
@@ -536,6 +539,80 @@ const Home = () => {
                 <BannerBoxV2 image={bannerV1Data[bannerV1Data.length - 2]?.images[0]} item={bannerV1Data[bannerV1Data.length - 2]} />
               </Suspense>
             ) : <BannerLoading />}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Shipping Banner ─────────────────────────────────────────────── */}
+      
+
+      {/* ─── Latest Products ─────────────────────────────────────────────── */}
+      <section className="py-5 pt-0 bg-white">
+        <div className="container">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="section-heading text-[22px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Latest Products</h2>
+            <Link to="/products">
+              <button className="flex items-center gap-1.5 text-[13px] font-[600] px-4 py-2.5 rounded-xl transition-all"
+                style={{ color: "#FF6B2B", border: "1.5px solid rgba(255,107,43,0.2)", background: "rgba(255,107,43,0.04)" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,107,43,0.08)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,107,43,0.04)"; }}>
+                View All <MdArrowRightAlt size={18} />
+              </button>
+            </Link>
+          </div>
+          {filteredProducts?.length === 0
+            ? <ProductLoading />
+            : (
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                {filteredProducts.slice(0, 8).map((item, index) => (
+                  <Suspense key={item?._id || index} fallback={null}>
+                    <ProductItem item={item} />
+                  </Suspense>
+                ))}
+              </div>
+            )
+          }
+        </div>
+      </section>
+      <GoMarketPromoCard />
+
+      {/* timer */}
+      <section className="py-4 bg-white">
+        <div className="container">
+          <div className="relative overflow-hidden rounded-2xl px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 flex-wrap"
+            style={{ background: "linear-gradient(135deg, #FF6B2B 0%, #FF8C55 50%, #FFB347 100%)", boxShadow: "0 12px 40px rgba(255,107,43,0.3)" }}>
+            <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-10 pointer-events-none" style={{ background: "white", transform: "translate(30%, -30%)" }} />
+            <div className="dot-pattern absolute inset-0 opacity-30 pointer-events-none rounded-2xl" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-1">
+                <FaBolt className="text-yellow-200 text-[14px]" />
+                <span className="text-[11px] uppercase tracking-[0.18em] text-white/80 font-[600]">Limited time</span>
+              </div>
+              <h3 className="text-[24px] font-[800] text-white mb-0.5" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Flash Sale ends tonight 🔥</h3>
+              <p className="text-[13px] text-white/80 mb-0">Hurry up — prices reset at midnight!</p>
+            </div>
+            <div className="relative z-10 flex items-center gap-3">
+              {[{ val: timeLeft.hours, label: TIMER_LABELS[0] }, { val: timeLeft.minutes, label: TIMER_LABELS[1] }, { val: timeLeft.seconds, label: TIMER_LABELS[2] }]
+                .map((t, idx) => (
+                  <React.Fragment key={idx}>
+                    {idx !== 0 && <span className="text-white/50 text-[20px] font-light mb-3">:</span>}
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="timer-digit w-14 h-14 rounded-xl flex items-center justify-center text-[22px]"
+                        style={{ boxShadow: "0 4px 16px rgba(0,0,0,0.15)" }}>
+                        {String(t.val).padStart(2, "0")}
+                      </div>
+                      <span className="text-[9px] uppercase tracking-widest text-white/70">{t.label}</span>
+                    </div>
+                  </React.Fragment>
+                ))}
+            </div>
+            <div className="relative z-10">
+              <button onClick={copyCouponCode} className="flex items-center gap-2 px-5 py-3 rounded-xl font-[700] text-[14px] transition-all hover:scale-105 active:scale-95"
+                style={{ background: "white", color: "#FF6B2B", boxShadow: "0 4px 14px rgba(0,0,0,0.15)" }}>
+                Copy SAVE20 <FaRegCopy />
+              </button>
+              {couponMessage && <p className="text-[12px] text-white/90 mt-1.5 mb-0 font-[600]">{couponMessage}</p>}
+            </div>
           </div>
         </div>
       </section>
@@ -583,34 +660,6 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── Latest Products ─────────────────────────────────────────────── */}
-      <section className="py-5 pt-0 bg-white">
-        <div className="container">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="section-heading text-[22px] font-[800] text-gray-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Latest Products</h2>
-            <Link to="/products">
-              <button className="flex items-center gap-1.5 text-[13px] font-[600] px-4 py-2.5 rounded-xl transition-all"
-                style={{ color: "#FF6B2B", border: "1.5px solid rgba(255,107,43,0.2)", background: "rgba(255,107,43,0.04)" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,107,43,0.08)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,107,43,0.04)"; }}>
-                View All <MdArrowRightAlt size={18} />
-              </button>
-            </Link>
-          </div>
-          {filteredProducts?.length === 0
-            ? <ProductLoading />
-            : (
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                {filteredProducts.slice(0, 8).map((item, index) => (
-                  <Suspense key={item?._id || index} fallback={null}>
-                    <ProductItem item={item} />
-                  </Suspense>
-                ))}
-              </div>
-            )
-          }
-        </div>
-      </section>
 
       {/* ─── Featured Products (Infinite Scroll) ───────────────────────── */}
       <FeaturedProductsSection

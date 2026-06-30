@@ -411,7 +411,7 @@ export default function GoMarketProductScreen() {
             {displayDiscount > 0 && <Text style={S.off}>{displayDiscount}% off</Text>}
           </View>
 
-          {offers.length > 0 && (
+          {/* {offers.length > 0 && (
             <View style={{ marginTop: 12, gap: 8 }}>
               {offers.slice(0, 3).map((offer: any) => (
                 <View key={offer._id || offer.code} style={S.offerBox}>
@@ -420,7 +420,7 @@ export default function GoMarketProductScreen() {
                 </View>
               ))}
             </View>
-          )}
+          )} */}
 
           {productOptions.length > 0 && productOptions.map((opt: any) => {
             const key = opt.name || opt.label;

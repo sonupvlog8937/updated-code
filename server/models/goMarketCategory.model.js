@@ -4,7 +4,7 @@ const goMarketCategorySchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true, index: true },
   type: {
     type: String,
-    enum: ["grocery", "restaurant"],
+    enum: ["grocery", "restaurant", "fashion", "electronics", "medical", "beauty", "home_kitchen", "gifts_toys", "books_stationery", "jewellery", "hardware", "automobile"],
     required: true,
     index: true,
   },

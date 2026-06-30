@@ -25,10 +25,116 @@ const StatusPill = ({ status }) => {
 const QuickCommerceDashboard = () => {
   const context = useContext(MyContext);
   const role = context?.userData?.role;
+  
+  // Theme configuration for all seller types
+  const getThemeByRole = (role) => {
+    const themes = {
+      GROCERY_SELLER: {
+        primary: "#059669",
+        dark: "#064e3b",
+        light: "#ecfdf5",
+        gradient: "linear-gradient(135deg, #059669 0%, #047857 55%, #065f46 100%)",
+        tag: "Quick Grocery",
+        icon: "🛒"
+      },
+      RESTAURANT_SELLER: {
+        primary: "#ea580c",
+        dark: "#7c2d12",
+        light: "#fff7ed",
+        gradient: "linear-gradient(135deg, #f97316 0%, #ea580c 55%, #c2410c 100%)",
+        tag: "Quick Restaurant",
+        icon: "🍽️"
+      },
+      FASHION_SELLER: {
+        primary: "#ec4899",
+        dark: "#831843",
+        light: "#fce7f3",
+        gradient: "linear-gradient(135deg, #ec4899 0%, #db2777 55%, #be185d 100%)",
+        tag: "Fashion Store",
+        icon: "👕"
+      },
+      ELECTRONICS_SELLER: {
+        primary: "#3b82f6",
+        dark: "#1e3a8a",
+        light: "#dbeafe",
+        gradient: "linear-gradient(135deg, #3b82f6 0%, #2563eb 55%, #1d4ed8 100%)",
+        tag: "Electronics Store",
+        icon: "📱"
+      },
+      MEDICAL_SELLER: {
+        primary: "#ef4444",
+        dark: "#7f1d1d",
+        light: "#fee2e2",
+        gradient: "linear-gradient(135deg, #ef4444 0%, #dc2626 55%, #b91c1c 100%)",
+        tag: "Medical Store",
+        icon: "💊"
+      },
+      BEAUTY_SELLER: {
+        primary: "#d946ef",
+        dark: "#701a75",
+        light: "#fae8ff",
+        gradient: "linear-gradient(135deg, #d946ef 0%, #c026d3 55%, #a21caf 100%)",
+        tag: "Beauty Store",
+        icon: "💄"
+      },
+      HOME_KITCHEN_SELLER: {
+        primary: "#f59e0b",
+        dark: "#78350f",
+        light: "#fef3c7",
+        gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 55%, #b45309 100%)",
+        tag: "Home & Kitchen",
+        icon: "🏠"
+      },
+      GIFTS_TOYS_SELLER: {
+        primary: "#f472b6",
+        dark: "#831843",
+        light: "#fce7f3",
+        gradient: "linear-gradient(135deg, #f472b6 0%, #ec4899 55%, #db2777 100%)",
+        tag: "Gifts & Toys",
+        icon: "🎁"
+      },
+      BOOKS_STATIONERY_SELLER: {
+        primary: "#8b5cf6",
+        dark: "#4c1d95",
+        light: "#ede9fe",
+        gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 55%, #6d28d9 100%)",
+        tag: "Books & Stationery",
+        icon: "📚"
+      },
+      JEWELLERY_SELLER: {
+        primary: "#fbbf24",
+        dark: "#78350f",
+        light: "#fef3c7",
+        gradient: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 55%, #d97706 100%)",
+        tag: "Jewellery Store",
+        icon: "💎"
+      },
+      HARDWARE_SELLER: {
+        primary: "#6b7280",
+        dark: "#1f2937",
+        light: "#f3f4f6",
+        gradient: "linear-gradient(135deg, #6b7280 0%, #4b5563 55%, #374151 100%)",
+        tag: "Hardware Store",
+        icon: "🔧"
+      },
+      AUTOMOBILE_SELLER: {
+        primary: "#14b8a6",
+        dark: "#134e4a",
+        light: "#ccfbf1",
+        gradient: "linear-gradient(135deg, #14b8a6 0%, #0d9488 55%, #0f766e 100%)",
+        tag: "Automobile Store",
+        icon: "🚗"
+      },
+    };
+    
+    return themes[role] || themes.GROCERY_SELLER; // Fallback to grocery theme
+  };
+  
+  const theme = getThemeByRole(role);
+  
+  // Helper variables for conditional logic
   const isGrocery = role === "GROCERY_SELLER";
-  const theme = isGrocery
-    ? { primary: "#059669", dark: "#064e3b", light: "#ecfdf5", gradient: "linear-gradient(135deg, #059669 0%, #047857 55%, #065f46 100%)", tag: "Quick Grocery" }
-    : { primary: "#ea580c", dark: "#7c2d12", light: "#fff7ed", gradient: "linear-gradient(135deg, #f97316 0%, #ea580c 55%, #c2410c 100%)", tag: "Quick Restaurant" };
+  const isRestaurant = role === "RESTAURANT_SELLER";
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -64,9 +170,20 @@ const QuickCommerceDashboard = () => {
   const catalog = data?.catalog || {};
   const recentOrders = data?.recentOrders || [];
 
+  // Generic labels based on seller type
+  const getControlLabel = () => {
+    if (isRestaurant) return "Kitchen controls";
+    return "Store controls";
+  };
+  
+  const getInventoryLabel = () => {
+    if (isRestaurant) return "Manage menu";
+    return "Manage inventory";
+  };
+
   const quickActions = [
-    { to: "/seller/store-ops", label: isGrocery ? "Store controls" : "Kitchen controls", sub: "Open / pause · delivery SLA" },
-    { to: "/products", label: isGrocery ? "Manage inventory" : "Manage menu", sub: `${catalog.totalItems || 0} items live` },
+    { to: "/seller/store-ops", label: getControlLabel(), sub: "Open / pause · delivery SLA" },
+    { to: "/products", label: getInventoryLabel(), sub: `${catalog.totalItems || 0} items live` },
     { to: "/orders", label: "Live orders", sub: `${stats.activeOrders || 0} need attention`, highlight: (stats.pendingOrders || 0) > 0 },
     { to: "/wallet/transactions", label: "Earnings & wallet", sub: "Payouts & balance" },
   ];
@@ -139,11 +256,11 @@ const QuickCommerceDashboard = () => {
         <div className="qc-hero">
           <div className="qc-hero__grid">
             <div>
-              <p className="qc-tag">{theme.tag} · Minutes delivery</p>
+              <p className="qc-tag">{theme.icon} {theme.tag} · Quick delivery</p>
               <h1 className="qc-title">{greeting}, {context?.userData?.name?.split(" ")[0]} 👋</h1>
               <p className="qc-sub">
                 {outlet?.name
-                  ? `${outlet.name} — ${isGrocery ? "fresh groceries" : "hot meals"} delivered fast, like Flipkart Minutes.`
+                  ? `${outlet.name} — manage your store and deliver fast.`
                   : "Your quick-commerce partner console"}
               </p>
               <div className="qc-status">

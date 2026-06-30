@@ -8,6 +8,7 @@ import { useAppContext } from "../../hooks/useAppContext";
 const Verify = () => {
   const [otp, setOtp]           = useState("");
   const [isLoading, setLoading] = useState(false);
+  const [isResending, setResending] = useState(false);
   const [resendTimer, setTimer] = useState(60);
 
   const history = useNavigate();
@@ -79,8 +80,10 @@ const Verify = () => {
   };
 
   const handleResend = async () => {
+    setResending(true);
     if (actionType === "forgot-password") {
       const res = await postData("/api/user/forgot-password", { email });
+      setResending(false);
       if (res?.error === false) {
         context.alertBox("success", "New OTP sent!");
         setTimer(60);
@@ -89,6 +92,7 @@ const Verify = () => {
       }
     } else {
       const res = await postData("/api/user/resend-otp", { email });
+      setResending(false);
       if (res?.error === false) {
         context.alertBox("success", "New OTP sent to your email!");
         setTimer(60);
@@ -138,9 +142,10 @@ const Verify = () => {
               <button
                 type="button"
                 onClick={handleResend}
-                className="text-blue-600 font-semibold hover:underline"
+                disabled={isResending}
+                className="text-blue-600 font-semibold hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Resend OTP
+                {isResending ? "Sending..." : "Resend OTP"}
               </button>
             )}
           </p>

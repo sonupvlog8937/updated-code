@@ -22,6 +22,16 @@ const ROLE_OPTIONS = [
   { value: "SELLER", label: "Seller", tone: "#2874f0", description: "General marketplace seller with complete catalog controls." },
   { value: "GROCERY_SELLER", label: "Grocery Seller", tone: "#10b981", description: "Creates a grocery shop in your selected Go Market instantly." },
   { value: "RESTAURANT_SELLER", label: "Restaurant Seller", tone: "#f97316", description: "Creates a restaurant in your selected Go Market instantly." },
+  { value: "FASHION_SELLER", label: "Fashion Seller", tone: "#ec4899", description: "Creates a fashion shop in your selected Go Market instantly." },
+  { value: "ELECTRONICS_SELLER", label: "Electronics Seller", tone: "#3b82f6", description: "Creates an electronics shop in your selected Go Market instantly." },
+  { value: "MEDICAL_SELLER", label: "Medical Seller", tone: "#ef4444", description: "Creates a medical/pharmacy shop in your selected Go Market instantly." },
+  { value: "BEAUTY_SELLER", label: "Beauty Seller", tone: "#d946ef", description: "Creates a beauty shop in your selected Go Market instantly." },
+  { value: "HOME_KITCHEN_SELLER", label: "Home & Kitchen Seller", tone: "#f59e0b", description: "Creates a home & kitchen shop in your selected Go Market instantly." },
+  { value: "GIFTS_TOYS_SELLER", label: "Gifts & Toys Seller", tone: "#f472b6", description: "Creates a gifts & toys shop in your selected Go Market instantly." },
+  { value: "BOOKS_STATIONERY_SELLER", label: "Books & Stationery Seller", tone: "#8b5cf6", description: "Creates a books & stationery shop in your selected Go Market instantly." },
+  { value: "JEWELLERY_SELLER", label: "Jewellery Seller", tone: "#fbbf24", description: "Creates a jewellery shop in your selected Go Market instantly." },
+  { value: "HARDWARE_SELLER", label: "Hardware Seller", tone: "#6b7280", description: "Creates a hardware shop in your selected Go Market instantly." },
+  { value: "AUTOMOBILE_SELLER", label: "Automobile Seller", tone: "#14b8a6", description: "Creates an automobile shop in your selected Go Market instantly." },
   { value: "DELIVERY_RIDER", label: "Delivery Rider", tone: "#8b5cf6", description: "Join as a delivery partner to pick up and deliver orders." },
 ];
 
@@ -30,6 +40,16 @@ const ROLE_FEATURES = {
   SELLER: COMMON_FEATURES,
   GROCERY_SELLER: ["Quick Commerce Dashboard", "Store Operations", "Inventory", "Live Orders", "Wallet"],
   RESTAURANT_SELLER: ["Quick Commerce Dashboard", "Kitchen Operations", "Menu Items", "Live Orders", "Wallet"],
+  FASHION_SELLER: ["Quick Commerce Dashboard", "Store Operations", "Fashion Inventory", "Live Orders", "Wallet"],
+  ELECTRONICS_SELLER: ["Quick Commerce Dashboard", "Store Operations", "Electronics Inventory", "Live Orders", "Wallet"],
+  MEDICAL_SELLER: ["Quick Commerce Dashboard", "Pharmacy Operations", "Medicine Inventory", "Live Orders", "Wallet"],
+  BEAUTY_SELLER: ["Quick Commerce Dashboard", "Store Operations", "Beauty Products", "Live Orders", "Wallet"],
+  HOME_KITCHEN_SELLER: ["Quick Commerce Dashboard", "Store Operations", "Home & Kitchen Items", "Live Orders", "Wallet"],
+  GIFTS_TOYS_SELLER: ["Quick Commerce Dashboard", "Store Operations", "Gifts & Toys Inventory", "Live Orders", "Wallet"],
+  BOOKS_STATIONERY_SELLER: ["Quick Commerce Dashboard", "Store Operations", "Books & Stationery", "Live Orders", "Wallet"],
+  JEWELLERY_SELLER: ["Quick Commerce Dashboard", "Store Operations", "Jewellery Items", "Live Orders", "Wallet"],
+  HARDWARE_SELLER: ["Quick Commerce Dashboard", "Store Operations", "Hardware Items", "Live Orders", "Wallet"],
+  AUTOMOBILE_SELLER: ["Quick Commerce Dashboard", "Store Operations", "Auto Parts & Accessories", "Live Orders", "Wallet"],
   DELIVERY_RIDER: ["Delivery Dashboard", "Available Orders", "My Deliveries", "Earnings", "Route Navigation", "Performance Stats"],
 };
 

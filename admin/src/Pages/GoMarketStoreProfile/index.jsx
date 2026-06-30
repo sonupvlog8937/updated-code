@@ -188,10 +188,17 @@ const GoMarketStoreProfile = () => {
   const [isUploading, setIsUploading] = useState(false);
   const userRole = context?.userData?.role || "";
   
-  const isGrocerySeller = userRole === "GROCERY_SELLER";
-  const isRestaurantSeller = userRole === "RESTAURANT_SELLER";
+  // Check if user is a GoMarket seller (any type except restaurant)
+  const GO_MARKET_SELLER_ROLES = [
+    "GROCERY_SELLER", "FASHION_SELLER", "ELECTRONICS_SELLER", "MEDICAL_SELLER",
+    "BEAUTY_SELLER", "HOME_KITCHEN_SELLER", "GIFTS_TOYS_SELLER", "BOOKS_STATIONERY_SELLER",
+    "JEWELLERY_SELLER", "HARDWARE_SELLER", "AUTOMOBILE_SELLER"
+  ];
   
-  if (!isGrocerySeller && !isRestaurantSeller) {
+  const isRestaurantSeller = userRole === "RESTAURANT_SELLER";
+  const isGoMarketSeller = GO_MARKET_SELLER_ROLES.includes(userRole);
+  
+  if (!isGoMarketSeller && !isRestaurantSeller) {
     return (
       <div style={{ minHeight: "100vh", background: "#F8FAFC", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center" }}>
@@ -215,7 +222,7 @@ const GoMarketStoreProfile = () => {
   const [editForm, setEditForm] = useState(emptyForm);
 
   useEffect(() => {
-    const endpoint = isGrocerySeller ? "/api/go-market/seller/grocery-shop" : "/api/go-market/seller/restaurant";
+    const endpoint = isGoMarketSeller ? "/api/go-market/seller/grocery-shop" : "/api/go-market/seller/restaurant";
     fetchDataFromApi(endpoint).then((res) => {
       if (res?.success) {
         const shop = res?.shop || {};
@@ -231,7 +238,7 @@ const GoMarketStoreProfile = () => {
       }
       setIsFetching(false);
     }).catch(() => setIsFetching(false));
-  }, [isGrocerySeller]);
+  }, [isGoMarketSeller]);
 
   const onChange = (e) => {
     setEditForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -267,7 +274,7 @@ const GoMarketStoreProfile = () => {
     
     setIsLoading(true);
     try {
-      const endpoint = isGrocerySeller ? "/api/go-market/seller/grocery-shop" : "/api/go-market/seller/restaurant";
+      const endpoint = isGoMarketSeller ? "/api/go-market/seller/grocery-shop" : "/api/go-market/seller/restaurant";
       const res = await editData(endpoint, editForm);
       const payload = res?.data || res;
       const isSuccess = payload?.success === true || payload?.error === false;
@@ -328,7 +335,7 @@ const GoMarketStoreProfile = () => {
             </div>
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 800, color: "#0F172A", lineHeight: 1.1 }}>
-                {isGrocerySeller ? "Grocery Shop" : "Restaurant"} Profile
+                {isGoMarketSeller ? "Shop" : "Restaurant"} Profile
               </h1>
               <p style={{ fontSize: 12, color: "#94A3B8", marginTop: 2 }}>Update your shop banner, logo, and details</p>
             </div>

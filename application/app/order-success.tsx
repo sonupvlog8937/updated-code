@@ -223,7 +223,7 @@ export default function OrderSuccessScreen() {
         </View>
 
         {/* Support Link */}
-        <Pressable style={styles.supportLink}>
+        <Pressable onPress={() => router.push("/contact" as never)} style={styles.supportLink}>
           <Text style={[styles.supportLinkText, { color: colors.primary }]}>
             Need help? Contact Support
           </Text>

@@ -9,6 +9,15 @@ import upload from '../middlewares/multer.js';
 import auth from '../middlewares/auth.js';
 import authorizeRole from '../middlewares/authorizeRole.js';
 
+// Seller role constants for authorization
+const ALL_SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER', 'FASHION_SELLER', 'ELECTRONICS_SELLER', 'MEDICAL_SELLER', 'BEAUTY_SELLER', 'HOME_KITCHEN_SELLER', 'GIFTS_TOYS_SELLER', 'BOOKS_STATIONERY_SELLER', 'JEWELLERY_SELLER', 'HARDWARE_SELLER', 'AUTOMOBILE_SELLER'];
+
+// GoMarket shop sellers (all except restaurant - they have different menu structure)
+const GO_MARKET_SHOP_SELLERS = ['GROCERY_SELLER', 'FASHION_SELLER', 'ELECTRONICS_SELLER', 'MEDICAL_SELLER', 'BEAUTY_SELLER', 'HOME_KITCHEN_SELLER', 'GIFTS_TOYS_SELLER', 'BOOKS_STATIONERY_SELLER', 'JEWELLERY_SELLER', 'HARDWARE_SELLER', 'AUTOMOBILE_SELLER'];
+
+// All GoMarket sellers (shops + restaurant)
+const ALL_GO_MARKET_SELLERS = [...GO_MARKET_SHOP_SELLERS, 'RESTAURANT_SELLER'];
+
 const userRouter = Router()
 userRouter.post('/register',registerUserController)
 userRouter.post('/verify-email', verifyEmailController)
@@ -44,15 +53,15 @@ userRouter.get('/getAllUsers',auth,authorizeRole('ADMIN'),getAllUsers);
 userRouter.delete('/deleteMultiple',auth,authorizeRole('ADMIN'),deleteMultiple);
 userRouter.delete('/deleteUser/:id',auth,authorizeRole('ADMIN'),deleteUser);
 
-userRouter.put('/seller/store-profile',auth,authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER','USER'),upsertSellerStoreProfile);
-userRouter.get('/seller/store-profile',auth,authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER','USER'),getSellerStoreProfile);
+userRouter.put('/seller/store-profile',auth,authorizeRole(...ALL_SELLER_ROLES,'USER'),upsertSellerStoreProfile);
+userRouter.get('/seller/store-profile',auth,authorizeRole(...ALL_SELLER_ROLES,'USER'),getSellerStoreProfile);
 userRouter.get('/seller/store-profile/:sellerId',getSellerStoreProfile);
-userRouter.get('/seller/quick-commerce/outlet', auth, authorizeRole('GROCERY_SELLER', 'RESTAURANT_SELLER'), getQuickCommerceOutlet);
-userRouter.put('/seller/quick-commerce/outlet', auth, authorizeRole('GROCERY_SELLER', 'RESTAURANT_SELLER'), updateQuickCommerceOutlet);
-userRouter.get('/seller/quick-commerce/dashboard', auth, authorizeRole('GROCERY_SELLER', 'RESTAURANT_SELLER'), getQuickCommerceDashboard);
-userRouter.get('/wallet/overview',auth,authorizeRole('ADMIN','SELLER','GROCERY_SELLER','RESTAURANT_SELLER'),getCommissionOverview);
-userRouter.get('/seller/commission',auth,authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER'),getCommissionOverview);
-userRouter.post('/wallet/request',auth,authorizeRole('SELLER','GROCERY_SELLER','RESTAURANT_SELLER'),createWalletRequest);
+userRouter.get('/seller/quick-commerce/outlet', auth, authorizeRole(...ALL_GO_MARKET_SELLERS), getQuickCommerceOutlet);
+userRouter.put('/seller/quick-commerce/outlet', auth, authorizeRole(...ALL_GO_MARKET_SELLERS), updateQuickCommerceOutlet);
+userRouter.get('/seller/quick-commerce/dashboard', auth, authorizeRole(...ALL_GO_MARKET_SELLERS), getQuickCommerceDashboard);
+userRouter.get('/wallet/overview',auth,authorizeRole('ADMIN',...ALL_SELLER_ROLES),getCommissionOverview);
+userRouter.get('/seller/commission',auth,authorizeRole(...ALL_SELLER_ROLES),getCommissionOverview);
+userRouter.post('/wallet/request',auth,authorizeRole(...ALL_SELLER_ROLES),createWalletRequest);
 userRouter.put('/wallet/request/approve',auth,authorizeRole('ADMIN'),approveWalletRequest);
 userRouter.post('/register-seller', registerSellerController);
 
