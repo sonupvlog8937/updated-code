@@ -8,6 +8,7 @@ const CommerceSettings = () => {
     freeShippingAbove: 0,
     goMarketShippingFee: 0,
     goMarketDeliveryFeePerKm: 0,
+    goMarketRiderFeePerKm: 0,
     collections: [],
   });
   const [saving, setSaving] = useState(false);
@@ -156,6 +157,20 @@ const CommerceSettings = () => {
                 />
                 <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
                   Per-kilometer delivery fee used for Go Market
+                </p>
+              </div>
+               <div>
+                <label style={labelStyle}>Go Market Rider Fee / km (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={form.goMarketRiderFeePerKm}
+                  onChange={(e) => set("goMarketRiderFeePerKm", Number(e.target.value))}
+                  placeholder="6"
+                  style={inputStyle}
+                />
+                <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+                  Per-kilometer rider earning for Go Market deliveries
                 </p>
               </div>
             </div>

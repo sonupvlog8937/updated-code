@@ -631,6 +631,14 @@ export default function GoMarketMarketScreen() {
           <Text style={{ fontSize: 14, marginRight: 4 }}>✏️</Text>
           <Text style={S.changeMarketBtnTxt}>Change Market</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[S.changeMarketBtn, { top: 62, backgroundColor: T.green }]}
+          onPress={() => router.push("/go-market?edit=true&updateLocation=true" as never)}
+          activeOpacity={0.85}
+        >
+          <Text style={{ fontSize: 14, marginRight: 4 }}>📍</Text>
+          <Text style={S.changeMarketBtnTxt}>Update Location</Text>
+        </TouchableOpacity>
         
         <View style={S.heroContent}>
           {market && (

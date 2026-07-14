@@ -14,6 +14,7 @@ import sendEmailFun from "../config/sendEmail.js";
 import { getRazorpayCredentials } from "./payment.controller.js";
 import { calculateGoMarketFees, isGoMarketOrder } from "../utils/goMarketPricing.js";
 import AppSettings from "../models/appSettings.model.js";
+import { haversineKm, resolveCoordPair, formatDistanceKm } from "../utils/geoCoords.js";
 
 
 const isRazorpaySignaturePayload = (body = {}) =>
@@ -140,6 +141,61 @@ const queueOrderConfirmationEmail = async (userId, order) => {
     }
 };
 
+const normalizeLatLng = (value = {}) => {
+    const lat = Number(value?.lat ?? value?.latitude);
+    const lng = Number(value?.lng ?? value?.longitude);
+    return Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0 ? { lat, lng } : null;
+};
+
+const getSavedGoMarketLocation = async (userId) => {
+    const user = await UserModel.findById(userId).select("goMarketLocation").lean();
+    const coords = user?.goMarketLocation?.coordinates;
+    if (Array.isArray(coords) && coords.length >= 2) {
+        return normalizeLatLng({ lat: coords[1], lng: coords[0] });
+    }
+    return null;
+};
+
+const computeGoMarketDistance = async ({ products = [], userId, requestLocation }) => {
+    const userLocation = normalizeLatLng(requestLocation) || await getSavedGoMarketLocation(userId);
+    if (!userLocation || !Array.isArray(products) || products.length === 0) {
+        return { distanceKm: 0, distanceDisplay: null, userLocation, farthestSource: null };
+    }
+
+    const productIds = products.map((p) => p?.productId).filter(Boolean);
+    const [groceryProducts, restaurantItems, standardProducts] = await Promise.all([
+        GroceryProduct.find({ _id: { $in: productIds } }).populate({ path: "shopId", populate: { path: "marketId" } }).lean(),
+        RestaurantItem.find({ _id: { $in: productIds } }).populate({ path: "restaurantId", populate: { path: "marketId" } }).lean(),
+        ProductModel.find({ _id: { $in: productIds } }).populate({ path: "seller", select: "storeProfile", populate: { path: "storeProfile.marketId" } }).lean(),
+    ]);
+
+    const outletByProduct = new Map();
+    groceryProducts.forEach((p) => outletByProduct.set(String(p._id), { kind: "grocery", name: p.shopId?.shopName, outlet: p.shopId, market: p.shopId?.marketId }));
+    restaurantItems.forEach((p) => outletByProduct.set(String(p._id), { kind: "restaurant", name: p.restaurantId?.restaurantName, outlet: p.restaurantId, market: p.restaurantId?.marketId }));
+    standardProducts.forEach((p) => {
+        if (p?.seller?.storeProfile?.marketId) outletByProduct.set(String(p._id), { kind: "seller", name: p.seller.storeProfile.storeName, outlet: p.seller.storeProfile, market: p.seller.storeProfile.marketId });
+    });
+
+    let farthest = null;
+    for (const item of products) {
+        const meta = outletByProduct.get(String(item?.productId));
+        if (!meta) continue;
+        const coords = resolveCoordPair(meta.outlet?.latitude, meta.outlet?.longitude, meta.market?.latitude, meta.market?.longitude);
+        const distanceKm = haversineKm(userLocation.lat, userLocation.lng, coords.lat, coords.lng);
+        if (distanceKm == null) continue;
+        if (!farthest || distanceKm > farthest.distanceKm) {
+            farthest = { distanceKm, kind: meta.kind, name: meta.name || "Go Market seller", locationSource: coords.source };
+        }
+    }
+
+    return {
+        distanceKm: farthest ? Number(farthest.distanceKm.toFixed(2)) : 0,
+        distanceDisplay: farthest ? (formatDistanceKm(farthest.distanceKm) || `${farthest.distanceKm.toFixed(1)} km`) : null,
+        userLocation,
+        farthestSource: farthest,
+    };
+};
+
 const countSellerGoMarketProducts = async (sellerId) => {
     const ownerIds = (await ShopOwner.find({ userId: sellerId }).select("_id").lean()).map((owner) => owner._id);
     if (!ownerIds.length) return 0;
@@ -210,17 +266,28 @@ export const createOrderController = async (request, response) => {
         let shippingFee = 0;
         let deliveryFee = 0;
         let totalAmt = request.body.totalAmt;
+        let goMarketDistance = { distanceKm: Number(request.body.distanceKm || 0), userLocation: request.body.userLocation || null, farthestSource: null };
 
         if (goMarketOrder) {
+            goMarketDistance = await computeGoMarketDistance({
+                products: productsWithSeller,
+                userId: request.body.userId,
+                requestLocation: request.body.userLocation,
+            });
+            const hasNormalProducts = productsWithSeller.some((item) => !isGoMarketOrder([item]));
+            const normalShippingFee = hasNormalProducts ? Number(request.body.shippingFee || 0) : 0;
+            const normalDeliveryFee = hasNormalProducts ? Number(request.body.deliveryFee || 0) : 0;
+            const orderSubtotal = Number(request.body.subtotal || request.body.subTotal || productsWithSeller.reduce((sum, item) => sum + Number(item?.subTotal || (Number(item?.price || 0) * Number(item?.quantity || 1))), 0));
+            const discount = Number(request.body.discount_amount || request.body.discountAmount || 0);
             const feeResult = calculateGoMarketFees({
                 settings,
-                subtotal: Number(request.body.subtotal || request.body.subTotal || request.body.totalAmt || 0),
-                distanceKm: Number(request.body.distanceKm || 0),
+                subtotal: orderSubtotal,
+                distanceKm: goMarketDistance.distanceKm,
                 isFirstOrder,
             });
-            shippingFee = feeResult.shippingFee;
-            deliveryFee = feeResult.deliveryFee;
-            totalAmt = feeResult.total;
+            shippingFee = feeResult.shippingFee + (isFirstOrder ? 0 : normalShippingFee);
+            deliveryFee = feeResult.deliveryFee + (isFirstOrder ? 0 : normalDeliveryFee);
+            totalAmt = Math.max(orderSubtotal - discount, 0) + shippingFee + deliveryFee;
         } else {
             console.log("🔍 First Order Check:", {
                 userId: request.body.userId,
@@ -261,8 +328,10 @@ export const createOrderController = async (request, response) => {
             discount_amount: request.body.discount_amount || request.body.discountAmount || 0,
             goMarketData: {
                 orderType: goMarketOrder ? "go_market" : "standard",
-                distanceKm: Number(request.body.distanceKm || 0),
-                userLocation: request.body.userLocation || null,
+                distanceKm: Number(goMarketDistance.distanceKm || 0),
+                distanceDisplay: goMarketDistance.distanceDisplay || null,
+                userLocation: goMarketDistance.userLocation || request.body.userLocation || null,
+                farthestSource: goMarketDistance.farthestSource || null,
             },
             date: request.body.date
         });
@@ -1489,6 +1558,13 @@ export const confirmRiderOrderController = async (request, response) => {
             });
         }
 
+        const riderSettings = await AppSettings.findOne({ key: "commerce" }).lean();
+        const riderPerKm = Number(riderSettings?.goMarketRiderFeePerKm || 0);
+        const distanceKm = Number(existingOrder?.goMarketData?.distanceKm || 0);
+        const earningAmount = riderPerKm > 0 && distanceKm > 0
+            ? Number((distanceKm * riderPerKm).toFixed(2))
+            : Number(existingOrder?.deliveryAssignment?.earningAmount || RIDER_DELIVERY_FEE);
+
         const order = await OrderModel.findOneAndUpdate(
             {
                 _id: request.params.id,
@@ -1499,6 +1575,7 @@ export const confirmRiderOrderController = async (request, response) => {
                     "deliveryAssignment.riderId": request.userId,
                     "deliveryAssignment.status": "confirmed",
                     "deliveryAssignment.confirmedAt": new Date(),
+                    "deliveryAssignment.earningAmount": earningAmount,
                     order_status: "out_for_delivery",
                 },
             },

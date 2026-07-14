@@ -65,8 +65,6 @@ export const haversineKm = (lat1, lng1, lat2, lng2) => {
 
 export const formatDistanceKm = (distanceKm) => {
   if (distanceKm == null) return null;
-  // > 5 km: too far to be a nearby local market shop — hide it
-  if (distanceKm > 5) return null;
   if (distanceKm < 0.05) return "Nearby";
   return distanceKm < 1
     ? `${Math.round(distanceKm * 1000)} m`

@@ -75,8 +75,6 @@ export const haversineKm = (
 
 export const formatDistanceKm = (distanceKm: number | null): string | null => {
   if (distanceKm == null) return null;
-  // > 5 km: too far to be a nearby local market shop — hide it
-  if (distanceKm > 5) return null;
   if (distanceKm < 0.05) return "Nearby";
   return distanceKm < 1
     ? `${Math.round(distanceKm * 1000)} m`
@@ -85,7 +83,6 @@ export const formatDistanceKm = (distanceKm: number | null): string | null => {
 
 export const estimateDeliveryMinutes = (distanceKm: number | null, deliveryMinutes = 10): number | null => {
   if (distanceKm == null) return null;
-  if (distanceKm > 5) return null;
   const base = deliveryMinutes ?? 10;
   if (distanceKm < 0.05) return base;
   // travel time (~6 min/km) + base prep/delivery minutes

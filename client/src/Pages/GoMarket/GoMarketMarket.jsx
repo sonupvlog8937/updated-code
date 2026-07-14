@@ -416,6 +416,17 @@ const GoMarketMarket = () => {
                 <span>✏️</span>
                 Change Market
               </button>
+              <button
+                type="button"
+                onClick={() => navigate("/go-market?edit=true&updateLocation=true")}
+                style={{
+                  position: "absolute", top: 58, right: 16, background: "rgba(16,185,129,.95)",
+                  border: "1px solid rgba(255,255,255,.5)", color: "#fff", padding: "8px 14px",
+                  borderRadius: "6px", fontWeight: 700, fontSize: "13px", cursor: "pointer"
+                }}
+              >
+                📍 Update Location
+              </button>
             </div>
           </div>
         )}

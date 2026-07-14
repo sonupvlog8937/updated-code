@@ -108,7 +108,15 @@ const orderSchema = new mongoose.Schema(
         type: Number,
         default: 0,
       },
+      distanceDisplay: {
+        type: String,
+        default: "",
+      },
       userLocation: {
+        type: Object,
+        default: null,
+      },
+      farthestSource: {
         type: Object,
         default: null,
       },

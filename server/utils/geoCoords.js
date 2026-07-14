@@ -80,7 +80,6 @@ export const haversineKm = (lat1, lng1, lat2, lng2) => {
 
 export const formatDistanceKm = (distanceKm) => {
   if (distanceKm == null) return null;
-  if (distanceKm > 5) return null;
   if (distanceKm < 0.05) return "Nearby";
   return distanceKm < 1
     ? `${Math.round(distanceKm * 1000)} m`
@@ -89,7 +88,6 @@ export const formatDistanceKm = (distanceKm) => {
 
 export const estimateDeliveryMinutes = (distanceKm, deliveryMinutes = 10) => {
   if (distanceKm == null) return null;
-  if (distanceKm > 5) return null;
   const base = deliveryMinutes || 10;
   if (distanceKm < 0.05) return base;
   // travel time (~6 min/km) + base prep/delivery minutes (default 10)
