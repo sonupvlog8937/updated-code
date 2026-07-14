@@ -66,11 +66,18 @@ export const addToCart = createAsyncThunk("app/addToCart", async ({ product, use
     productId: product?._id,
     countInStock: product?.countInStock,
     brand: product?.brand,
+    source: product?.source || "",
     size: product?.size,
     weight: product?.weight,
     ram: product?.ram,
     color: product?.color,
     selectedOptions: product?.selectedOptions || {},
+    shopId: product?.shopId || "",
+    shopLatitude: product?.shopLatitude,
+    shopLongitude: product?.shopLongitude,
+    restaurantId: product?.restaurantId || "",
+    restaurantLatitude: product?.restaurantLatitude,
+    restaurantLongitude: product?.restaurantLongitude,
   };
 
   const res = await postData("/api/cart/add", data);

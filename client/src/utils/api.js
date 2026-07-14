@@ -1,5 +1,14 @@
 import axios from "axios";
-const apiUrl = import.meta.env.VITE_API_URL;
+
+// Use proxy in development, direct URL in production
+const getApiUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  return ""; // Use proxy
+};
+
+const apiUrl = getApiUrl();
 
 const apiCache = new Map();
 
@@ -70,7 +79,8 @@ export const fetchDataFromApi = async (url, options = {}) => {
         return data;
     } catch (error) {
         console.log(error);
-        return error;
+        // Return plain serializable error, not the Axios error object
+        return { error: true, success: false, message: error?.response?.data?.message || error?.message || "Request failed" };
     }
 }
 

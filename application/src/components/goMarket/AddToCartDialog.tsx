@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { gmImg, GO_MARKET_FALLBACK } from "@/src/utils/goMarketMedia";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ProductOption = {
   _id: string;
@@ -52,6 +53,9 @@ type AddToCartDialogProps = {
 
 export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddToCartDialogProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const footerBottomPadding = Math.max(insets.bottom, 12) + 8;
+  const headerTopPadding = Math.max(insets.top, 12) + 4;
   const [selectedOption, setSelectedOption] = useState<ProductOption | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
@@ -137,14 +141,17 @@ export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddT
       <Pressable style={S.overlay} onPress={handleClose}>
         <Pressable style={S.dialog} onPress={(e) => e.stopPropagation()}>
           {/* Header */}
-          <View style={S.header}>
+          <View style={[S.header, { paddingTop: headerTopPadding }]}> 
             <Text style={S.headerTitle}>Add to Cart</Text>
             <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Text style={S.closeBtn}>✕</Text>
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={S.scrollContent}
+          >
             {/* Product Info */}
             <View style={S.productInfo}>
               <Image
@@ -227,7 +234,7 @@ export function AddToCartDialog({ visible, product, onClose, onAddToCart }: AddT
           </ScrollView>
 
           {/* Footer */}
-          <View style={S.footer}>
+          <View style={[S.footer, { paddingBottom: footerBottomPadding }]}> 
             <View>
               <Text style={S.footerLabel}>Total</Text>
               <Text style={S.footerPrice}>₹{totalPrice.toFixed(2)}</Text>
@@ -280,7 +287,8 @@ const S = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
   },
@@ -294,9 +302,14 @@ const S = StyleSheet.create({
     fontWeight: "400",
     color: "#666",
   },
+  scrollContent: {
+    paddingBottom: 8,
+  },
   productInfo: {
     flexDirection: "row",
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 10,
     gap: 14,
   },
   productImage: {
@@ -354,7 +367,7 @@ const S = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   sectionTitle: {
     fontSize: 14,
@@ -366,8 +379,8 @@ const S = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderRadius: 12,
     borderWidth: 1.5,
     borderColor: "#e0e0e0",
@@ -449,7 +462,8 @@ const S = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
     borderTopWidth: 1,
     borderTopColor: "#f0f0f0",
     gap: 16,

@@ -31,7 +31,7 @@ const buildParams = (state, page) => {
     limit: "16",
     tab: state.tab,
     ...(state.sort ? { sort: state.sort } : {}),
-    search: state.debouncedSearch,
+    search: state.appliedSearch,
     ...(state.inStock ? { inStock: "true" } : {}),
     ...(state.categoryId ? { categoryId: state.categoryId } : {}),
     ...(state.subCategoryId ? { subCategoryId: state.subCategoryId } : {}),
@@ -56,6 +56,7 @@ export const GoMarketShopCatalog = ({
   const { isLogin, userData, myListData } = useSelector((s) => s.app);
   const [search, setSearch] = useState(initialQuery);
   const debouncedSearch = useDebouncedValue(search, 350);
+  const [appliedSearch, setAppliedSearch] = useState(initialQuery);
   const [tab, setTab] = useState("featured");
   const [sort, setSort] = useState("");
   const [inStock, setInStock] = useState(false);
@@ -74,8 +75,15 @@ export const GoMarketShopCatalog = ({
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState({ 
+    suggestions: [], 
+    recentSearches: [], 
+    trendingSearches: [], 
+    popularProducts: [],
+    topSearches: []
+  });
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [optionProduct, setOptionProduct] = useState(null);
   const [quickSelections, setQuickSelections] = useState({});
   const [shopData, setShopData] = useState(null);
@@ -92,7 +100,7 @@ export const GoMarketShopCatalog = ({
     () => ({
       tab,
       sort,
-      debouncedSearch,
+      appliedSearch,
       inStock,
       categoryId,
       subCategoryId,
@@ -100,7 +108,7 @@ export const GoMarketShopCatalog = ({
       maxPrice,
       minRating,
     }),
-    [tab, sort, debouncedSearch, inStock, categoryId, subCategoryId, minPrice, maxPrice, minRating],
+    [tab, sort, appliedSearch, inStock, categoryId, subCategoryId, minPrice, maxPrice, minRating],
   );
 
   const apiPath = searchMode
@@ -111,10 +119,13 @@ export const GoMarketShopCatalog = ({
     async (pageNum, append) => {
       if (!shopId) return;
       if (append) setLoadingMore(true);
-      else setLoading(true);
+      else {
+        setLoading(true);
+        setProducts([]); // clear immediately so skeleton shows on tab change
+      }
 
       const params = buildParams(filterState, pageNum);
-      if (searchMode && debouncedSearch) params.set("q", debouncedSearch);
+      if (searchMode && appliedSearch) params.set("q", appliedSearch);
 
       try {
         const res = await fetchDataFromApi(`${apiPath}?${params}`);
@@ -135,24 +146,38 @@ export const GoMarketShopCatalog = ({
         setLoadingMore(false);
       }
     },
-    [shopId, apiPath, searchMode, debouncedSearch, filterState],
+    [shopId, apiPath, searchMode, appliedSearch, filterState],
   );
 
   useEffect(() => {
     loadPage(1, false);
   }, [loadPage]);
 
+  // Enhanced suggestions with recent searches, trending, etc.
   useEffect(() => {
-    if (!shopId || !search.trim()) {
-      setSuggestions([]);
+    if (!shopId) return;
+    
+    if (!search.trim()) {
+      // Show default content when not searching
+      fetchDataFromApi(`/api/go-market/grocery-shops/${shopId}/search-defaults`).then((res) => {
+        if (res?.success || res?.error === false) {
+          setSuggestions(res.data || {
+            recentSearches: [],
+            trendingSearches: [],
+            popularProducts: [],
+            topSearches: []
+          });
+        }
+      });
       return;
     }
+    
     const t = setTimeout(() => {
       fetchDataFromApi(
         `/api/go-market/grocery-shops/${shopId}/search-suggestions?q=${encodeURIComponent(search.trim())}`,
       ).then((res) => {
         if (res?.success || res?.error === false) {
-          setSuggestions(res.suggestions || []);
+          setSuggestions(res.data || res.suggestions || []);
         }
       });
     }, 200);
@@ -188,8 +213,15 @@ export const GoMarketShopCatalog = ({
   const goToSearchPage = (q) => {
     const query = (q || search).trim();
     if (!query) return;
-    navigate(`/go-market/shop/${shopId}/search?q=${encodeURIComponent(query)}`);
-    setShowSuggestions(false);
+    setAppliedSearch(query);
+    if (searchMode) {
+      // In search mode, just apply the search to trigger filtering
+      setShowSuggestions(false);
+    } else {
+      // Navigate to search page
+      navigate(`/go-market/shop/${shopId}/search?q=${encodeURIComponent(query)}`);
+      setShowSuggestions(false);
+    }
   };
 
   const subCatsForCategory = (filterMeta?.subCategories || []).filter(
@@ -230,7 +262,7 @@ export const GoMarketShopCatalog = ({
       toast.error("Shop is currently closed. You cannot add items to cart.");
       return;
     }
-    const cartProduct = { _id: product._id, name: product.name, price: priceOverride ?? (product.discountPrice > 0 ? product.discountPrice : product.price), oldPrice: product.oldPrice || product.price, image: product.image, images: product.images || [product.image], countInStock: product.countInStock ?? product.stock ?? 99, rating: product.rating || product.averageRating || 0, brand: product.brand || "GoMarket", discount: product.discount, selectedOptions };
+    const cartProduct = { _id: product._id, name: product.name, price: priceOverride ?? (product.discountPrice > 0 ? product.discountPrice : product.price), oldPrice: product.oldPrice || product.price, image: product.image, images: product.images || [product.image], countInStock: product.countInStock ?? product.stock ?? 99, rating: product.rating || product.averageRating || 0, brand: product.brand || "GoMarket", source: "goMarket", discount: product.discount, selectedOptions };
     await dispatch(addToCart({ product: cartProduct, userId: userData?._id, quantity: 1 }));
   };
   const handleQuickAdd = (e, product) => {
@@ -260,8 +292,8 @@ export const GoMarketShopCatalog = ({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (searchMode) loadPage(1, false);
-            else goToSearchPage();
+            setAppliedSearch(search.trim());
+            setShowSuggestions(false);
           }}
           style={{ display: "flex", flex: 1, gap: 8, minWidth: 200 }}
         >
@@ -274,11 +306,21 @@ export const GoMarketShopCatalog = ({
                 setSearch(e.target.value);
                 setShowSuggestions(true);
               }}
-              onFocus={() => search.trim() && setShowSuggestions(true)}
+              onFocus={() => {
+                setShowSuggestions(true);
+                // Load defaults if no search query
+                if (!search.trim()) {
+                  fetchDataFromApi(`/api/go-market/grocery-shops/${shopId}/search-defaults`).then((res) => {
+                    if (res?.success || res?.error === false) {
+                      setSuggestions(res.data || {});
+                    }
+                  });
+                }
+              }}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 180)}
               placeholder="Search products in this shop…"
             />
-            {showSuggestions && suggestions.length > 0 && (
+            {showSuggestions && (
               <div
                 style={{
                   position: "absolute",
@@ -292,28 +334,273 @@ export const GoMarketShopCatalog = ({
                   marginTop: 4,
                   boxShadow: "0 12px 28px rgba(15,23,42,0.12)",
                   overflow: "hidden",
+                  maxHeight: "400px",
+                  overflowY: "auto",
                 }}
               >
-                {suggestions.map((s) => (
-                  <button
-                    key={s._id}
-                    type="button"
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "10px 14px",
-                      border: "none",
-                      background: "transparent",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                    onMouseDown={() => goToSearchPage(s.label)}
-                  >
-                    {s.label}
-                  </button>
-                ))}
+                {suggestionsLoading && (
+                  <div style={{ padding: "12px 14px", color: "#94a3b8", fontSize: 13 }}>
+                    Searching...
+                  </div>
+                )}
+                
+                {/* When searching - show suggestions */}
+                {search.trim() ? (
+                  <>
+                    {suggestions.suggestions?.length > 0 && (
+                      <>
+                        <div style={{ padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          Suggestions
+                        </div>
+                        {suggestions.suggestions.map((s) => (
+                          <button
+                            key={s._id || s.label || s}
+                            type="button"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "10px 14px",
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              transition: "background 0.13s",
+                            }}
+                            onMouseDown={() => {
+                              const query = s.label || s;
+                              goToSearchPage(query);
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = "#f5f5f7"}
+                            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                          >
+                            <span style={{ fontSize: 14 }}>🔍</span>
+                            <span>{s.label || s}</span>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                    
+                    {suggestions.popularProducts?.length > 0 && (
+                      <>
+                        <div style={{ height: 1, background: "#f0f0f0", margin: "4px 0" }} />
+                        <div style={{ padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          Popular Products
+                        </div>
+                        {suggestions.popularProducts.slice(0, 5).map((p) => (
+                          <button
+                            key={p._id}
+                            type="button"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "8px 14px",
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              transition: "background 0.13s",
+                            }}
+                            onMouseDown={() => {
+                              navigate(`/go-market/product/grocery/${p._id}`);
+                              setShowSuggestions(false);
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = "#f5f5f7"}
+                            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                          >
+                            <div style={{ width: 32, height: 32, borderRadius: 6, background: "#f0f0f5", flexShrink: 0, overflow: "hidden" }}>
+                              {p.image && <img src={img(p.image)} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a2e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {p.name}
+                              </div>
+                              <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                                ₹{p.price}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </>
+                ) : (
+                  /* When not searching - show recent, trending, popular */
+                  <>
+                    {suggestions.recentSearches?.length > 0 && (
+                      <>
+                        <div style={{ padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          🕒 Recent Searches
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "4px 10px 8px" }}>
+                          {suggestions.recentSearches.map((item, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                                padding: "5px 12px",
+                                borderRadius: 20,
+                                background: "#eef1ff",
+                                border: "none",
+                                fontSize: 12.5,
+                                color: "#4a6cf7",
+                                cursor: "pointer",
+                                fontWeight: 500,
+                                transition: "background 0.13s",
+                              }}
+                              onMouseDown={() => goToSearchPage(item)}
+                              onMouseEnter={(e) => e.currentTarget.style.background = "#dde3ff"}
+                              onMouseLeave={(e) => e.currentTarget.style.background = "#eef1ff"}
+                            >
+                              {item}
+                            </button>
+                          ))}
+                        </div>
+                        <div style={{ height: 1, background: "#f0f0f0", margin: "4px 0" }} />
+                      </>
+                    )}
+                    
+                    {suggestions.trendingSearches?.length > 0 && (
+                      <>
+                        <div style={{ padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          🔥 Trending in this shop
+                        </div>
+                        {suggestions.trendingSearches.map((item, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "9px 14px",
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              fontSize: 14,
+                              color: "#1a1a2e",
+                              transition: "background 0.13s",
+                            }}
+                            onMouseDown={() => goToSearchPage(item)}
+                            onMouseEnter={(e) => e.currentTarget.style.background = "#f5f5f7"}
+                            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                          >
+                            <span style={{ 
+                              display: "flex", 
+                              alignItems: "center", 
+                              justifyContent: "center",
+                              width: 30, 
+                              height: 30, 
+                              borderRadius: 8, 
+                              background: "#fff2f0", 
+                              color: "#e74c3c",
+                              fontSize: 13,
+                              flexShrink: 0
+                            }}>
+                              🔥
+                            </span>
+                            <span>{item}</span>
+                          </button>
+                        ))}
+                        <div style={{ height: 1, background: "#f0f0f0", margin: "4px 0" }} />
+                      </>
+                    )}
+                    
+                    {suggestions.topSearches?.length > 0 && (
+                      <>
+                        <div style={{ padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          ⭐ Top Searches
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "4px 10px 8px" }}>
+                          {suggestions.topSearches.map((item, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                                padding: "5px 12px",
+                                borderRadius: 20,
+                                background: "#fff0f5",
+                                border: "1px solid #ffd6e8",
+                                fontSize: 12.5,
+                                color: "#e91e8c",
+                                cursor: "pointer",
+                                fontWeight: 500,
+                                transition: "background 0.13s",
+                              }}
+                              onMouseDown={() => goToSearchPage(item)}
+                              onMouseEnter={(e) => e.currentTarget.style.background = "#ffe0ed"}
+                              onMouseLeave={(e) => e.currentTarget.style.background = "#fff0f5"}
+                            >
+                              {item}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    
+                    {suggestions.popularProducts?.length > 0 && (
+                      <>
+                        <div style={{ height: 1, background: "#f0f0f0", margin: "4px 0" }} />
+                        <div style={{ padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          Popular Products
+                        </div>
+                        {suggestions.popularProducts.slice(0, 6).map((p) => (
+                          <button
+                            key={p._id}
+                            type="button"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "8px 14px",
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              transition: "background 0.13s",
+                            }}
+                            onMouseDown={() => {
+                              navigate(`/go-market/product/grocery/${p._id}`);
+                              setShowSuggestions(false);
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = "#f5f5f7"}
+                            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                          >
+                            <div style={{ width: 38, height: 38, borderRadius: 8, background: "#f0f0f5", flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              {p.image ? (
+                                <img src={img(p.image)} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              ) : (
+                                "🛍️"
+                              )}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13.5, fontWeight: 600, color: "#1a1a2e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {p.name}
+                              </div>
+                              <div style={{ fontSize: 11.5, color: "#94a3b8" }}>
+                                ₹{p.price}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </div>

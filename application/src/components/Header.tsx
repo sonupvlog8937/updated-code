@@ -14,9 +14,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useRouter, usePathname } from "expo-router";
-import { useAppSelector } from "@/src/store";
+import { useAppDispatch, useAppSelector, setIsDropdownOpen } from "@/src/store";
 import { useColors } from "@/hooks/useColors";
-import { SearchModal } from "@/src/components/SearchModal";
+import SearchComponent from "@/src/components/SearchComponent";
 import { fetchDataFromApi } from "@/src/utils/api";
 
 interface HeaderProps {
@@ -67,6 +67,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
   const colors = useColors();
   const router = useRouter();
   const pathname = usePathname();
+  const dispatch = useAppDispatch();
 
   const cartData = useAppSelector((s) => s.app.cartData);
   const myListData = useAppSelector((s) => s.app.myListData);
@@ -74,7 +75,6 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
 
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
-  const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [logoUri, setLogoUri] = useState<string | null>(null);
 
   const isHomePage =
@@ -341,11 +341,11 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
 
           </View>
 
-          {/* RIGHT: Search + more-vertical / login */}
+          {/* RIGHT: Search icon + more-vertical / login */}
           <View style={styles.rightSection}>
 
             <Pressable
-              onPress={() => setSearchModalOpen(true)}
+              onPress={() => dispatch(setIsDropdownOpen(true))}
               style={[styles.iconBtn, { backgroundColor: colors.accent }]}
               hitSlop={8}
             >
@@ -374,8 +374,8 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
         </View>
       </SafeAreaView>
 
-      {/* Search Modal */}
-      <SearchModal visible={searchModalOpen} onClose={() => setSearchModalOpen(false)} />
+      {/* Search Component with Modal */}
+      <SearchComponent showSearchBox={false} />
 
       {/* Quick Menu Modal */}
       <Modal
@@ -631,7 +631,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
               <View style={{ marginTop: 16, marginLeft: 16, marginRight: 16 }}>
 
                 <Pressable
-                  onPress={() => router.push("/my-account" as never)}
+                  onPress={() => handleMenuItemPress("/my-account")}
                   style={[
                     styles.actionCard,
                     {
@@ -671,7 +671,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                   />
                 </Pressable>
                 <Pressable
-                  onPress={() => router.push("/my-orders" as never)}
+                  onPress={() => handleMenuItemPress("/my-orders")}
                   style={[
                     styles.actionCard,
                     {
@@ -711,7 +711,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                   />
                 </Pressable>
                 <Pressable
-                  onPress={() => router.push("/cart" as never)}
+                  onPress={() => handleMenuItemPress("/cart")}
                   style={[
                     styles.actionCard,
                     {
@@ -751,7 +751,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                   />
                 </Pressable>
                 <Pressable
-                  onPress={() => router.push("/wishlist" as never)}
+                  onPress={() => handleMenuItemPress("/wishlist")}
                   style={[
                     styles.actionCard,
                     {
@@ -791,7 +791,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                   />
                 </Pressable>
                 <Pressable
-                  onPress={() => router.push("/categories" as never)}
+                  onPress={() => handleMenuItemPress("/categories")}
                   style={[
                     styles.actionCard,
                     {
@@ -831,7 +831,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                   />
                 </Pressable>
                 <Pressable
-                  onPress={() => router.push("/address" as never)}
+                  onPress={() => handleMenuItemPress("/address")}
                   style={[
                     styles.actionCard,
                     {
@@ -871,7 +871,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                   />
                 </Pressable>
                 <Pressable
-                  onPress={() => router.push("/notifications" as never)}
+                  onPress={() => handleMenuItemPress("/notifications")}
                   style={[
                     styles.actionCard,
                     {
@@ -911,7 +911,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                   />
                 </Pressable>
                 <Pressable
-                  onPress={() => router.push("/notification-settings" as never)}
+                  onPress={() => handleMenuItemPress("/notification-settings")}
                   style={[
                     styles.actionCard,
                     {
@@ -951,7 +951,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                   />
                 </Pressable>
                 <Pressable
-                  onPress={() => router.push("/become-seller" as never)}
+                  onPress={() => handleMenuItemPress("/become-seller")}
                   style={[
                     styles.actionCard,
                     {
@@ -991,7 +991,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                   />
                 </Pressable>
                 <Pressable
-                  onPress={() => router.push("/blog" as never)}
+                  onPress={() => handleMenuItemPress("/blog")}
                   style={[
                     styles.actionCard,
                     {
@@ -1031,7 +1031,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                   />
                 </Pressable>
                 <Pressable
-                  onPress={() => router.push("/offers" as never)}
+                  onPress={() => handleMenuItemPress("/offers")}
                   style={[
                     styles.actionCard,
                     {
@@ -1071,7 +1071,7 @@ export const Header: React.FC<HeaderProps> = ({ showBreadcrumb = false, title })
                   />
                 </Pressable>
                 <Pressable
-                  onPress={() => router.push("/privacy-policy" as never)}
+                  onPress={() => handleMenuItemPress("/privacy-policy")}
                   style={[
                     styles.actionCard,
                     {

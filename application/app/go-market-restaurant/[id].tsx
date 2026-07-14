@@ -5,6 +5,7 @@ import {
   Dimensions,
   Image,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -21,6 +22,9 @@ import {
   Easing,
   FlatList,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
 import {
   addToCart,
   fetchGoRestaurantDetail,
@@ -36,6 +40,7 @@ import { fetchDataFromApi, postData } from "@/src/utils/api";
 import { SortModal, SORT_OPTIONS } from "@/src/components/goMarket/SortModal";
 import { AddToCartDialog } from "@/src/components/goMarket/AddToCartDialog";
 import { CartViewDialog } from "@/src/components/goMarket/CartViewDialog";
+import { getOutletBaseMinutes, getOutletDistanceEta } from "@/src/utils/geoCoords";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -47,6 +52,7 @@ const LOGO_SIZE = 70;
 const FALLBACK = "https://placehold.co/800x420/2d2416/9d7d4d?text=Restaurant";
 const STATUS_H = Platform.OS === "android" ? (StatusBar.currentHeight ?? 20) : 24;
 const ITEMS_PER_PAGE = 12;
+const GM_LOC_KEY = "gm_user_location";
 
 // Restaurant Theme Colors
 const C = {
@@ -349,6 +355,7 @@ export default function GoMarketRestaurantDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
   const { restaurantDetail, loading } = useAppSelector((s) => s.goMarket);
   const { isLogin, userData, myListData, cartData } = useAppSelector((s: any) => s.app);
   const [authChecked, setAuthChecked] = useState(false);
@@ -363,15 +370,63 @@ export default function GoMarketRestaurantDetails() {
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [gridColumns, setGridColumns] = useState<1 | 2>(2);
   const [search, setSearch] = useState("");
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [suggestions, setSuggestions] = useState<{
+    suggestions: any[];
+    recentSearches: string[];
+    trendingSearches: string[];
+    popularProducts: any[];
+    topSearches: string[];
+  }>({ suggestions: [], recentSearches: [], trendingSearches: [], popularProducts: [], topSearches: [] });
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchInputRef = useRef<TextInput>(null);
   const [followBusy, setFollowBusy] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const [cartDialogVisible, setCartDialogVisible] = useState(false);
   const [cartViewDialogVisible, setCartViewDialogVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [localRestaurant, setLocalRestaurant] = useState<any>(null);
   const scrollRef = useRef<ScrollView>(null);
   const searchFocused = useRef(new Animated.Value(0)).current;
+  const [userLocation, setUserLocationState] = useState<{ lat: number; lng: number } | null>(null);
+  const locationSourceRef = useRef<"gps" | "address" | "cache" | null>(null);
+
+  const applyAddressFallback = useCallback(() => {
+    if (locationSourceRef.current === "gps") return;
+    const addresses: any[] = userData?.address_details || [];
+    const selected = addresses.find((a: any) => a.selected) || addresses[0];
+    if (selected?.latitude && selected?.longitude) {
+      locationSourceRef.current = "address";
+      const loc = { lat: Number(selected.latitude), lng: Number(selected.longitude) };
+      setUserLocationState(loc);
+      AsyncStorage.setItem(GM_LOC_KEY, JSON.stringify(loc)).catch(() => {});
+    }
+  }, [userData]);
+
+  const setUserLocation = useCallback((loc: { lat: number; lng: number }, source: "gps" | "address" | "cache" = "cache") => {
+    if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return;
+    if (locationSourceRef.current === "gps" && source !== "gps") return;
+    locationSourceRef.current = source;
+    setUserLocationState(loc);
+    AsyncStorage.setItem(GM_LOC_KEY, JSON.stringify(loc)).catch(() => {});
+  }, []);
+
+  const refreshCurrentLocation = useCallback(async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        applyAddressFallback();
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude }, "gps");
+    } catch {
+      applyAddressFallback();
+    }
+  }, [setUserLocation, applyAddressFallback]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -387,13 +442,45 @@ export default function GoMarketRestaurantDetails() {
 
   useEffect(() => {
     if (id) dispatch(fetchGoRestaurantDetail(id));
-  }, [dispatch, id]);
+  }, [id]); // Removed dispatch from dependencies to prevent unnecessary refetches
+
+  // Sync localRestaurant with Redux state when restaurantDetail changes (only if not already set)
+  useEffect(() => {
+    if (restaurantDetail?.restaurant && !localRestaurant) {
+      setLocalRestaurant(restaurantDetail.restaurant);
+    }
+  }, [restaurantDetail]); // Removed localRestaurant from dependencies to prevent infinite loops
+
+  // Restore cached location
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(GM_LOC_KEY)
+      .then((raw) => {
+        if (cancelled || !raw) return;
+        const parsed = JSON.parse(raw);
+        if (Number.isFinite(parsed?.lat) && Number.isFinite(parsed?.lng)) {
+          setUserLocation({ lat: parsed.lat, lng: parsed.lng }, "cache");
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [setUserLocation]);
+
+  useEffect(() => {
+    if (locationSourceRef.current) return;
+    applyAddressFallback();
+  }, [userData, applyAddressFallback]);
+
+  // Load GPS location on mount
+  useEffect(() => {
+    refreshCurrentLocation();
+  }, [refreshCurrentLocation]);
 
   const buildCatalogParams = useCallback((pageNum: number) => {
     const p = new URLSearchParams({ tab, limit: String(ITEMS_PER_PAGE), page: String(pageNum), ...(sort && sort !== "latest" ? { sort } : {}) });
-    if (search.trim()) p.set("q", search.trim());
+    if (appliedSearch.trim()) p.set("q", appliedSearch.trim());
     return p;
-  }, [tab, sort, search]);
+  }, [tab, sort, appliedSearch]);
 
   const loadCatalogPage = useCallback(async (pageNum: number) => {
     if (!id) return;
@@ -447,27 +534,63 @@ export default function GoMarketRestaurantDetails() {
   }, [loadCatalogPage]);
 
   useEffect(() => {
-    if (!id || !search.trim()) {
-      setSuggestions([]);
+    if (!id) {
+      setSuggestions({ suggestions: [], recentSearches: [], trendingSearches: [], popularProducts: [], topSearches: [] });
       return;
     }
+    // If no search, fetch defaults
+    if (!search.trim()) {
+      fetchDataFromApi(`/api/go-market/restaurants/${id}/search-defaults`).then((res) => {
+        if (res?.success || res?.error === false) {
+          // API returns data nested inside res.data
+          const data = res.data || res;
+          setSuggestions({
+            suggestions: [],
+            recentSearches: data.recentSearches || [],
+            trendingSearches: data.trendingSearches || [],
+            popularProducts: data.popularProducts || [],
+            topSearches: data.topSearches || [],
+          });
+        }
+      });
+      return;
+    }
+    // If there's a search query, fetch enhanced suggestions
+    setSuggestionsLoading(true);
     const t = setTimeout(() => {
       fetchDataFromApi(`/api/go-market/restaurants/${id}/search-suggestions?q=${encodeURIComponent(search.trim())}`)
-        .then((res) => setSuggestions((res?.success || res?.error === false) ? (res.suggestions || []) : []));
-    }, 200);
+        .then((res) => {
+          console.log('🔍 Restaurant Search Suggestions Response:', res);
+          if (res?.success || res?.error === false) {
+            // API returns data nested inside res.data
+            const data = res.data || res;
+            console.log('✅ Suggestions:', data.suggestions);
+            console.log('✅ Popular Products:', data.popularProducts);
+            setSuggestions({
+              suggestions: data.suggestions || [],
+              recentSearches: [],
+              trendingSearches: data.trendingSearches || [],
+              popularProducts: data.popularProducts || [],
+              topSearches: data.topSearches || [],
+            });
+          }
+        })
+        .finally(() => setSuggestionsLoading(false));
+    }, 150);
     return () => clearTimeout(t);
   }, [id, search]);
 
   const submitSearch = (query = search) => {
     const q = query.trim();
     setSearch(q);
+    setAppliedSearch(q);
     setShowSuggestions(false);
     loadCatalogPage(1);
   };
 
   const clearSearch = () => {
     setSearch("");
-    setSuggestions([]);
+    setSuggestions({ suggestions: [], recentSearches: [], trendingSearches: [], popularProducts: [], topSearches: [] });
     setShowSuggestions(false);
   };
 
@@ -488,7 +611,9 @@ export default function GoMarketRestaurantDetails() {
 
   if (loading || !restaurantDetail) return <SkeletonScreen />;
 
-  const { restaurant, menus, items } = restaurantDetail;
+  // Use localRestaurant for display (for optimistic updates), fallback to Redux state
+  const restaurant = localRestaurant || restaurantDetail.restaurant;
+  const { menus, items } = restaurantDetail;
 
   const isFollowing = Boolean(restaurant.isFollowing);
   const followerCount = restaurant.followerCount ?? restaurant.followers?.length ?? 0;
@@ -502,15 +627,65 @@ export default function GoMarketRestaurantDetails() {
   const descShort = descText.length > 80;
 
   const handleFollow = async () => {
-    if (followBusy) return;
+    if (followBusy || !restaurant?._id) return;
     setFollowBusy(true);
+    const currentRestaurant = localRestaurant || restaurant;
+    const wasFollowing = currentRestaurant.isFollowing;
+    
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      setFollowBusy(false);
+      showToast("error", "Request timed out. Please try again.");
+    }, 10000); // 10 second timeout
+    
     try {
-      const action = isFollowing ? unfollowGoRestaurant : followGoRestaurant;
-      await dispatch(action(restaurant._id)).unwrap();
-      dispatch(fetchGoRestaurantDetail(id!));
-      showToast("success", isFollowing ? "Unfollowed" : "Following!");
-    } catch {
-      showToast("error", "Could not update");
+      // Optimistic update - ensure localRestaurant is initialized
+      if (!localRestaurant) {
+        setLocalRestaurant({
+          ...restaurant,
+          isFollowing: !wasFollowing,
+          followerCount: Math.max(0, (restaurant.followerCount || 0) + (wasFollowing ? -1 : 1)),
+        });
+      } else {
+        setLocalRestaurant((prev: any) => ({
+          ...prev,
+          isFollowing: !wasFollowing,
+          followerCount: Math.max(0, (prev.followerCount || 0) + (wasFollowing ? -1 : 1)),
+        }));
+      }
+      
+      const action = wasFollowing ? unfollowGoRestaurant : followGoRestaurant;
+      const res = await dispatch(action(restaurant._id)).unwrap();
+      
+      // Clear timeout on success
+      clearTimeout(timeoutId);
+      
+      const data = res?.data || res;
+      
+      // Update with actual response data
+      setLocalRestaurant((prev: any) => ({
+        ...(prev || restaurant),
+        isFollowing: data?.isFollowing ?? !wasFollowing,
+        followerCount: data?.followerCount ?? (prev?.followerCount || restaurant.followerCount),
+      }));
+      
+      showToast("success", wasFollowing ? "Unfollowed" : "Following!");
+    } catch (error) {
+      // Clear timeout on error
+      clearTimeout(timeoutId);
+      
+      console.error("Follow/Unfollow error:", error);
+      
+      // Revert on failure
+      setLocalRestaurant((prev: any) => {
+        const base = prev || restaurant;
+        return {
+          ...base,
+          isFollowing: wasFollowing,
+          followerCount: Math.max(0, (base.followerCount || 0) + (wasFollowing ? 1 : -1)),
+        };
+      });
+      showToast("error", "Could not update. Please try again.");
     } finally {
       setFollowBusy(false);
     }
@@ -612,6 +787,25 @@ export default function GoMarketRestaurantDetails() {
   const isOpen = restaurant.isOpen ?? restaurant.status === "open";
   const hoursText = restaurant.openingHours || restaurant.workingHours || null;
 
+  // Calculate distance and delivery time
+  const { distanceDisplay, estimatedTime } = getOutletDistanceEta({
+    userLat: userLocation?.lat ?? null,
+    userLng: userLocation?.lng ?? null,
+    shopLat: restaurant.latitude,
+    shopLng: restaurant.longitude,
+    marketLat: null,
+    marketLng: null,
+    baseMinutes: getOutletBaseMinutes("restaurant"),
+  });
+  
+  // Debug log
+  console.log('🔍 Restaurant Distance Debug:', {
+    userLocation,
+    restaurantCoords: { lat: restaurant.latitude, lng: restaurant.longitude },
+    distanceDisplay,
+    estimatedTime
+  });
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
@@ -656,6 +850,21 @@ export default function GoMarketRestaurantDetails() {
               {restaurant.isPureVeg && <TagBadge label="Pure Vegetarian" icon="🌿" color={C.greenBg} textColor={C.green} />}
               {!!restaurant.address && <InfoRow icon="📍" text={restaurant.address} />}
               {hoursText && <InfoRow icon="🕐" text={hoursText} />}
+              {/* Distance & Delivery Time */}
+              {distanceDisplay != null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4, justifyContent: "center" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: C.goldLight, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 }}>
+                    <Text style={{ fontSize: 10 }}>📍</Text>
+                    <Text style={{ fontSize: 10, fontWeight: "700", color: C.accent }}>{distanceDisplay}</Text>
+                  </View>
+                  {estimatedTime != null && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#FEF3C7", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 }}>
+                      <Text style={{ fontSize: 10 }}>🕐</Text>
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: "#92400E" }}>{estimatedTime} min</Text>
+                    </View>
+                  )}
+                </View>
+              )}
               <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 }}>
                 <Stars rating={rating} />
                 <Text style={{ fontSize: 10, fontWeight: "700", color: C.text }}>{rating.toFixed(1)}</Text>
@@ -704,18 +913,30 @@ export default function GoMarketRestaurantDetails() {
         <FadeIn delay={160}>
           <View style={S.actions}>
             <TouchableOpacity
-              style={[S.btnPrimary, isFollowing && S.btnFollowed]}
+              style={[
+                S.btnPrimary, 
+                isFollowing && S.btnFollowed,
+                followBusy && { opacity: 0.85 }
+              ]}
               onPress={handleFollow}
               activeOpacity={0.85}
               disabled={followBusy}
             >
-              {followBusy ? (
-                <ActivityIndicator size="small" color={isFollowing ? C.green : "#fff"} />
-              ) : (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                {followBusy && (
+                  <ActivityIndicator 
+                    size="small" 
+                    color={isFollowing ? C.green : C.surface} 
+                    style={{ width: 14, height: 14 }}
+                  />
+                )}
                 <Text style={[S.btnPrimaryText, isFollowing && { color: C.green }]}>
-                  {isFollowing ? "✓ Following" : "+ Follow"}
+                  {followBusy 
+                    ? (isFollowing ? "Unfollowing..." : "Following...") 
+                    : (isFollowing ? "✓ Following" : "+ Follow")
+                  }
                 </Text>
-              )}
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={S.btnOutline} onPress={() => Share.share({ title: restaurant.restaurantName, message: restaurant.address })} activeOpacity={0.85}>
               <Text style={S.btnOutlineText}>↑ Share</Text>
@@ -730,50 +951,48 @@ export default function GoMarketRestaurantDetails() {
 
         <FadeIn delay={190}>
           <View style={S.searchSection}>
-            <Animated.View style={[S.searchBox, { borderColor: searchBorder }]}>
-              <Text style={{ fontSize: 12, color: C.muted, marginRight: 5 }}>🔍</Text>
-              <TextInput
-                style={S.searchInput}
-                placeholder="Search dishes…"
-                placeholderTextColor={C.muted}
-                value={search}
-                onChangeText={(v) => { setSearch(v); setShowSuggestions(true); }}
-                onSubmitEditing={() => submitSearch()}
-                onFocus={onSearchFocus}
-                onBlur={onSearchBlur}
-                returnKeyType="search"
-              />
-              {search.length > 0 && (
-                <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Text style={{ fontSize: 11, color: C.muted, fontWeight: "700" }}>✕</Text>
-                </TouchableOpacity>
-              )}
-            </Animated.View>
-            <TouchableOpacity style={S.searchBtn} onPress={() => submitSearch()}>
-              <Text style={S.searchBtnText}>Go</Text>
+            {/* Search Button - Opens Modal */}
+            <TouchableOpacity
+              style={S.searchBox}
+              onPress={() => {
+                setShowSuggestions(true);
+                if (!search.trim() && id) {
+                  fetchDataFromApi(`/api/go-market/restaurants/${id}/search-defaults`).then((res) => {
+                    if (res?.success || res?.error === false) {
+                      // API returns data nested inside res.data
+                      const data = res.data || res;
+                      setSuggestions({
+                        suggestions: [],
+                        recentSearches: data.recentSearches || [],
+                        trendingSearches: data.trendingSearches || [],
+                        popularProducts: data.popularProducts || [],
+                        topSearches: data.topSearches || [],
+                      });
+                    }
+                  });
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }} pointerEvents="none">
+                <Text style={{ fontSize: 12, color: C.muted }}>🔍</Text>
+                <Text style={{ fontSize: 13, color: C.muted, flex: 1 }}>
+                  {search || "Search dishes…"}
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
-
-          {showSuggestions && suggestions.length > 0 && (
-            <View style={S.suggestBox}>
-              {suggestions.map((s: any, idx: number) => (
-                <TouchableOpacity
-                  key={s._id || idx}
-                  style={[S.suggestRow, idx === suggestions.length - 1 && { borderBottomWidth: 0 }]}
-                  onPress={() => submitSearch(s.label)}
-                >
-                  <Text style={{ fontSize: 10, color: C.muted, marginRight: 6 }}>🔍</Text>
-                  <Text style={S.suggestText}>{s.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
         </FadeIn>
 
         <TabBar
           tabs={["Featured", "Popular", "Latest"]}
           active={["featured", "popular", "latest"].indexOf(tab)}
-          onChange={(i) => setTab((["featured", "popular", "latest"] as const)[i])}
+          onChange={(i) => {
+            const newTab = (["featured", "popular", "latest"] as const)[i];
+            setTab(newTab);
+            setDisplayedItems([]);
+            setAllCatalogItems([]);
+          }}
         />
 
         <View style={S.controlRow}>
@@ -796,9 +1015,30 @@ export default function GoMarketRestaurantDetails() {
           {menus.length > 0 && tab === "featured" && !search ? menus.slice(0, 3).map((m: any, i: number) => <MenuRow key={m._id} item={m} index={i} />) : null}
 
           {catalogLoading && !displayedItems.length ? (
-            <View style={S.loadingWrap}>
-              <ActivityIndicator color={C.accent} size="large" />
-              <Text style={S.loadingText}>Finding dishes…</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 }}>
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <View
+                  key={i}
+                  style={{
+                    flex: 1,
+                    minWidth: gridColumns === 1 ? "100%" : "45%",
+                    maxWidth: gridColumns === 1 ? "100%" : "48%",
+                    height: 240,
+                    backgroundColor: "#fff3e8",
+                    borderRadius: 14,
+                    overflow: "hidden",
+                    marginBottom: 4,
+                    opacity: 0.65 + (i % 2) * 0.15,
+                  }}
+                >
+                  <View style={{ height: 130, backgroundColor: "#fde8cc" }} />
+                  <View style={{ padding: 10, gap: 8 }}>
+                    <View style={{ height: 12, borderRadius: 6, backgroundColor: "#fde8cc", width: "70%" }} />
+                    <View style={{ height: 10, borderRadius: 5, backgroundColor: "#fde8cc", width: "50%" }} />
+                    <View style={{ height: 16, borderRadius: 6, backgroundColor: "#f5d0a0", width: "40%", marginTop: 4 }} />
+                  </View>
+                </View>
+              ))}
             </View>
           ) : displayedItems.length === 0 ? (
             <EmptyState query={search} />
@@ -836,6 +1076,273 @@ export default function GoMarketRestaurantDetails() {
         </View>
       </ScrollView>
 
+      {/* Enhanced Search Suggestions Modal - Full Screen */}
+      <Modal
+        visible={showSuggestions}
+        transparent={false}
+        animationType="slide"
+        onRequestClose={() => setShowSuggestions(false)}
+      >
+        <View style={S.modalOverlay}>
+          <View style={S.suggestionsContainer}>
+            {/* Header with Back Button and Search Input */}
+            <View style={S.searchModalHeader}>
+              <TouchableOpacity 
+                onPress={() => setShowSuggestions(false)} 
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={S.backButton}
+              >
+                <Text style={S.backButtonText}>←</Text>
+              </TouchableOpacity>
+              
+              <View style={S.searchModalInputContainer}>
+                <Text style={S.searchModalIcon}>🔍</Text>
+                <TextInput
+                  ref={searchInputRef}
+                  style={S.searchModalInput}
+                  placeholder="Search for dishes..."
+                  placeholderTextColor={C.muted}
+                  value={search}
+                  onChangeText={(v) => setSearch(v)}
+                  onSubmitEditing={() => submitSearch()}
+                  autoFocus
+                  returnKeyType="search"
+                />
+                {search.length > 0 && (
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setSearch("");
+                      searchInputRef.current?.focus();
+                    }} 
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={S.clearButton}
+                  >
+                    <Text style={S.clearButtonText}>✕</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            <ScrollView 
+              showsVerticalScrollIndicator={false} 
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 40 }}
+            >
+              {/* Loading indicator */}
+              {suggestionsLoading && search.trim() && (
+                <View style={S.emptyStateContainer}>
+                  <ActivityIndicator size="large" color={C.accent} />
+                  <Text style={S.emptyStateSubtext}>Searching…</Text>
+                </View>
+              )}
+
+              {/* No results message */}
+              {!suggestionsLoading && search.trim() && suggestions.suggestions.length === 0 && suggestions.popularProducts.length === 0 && (
+                <View style={S.emptyStateContainer}>
+                  <Text style={S.emptyStateEmoji}>🔍</Text>
+                  <Text style={S.emptyStateText}>No dishes found</Text>
+                  <Text style={S.emptyStateSubtext}>Try a different search term</Text>
+                </View>
+              )}
+
+              {/* When searching: Show suggestions + popular products */}
+              {!suggestionsLoading && search.trim() && suggestions.suggestions.length > 0 && (
+                <View style={S.section}>
+                  <View style={S.sectionHeader}>
+                    <View style={S.sectionIconContainer}>
+                      <Text style={{ fontSize: 14 }}>🔍</Text>
+                    </View>
+                    <Text style={S.sectionLabel}>Suggestions</Text>
+                  </View>
+                  {suggestions.suggestions.map((s, index) => (
+                    <TouchableOpacity
+                      key={s._id}
+                      style={[S.suggestionRow, index === suggestions.suggestions.length - 1 && { borderBottomWidth: 0 }]}
+                      onPress={() => submitSearch(s.label)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={S.suggestionIconBox}>
+                        <Text style={{ fontSize: 13, color: C.muted }}>🔍</Text>
+                      </View>
+                      <Text style={S.suggestionText}>{s.label}</Text>
+                      <Text style={{ fontSize: 16, color: C.muted }}>↗</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Popular Products (shown when searching) */}
+              {!suggestionsLoading && search.trim() && suggestions.popularProducts.length > 0 && (
+                <View style={S.section}>
+                  <View style={S.sectionHeader}>
+                    <View style={S.sectionIconContainer}>
+                      <Text style={{ fontSize: 14 }}>✨</Text>
+                    </View>
+                    <Text style={S.sectionLabel}>Popular Dishes</Text>
+                  </View>
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingRight: 16 }}
+                  >
+                    {suggestions.popularProducts.map((p) => (
+                      <TouchableOpacity
+                        key={p._id}
+                        style={S.productCard}
+                        onPress={() => {
+                          setShowSuggestions(false);
+                          router.push(`/go-market-product/restaurant/${p._id}` as never);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Image
+                          source={{ uri: p.image || FALLBACK }}
+                          style={S.productImage}
+                        />
+                        <View style={S.productInfo}>
+                          <Text style={S.productName} numberOfLines={2}>
+                            {p.itemName || p.name}
+                          </Text>
+                          <Text style={S.productPrice}>₹{p.price}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* When NOT searching: Show defaults */}
+              {!search.trim() && (
+                <>
+                  {/* Start typing message */}
+                  {suggestions.recentSearches.length === 0 && suggestions.trendingSearches.length === 0 && suggestions.topSearches.length === 0 && suggestions.popularProducts.length === 0 && (
+                    <View style={S.emptyStateContainer}>
+                      <Text style={S.emptyStateEmoji}>🍽️</Text>
+                      <Text style={S.emptyStateText}>Find your favorite dish</Text>
+                      <Text style={S.emptyStateSubtext}>Start typing to search</Text>
+                    </View>
+                  )}
+
+                  {/* Recent Searches */}
+                  {suggestions.recentSearches.length > 0 && (
+                    <View style={S.section}>
+                      <View style={S.sectionHeader}>
+                        <View style={S.sectionIconContainer}>
+                          <Text style={{ fontSize: 14 }}>🕒</Text>
+                        </View>
+                        <Text style={S.sectionLabel}>Recent Searches</Text>
+                      </View>
+                      <View style={S.chipRow}>
+                        {suggestions.recentSearches.map((term, idx) => (
+                          <TouchableOpacity
+                            key={idx}
+                            style={S.chipButton}
+                            onPress={() => submitSearch(term)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={S.chipText}>{term}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Trending Searches */}
+                  {suggestions.trendingSearches.length > 0 && (
+                    <View style={S.section}>
+                      <View style={S.sectionHeader}>
+                        <View style={S.sectionIconContainer}>
+                          <Text style={{ fontSize: 14 }}>🔥</Text>
+                        </View>
+                        <Text style={S.sectionLabel}>Trending Now</Text>
+                      </View>
+                      {suggestions.trendingSearches.map((term, idx) => (
+                        <TouchableOpacity
+                          key={idx}
+                          style={[S.suggestionRow, idx === suggestions.trendingSearches.length - 1 && { borderBottomWidth: 0 }]}
+                          onPress={() => submitSearch(term)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={S.suggestionIconBox}>
+                            <Text style={{ fontSize: 13, color: "#ff6b2b" }}>🔥</Text>
+                          </View>
+                          <Text style={S.suggestionText}>{term}</Text>
+                          <Text style={{ fontSize: 16, color: C.muted }}>↗</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Top Searches */}
+                  {suggestions.topSearches.length > 0 && (
+                    <View style={S.section}>
+                      <View style={S.sectionHeader}>
+                        <View style={S.sectionIconContainer}>
+                          <Text style={{ fontSize: 14 }}>⭐</Text>
+                        </View>
+                        <Text style={S.sectionLabel}>Top Searches</Text>
+                      </View>
+                      <View style={S.chipRow}>
+                        {suggestions.topSearches.map((term, idx) => (
+                          <TouchableOpacity
+                            key={idx}
+                            style={S.chipButton}
+                            onPress={() => submitSearch(term)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={S.chipText}>{term}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Popular Products */}
+                  {suggestions.popularProducts.length > 0 && (
+                    <View style={S.section}>
+                      <View style={S.sectionHeader}>
+                        <View style={S.sectionIconContainer}>
+                          <Text style={{ fontSize: 14 }}>✨</Text>
+                        </View>
+                        <Text style={S.sectionLabel}>Popular Dishes</Text>
+                      </View>
+                      <ScrollView 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ paddingRight: 16 }}
+                      >
+                        {suggestions.popularProducts.map((p) => (
+                          <TouchableOpacity
+                            key={p._id}
+                            style={S.productCard}
+                            onPress={() => {
+                              setShowSuggestions(false);
+                              router.push(`/go-market-product/restaurant/${p._id}` as never);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Image
+                              source={{ uri: p.image || FALLBACK }}
+                              style={S.productImage}
+                            />
+                            <View style={S.productInfo}>
+                              <Text style={S.productName} numberOfLines={2}>
+                                {p.itemName || p.name}
+                              </Text>
+                              <Text style={S.productPrice}>₹{p.price}</Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <SortModal
         visible={sortModalVisible}
         selectedSort={sort}
@@ -853,7 +1360,10 @@ export default function GoMarketRestaurantDetails() {
       />
 
       <TouchableOpacity
-        style={S.stickyCartBtn}
+        style={[
+          S.stickyCartBtn,
+          { bottom: Math.max(insets.bottom, 12) + 12 }
+        ]}
         onPress={() => setCartViewDialogVisible(true)}
         activeOpacity={0.9}
       >
@@ -1066,6 +1576,214 @@ const S = StyleSheet.create({
     borderBottomColor: C.border,
   },
   suggestText: { fontSize: 11, fontWeight: "600", color: C.text },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: C.bg,
+  },
+  suggestionsContainer: {
+    flex: 1,
+    backgroundColor: C.surface,
+    paddingTop: Platform.OS === "ios" ? 50 : (StatusBar.currentHeight ?? 0) + 10,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  searchModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: C.bg,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  backButtonText: {
+    fontSize: 20,
+    color: C.text,
+    fontWeight: "600",
+  },
+  searchModalInputContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.bg,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchModalIcon: {
+    fontSize: 16,
+    marginRight: 10,
+  },
+  searchModalInput: {
+    flex: 1,
+    fontSize: 15,
+    color: C.text,
+    fontWeight: "500",
+  },
+  clearButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: C.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  clearButtonText: {
+    fontSize: 12,
+    color: C.sub,
+    fontWeight: "700",
+  },
+  emptyStateContainer: {
+    paddingVertical: 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyStateEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: C.text,
+    marginBottom: 6,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: C.muted,
+    fontWeight: "500",
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14,
+    gap: 8,
+  },
+  sectionIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: C.accentLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionLabel: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: C.text,
+    letterSpacing: 0.3,
+  },
+  suggestionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    backgroundColor: C.bg,
+    borderRadius: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  suggestionIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: C.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  suggestionIcon: {
+    fontSize: 16,
+    marginRight: 12,
+  },
+  suggestionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: C.text,
+    flex: 1,
+  },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  chipButton: {
+    backgroundColor: C.surface,
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: C.text,
+  },
+  productCard: {
+    width: 140,
+    marginRight: 14,
+    backgroundColor: C.surface,
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  productImage: {
+    width: "100%",
+    height: 120,
+    borderRadius: 0,
+    resizeMode: "cover",
+    backgroundColor: C.border,
+  },
+  productInfo: {
+    padding: 12,
+  },
+  productName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: C.text,
+    marginBottom: 6,
+    lineHeight: 17,
+  },
+  productPrice: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: C.accent,
+  },
 
   tabBar: {
     flexDirection: "row",
@@ -1307,7 +2025,7 @@ const S = StyleSheet.create({
 
   stickyCartBtn: {
     position: "absolute",
-    bottom: 20,
+    // bottom is set dynamically using insets
     left: 20,
     right: 20,
     height: 56,

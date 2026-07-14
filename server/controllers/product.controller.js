@@ -1238,7 +1238,7 @@ export async function getAllProductsBanners(request, response) {
 
 //delete product
 export async function deleteProduct(request, response) {
-  if (request.currentUser?.role === "GROCERY_SELLER") {
+  if (GO_MARKET_SHOP_SELLERS.includes(request.currentUser?.role)) {
     const owned = await assertSellerOwnsGroceryProduct(
       request.params.id,
       request.userId,
@@ -1288,7 +1288,7 @@ export async function deleteMultipleProduct(request, response) {
     return response.status(400).json({ error: true, success: false, message: "Invalid input" });
   }
 
-  if (request.currentUser?.role === "GROCERY_SELLER") {
+  if (GO_MARKET_SHOP_SELLERS.includes(request.currentUser?.role)) {
     const shop = await getSellerGroceryShop(request.userId, request.currentUser.email);
     if (!shop) {
       return response.status(400).json({ error: true, success: false, message: "No grocery shop found" });
@@ -1341,7 +1341,7 @@ export async function getProduct(request, response) {
   try {
     const id = request.params.id;
 
-    if (request.currentUser?.role === "GROCERY_SELLER") {
+    if (GO_MARKET_SHOP_SELLERS.includes(request.currentUser?.role)) {
       const owned = await assertSellerOwnsGroceryProduct(id, request.userId, request.currentUser.email);
       if (!owned) {
         return response.status(404).json({ message: "The product is not found", error: true, success: false });
@@ -1412,7 +1412,7 @@ export async function updateProduct(request, response) {
     const incomingImages = Array.isArray(request.body.images) ? request.body.images.filter(Boolean) : [];
     const imageUrl = incomingImages[0] || request.body.image || "";
 
-    if (request.currentUser?.role === "GROCERY_SELLER") {
+    if (GO_MARKET_SHOP_SELLERS.includes(request.currentUser?.role)) {
       const owned = await assertSellerOwnsGroceryProduct(
         request.params.id,
         request.userId,

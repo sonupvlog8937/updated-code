@@ -1,12 +1,14 @@
 import { addToCart, fetchMyListData, setCartData, useAppDispatch, useAppSelector } from "@/src/store";
 import { fetchDataFromApi, postData } from "@/src/utils/api";
 import { gmImg, GO_MARKET_FALLBACK } from "@/src/utils/goMarketMedia";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Image,
+  Keyboard,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +19,8 @@ import {
 import { SortModal, SORT_OPTIONS } from "./SortModal";
 import { AddToCartDialog } from "./AddToCartDialog";
 import { showToast } from "@/src/utils/toast";
+import { FilterModal, FilterValues } from "./FilterModal";
+import { GrocerySearchModal } from "./GrocerySearchModal";
 
 const TABS = [
   { key: "featured", label: "Featured" },
@@ -30,8 +34,8 @@ type Props = {
   shopId: string;
   searchMode?: boolean;
   initialQuery?: string;
-  listHeader?: React.ReactElement; // Shop info header from parent
-  shopIsOpen?: boolean; // Store open/close status from parent
+  listHeader?: React.ReactElement;
+  shopIsOpen?: boolean;
 };
 
 export function GoMarketShopCatalog({
@@ -45,7 +49,7 @@ export function GoMarketShopCatalog({
   const dispatch = useAppDispatch();
   const { isLogin, userData, myListData, cartData } = useAppSelector((s: any) => s.app);
   const [search, setSearch] = useState(initialQuery);
-  const [debouncedSearch, setDebouncedSearch] = useState(initialQuery);
+  const [appliedSearch, setAppliedSearch] = useState(initialQuery);
   const [tab, setTab] = useState<TabKey>("featured");
   const [sort, setSort] = useState("latest");
   const [sortModalVisible, setSortModalVisible] = useState(false);
@@ -55,7 +59,7 @@ export function GoMarketShopCatalog({
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [minRating, setMinRating] = useState(0);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [gridColumns, setGridColumns] = useState<1 | 2>(2);
 
   const [products, setProducts] = useState<any[]>([]);
@@ -66,54 +70,55 @@ export function GoMarketShopCatalog({
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const flatListRef = useRef<FlatList>(null);
+  const searchInputRef = useRef<TextInput>(null);
 
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<{
+    suggestions: any[];
+    recentSearches: string[];
+    trendingSearches: string[];
+    popularProducts: any[];
+    topSearches: string[];
+  }>({ suggestions: [], recentSearches: [], trendingSearches: [], popularProducts: [], topSearches: [] });
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [cartDialogVisible, setCartDialogVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 350);
-    return () => clearTimeout(t);
-  }, [search]);
-
-  useEffect(() => {
     setSearch(initialQuery);
+    // Don't auto-show suggestions - only show when user focuses
   }, [initialQuery]);
 
   const apiPath = searchMode
     ? `/api/go-market/grocery-shops/${shopId}/search`
     : `/api/go-market/grocery-shops/${shopId}/catalog`;
 
-  const buildParams = useCallback(
-    (pageNum: number) => {
-      const p = new URLSearchParams({
-        page: String(pageNum),
-        limit: "12",
-        tab,
-        search: debouncedSearch,
-        ...(sort && sort !== "latest" ? { sort } : {}),
-        ...(inStock ? { inStock: "true" } : {}),
-        ...(categoryId ? { categoryId } : {}),
-        ...(subCategoryId ? { subCategoryId } : {}),
-        ...(minPrice ? { minPrice } : {}),
-        ...(maxPrice ? { maxPrice } : {}),
-        ...(minRating > 0 ? { minRating: String(minRating) } : {}),
-      });
-      if (searchMode && debouncedSearch) p.set("q", debouncedSearch);
-      return p;
-    },
-    [tab, sort, debouncedSearch, inStock, categoryId, subCategoryId, minPrice, maxPrice, minRating, searchMode],
-  );
-
   const loadPage = useCallback(
-    async (pageNum: number, append: boolean, isTabChange: boolean = false) => {
+    async (pageNum: number, append: boolean, isTabChange: boolean = false, overrideTab?: TabKey) => {
       if (!shopId) return;
       if (append) setLoadingMore(true);
-      else if (isTabChange) setTabLoading(true);
+      else if (isTabChange) {
+        setTabLoading(true);
+        setProducts([]);
+      }
       else setLoading(true);
       try {
-        const res = await fetchDataFromApi(`${apiPath}?${buildParams(pageNum)}`);
+        const activeTab = overrideTab ?? tab;
+        const p = new URLSearchParams({
+          page: String(pageNum),
+          limit: "12",
+          tab: activeTab,
+          search: appliedSearch,
+          ...(sort && sort !== "latest" ? { sort } : {}),
+          ...(inStock ? { inStock: "true" } : {}),
+          ...(categoryId ? { categoryId } : {}),
+          ...(subCategoryId ? { subCategoryId } : {}),
+          ...(minPrice ? { minPrice } : {}),
+          ...(maxPrice ? { maxPrice } : {}),
+          ...(minRating > 0 ? { minRating: String(minRating) } : {}),
+        });
+        if (searchMode && appliedSearch) p.set("q", appliedSearch);
+        const res = await fetchDataFromApi(`${apiPath}?${p}`);
         if (res?.success || res?.error === false) {
           const rows = res.data || [];
           setFilterMeta(res.filterMeta || null);
@@ -127,38 +132,81 @@ export function GoMarketShopCatalog({
         setLoadingMore(false);
       }
     },
-    [shopId, apiPath, buildParams],
+    [shopId, apiPath, tab, sort, appliedSearch, inStock, categoryId, subCategoryId, minPrice, maxPrice, minRating, searchMode],
   );
 
   useEffect(() => {
     loadPage(1, false);
   }, [loadPage]);
 
+  const fetchDefaults = useCallback(() => {
+    if (!shopId) return;
+    fetchDataFromApi(`/api/go-market/grocery-shops/${shopId}/search-defaults`).then((res) => {
+      if (res?.success || res?.error === false) {
+        // API returns data nested inside res.data
+        const data = res.data || res;
+        setSuggestions({
+          suggestions: [],
+          recentSearches: data.recentSearches || [],
+          trendingSearches: data.trendingSearches || [],
+          popularProducts: data.popularProducts || [],
+          topSearches: data.topSearches || [],
+        });
+      }
+    });
+  }, [shopId]);
+
   useEffect(() => {
-    if (!shopId || !search.trim()) {
-      setSuggestions([]);
+    if (!shopId) {
+      setSuggestions({ suggestions: [], recentSearches: [], trendingSearches: [], popularProducts: [], topSearches: [] });
       return;
     }
+    if (!search.trim()) {
+      fetchDefaults();
+      return;
+    }
+    setSuggestionsLoading(true);
     const t = setTimeout(() => {
       fetchDataFromApi(
         `/api/go-market/grocery-shops/${shopId}/search-suggestions?q=${encodeURIComponent(search.trim())}`,
       ).then((res) => {
-        if (res?.success || res?.error === false) setSuggestions(res.suggestions || []);
-      });
-    }, 200);
+        console.log('🔍 Search Suggestions Response:', res);
+        if (res?.success || res?.error === false) {
+          // API returns data nested inside res.data
+          const data = res.data || res;
+          console.log('✅ Suggestions:', data.suggestions);
+          console.log('✅ Popular Products:', data.popularProducts);
+          setSuggestions({
+            suggestions: data.suggestions || [],
+            recentSearches: [],
+            trendingSearches: data.trendingSearches || [],
+            popularProducts: data.popularProducts || [],
+            topSearches: data.topSearches || [],
+          });
+        }
+      }).finally(() => setSuggestionsLoading(false));
+    }, 150);
     return () => clearTimeout(t);
-  }, [shopId, search]);
+  }, [shopId, search, fetchDefaults]);
 
   const goSearch = (q?: string) => {
     const query = (q || search).trim();
     if (!query) return;
-    if (searchMode) {
-      setSearch(query);
-      setShowSuggestions(false);
-      return;
-    }
+    setAppliedSearch(query);
+    setSearch(query);
+    setShowSuggestions(false); // Close modal
+    Keyboard.dismiss();
+    if (searchMode) return;
     router.push(`/go-market-shop/${shopId}/search?q=${encodeURIComponent(query)}` as never);
-    setShowSuggestions(false);
+  };
+
+  const handleApplyFilters = (filters: FilterValues) => {
+    setCategoryId(filters.categoryId);
+    setSubCategoryId(filters.subCategoryId);
+    setMinPrice(filters.minPrice);
+    setMaxPrice(filters.maxPrice);
+    setMinRating(filters.minRating);
+    setInStock(filters.inStock);
   };
 
   const subCats = useMemo(
@@ -170,7 +218,6 @@ export function GoMarketShopCatalog({
   );
 
   const handleAddToCart = (product: any) => {
-    // Check if shop is open
     if (!shopIsOpen) {
       showToast("error", "Shop is currently closed. You cannot add items to cart.");
       return;
@@ -189,7 +236,6 @@ export function GoMarketShopCatalog({
   };
 
   const handleConfirmAddToCart = async (product: any, selectedOption: any, quantity: number) => {
-    // Check if shop is open
     if (!shopIsOpen) {
       showToast("error", "Shop is currently closed. You cannot add items to cart.");
       return;
@@ -384,48 +430,81 @@ export function GoMarketShopCatalog({
   };
 
   // ─── List Header ────────────────────────────────────────────────────────────
-  // listHeader (shop info card + banner) comes from parent _id_.tsx
-  // Catalog controls (search, tabs, filters) are rendered below it
   const ListHeader = (
     <View>
-      {/* Shop info header passed from _id_.tsx */}
       {listHeader ?? null}
 
-      {/* Search bar */}
-      {!searchMode && (
-        <>
-          <View style={S.searchRow}>
-            <Text>🔍</Text>
-            <TextInput
-              style={S.searchInput}
-              placeholder="Search products…"
-              value={search}
-              onChangeText={(v) => {
-                setSearch(v);
-                setShowSuggestions(true);
-              }}
-              onSubmitEditing={() => goSearch()}
-              returnKeyType="search"
-            />
-            <TouchableOpacity style={S.searchBtn} onPress={() => goSearch()}>
-              <Text style={S.searchBtnTxt}>Go</Text>
-            </TouchableOpacity>
-          </View>
-
-          {showSuggestions && suggestions.length > 0 && (
-            <View style={S.suggestBox}>
-              {suggestions.map((s) => (
-                <TouchableOpacity
-                  key={s._id}
-                  style={S.suggestRow}
-                  onPress={() => goSearch(s.label)}
-                >
-                  <Text style={S.suggestTxt}>{s.label}</Text>
-                </TouchableOpacity>
-              ))}
+      {/* Search bar - Different for searchMode */}
+      {searchMode ? (
+        // Search Mode: Trigger modal on click (same as catalog mode)
+        <View style={S.searchWrap}>
+          <TouchableOpacity
+            style={S.searchRow}
+            onPress={() => {
+              setSearch(""); // Clear search so keywords show immediately
+              setShowSuggestions(true);
+              // Always fetch defaults when opening modal
+              fetchDataFromApi(`/api/go-market/grocery-shops/${shopId}/search-defaults`).then((res) => {
+                if (res?.success || res?.error === false) {
+                  // API returns data nested inside res.data
+                  const data = res.data || res;
+                  setSuggestions({
+                    suggestions: [],
+                    recentSearches: data.recentSearches || [],
+                    trendingSearches: data.trendingSearches || [],
+                    popularProducts: data.popularProducts || [],
+                    topSearches: data.topSearches || [],
+                  });
+                }
+              });
+            }}
+            activeOpacity={0.7}
+          >
+            <View pointerEvents="none">
+              <Feather name="search" size={17} color="#64748b" />
             </View>
-          )}
-        </>
+            <Text style={S.searchPlaceholder}>
+              {search || "Search products…"}
+            </Text>
+            <View pointerEvents="none">
+              <Feather name="sliders" size={17} color="#64748b" />
+            </View>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        // Normal Mode: Trigger modal on click
+        <View style={S.searchWrap}>
+          <TouchableOpacity
+            style={S.searchRow}
+            onPress={() => {
+              setSearch(""); // Clear search so keywords show immediately
+              setShowSuggestions(true);
+              // Always fetch defaults when opening modal
+              fetchDataFromApi(`/api/go-market/grocery-shops/${shopId}/search-defaults`).then((res) => {
+                if (res?.success || res?.error === false) {
+                  // API returns data nested inside res.data
+                  const data = res.data || res;
+                  setSuggestions({
+                    suggestions: [],
+                    recentSearches: data.recentSearches || [],
+                    trendingSearches: data.trendingSearches || [],
+                    popularProducts: data.popularProducts || [],
+                    topSearches: data.topSearches || [],
+                  });
+                }
+              });
+            }}
+            activeOpacity={0.7}
+          >
+            <View pointerEvents="none">
+              <Feather name="search" size={17} color="#64748b" />
+            </View>
+            <Text style={S.searchPlaceholder}>Search products…</Text>
+            <View pointerEvents="none">
+              <Feather name="sliders" size={17} color="#64748b" />
+            </View>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* Tabs + Sort + Filters row */}
@@ -440,9 +519,8 @@ export function GoMarketShopCatalog({
             style={[S.chip, tab === t.key && S.chipOn]}
             onPress={() => {
               if (tab !== t.key) {
-                setProducts([]);
                 setTab(t.key);
-                loadPage(1, false, true);
+                loadPage(1, false, true, t.key);
               }
             }}
             disabled={tabLoading}
@@ -461,10 +539,15 @@ export function GoMarketShopCatalog({
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[S.chip, filtersOpen && S.chipOn]}
-          onPress={() => setFiltersOpen(!filtersOpen)}
+          style={[S.chip, (categoryId || subCategoryId || minPrice || maxPrice || minRating > 0 || inStock) && S.chipOn]}
+          onPress={() => setFilterModalVisible(true)}
         >
-          <Text style={[S.chipTxt, filtersOpen && S.chipTxtOn]}>Filters</Text>
+          <Text style={[S.chipTxt, (categoryId || subCategoryId || minPrice || maxPrice || minRating > 0 || inStock) && S.chipTxtOn]}>
+            Filters
+            {(categoryId || subCategoryId || minPrice || maxPrice || minRating > 0 || inStock) && 
+              ` (${[categoryId, subCategoryId, minPrice, maxPrice, minRating > 0, inStock].filter(Boolean).length})`
+            }
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={S.gridToggle}
@@ -475,98 +558,31 @@ export function GoMarketShopCatalog({
       </ScrollView>
 
       {tabLoading && (
-        <View style={S.tabLoadingContainer}>
-          <ActivityIndicator color="#2563eb" size="small" />
-          <Text style={S.tabLoadingText}>Loading products...</Text>
-        </View>
-      )}
-
-      {filtersOpen && (
-        <View style={S.filterPanel}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={S.chips}
-          >
-            <TouchableOpacity
-              style={[S.chip, !categoryId && S.chipOn]}
-              onPress={() => {
-                setCategoryId("");
-                setSubCategoryId("");
-              }}
-            >
-              <Text style={[S.chipTxt, !categoryId && S.chipTxtOn]}>All categories</Text>
-            </TouchableOpacity>
-            {(filterMeta?.categories || []).map((c: any) => (
-              <TouchableOpacity
-                key={c._id}
-                style={[S.chip, categoryId === c._id && S.chipOn]}
-                onPress={() => {
-                  setCategoryId(c._id);
-                  setSubCategoryId("");
+        <View style={{ paddingHorizontal: 14 }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <View
+                key={i}
+                style={{
+                  flex: 1,
+                  minWidth: "45%",
+                  maxWidth: "48%",
+                  height: 260,
+                  backgroundColor: "#e8f0dc",
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  marginBottom: 4,
+                  opacity: 0.6 + (i % 2) * 0.15,
                 }}
               >
-                <Text style={[S.chipTxt, categoryId === c._id && S.chipTxtOn]}>
-                  {c.name}
-                </Text>
-              </TouchableOpacity>
+                <View style={{ height: 140, backgroundColor: "#d4e0c4" }} />
+                <View style={{ padding: 10, gap: 8 }}>
+                  <View style={{ height: 12, borderRadius: 6, backgroundColor: "#d4e0c4", width: "70%" }} />
+                  <View style={{ height: 10, borderRadius: 5, backgroundColor: "#d4e0c4", width: "50%" }} />
+                  <View style={{ height: 16, borderRadius: 6, backgroundColor: "#c8d8b4", width: "40%", marginTop: 4 }} />
+                </View>
+              </View>
             ))}
-          </ScrollView>
-          {subCats.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={[S.chips, { marginTop: 8 }]}
-            >
-              <TouchableOpacity
-                style={[S.chip, !subCategoryId && S.chipOn]}
-                onPress={() => setSubCategoryId("")}
-              >
-                <Text style={[S.chipTxt, !subCategoryId && S.chipTxtOn]}>All sub</Text>
-              </TouchableOpacity>
-              {subCats.map((sc: any) => (
-                <TouchableOpacity
-                  key={sc._id}
-                  style={[S.chip, subCategoryId === sc._id && S.chipOn]}
-                  onPress={() => setSubCategoryId(sc._id)}
-                >
-                  <Text style={[S.chipTxt, subCategoryId === sc._id && S.chipTxtOn]}>
-                    {sc.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-          <View style={[S.chips, { flexWrap: "wrap", marginTop: 8 }]}>
-            <TextInput
-              style={S.miniInput}
-              placeholder="Min ₹"
-              keyboardType="numeric"
-              value={minPrice}
-              onChangeText={setMinPrice}
-            />
-            <TextInput
-              style={S.miniInput}
-              placeholder="Max ₹"
-              keyboardType="numeric"
-              value={maxPrice}
-              onChangeText={setMaxPrice}
-            />
-            {[4, 3, 2].map((r) => (
-              <TouchableOpacity
-                key={r}
-                style={[S.chip, minRating === r && S.chipOn]}
-                onPress={() => setMinRating(minRating === r ? 0 : r)}
-              >
-                <Text style={[S.chipTxt, minRating === r && S.chipTxtOn]}>{r}★+</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={[S.chip, inStock && S.chipOn]}
-              onPress={() => setInStock(!inStock)}
-            >
-              <Text style={[S.chipTxt, inStock && S.chipTxtOn]}>In stock</Text>
-            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -611,12 +627,41 @@ export function GoMarketShopCatalog({
         }
       />
 
+      {/* Grocery Search Modal - Full-Screen Modal for both modes */}
+      <GrocerySearchModal
+        visible={showSuggestions}
+        onClose={() => setShowSuggestions(false)}
+        search={search}
+        onSearchChange={setSearch}
+        onSearch={goSearch}
+        suggestions={suggestions}
+        suggestionsLoading={suggestionsLoading}
+        shopId={shopId}
+      />
+
       <SortModal
         visible={sortModalVisible}
         selectedSort={sort}
         onSelect={(sortKey) => setSort(sortKey)}
         onClose={() => setSortModalVisible(false)}
       />
+      
+      <FilterModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        onApply={handleApplyFilters}
+        filterMeta={filterMeta}
+        currentFilters={{
+          categoryId,
+          subCategoryId,
+          minPrice,
+          maxPrice,
+          minRating,
+          inStock,
+        }}
+        subCats={subCats}
+      />
+      
       <AddToCartDialog
         visible={cartDialogVisible}
         product={selectedProduct}
@@ -631,38 +676,50 @@ export function GoMarketShopCatalog({
 }
 
 const S = StyleSheet.create({
+  searchWrap: {
+    marginHorizontal: 14,
+    marginBottom: 10,
+    position: "relative",
+    zIndex: 20,
+  },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginHorizontal: 14,
-    marginBottom: 10,
     borderWidth: 1.5,
     borderColor: "#e2e8f0",
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     backgroundColor: "#fff",
   },
+  searchRowActive: {
+    borderColor: "#2563eb",
+  },
   searchInput: { flex: 1, fontSize: 14, color: "#0f172a" },
+  searchPlaceholder: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#94a3b8",
+  },
+  clearBtn: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#f1f5f9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   searchBtn: {
     backgroundColor: "#2563eb",
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 8,
   },
   searchBtnTxt: { color: "#fff", fontWeight: "800", fontSize: 12 },
-  suggestBox: {
-    marginHorizontal: 14,
-    marginBottom: 8,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    overflow: "hidden",
-  },
-  suggestRow: { padding: 12, borderBottomWidth: 1, borderBottomColor: "#f1f5f9" },
-  suggestTxt: { fontSize: 13, fontWeight: "600", color: "#0f172a" },
+
+  // Tabs, filters, and product grid styles
   chips: { gap: 8, paddingHorizontal: 14, paddingBottom: 10 },
   chip: {
     borderWidth: 1.5,
@@ -675,18 +732,6 @@ const S = StyleSheet.create({
   chipOn: { backgroundColor: "#0f172a", borderColor: "#0f172a" },
   chipTxt: { fontSize: 13, fontWeight: "700", color: "#64748b" },
   chipTxtOn: { color: "#fff" },
-  tabLoadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    paddingVertical: 12,
-    marginHorizontal: 14,
-    backgroundColor: "#f8fafc",
-    borderRadius: 12,
-    marginBottom: 10,
-  },
-  tabLoadingText: { fontSize: 13, fontWeight: "600", color: "#2563eb" },
   filterPanel: { paddingBottom: 8 },
   gridToggle: {
     borderWidth: 1.5,
@@ -722,12 +767,7 @@ const S = StyleSheet.create({
     elevation: 2,
   },
   tileFull: { maxWidth: "100%", marginHorizontal: 14 },
-  tileImageWrap: {
-    position: "relative",
-    width: "100%",
-    height: 140,
-    backgroundColor: "#f8fafc",
-  },
+  tileImageWrap: { position: "relative", width: "100%", height: 140, backgroundColor: "#f8fafc" },
   tileImg: { width: "100%", height: "100%", resizeMode: "cover" },
   discountBadge: {
     position: "absolute",
@@ -751,13 +791,6 @@ const S = StyleSheet.create({
     alignItems: "center",
   },
   outOfStockText: { color: "#fff", fontSize: 13, fontWeight: "800", letterSpacing: 0.5 },
-  storeClosedOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(211, 47, 47, 0.75)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  storeClosedText: { color: "#fff", fontSize: 13, fontWeight: "800", letterSpacing: 0.5 },
   wishlistBtn: {
     position: "absolute",
     top: 8,
@@ -778,13 +811,7 @@ const S = StyleSheet.create({
   wishlistIcon: { fontSize: 16, color: "#FF3B30" },
   wishlistIconActive: { color: "#fff" },
   tileContent: { padding: 10, minHeight: 132 },
-  tileName: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#0f172a",
-    lineHeight: 17,
-    marginBottom: 4,
-  },
+  tileName: { fontSize: 13, fontWeight: "700", color: "#0f172a", lineHeight: 17, marginBottom: 4 },
   tileDesc: { fontSize: 10, color: "#64748b", lineHeight: 13, marginBottom: 4 },
   tileWeight: { fontSize: 11, fontWeight: "600", color: "#64748b", marginBottom: 6 },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 3, marginBottom: 8 },
@@ -794,12 +821,7 @@ const S = StyleSheet.create({
   priceRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   priceCol: { flexDirection: "row", alignItems: "center", gap: 6 },
   tilePrice: { fontSize: 16, fontWeight: "900", color: "#2D5016", letterSpacing: -0.3 },
-  originalPrice: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#94a3b8",
-    textDecorationLine: "line-through",
-  },
+  originalPrice: { fontSize: 12, fontWeight: "600", color: "#94a3b8", textDecorationLine: "line-through" },
   savePrice: {
     fontSize: 10,
     fontWeight: "700",

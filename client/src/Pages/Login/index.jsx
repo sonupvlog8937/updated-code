@@ -64,12 +64,13 @@ const Login = () => {
       return;
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
     setIsLoading(true);
     context.setGlobalLoading(true);
 
     try {
       // Try existing user login OTP first
-      const res = await postData("/api/user/send-login-otp", { email: email.trim() });
+      const res = await postData("/api/user/send-login-otp", { email: normalizedEmail });
 
       if (res?.error === false) {
         // User exists and is active
@@ -77,12 +78,15 @@ const Login = () => {
         setStep("otp");
         context.alertBox("success", "✅ OTP sent to your email!");
       } else if (
+        res?.registrationPending === true ||
         res?.message?.toLowerCase().includes("not found") ||
-        res?.message?.toLowerCase().includes("not registered")
+        res?.message?.toLowerCase().includes("not registered") ||
+        res?.message?.toLowerCase().includes("not verified") ||
+        res?.message?.toLowerCase().includes("registration otp")
       ) {
-        // New user - send registration OTP with temporary name
+        // New user or pending verification user - send registration OTP with temporary name
         const registerRes = await postData("/api/user/send-register-otp", {
-          email: email.trim(),
+          email: normalizedEmail,
           name: "User", // Temporary name, will be updated after OTP verification
         });
 
@@ -232,10 +236,11 @@ const Login = () => {
     setIsResending(true);
     
     try {
+      const normalizedEmail = email.trim().toLowerCase();
       const endpoint = isNewUser ? "/api/user/send-register-otp" : "/api/user/send-login-otp";
       const payload = isNewUser
-        ? { email: email.trim(), name: "User" }
-        : { email: email.trim() };
+        ? { email: normalizedEmail, name: "User" }
+        : { email: normalizedEmail };
 
       const res = await postData(endpoint, payload);
       if (res?.error === false) {
@@ -374,6 +379,8 @@ const Login = () => {
                   label="Enter 6-digit OTP"
                   type="text"
                   name="otp"
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   disabled={isLoading}

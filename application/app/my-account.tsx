@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,8 +20,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { useAppDispatch, useAppSelector } from "@/src/store";
-import { fetchUserDetails } from "@/src/store/appSlice";
-import { editData, uploadImage } from "@/src/utils/api";
+import { fetchUserDetails, logoutUser } from "@/src/store/appSlice";
+import { deleteData, editData, uploadImage } from "@/src/utils/api";
 import { showToast } from "@/src/utils/toast";
 
 interface FormState {
@@ -1065,8 +1066,31 @@ export default function MyProfileScreen() {
                 {/* Delete Account */}
                 <Pressable
                   onPress={() => {
-                    // Add delete account confirmation
-                    showToast("info", "Delete account feature coming soon");
+                    Alert.alert(
+                      "Delete Account?",
+                      "This will permanently delete your account and all associated data. This action cannot be undone.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Delete",
+                          style: "destructive",
+                          onPress: async () => {
+                            try {
+                              const res = await deleteData("/api/user/delete-account");
+                              if (res?.error === false || res?.success === true) {
+                                showToast("success", "Account deleted successfully");
+                                dispatch(logoutUser());
+                                router.replace("/(tabs)" as never);
+                              } else {
+                                showToast("error", res?.message || "Failed to delete account");
+                              }
+                            } catch (error: any) {
+                              showToast("error", error?.message || "Error deleting account");
+                            }
+                          },
+                        },
+                      ]
+                    );
                   }}
                   style={[
                     styles.actionCard,

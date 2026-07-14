@@ -33,7 +33,8 @@ const SELLER_ROLES = [
 const ALL_PANEL_ROLES = ['ADMIN', 'USER', 'DELIVERY_RIDER', ...SELLER_ROLES];
 
 // Roles allowed for public signup
-const PUBLIC_SIGNUP_SELLER_ROLES = ['SELLER', 'GROCERY_SELLER', 'RESTAURANT_SELLER', 'DELIVERY_RIDER'];
+const PUBLIC_SIGNUP_SELLER_ROLES = [...SELLER_ROLES, 'DELIVERY_RIDER'];
+const GO_MARKET_SHOP_SELLER_ROLES = SELLER_ROLES.filter((role) => role !== 'SELLER' && role !== 'RESTAURANT_SELLER');
 
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
 
@@ -44,6 +45,24 @@ const normalizePanelRole = (role, fallback = 'SELLER') => {
 const normalizePublicSellerRole = (role) => {
     const normalized = String(role || 'SELLER').trim().toUpperCase();
     return PUBLIC_SIGNUP_SELLER_ROLES.includes(normalized) ? normalized : 'SELLER';
+};
+
+// Map seller role to the shopType value used in GroceryShop model
+const getShopTypeFromRole = (role) => {
+    const map = {
+        GROCERY_SELLER: 'grocery',
+        FASHION_SELLER: 'fashion',
+        ELECTRONICS_SELLER: 'electronics',
+        MEDICAL_SELLER: 'medical',
+        BEAUTY_SELLER: 'beauty',
+        HOME_KITCHEN_SELLER: 'home_kitchen',
+        GIFTS_TOYS_SELLER: 'gifts_toys',
+        BOOKS_STATIONERY_SELLER: 'books_stationery',
+        JEWELLERY_SELLER: 'jewellery',
+        HARDWARE_SELLER: 'hardware',
+        AUTOMOBILE_SELLER: 'automobile',
+    };
+    return map[role] || 'grocery';
 };
 
 cloudinary.config({
@@ -114,10 +133,10 @@ async function createDefaultGoMarketStore({ seller, role, marketId, storeName, s
     };
 
     let store = null;
-    if (role === 'GROCERY_SELLER') {
+    if (GO_MARKET_SHOP_SELLER_ROLES.includes(role)) {
         store = await GroceryShop.findOneAndUpdate(
             { ownerId: owner._id },
-           { $setOnInsert: { ...base, shopName: storeName, shopBanner: shopBanner || seller.storeProfile?.image || "" } },
+           { $setOnInsert: { ...base, shopName: storeName, shopType: getShopTypeFromRole(role), shopBanner: shopBanner || seller.storeProfile?.image || "" } },
             { new: true, upsert: true, setDefaultsOnInsert: true }
         );
     } else if (role === 'RESTAURANT_SELLER') {
@@ -647,7 +666,7 @@ export async function verifyPhoneLoginOtpController(request, response) {
 
 export async function createSellerByAdminController(request, response) {
     try {
-        const { name, email, password, mobile, role } = request.body;
+        const { name, email, password, mobile, role, storeName, marketId } = request.body;
 
         if (!name || !email || !password) {
             return response.status(400).json({
@@ -670,6 +689,14 @@ export async function createSellerByAdminController(request, response) {
         const hashPassword = await bcryptjs.hash(password, salt);
         const sellerRole = normalizePanelRole(role, 'SELLER');
 
+        // Build storeProfile if GoMarket seller role
+        const isGoMarketSeller = GO_MARKET_SHOP_SELLER_ROLES.includes(sellerRole) || sellerRole === 'RESTAURANT_SELLER';
+        const storeProfile = isGoMarketSeller ? {
+            storeName: storeName || name,
+            contactNo: mobile || '',
+            marketId: marketId || null,
+        } : undefined;
+
         const seller = await UserModel.create({
             name,
             email,
@@ -678,13 +705,31 @@ export async function createSellerByAdminController(request, response) {
             role: sellerRole,
             verify_email: true,
             status: "Active",
+            storeProfile,
         });
+
+        // Auto-provision GoMarket store (ShopOwner + GroceryShop/Restaurant)
+        let goMarket = null;
+        if (isGoMarketSeller && marketId) {
+            try {
+                goMarket = await createDefaultGoMarketStore({
+                    seller,
+                    role: sellerRole,
+                    marketId,
+                    storeName: storeName || name,
+                    storeContact: mobile,
+                });
+            } catch (provisionErr) {
+                console.error('GoMarket store provisioning error (admin create):', provisionErr.message);
+            }
+        }
 
         return response.status(200).json({
             message: "Seller created successfully",
             error: false,
             success: true,
             seller,
+            goMarket,
         });
     } catch (error) {
         return response.status(500).json({
@@ -727,6 +772,56 @@ export async function updateUserAccessByAdminController(request, response) {
                 error: true,
                 success: false,
             });
+        }
+
+        // If role was changed to a GoMarket shop seller, auto-provision ShopOwner + GroceryShop
+        if (payload.role && GO_MARKET_SHOP_SELLER_ROLES.includes(payload.role)) {
+            try {
+                const marketId = updatedUser.storeProfile?.marketId;
+                const storeName = updatedUser.storeProfile?.storeName || updatedUser.name;
+
+                // Upsert ShopOwner
+                const owner = await ShopOwner.findOneAndUpdate(
+                    { $or: [{ userId: updatedUser._id }, { email: updatedUser.email }] },
+                    {
+                        $set: {
+                            userId: updatedUser._id,
+                            name: updatedUser.name,
+                            email: updatedUser.email,
+                            mobile: String(updatedUser.storeProfile?.contactNo || updatedUser.mobile || ''),
+                            avatar: updatedUser.avatar || '',
+                        },
+                    },
+                    { new: true, upsert: true, setDefaultsOnInsert: true }
+                );
+
+                // Only create GroceryShop if we have a market and one doesn't exist yet
+                if (marketId) {
+                    const existingShop = await GroceryShop.findOne({ ownerId: owner._id });
+                    if (!existingShop) {
+                        const market = await Market.findById(marketId).lean();
+                        if (market) {
+                            const address = updatedUser.storeProfile?.location ||
+                                [market.name, market.city, market.state, market.pincode].filter(Boolean).join(', ');
+                            await GroceryShop.create({
+                                marketId: market._id,
+                                ownerId: owner._id,
+                                shopName: storeName,
+                                shopType: getShopTypeFromRole(payload.role),
+                                shopBanner: updatedUser.storeProfile?.image || '',
+                                address,
+                                latitude: market.latitude,
+                                longitude: market.longitude,
+                                description: updatedUser.storeProfile?.description || '',
+                                isOpen: true,
+                            });
+                        }
+                    }
+                }
+            } catch (provisionErr) {
+                // Non-fatal — log but don't block the role update response
+                console.error('GoMarket shop provisioning error after role update:', provisionErr.message);
+            }
         }
 
         return response.status(200).json({
@@ -1273,8 +1368,8 @@ export async function getAllReviews(request, response) {
                 productMeta = await ProductModel.find({ seller: request.userId })
                     .select('_id name images')
                     .lean();
-            } else if (userRole === 'GROCERY_SELLER') {
-                // Get grocery shop owner IDs
+            } else if (GO_MARKET_SHOP_SELLER_ROLES.includes(userRole)) {
+                // Get GoMarket shop owner IDs
                 const ownerIds = (await ShopOwner.find({ $or: [{ userId: request.userId }, { email: request.currentUser?.email }] }).select("_id").lean()).map((owner) => owner._id);
                 
                 if (ownerIds.length > 0) {
@@ -1803,13 +1898,26 @@ export async function sendLoginOtpController(request, response) {
         const user = await UserModel.findOne({ email });
 
         if (!user) {
-            return response.status(400).json({
+            return response.status(200).json({
                 message: "User not found. Please register first.",
                 error: true,
-                success: false
+                success: false,
+                registrationPending: true
             });
         }
 
+        // If the user exists but has not finished registration verification,
+        // prompt the client to send a registration OTP instead of login OTP.
+        if (user.verify_email === false) {
+            return response.status(200).json({
+                message: "User not verified. Please verify registration OTP or request a new registration OTP.",
+                error: true,
+                success: false,
+                registrationPending: true
+            });
+        }
+
+        // Only block users who are inactive/suspended after verification.
         if (user.status !== "Active") {
             return response.status(400).json({
                 message: "Account is not active. Please contact admin.",
@@ -1877,6 +1985,9 @@ export async function verifyLoginOtpController(request, response) {
             });
         }
 
+        // Same as above: allow verification attempts for unverified (Pending)
+        // accounts so users can complete registration via OTP. Block only
+        // when the account is non-active but already verified.
         if (user.status !== "Active") {
             return response.status(400).json({
                 message: "Account is not active. Please contact admin.",

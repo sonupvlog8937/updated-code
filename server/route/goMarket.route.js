@@ -18,6 +18,8 @@ import {
   searchMarkets,
   updateResource,
   setPreferredMarket,
+  debugMarkets,
+  addTestCoordinatesToMarkets,
 } from "../controllers/goMarket.controller.js";
 import {
   getGroceryProductStorefront,
@@ -29,6 +31,10 @@ import {
   shopProductSearchSuggestions,
   restaurantItemSearchSuggestions,
   marketShopSearchSuggestions,
+  shopSearchDefaults,
+  shopSearchSuggestionsEnhanced,
+  restaurantSearchDefaults,
+  restaurantSearchSuggestionsEnhanced,
 } from "../controllers/goMarketCatalog.controller.js";
 import {
   addGroceryShopReview,
@@ -52,16 +58,20 @@ const crud = (path, key, detailHandler = null, writeMiddleware = canManage) => {
 
 router.get("/markets/search", searchMarkets);
 router.get("/markets/nearby", nearbyMarkets);
+router.get("/markets/debug/info", debugMarkets);
+router.post("/markets/debug/add-test-coordinates", addTestCoordinatesToMarkets);
 router.get("/markets/:marketId/outlets", optionalAuth, listMarketOutlets);
 router.get("/markets/:marketId/shop-suggestions", optionalAuth, marketShopSearchSuggestions);
 router.get("/grocery-shops/:shopId/catalog", optionalAuth, listShopProductsCatalog);
 router.get("/grocery-shops/:shopId/search", optionalAuth, searchShopProducts);
-router.get("/grocery-shops/:shopId/search-suggestions", optionalAuth, shopProductSearchSuggestions);
+router.get("/grocery-shops/:shopId/search-suggestions", optionalAuth, shopSearchSuggestionsEnhanced);
+router.get("/grocery-shops/:shopId/search-defaults", optionalAuth, shopSearchDefaults);
 router.get("/grocery-shops/:shopId/reviews", optionalAuth, getGroceryShopReviews);
 router.post("/grocery-shops/:shopId/reviews", auth, addGroceryShopReview);
 router.get("/restaurants/:restaurantId/catalog", optionalAuth, listRestaurantItemsCatalog);
 router.get("/restaurants/:restaurantId/search", optionalAuth, listRestaurantItemsCatalog);
-router.get("/restaurants/:restaurantId/search-suggestions", optionalAuth, restaurantItemSearchSuggestions);
+router.get("/restaurants/:restaurantId/search-suggestions", optionalAuth, restaurantSearchSuggestionsEnhanced);
+router.get("/restaurants/:restaurantId/search-defaults", optionalAuth, restaurantSearchDefaults);
 router.get("/restaurants/:restaurantId/reviews", optionalAuth, getRestaurantReviews);
 router.post("/restaurants/:restaurantId/reviews", auth, addRestaurantReview);
 router.get("/catalog/grocery-product/:id", optionalAuth, getGroceryProductStorefront);
@@ -121,8 +131,59 @@ const pickDefined = (payload) =>
 
 router.get("/seller/grocery-shop", auth, authorizeRole(...GO_MARKET_SHOP_SELLERS), async (req, res) => {
   try {
-    const shop = await getSellerGroceryShop(req.userId, req.currentUser?.email);
-    if (!shop) return res.json({ success: false, message: "Shop not found" });
+    let shop = await getSellerGroceryShop(req.userId, req.currentUser?.email);
+
+    // Auto-provision: if the seller has no shop yet, try to create one from their stored storeProfile
+    if (!shop) {
+      try {
+        const UserModel = (await import("../models/user.model.js")).default;
+        const ShopOwner = (await import("../models/shopOwner.model.js")).default;
+        const GroceryShop = (await import("../models/groceryShop.model.js")).default;
+        const Market = (await import("../models/market.model.js")).default;
+
+        const user = await UserModel.findById(req.userId).lean();
+        const marketId = user?.storeProfile?.marketId;
+        const storeName = user?.storeProfile?.storeName || user?.name || "My Shop";
+
+        // Upsert ShopOwner
+        const owner = await ShopOwner.findOneAndUpdate(
+          { $or: [{ userId: req.userId }, { email: req.currentUser.email }] },
+          {
+            $set: {
+              userId: req.userId,
+              name: user?.name || "",
+              email: req.currentUser.email,
+              mobile: String(user?.storeProfile?.contactNo || user?.mobile || ""),
+              avatar: user?.avatar || "",
+            },
+          },
+          { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
+
+        if (marketId) {
+          const market = await Market.findById(marketId).lean();
+          if (market) {
+            const address = user?.storeProfile?.location ||
+              [market.name, market.city, market.state, market.pincode].filter(Boolean).join(", ");
+            shop = await GroceryShop.create({
+              marketId: market._id,
+              ownerId: owner._id,
+              shopName: storeName,
+              shopBanner: user?.storeProfile?.image || "",
+              address,
+              latitude: market.latitude,
+              longitude: market.longitude,
+              description: user?.storeProfile?.description || "",
+              isOpen: true,
+            });
+          }
+        }
+      } catch (provisionErr) {
+        console.error("Shop auto-provision error:", provisionErr.message);
+      }
+    }
+
+    if (!shop) return res.json({ success: false, message: "Shop not found. Please complete your seller registration or contact support." });
     res.json({ success: true, shop });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -132,10 +193,15 @@ router.get("/seller/grocery-shop", auth, authorizeRole(...GO_MARKET_SHOP_SELLERS
 router.put("/seller/grocery-shop", auth, authorizeRole(...GO_MARKET_SHOP_SELLERS), async (req, res) => {
   try {
     const GroceryShop = (await import("../models/groceryShop.model.js")).default;
-    const { shopName, shopBanner, shopLogo, address, description } = req.body;
+    const { shopName, shopBanner, shopLogo, address, description, latitude, longitude, deliveryMinutes } = req.body;
+    const payload = pickDefined({ shopName, shopBanner, shopLogo, address, description, latitude, longitude });
+    if (deliveryMinutes !== undefined) {
+      const minutes = Number(deliveryMinutes) || 15;
+      payload.deliveryMinutes = Math.max(15, Math.min(120, minutes));
+    }
     const shop = await GroceryShop.findOneAndUpdate(
       await sellerOwnerFilter(req),
-      pickDefined({ shopName, shopBanner, shopLogo, address, description }),
+      payload,
       { new: true, lean: true, runValidators: true }
     );
     if (!shop) return res.json({ success: false, message: "Shop not found" });
@@ -166,16 +232,24 @@ router.get("/seller/restaurant", auth, authorizeRole("RESTAURANT_SELLER"), async
 router.put("/seller/restaurant", auth, authorizeRole("RESTAURANT_SELLER"), async (req, res) => {
   try {
     const Restaurant = (await import("../models/restaurant.model.js")).default;
-    const { shopName, shopBanner, shopLogo, restaurantName, restaurantBanner, restaurantLogo, address, description } = req.body;
+    const { shopName, shopBanner, shopLogo, restaurantName, restaurantBanner, restaurantLogo, address, description, latitude, longitude, deliveryMinutes, avgPrepMinutes } = req.body;
+    const payload = pickDefined({
+      restaurantName: restaurantName || shopName,
+      restaurantBanner: restaurantBanner ?? shopBanner,
+      restaurantLogo: restaurantLogo ?? shopLogo,
+      address,
+      description,
+      latitude,
+      longitude,
+      avgPrepMinutes,
+    });
+    if (deliveryMinutes !== undefined) {
+      const minutes = Number(deliveryMinutes) || 25;
+      payload.deliveryMinutes = Math.max(25, Math.min(120, minutes));
+    }
     const restaurant = await Restaurant.findOneAndUpdate(
       await sellerOwnerFilter(req),
-      pickDefined({
-        restaurantName: restaurantName || shopName,
-        restaurantBanner: restaurantBanner ?? shopBanner,
-        restaurantLogo: restaurantLogo ?? shopLogo,
-        address,
-        description,
-      }),
+      payload,
       { new: true, lean: true, runValidators: true }
     );
     if (!restaurant) return res.json({ success: false, message: "Restaurant not found" });

@@ -298,8 +298,8 @@ const TrustBadges = ({ colors }: { colors: any }) => (
   >
     {[
       { icon: "shield" as const, text: "100% Authentic products" },
-      { icon: "refresh-cw" as const, text: "Easy 7-day returns" },
-      { icon: "lock" as const, text: "Secure checkout" },
+      { icon: "refresh-cw" as const, text: "Secure checkout" },
+      { icon: "lock" as const, text: "Easy 7-day returns" },
     ].map((item) => (
       <View key={item.text} style={styles.trustRow}>
         <View style={[styles.trustIconWrap, { backgroundColor: colors.muted }]}>
@@ -362,6 +362,7 @@ export default function CartScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
+  const footerBottomPadding = Math.max(insets.bottom, 12) + 16;
 
   const cartData = useAppSelector((s) => s.app.cartData);
   const userData = useAppSelector((s) => s.app.userData);
@@ -489,7 +490,7 @@ export default function CartScreen() {
             {
               backgroundColor: colors.card,
               borderTopColor: colors.border,
-              paddingBottom: insets.bottom + 75,
+              paddingBottom: Math.max(insets.bottom, 6) + 54,
             },
           ]}
         >
@@ -547,7 +548,7 @@ export default function CartScreen() {
             {
               backgroundColor: colors.card,
               borderTopColor: colors.border,
-              paddingBottom: insets.bottom + 75,
+              paddingBottom: Math.max(insets.bottom, 6) + 54,
             },
           ]}
         >
@@ -591,7 +592,7 @@ export default function CartScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: insets.bottom + 140 },
+            { paddingBottom: 110 },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -711,7 +712,7 @@ export default function CartScreen() {
           {
             backgroundColor: colors.card,
             borderTopColor: colors.border,
-            paddingBottom: insets.bottom + 75,
+            paddingBottom: Math.max(insets.bottom, 6) + 54,
           },
         ]}
       >
@@ -1056,3 +1057,5 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 });
+
+

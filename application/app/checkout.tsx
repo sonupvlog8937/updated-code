@@ -17,7 +17,7 @@ import {
   UIManager,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { useRazorpay } from "@/src/hooks/useRazorpay";
@@ -1118,6 +1118,8 @@ export default function CheckoutScreen() {
   const colors = useColors();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
+  const footerBottomPadding = Math.max(insets.bottom, 12) + 16;
   const { handleScroll } = useScrollHeader();
   const cartData = useAppSelector((s) => s.app.cartData);
   const userData = useAppSelector((s) => s.app.userData);
@@ -1208,8 +1210,10 @@ export default function CheckoutScreen() {
       checkoutItems.reduce((s, c) => s + (c.price || 0) * (c.quantity || 1), 0),
     [checkoutItems],
   );
-  const [commerceSettings, setCommerceSettings] = useState<any>({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0 });
+  const [commerceSettings, setCommerceSettings] = useState<any>({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0, goMarketShippingFee: 0, goMarketDeliveryFeePerKm: 0 });
   const [isFirstOrder, setIsFirstOrder] = useState(false);
+  const [distanceKm, setDistanceKm] = useState(3); // Will be updated with actual distance
+  const [distanceCalculated, setDistanceCalculated] = useState(false); // Track if calculation happened
   
   useEffect(() => { 
     fetchDataFromApi("/api/settings/commerce")
@@ -1243,10 +1247,205 @@ export default function CheckoutScreen() {
   }, [userData]);
   
   const baseAfterDiscount = Math.max(subTotal - discount, 0);
+  
+  // Separate Go Market and non-Go Market items
+  const goMarketItems = checkoutItems.filter((item: any) => {
+    const source = String(item?.source || "").toLowerCase();
+    const brand = String(item?.brand || "").toLowerCase();
+    const isGoMarketSeller = item?.sellerId?.storeProfile?.marketId != null || 
+                             item?.sellerId?.storeProfile?.goMarketOwnerId != null;
+    return source.includes("gomarket") || brand.includes("gomarket") || isGoMarketSeller;
+  });
+  
+  const nonGoMarketItems = checkoutItems.filter((item: any) => {
+    const source = String(item?.source || "").toLowerCase();
+    const brand = String(item?.brand || "").toLowerCase();
+    const isGoMarketSeller = item?.sellerId?.storeProfile?.marketId != null || 
+                             item?.sellerId?.storeProfile?.goMarketOwnerId != null;
+    return !source.includes("gomarket") && !brand.includes("gomarket") && !isGoMarketSeller;
+  });
+  
+  const hasGoMarketItems = goMarketItems.length > 0;
+  const hasNonGoMarketItems = nonGoMarketItems.length > 0;
+  const isMixedCart = hasGoMarketItems && hasNonGoMarketItems;
+  
+  // Calculate subtotals for each type
+  const goMarketSubtotal = goMarketItems.reduce((sum: number, item: any) => {
+    return sum + (Number(item.price || 0) * Number(item.quantity || 1));
+  }, 0);
+  
+  const nonGoMarketSubtotal = nonGoMarketItems.reduce((sum: number, item: any) => {
+    return sum + (Number(item.price || 0) * Number(item.quantity || 1));
+  }, 0);
+  
   const freeByRule = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove;
-  const shipping = isFirstOrder ? 0 : (freeByRule ? 0 : Number(commerceSettings.shippingFee || 0));
-  const deliveryFee = isFirstOrder ? 0 : (freeByRule ? 0 : Number(commerceSettings.deliveryFee || 0));
-  const total = baseAfterDiscount + shipping + deliveryFee;
+  
+  // Calculate Go Market fees (BOTH distance-based)
+  const goMarketShipping = (hasGoMarketItems && !isFirstOrder && !freeByRule) 
+    ? Number((commerceSettings.goMarketShippingFee || 0) * distanceKm) 
+    : 0;
+  const goMarketDelivery = (hasGoMarketItems && !isFirstOrder && !freeByRule) 
+    ? Number((commerceSettings.goMarketDeliveryFeePerKm || 0) * distanceKm) 
+    : 0;
+  
+  // Calculate normal fees
+  const normalShipping = (hasNonGoMarketItems && !isFirstOrder && !freeByRule) 
+    ? Number(commerceSettings.shippingFee || 0) 
+    : 0;
+  const normalDelivery = (hasNonGoMarketItems && !isFirstOrder && !freeByRule) 
+    ? Number(commerceSettings.deliveryFee || 0) 
+    : 0;
+  
+  // Total fees
+  const totalShipping = goMarketShipping + normalShipping;
+  const totalDelivery = goMarketDelivery + normalDelivery;
+  const total = baseAfterDiscount + totalShipping + totalDelivery;
+
+  // Log fee calculation for debugging
+  useEffect(() => {
+    if (hasGoMarketItems || hasNonGoMarketItems) {
+      console.log("💰 Fees Breakdown:", {
+        cartType: isMixedCart ? "MIXED" : (hasGoMarketItems ? "GO_MARKET_ONLY" : "NORMAL_ONLY"),
+        isFirstOrder,
+        freeByRule,
+        baseAfterDiscount: `₹${baseAfterDiscount}`,
+        goMarketItems: goMarketItems.length,
+        nonGoMarketItems: nonGoMarketItems.length,
+        goMarketSubtotal: `₹${goMarketSubtotal}`,
+        nonGoMarketSubtotal: `₹${nonGoMarketSubtotal}`,
+        ...(hasGoMarketItems && {
+          goMarket: {
+            distanceKm: `${distanceKm.toFixed(2)} km`,
+            shippingFee: `₹${goMarketShipping}`,
+            deliveryFeePerKm: `₹${commerceSettings.goMarketDeliveryFeePerKm || 0}/km`,
+            deliveryFeeTotal: `₹${goMarketDelivery}`,
+          }
+        }),
+        ...(hasNonGoMarketItems && {
+          normal: {
+            shippingFee: `₹${normalShipping}`,
+            deliveryFee: `₹${normalDelivery}`,
+          }
+        }),
+        totalFees: `₹${totalShipping + totalDelivery}`,
+        total: `₹${total}`
+      });
+    }
+  }, [hasGoMarketItems, hasNonGoMarketItems, goMarketShipping, goMarketDelivery, normalShipping, normalDelivery, distanceKm, baseAfterDiscount, isFirstOrder, freeByRule]);
+
+  // Simple Haversine distance calculation
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number | null => {
+    if (!lat1 || !lng1 || !lat2 || !lng2) return null;
+    const R = 6371; // Earth's radius in km
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // Calculate distance for Go Market orders
+  useEffect(() => {
+    console.log("=".repeat(60));
+    console.log("🔍 DISTANCE CALCULATION DEBUG");
+    console.log("=".repeat(60));
+    console.log("1. Has Go Market Items?", hasGoMarketItems);
+    console.log("2. Go Market Items Count:", goMarketItems?.length);
+    console.log("3. User Data Available?", !!userData);
+    console.log("4. User Location:", (userData as any)?.goMarketLocation);
+    console.log("=".repeat(60));
+    
+    if (!hasGoMarketItems) {
+      console.log("⏭️ SKIP: No Go Market items in cart");
+      console.log("=".repeat(60));
+      return;
+    }
+    
+    const userLoc = (userData as any)?.goMarketLocation?.coordinates;
+    if (!userLoc || userLoc.length !== 2) {
+      console.log("❌ ERROR: User location not found!");
+      console.log("   userData.goMarketLocation:", (userData as any)?.goMarketLocation);
+      console.log("   ACTION NEEDED: Go to Go Market page → Click 'Use current location'");
+      console.log("=".repeat(60));
+      setDistanceCalculated(false);
+      return;
+    }
+    
+    const [userLng, userLat] = userLoc;
+    console.log("✅ User Location Found:");
+    console.log("   Latitude:", userLat);
+    console.log("   Longitude:", userLng);
+    
+    const goMarketProduct = goMarketItems[0];
+    
+    if (!goMarketProduct) {
+      console.log("❌ ERROR: No Go Market product in cart!");
+      console.log("=".repeat(60));
+      setDistanceCalculated(false);
+      return;
+    }
+    
+    console.log("\n📦 Cart Item Details:");
+    console.log("   Product:", goMarketProduct.productTitle);
+    console.log("   Product ID:", goMarketProduct.productId);
+    console.log("   Shop ID:", goMarketProduct.shopId);
+    console.log("   Source:", goMarketProduct.source);
+    console.log("   Shop Latitude:", goMarketProduct.shopLatitude);
+    console.log("   Shop Longitude:", goMarketProduct.shopLongitude);
+    console.log("   Restaurant Latitude:", goMarketProduct.restaurantLatitude);
+    console.log("   Restaurant Longitude:", goMarketProduct.restaurantLongitude);
+    
+    const shopLat = goMarketProduct?.shopLatitude || goMarketProduct?.restaurantLatitude;
+    const shopLng = goMarketProduct?.shopLongitude || goMarketProduct?.restaurantLongitude;
+    
+    console.log("\n🏪 Shop Coordinates:");
+    console.log("   Latitude:", shopLat);
+    console.log("   Longitude:", shopLng);
+    console.log("   Status:", shopLat && shopLng ? "✅ FOUND" : "❌ MISSING");
+    
+    if (!shopLat || !shopLng) {
+      console.log("\n❌ ERROR: Shop coordinates missing from cart item!");
+      console.log("   REASON: Product was added before coordinate fix");
+      console.log("   SOLUTION:");
+      console.log("   1. Remove this product from cart");
+      console.log("   2. Go back to shop");
+      console.log("   3. Add product again (fresh)");
+      console.log("   4. OR run migration script: node server/scripts/fixCartCoordinates.js");
+      console.log("=".repeat(60));
+      setDistanceCalculated(false);
+      return;
+    }
+    
+    console.log("\n📐 Calculating Distance...");
+    console.log("   From (User):", { lat: userLat, lng: userLng });
+    console.log("   To (Shop):", { lat: shopLat, lng: shopLng });
+    
+    const dist = calculateDistance(userLat, userLng, shopLat, shopLng);
+    
+    console.log("   Raw Distance:", dist, "km");
+    
+    if (!dist || dist === 0 || isNaN(dist)) {
+      console.log("❌ ERROR: Distance calculation returned invalid value!");
+      console.log("   Value:", dist);
+      console.log("   Using fallback: 3 km");
+      console.log("=".repeat(60));
+      setDistanceKm(3);
+      setDistanceCalculated(false);
+      return;
+    }
+    
+    const finalDist = Math.max(0.1, Math.min(dist, 50));
+    console.log("\n✅ SUCCESS! Distance Calculated:");
+    console.log("   Final Distance:", finalDist.toFixed(2), "km");
+    console.log("   Shipping Fee: ₹" + (finalDist * (commerceSettings.goMarketShippingFee || 25)).toFixed(2));
+    console.log("   Delivery Fee: ₹" + (finalDist * (commerceSettings.goMarketDeliveryFeePerKm || 8)).toFixed(2));
+    console.log("=".repeat(60));
+    
+    setDistanceKm(finalDist);
+    setDistanceCalculated(true);
+  }, [(userData as any)?.goMarketLocation, goMarketItems, hasGoMarketItems, userData, commerceSettings]);
 
   const removeCoupon = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -1265,8 +1464,19 @@ export default function CheckoutScreen() {
     couponCode: coupon,
     discountAmount: discount,
     discount_amount: discount,
-    shippingFee: shipping,
-    deliveryFee: deliveryFee,
+    shippingFee: totalShipping,
+    deliveryFee: totalDelivery,
+    // Separate fee tracking for mixed carts
+    goMarketShippingFee: goMarketShipping,
+    goMarketDeliveryFee: goMarketDelivery,
+    normalShippingFee: normalShipping,
+    normalDeliveryFee: normalDelivery,
+    subtotal: baseAfterDiscount,
+    goMarketSubtotal: goMarketSubtotal,
+    normalSubtotal: nonGoMarketSubtotal,
+    distanceKm: hasGoMarketItems ? distanceKm : 0,
+    userLocation: hasGoMarketItems ? (userData as any)?.goMarketLocation : null,
+    cartType: isMixedCart ? "mixed" : (hasGoMarketItems ? "gomarket" : "normal"),
     totalAmt: total,
     date: new Date().toISOString(),
     customerName: userData?.name,
@@ -1433,7 +1643,7 @@ export default function CheckoutScreen() {
         onScroll={handleScroll}
         contentContainerStyle={[
           mainStyles.scrollContent,
-          { paddingBottom: 20 },
+          { paddingBottom: footerBottomPadding + 24 },
         ]}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
@@ -1714,12 +1924,96 @@ export default function CheckoutScreen() {
                 </Text>
               </View>
             )}
-            <PriceRow
-              label="Shipping"
-              value={shipping === 0 ? "FREE" : `₹${shipping}`}
-              color={shipping === 0 ? colors.success : undefined}
-            />
-            <PriceRow label="Delivery fee" value={deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`} color={deliveryFee === 0 ? colors.success : undefined} />
+            
+            {/* Go Market Fees */}
+            {hasGoMarketItems && (
+              <>
+                <PriceRow
+                  label={`Go Market Shipping (${distanceKm.toFixed(1)} km)`}
+                  value={goMarketShipping === 0 ? "FREE" : `₹${goMarketShipping.toFixed(2)}`}
+                  color={goMarketShipping === 0 ? colors.success : undefined}
+                />
+                <PriceRow 
+                  label={`Go Market Delivery (${distanceKm.toFixed(1)} km)`} 
+                  value={goMarketDelivery === 0 ? "FREE" : `₹${goMarketDelivery.toFixed(2)}`} 
+                  color={goMarketDelivery === 0 ? colors.success : undefined} 
+                />
+                {!isFirstOrder && !freeByRule && (goMarketShipping > 0 || goMarketDelivery > 0) && (
+                  <View
+                    style={{
+                      backgroundColor: "#eff6ff",
+                      borderColor: "#bfdbfe",
+                      borderWidth: 1,
+                      borderRadius: 6,
+                      padding: 8,
+                      marginTop: 4,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        color: "#1e40af",
+                      }}
+                    >
+                      ℹ️ Distance-based fees:{'\n'}
+                      Shipping: ₹{(commerceSettings.goMarketShippingFee || 0)}/km × {distanceKm.toFixed(1)} km = ₹{goMarketShipping.toFixed(2)}{'\n'}
+                      Delivery: ₹{(commerceSettings.goMarketDeliveryFeePerKm || 0)}/km × {distanceKm.toFixed(1)} km = ₹{goMarketDelivery.toFixed(2)}
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
+            
+            {/* Normal E-commerce Fees */}
+            {hasNonGoMarketItems && (
+              <>
+                <PriceRow
+                  label="Shipping"
+                  value={normalShipping === 0 ? "FREE" : `₹${normalShipping}`}
+                  color={normalShipping === 0 ? colors.success : undefined}
+                />
+                <PriceRow 
+                  label="Delivery fee" 
+                  value={normalDelivery === 0 ? "FREE" : `₹${normalDelivery}`} 
+                  color={normalDelivery === 0 ? colors.success : undefined} 
+                />
+              </>
+            )}
+            
+            {/* Mixed Cart Info */}
+            {isMixedCart && !isFirstOrder && !freeByRule && (
+              <View
+                style={{
+                  backgroundColor: "#fef3c7",
+                  borderColor: "#fde047",
+                  borderWidth: 1,
+                  borderRadius: 6,
+                  padding: 8,
+                  marginTop: 4,
+                  marginBottom: 8,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "600",
+                    color: "#92400e",
+                  }}
+                >
+                  📦 Mixed Cart: Go Market + Regular items
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 10,
+                    color: "#92400e",
+                    marginTop: 2,
+                  }}
+                >
+                  {goMarketItems.length} Go Market item(s) · {nonGoMarketItems.length} Regular item(s)
+                </Text>
+              </View>
+            )}
             {/* {shipping > 0 && (
               <View
                 style={[
@@ -1817,7 +2111,7 @@ export default function CheckoutScreen() {
         edges={["bottom"]}
         style={[
           mainStyles.footer,
-          { backgroundColor: colors.background, borderTopColor: colors.border },
+          { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: footerBottomPadding },
         ]}
       >
         {/* ── KEY CHANGE: show "select payment" hint in footer when not selected ── */}

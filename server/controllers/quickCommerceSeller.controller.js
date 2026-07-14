@@ -104,7 +104,7 @@ export const getQuickCommerceOutlet = async (req, res) => {
           banner: restaurant.restaurantBanner,
           logo: restaurant.restaurantLogo,
           isOpen: restaurant.isOpen !== false,
-          deliveryMinutes: restaurant.deliveryMinutes ?? 30,
+          deliveryMinutes: restaurant.deliveryMinutes ?? 20,
           minOrderValue: restaurant.minOrderValue ?? 149,
           avgPrepMinutes: restaurant.avgPrepMinutes ?? 25,
           totalItems: restaurant.totalItems ?? 0,
@@ -128,7 +128,10 @@ export const updateQuickCommerceOutlet = async (req, res) => {
 
     const patch = {};
     if (isOpen !== undefined) patch.isOpen = Boolean(isOpen);
-    if (deliveryMinutes !== undefined) patch.deliveryMinutes = Math.max(5, Math.min(120, Number(deliveryMinutes) || 15));
+    if (deliveryMinutes !== undefined) {
+      const minutes = Number(deliveryMinutes) || (role === "RESTAURANT_SELLER" ? 25 : 15);
+      patch.deliveryMinutes = Math.max(role === "RESTAURANT_SELLER" ? 25 : 15, Math.min(120, minutes));
+    }
     if (minOrderValue !== undefined) patch.minOrderValue = Math.max(0, Number(minOrderValue) || 0);
     if (avgPrepMinutes !== undefined) patch.avgPrepMinutes = Math.max(5, Math.min(90, Number(avgPrepMinutes) || 25));
 
@@ -150,7 +153,7 @@ export const updateQuickCommerceOutlet = async (req, res) => {
           _id: updated._id,
           name: updated.shopName,
           isOpen: updated.isOpen !== false,
-          deliveryMinutes: updated.deliveryMinutes ?? 15,
+          deliveryMinutes: updated.deliveryMinutes ?? 10,
           minOrderValue: updated.minOrderValue ?? 99,
         },
       });
@@ -171,7 +174,7 @@ export const updateQuickCommerceOutlet = async (req, res) => {
           _id: updated._id,
           name: updated.restaurantName,
           isOpen: updated.isOpen !== false,
-          deliveryMinutes: updated.deliveryMinutes ?? 30,
+          deliveryMinutes: updated.deliveryMinutes ?? 20,
           minOrderValue: updated.minOrderValue ?? 149,
           avgPrepMinutes: updated.avgPrepMinutes ?? 25,
         },
@@ -236,7 +239,7 @@ export const getQuickCommerceDashboard = async (req, res) => {
           kind: "grocery",
           name: shop.shopName,
           isOpen: shop.isOpen !== false,
-          deliveryMinutes: shop.deliveryMinutes ?? 15,
+          deliveryMinutes: shop.deliveryMinutes ?? 10,
           minOrderValue: shop.minOrderValue ?? 99,
         };
       }
@@ -250,7 +253,7 @@ export const getQuickCommerceDashboard = async (req, res) => {
           kind: "restaurant",
           name: restaurant.restaurantName,
           isOpen: restaurant.isOpen !== false,
-          deliveryMinutes: restaurant.deliveryMinutes ?? 30,
+          deliveryMinutes: restaurant.deliveryMinutes ?? 20,
           minOrderValue: restaurant.minOrderValue ?? 149,
           avgPrepMinutes: restaurant.avgPrepMinutes ?? 25,
         };

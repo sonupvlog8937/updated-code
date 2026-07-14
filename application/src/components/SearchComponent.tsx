@@ -1,6 +1,7 @@
 import { useColors } from "@/hooks/useColors";
 import {
     clearSearchQuery,
+    fetchSearchDefaults,
     fetchSearchSuggestions,
     loadRecentSearches,
     performSearch,
@@ -9,40 +10,32 @@ import {
     setSearchQuery,
     useAppDispatch,
     useAppSelector,
+    deleteRecentSearch,
+    clearAllRecentSearches,
 } from "@/src/store";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Keyboard,
     Modal,
-    Pressable,
-    SafeAreaView,
     ScrollView,
+    StatusBar,
     StyleSheet,
     Text,
     TextInput,
     View,
+    Image,
+    TouchableOpacity,
+    Platform,
 } from "react-native";
 
-const TRENDING_TERMS = [
-  "shirt",
-  "jeans",
-  "t-shirts",
-  "bag",
-  "watches",
-  "trouser",
-];
-const POPULAR_TERMS = [
-  "formal pant",
-  "zara jeans",
-  "formal shirt",
-  "baggy jeans",
-  "black shirt",
-];
+interface SearchComponentProps {
+  showSearchBox?: boolean;
+}
 
-export default function SearchComponent() {
+export default function SearchComponent(_props: SearchComponentProps) {
   const colors = useColors();
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -50,66 +43,79 @@ export default function SearchComponent() {
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
-    searchQuery,
+    search: searchQuery,
     suggestions,
-    suggestedProducts,
-    correctedQuery,
-    aiInsights,
+    products: suggestedProducts,
     recentSearches,
+    topSearches,
+    trending,
+    categories,
+    brands,
+    popularCategories,
+    popularBrands,
     suggestionsLoading,
     isDropdownOpen,
-    error,
   } = useAppSelector((state) => state.search);
 
-  // Load recent searches on mount
-  useEffect(() => {
-    dispatch(loadRecentSearches());
-  }, [dispatch]);
+  const recentKeywords = React.useMemo(
+    () =>
+      recentSearches
+        .map((r) => (typeof r === "string" ? r : r.keyword))
+        .filter(Boolean)
+        .slice(0, 8),
+    [recentSearches],
+  );
 
-  // Debounced suggestions fetching
   useEffect(() => {
+    if (isDropdownOpen) {
+      dispatch(loadRecentSearches());
+      dispatch(fetchSearchDefaults());
+    }
+  }, [isDropdownOpen, dispatch]);
+
+ useEffect(() => {
+  if (debounceTimeoutRef.current) {
+    clearTimeout(debounceTimeoutRef.current);
+  }
+
+  const q = searchQuery.trim();
+
+  if (q.length < 1) {
+    return;
+  }
+
+  debounceTimeoutRef.current = setTimeout(() => {
+    dispatch(fetchSearchSuggestions(q));
+  }, 150);
+
+  return () => {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
-
-    if (searchQuery.trim().length < 2) {
-      return;
-    }
-
-    debounceTimeoutRef.current = setTimeout(() => {
-      dispatch(fetchSearchSuggestions(searchQuery.trim()));
-    }, 300);
-
-    return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-    };
-  }, [searchQuery, dispatch]);
+  };
+}, [searchQuery, dispatch]);
 
   const handleSearch = useCallback(() => {
     if (!searchQuery.trim()) return;
-
-    dispatch(saveRecentSearch(searchQuery));
-    dispatch(performSearch(searchQuery));
+    dispatch(setIsDropdownOpen(false));
     Keyboard.dismiss();
+    dispatch(saveRecentSearch(searchQuery));
+    dispatch(performSearch({ query: searchQuery, page: 1, limit: 20 }) as any);
     router.push(
-      `/(tabs)/search?query=${encodeURIComponent(searchQuery)}` as never,
+      `/search?query=${encodeURIComponent(searchQuery)}` as never,
     );
   }, [searchQuery, dispatch, router]);
 
   const handleSelectSuggestion = useCallback(
     (suggestion: string) => {
+      dispatch(setIsDropdownOpen(false));
+      Keyboard.dismiss();
       dispatch(setSearchQuery(suggestion));
-      setTimeout(() => {
-        dispatch(saveRecentSearch(suggestion));
-        dispatch(performSearch(suggestion));
-        dispatch(setIsDropdownOpen(false));
-        Keyboard.dismiss();
-        router.push(
-          `/(tabs)/search?query=${encodeURIComponent(suggestion)}` as never,
-        );
-      }, 100);
+      dispatch(saveRecentSearch(suggestion));
+      dispatch(performSearch({ query: suggestion, page: 1, limit: 20 }) as any);
+      router.push(
+        `/search?query=${encodeURIComponent(suggestion)}` as never,
+      );
     },
     [dispatch, router],
   );
@@ -119,574 +125,588 @@ export default function SearchComponent() {
     inputRef.current?.focus();
   }, [dispatch]);
 
-  // Combine all typeahead suggestions
+  const handleCloseModal = useCallback(() => {
+    dispatch(setIsDropdownOpen(false));
+    Keyboard.dismiss();
+  }, [dispatch]);
+
   const typeaheadSuggestions = React.useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return [];
-
-    const pool = [
-      ...recentSearches,
-      ...suggestions,
-      ...TRENDING_TERMS,
-      ...POPULAR_TERMS,
-      ...suggestedProducts.map((p) => p.name),
-    ];
-
-    const ranked = [...new Set(pool)]
-      .map((i) => i.trim())
-      .filter(Boolean)
-      .filter((i) => i.toLowerCase().includes(q));
-
-    return ranked.slice(0, 10);
-  }, [searchQuery, recentSearches, suggestions, suggestedProducts]);
+    return suggestions.slice(0, 10);
+  }, [searchQuery, suggestions]);
 
   const hasLiveSuggestions =
     typeaheadSuggestions.length > 0 ||
     suggestedProducts.length > 0 ||
-    !!correctedQuery ||
-    !!aiInsights?.summary;
+    brands.length > 0 ||
+    categories.length > 0;
 
   const isSearching = searchQuery.trim().length > 0;
+  const shouldShowLiveSuggestions = isSearching && (hasLiveSuggestions || suggestionsLoading);
 
   return (
     <>
-      {/* Search Box */}
-      <View
-        style={[
-          styles.searchBox,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <Feather name="search" size={16} color={colors.mutedForeground} />
-        <TextInput
-          ref={inputRef}
-          placeholder="Search..."
-          placeholderTextColor={colors.mutedForeground}
-          value={searchQuery}
-          onChangeText={(text) => dispatch(setSearchQuery(text))}
-          onFocus={() => dispatch(setIsDropdownOpen(true))}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-          style={[styles.input, { color: colors.foreground }]}
-        />
-        {isSearching && (
-          <Pressable onPress={handleClearSearch} hitSlop={8}>
-            <Feather name="x" size={16} color={colors.mutedForeground} />
-          </Pressable>
-        )}
-      </View>
-
-      {/* Dropdown Modal */}
+      {/* Restaurant-Style Full-Screen Search Modal */}
       <Modal
         visible={isDropdownOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => dispatch(setIsDropdownOpen(false))}
+        transparent={false}
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={handleCloseModal}
       >
-        <Pressable
-          style={styles.dropdownBackdrop}
-          onPress={() => dispatch(setIsDropdownOpen(false))}
-        >
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          {/* Header with Back + Search Box */}
           <View
             style={[
-              styles.dropdownContent,
-              { backgroundColor: colors.background },
+              styles.header,
+              {
+                backgroundColor: colors.background,
+                borderBottomColor: colors.border,
+                paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 10 : 50,
+              },
             ]}
-            onStartShouldSetResponder={() => true}
           >
-            <SafeAreaView style={{ flex: 1 }}>
-              <ScrollView
-                style={styles.dropdownScroll}
-                showsVerticalScrollIndicator={false}
+            <View style={styles.headerRow}>
+              <TouchableOpacity
+                onPress={handleCloseModal}
+                hitSlop={12}
+                style={[styles.backBtn, { backgroundColor: colors.muted }]}
+                activeOpacity={0.7}
               >
-                {isSearching && hasLiveSuggestions ? (
-                  <>
-                    {/* Did You Mean */}
-                    {correctedQuery &&
-                      correctedQuery.toLowerCase() !==
-                        searchQuery.trim().toLowerCase() && (
-                        <Pressable
-                          style={[
-                            styles.didYouMeanBtn,
-                            { backgroundColor: colors.muted },
-                          ]}
-                          onPress={() => handleSelectSuggestion(correctedQuery)}
-                        >
-                          <Text
-                            style={[
-                              styles.didYouMeanLabel,
-                              { color: colors.mutedForeground },
-                            ]}
-                          >
-                            Did you mean
-                          </Text>
-                          <Text
-                            style={[
-                              styles.didYouMeanWord,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            "{correctedQuery}"
-                          </Text>
-                        </Pressable>
-                      )}
+                <Text style={[styles.backBtnText, { color: colors.foreground }]}>←</Text>
+              </TouchableOpacity>
 
-                    {/* AI Hint */}
-                    {aiInsights?.summary && (
-                      <View
-                        style={[
-                          styles.aiCard,
-                          { backgroundColor: colors.muted },
-                        ]}
-                      >
-                        <View style={styles.aiLabel}>
-                          <Ionicons
-                            name="sparkles"
-                            size={14}
-                            color={colors.primary}
-                          />
-                          <Text
-                            style={[
-                              styles.aiLabelText,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            AI Suggestion
-                          </Text>
-                        </View>
-                        <Text
-                          style={[
-                            styles.aiSummary,
-                            { color: colors.foreground },
-                          ]}
+              <View
+                style={[
+                  styles.searchBox,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <Text style={styles.searchIcon}>🔍</Text>
+                <TextInput
+                  ref={inputRef}
+                  placeholder="Search products, brands..."
+                  placeholderTextColor={colors.mutedForeground}
+                  value={searchQuery}
+                  onChangeText={(text) => dispatch(setSearchQuery(text))}
+                  onSubmitEditing={handleSearch}
+                  returnKeyType="search"
+                  autoFocus={true}
+                  style={[styles.input, { color: colors.foreground }]}
+                />
+                {isSearching && (
+                  <TouchableOpacity onPress={handleClearSearch} hitSlop={8} activeOpacity={0.7}>
+                    <View style={[styles.clearBtn, { backgroundColor: colors.muted }]}>
+                      <Text style={[styles.clearBtnText, { color: colors.mutedForeground }]}>✕</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {/* Scrollable Content */}
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={styles.contentInner}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {shouldShowLiveSuggestions ? (
+              <>
+                {/* Loading State */}
+                {suggestionsLoading && (
+                  <View style={styles.emptyState}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>
+                      Searching…
+                    </Text>
+                  </View>
+                )}
+
+                {/* No Results */}
+                {!suggestionsLoading && !hasLiveSuggestions && (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyEmoji}>🔍</Text>
+                    <Text style={[styles.emptyText, { color: colors.foreground }]}>
+                      No results found
+                    </Text>
+                    <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>
+                      Try a different search term
+                    </Text>
+                  </View>
+                )}
+
+                {/* Suggestions */}
+                {!suggestionsLoading && typeaheadSuggestions.length > 0 && (
+                  <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                      <View style={[styles.sectionIconBox, { backgroundColor: `${colors.primary}15` }]}>
+                        <Ionicons name="search" size={11} color={colors.primary} />
+                      </View>
+                      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+                        SUGGESTIONS
+                      </Text>
+                    </View>
+                    <View style={styles.suggestionsList}>
+                      {typeaheadSuggestions.map((item, idx) => (
+                        <TouchableOpacity
+                          key={`${item}-${idx}`}
+                          style={styles.suggestionRow}
+                          onPress={() => handleSelectSuggestion(item)}
+                          activeOpacity={0.6}
                         >
-                          {aiInsights.summary}
-                        </Text>
-                        {aiInsights.highlights &&
-                          aiInsights.highlights.length > 0 && (
-                            <View style={styles.aiHighlights}>
-                              {aiInsights.highlights.map((hint, idx) => (
-                                <Text
-                                  key={idx}
-                                  style={[
-                                    styles.aiHighlightItem,
-                                    { color: colors.mutedForeground },
-                                  ]}
-                                >
-                                  • {hint}
-                                </Text>
-                              ))}
+                          <Feather name="search" size={14} color={colors.mutedForeground} />
+                          <Text style={[styles.suggestionText, { color: colors.foreground }]} numberOfLines={1}>
+                            {item}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Suggested Products */}
+                {!suggestionsLoading && suggestedProducts.length > 0 && (
+                  <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                      <View style={[styles.sectionIconBox, { backgroundColor: `${colors.primary}15` }]}>
+                        <Text style={styles.sectionIconText}>✨</Text>
+                      </View>
+                      <Text style={[styles.sectionLabel, { color: colors.foreground }]}>
+                        Suggested Products
+                      </Text>
+                    </View>
+                    <ScrollView 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ paddingRight: 16 }}
+                    >
+                      {suggestedProducts.slice(0, 6).map((product) => (
+                        <TouchableOpacity
+                          key={product._id || product.name}
+                          style={[styles.productCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                          onPress={() => {
+                            dispatch(setIsDropdownOpen(false));
+                            router.push(`/product/${product._id}` as never);
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          {product.image ? (
+                            <Image source={{ uri: product.image }} style={[styles.productImage, { backgroundColor: colors.muted }]} />
+                          ) : (
+                            <View style={[styles.productImage, { backgroundColor: colors.muted, alignItems: 'center', justifyContent: 'center' }]}>
+                              <Text style={styles.productImagePlaceholder}>🛍️</Text>
                             </View>
                           )}
-                      </View>
-                    )}
-
-                    {/* Loading Indicator */}
-                    {suggestionsLoading && (
-                      <View style={styles.loadingContainer}>
-                        <ActivityIndicator
-                          size="small"
-                          color={colors.primary}
-                        />
-                      </View>
-                    )}
-
-                    {/* Typeahead Suggestions */}
-                    {!suggestionsLoading && typeaheadSuggestions.length > 0 && (
-                      <View>
-                        {typeaheadSuggestions.map((item) => {
-                          const isRecent = recentSearches.includes(item);
-                          return (
-                            <Pressable
-                              key={item}
-                              style={styles.suggestionItem}
-                              onPress={() => handleSelectSuggestion(item)}
-                            >
-                              <View
-                                style={[
-                                  styles.suggestionIcon,
-                                  isRecent && styles.recentIcon,
-                                  { backgroundColor: colors.muted },
-                                ]}
-                              >
-                                <Feather
-                                  name={isRecent ? "clock" : "search"}
-                                  size={14}
-                                  color={
-                                    isRecent
-                                      ? colors.primary
-                                      : colors.mutedForeground
-                                  }
-                                />
-                              </View>
-                              <Text
-                                style={[
-                                  styles.suggestionText,
-                                  { color: colors.foreground },
-                                ]}
-                              >
-                                {item}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    )}
-
-                    {/* Suggested Products */}
-                    {!suggestionsLoading && suggestedProducts.length > 0 && (
-                      <>
-                        <View style={styles.divider} />
-                        <Text
-                          style={[
-                            styles.sectionLabel,
-                            { color: colors.mutedForeground },
-                          ]}
-                        >
-                          SUGGESTED PRODUCTS
-                        </Text>
-                        {suggestedProducts.map((product) => (
-                          <Pressable
-                            key={product._id || product.name}
-                            style={styles.productCard}
-                            onPress={() => handleSelectSuggestion(product.name)}
-                          >
-                            <View
-                              style={[
-                                styles.productThumb,
-                                { backgroundColor: colors.muted },
-                              ]}
-                            >
-                              <Text style={styles.productThumbText}>🛍️</Text>
-                            </View>
-                            <View style={styles.productInfo}>
-                              <Text
-                                style={[
-                                  styles.productName,
-                                  { color: colors.foreground },
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {product.name}
-                              </Text>
-                              {product.brand && (
-                                <Text
-                                  style={[
-                                    styles.productBrand,
-                                    { color: colors.mutedForeground },
-                                  ]}
-                                  numberOfLines={1}
-                                >
-                                  {product.brand}
-                                </Text>
-                              )}
-                            </View>
-                          </Pressable>
-                        ))}
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {/* Recent Searches */}
-                    {recentSearches.length > 0 && (
-                      <>
-                        <Text
-                          style={[
-                            styles.sectionLabel,
-                            { color: colors.mutedForeground },
-                          ]}
-                        >
-                          <Feather name="clock" size={11} /> RECENT
-                        </Text>
-                        <View style={styles.chipRow}>
-                          {recentSearches.map((item) => (
-                            <Pressable
-                              key={item}
-                              style={[
-                                styles.chip,
-                                styles.recentChip,
-                                { borderColor: colors.primary },
-                              ]}
-                              onPress={() => handleSelectSuggestion(item)}
-                            >
-                              <Feather
-                                name="clock"
-                                size={11}
-                                color={colors.primary}
-                              />
-                              <Text
-                                style={[
-                                  styles.chipText,
-                                  { color: colors.primary },
-                                ]}
-                              >
-                                {item}
-                              </Text>
-                            </Pressable>
-                          ))}
-                        </View>
-                        <View style={styles.divider} />
-                      </>
-                    )}
-
-                    {/* Trending */}
-                    <Text
-                      style={[
-                        styles.sectionLabel,
-                        { color: colors.mutedForeground },
-                      ]}
-                    >
-                      <Ionicons name="flame" size={11} color="#ff6b2b" />{" "}
-                      TRENDING
-                    </Text>
-                    <View>
-                      {TRENDING_TERMS.map((item) => (
-                        <Pressable
-                          key={item}
-                          style={styles.suggestionItem}
-                          onPress={() => handleSelectSuggestion(item)}
-                        >
-                          <View
-                            style={[
-                              styles.suggestionIcon,
-                              { backgroundColor: colors.muted },
-                            ]}
-                          >
-                            <Ionicons name="flame" size={14} color="#ff6b2b" />
+                          <View style={styles.productInfo}>
+                            <Text style={[styles.productName, { color: colors.foreground }]} numberOfLines={2}>
+                              {product.name}
+                            </Text>
+                            <Text style={[styles.productPrice, { color: colors.primary }]}>₹{product.price}</Text>
                           </View>
-                          <Text
-                            style={[
-                              styles.suggestionText,
-                              { color: colors.foreground },
-                            ]}
-                          >
-                            {item}
-                          </Text>
-                        </Pressable>
+                        </TouchableOpacity>
                       ))}
-                    </View>
-
-                    {/* Most Searched */}
-                    <View style={styles.divider} />
-                    <Text
-                      style={[
-                        styles.sectionLabel,
-                        { color: colors.mutedForeground },
-                      ]}
-                    >
-                      MOST SEARCHED
-                    </Text>
-                    <View style={styles.chipRow}>
-                      {POPULAR_TERMS.map((item) => (
-                        <Pressable
-                          key={item}
-                          style={[
-                            styles.chip,
-                            styles.popularChip,
-                            { borderColor: colors.primary },
-                          ]}
-                          onPress={() => handleSelectSuggestion(item)}
-                        >
-                          <Text
-                            style={[styles.chipText, { color: colors.primary }]}
-                          >
-                            {item}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </>
+                    </ScrollView>
+                  </View>
                 )}
-              </ScrollView>
-            </SafeAreaView>
-          </View>
-        </Pressable>
+              </>
+            ) : (
+              <>
+                {/* Empty State */}
+                {recentKeywords.length === 0 && trending.length === 0 && topSearches.length === 0 && (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyEmoji}>🛍️</Text>
+                    <Text style={[styles.emptyText, { color: colors.foreground }]}>
+                      Find what you need
+                    </Text>
+                    <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>
+                      Start typing to search
+                    </Text>
+                  </View>
+                )}
+
+                {/* Recent Searches */}
+                {recentKeywords.length > 0 && (
+                  <View style={styles.section}>
+                    <View style={[styles.sectionHeader, { marginBottom: 14 }]}>
+                      <View style={[styles.sectionIconBox, { backgroundColor: "#DBEAFE" }]}>
+                        <Ionicons name="time" size={11} color="#2563EB" />
+                      </View>
+                      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+                        RECENT
+                      </Text>
+                    </View>
+                    <View style={styles.chipRow}>
+                      {recentKeywords.map((item) => (
+                        <TouchableOpacity
+                          key={item}
+                          style={styles.chip}
+                          onPress={() => handleSelectSuggestion(item)}
+                          activeOpacity={0.72}
+                        >
+                          <Ionicons name="time-outline" size={11} color="#2563EB" />
+                          <Text style={styles.chipText} numberOfLines={1}>
+                            {item}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <View style={[styles.sep, { backgroundColor: colors.border }]} />
+                  </View>
+                )}
+
+                {/* Trending */}
+                {(trending.length > 0 || topSearches.length > 0) && (
+                  <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                      <View style={[styles.sectionIconBox, { backgroundColor: "#FEE2E2" }]}>
+                        <Feather name="trending-up" size={11} color="#DC2626" />
+                      </View>
+                      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+                        TRENDING
+                      </Text>
+                    </View>
+                    <View style={styles.trendingList}>
+                      {(trending.length ? trending : topSearches).slice(0, 8).map((item, idx) => (
+                        <TouchableOpacity
+                          key={item}
+                          style={[styles.trendingRow, { backgroundColor: colors.card }]}
+                          onPress={() => handleSelectSuggestion(item)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.trendingRank}>{String(idx + 1).padStart(2, "0")}</Text>
+                          <View style={styles.trendingIconBox}>
+                            <Text style={styles.trendingEmoji}>🔥</Text>
+                          </View>
+                          <Text style={[styles.trendingLabel, { color: colors.foreground }]}>
+                            {item}
+                          </Text>
+                          <Feather name="arrow-up-right" size={14} color={colors.mutedForeground} />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <View style={[styles.sep, { backgroundColor: colors.border }]} />
+                  </View>
+                )}
+
+                {/* Popular Categories */}
+                {popularCategories.length > 0 && (
+                  <View style={styles.section}>
+                    <View style={[styles.sectionHeader, { marginBottom: 14 }]}>
+                      <View style={[styles.sectionIconBox, { backgroundColor: "#F3E8FF" }]}>
+                        <Feather name="star" size={11} color="#9333EA" />
+                      </View>
+                      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+                        POPULAR CATEGORIES
+                      </Text>
+                    </View>
+                    <View style={styles.chipRow}>
+                      {popularCategories.slice(0, 8).map((cat) => (
+                        <TouchableOpacity
+                          key={cat._id || cat.name}
+                          style={styles.popularChip}
+                          onPress={() => handleSelectSuggestion(cat.name)}
+                          activeOpacity={0.72}
+                        >
+                          <Text style={styles.popularChipText}>{cat.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Popular Brands */}
+                {(popularBrands.length > 0 || topSearches.length > 0) && (
+                  <View style={styles.section}>
+                    <View style={[styles.sectionHeader, { marginBottom: 14 }]}>
+                      <View style={[styles.sectionIconBox, { backgroundColor: "#F3E8FF" }]}>
+                        <Feather name="star" size={11} color="#9333EA" />
+                      </View>
+                      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+                        MOST SEARCHED
+                      </Text>
+                    </View>
+                    <View style={styles.chipRow}>
+                      {(popularBrands.length ? popularBrands.map((b) => b.name) : topSearches.slice(0, 8)).map(
+                        (item) => (
+                          <TouchableOpacity
+                            key={item}
+                            style={styles.popularChip}
+                            onPress={() => handleSelectSuggestion(item)}
+                            activeOpacity={0.72}
+                          >
+                            <Text style={styles.popularChipText}>{item}</Text>
+                          </TouchableOpacity>
+                        ),
+                      )}
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </View>
       </Modal>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  searchBox: {
+  container: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+  },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    gap: 10,
+  },
+  backBtn: {
+    width: 38,
+    height: 38,
     borderRadius: 12,
-    borderWidth: 1.5,
-    gap: 6,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  backBtnText: {
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  searchBox: {
     flex: 1,
-    maxWidth: 180,
+    flexDirection: "row",
+    alignItems: "center",
+    height: 44,
+    paddingHorizontal: 12,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    gap: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  searchIcon: {
+    fontSize: 16,
+    flexShrink: 0,
   },
   input: {
     flex: 1,
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    fontWeight: "500",
+    paddingVertical: 0,
+    paddingHorizontal: 0,
   },
-
-  dropdownBackdrop: {
+  clearBtn: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#9CA3AF",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  clearBtnText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  content: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
   },
-  dropdownContent: {
-    flex: 1,
-    marginTop: 120,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  dropdownScroll: {
+  contentInner: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 22,
+    paddingBottom: 48,
   },
-
-  loadingContainer: {
-    paddingVertical: 20,
-    alignItems: "center",
-  },
-
-  didYouMeanBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginBottom: 12,
-  },
-  didYouMeanLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-  },
-  didYouMeanWord: {
-    fontSize: 12,
-    fontFamily: "Inter_700Bold",
-  },
-
-  aiCard: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginBottom: 12,
-  },
-  aiLabel: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginBottom: 6,
-  },
-  aiLabelText: {
-    fontSize: 9,
-    fontFamily: "Inter_700Bold",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  aiSummary: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 16,
-    marginBottom: 6,
-  },
-  aiHighlights: {
-    gap: 3,
-  },
-  aiHighlightItem: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 15,
-  },
-
-  suggestionItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  suggestionIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+  emptyState: {
+    paddingVertical: 60,
     alignItems: "center",
     justifyContent: "center",
   },
-  recentIcon: {},
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  section: {
+    marginBottom: 4,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 14,
+  },
+  sectionIconBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionIconText: {
+    fontSize: 11,
+  },
+  sectionLabel: {
+    flex: 1,
+    fontSize: 10.5,
+    fontWeight: "700",
+    letterSpacing: 0.9,
+    textTransform: "uppercase",
+  },
+  suggestionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#f0f0f0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  suggestionIcon: {
+    width: 14,
+    height: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  suggestionIconEmoji: {
+    fontSize: 14,
+  },
   suggestionText: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    fontWeight: "500",
     flex: 1,
   },
-
-  sectionLabel: {
-    fontSize: 10,
-    fontFamily: "Inter_700Bold",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginTop: 4,
+  arrowText: {
+    fontSize: 14,
   },
-
   chipRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 8,
+    gap: 8,
   },
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    gap: 4,
-  },
-  recentChip: {
-    backgroundColor: "rgba(255, 107, 43, 0.08)",
-  },
-  popularChip: {
-    backgroundColor: "rgba(255, 107, 43, 0.08)",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
   },
   chipText: {
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
+    fontSize: 12.5,
+    fontWeight: "500",
+    color: "#2563EB",
+    maxWidth: 110,
   },
-
   productCard: {
+    width: 140,
+    marginRight: 14,
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  productImage: {
+    width: "100%",
+    height: 120,
+    resizeMode: "cover",
+  },
+  productImagePlaceholder: {
+    fontSize: 32,
+  },
+  productInfo: {
+    padding: 12,
+  },
+  productName: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 6,
+    lineHeight: 17,
+  },
+  productPrice: {
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  suggestionsList: { gap: 0 },
+  popularChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#F5F3FF",
+    borderWidth: 1,
+    borderColor: "#DDD6FE",
+  },
+  popularChipText: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: "#7C3AED",
+  },
+  trendingList: { gap: 6 },
+  trendingRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    gap: 10,
+    gap: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 14,
   },
-  productThumb: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+  trendingRank: {
+    width: 22,
+    textAlign: "center",
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#D1D5DB",
+  },
+  trendingIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    backgroundColor: "#FFF7ED",
     alignItems: "center",
     justifyContent: "center",
   },
-  productThumbText: {
-    fontSize: 18,
-  },
-  productInfo: {
+  trendingEmoji: { fontSize: 20 },
+  trendingLabel: {
     flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
   },
-  productName: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-    marginBottom: 2,
-  },
-  productBrand: {
-    fontSize: 10,
-    fontFamily: "Inter_400Regular",
-  },
-
-  divider: {
-    height: 1,
-    backgroundColor: "#f0f0f0",
-    marginVertical: 8,
+  sep: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 20,
+    opacity: 0.5,
   },
 });

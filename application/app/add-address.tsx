@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
   Animated,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Location from "expo-location";
 
@@ -200,6 +200,7 @@ export default function AddAddressScreen() {
   const colors = useColors();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
   const userData = useAppSelector((s) => s.app.userData);
   const params = useLocalSearchParams();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -380,7 +381,7 @@ export default function AddAddressScreen() {
       >
         <ScrollView
           ref={scrollViewRef}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -818,7 +819,6 @@ const styles = StyleSheet.create({
   // ── Layout ─────────────────────────────────────────────────────────────────
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
     gap: 14,
   },
   loadingCenter: {

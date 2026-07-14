@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppSelector } from "@/src/store";
 
 const T = {
@@ -21,6 +22,7 @@ export default function GoMarketShopSearchScreen() {
   const { id, q } = useLocalSearchParams<{ id: string; q?: string }>();
   const router = useRouter();
   const { isLogin } = useAppSelector((s: any) => s.app);
+  const insets = useSafeAreaInsets();
   const [cartDialogVisible, setCartDialogVisible] = useState(false);
 
   const initialQuery = typeof q === "string" ? q : "";
@@ -40,7 +42,10 @@ export default function GoMarketShopSearchScreen() {
 
       {/* Sticky Cart Button */}
       <TouchableOpacity
-        style={S.stickyCartBtn}
+        style={[
+          S.stickyCartBtn,
+          { bottom: Math.max(insets.bottom, 12) + 12 },
+        ]}
         onPress={() => setCartDialogVisible(true)}
         activeOpacity={0.9}
       >

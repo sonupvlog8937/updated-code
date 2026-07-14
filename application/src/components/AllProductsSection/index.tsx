@@ -31,7 +31,7 @@ import { fetchDataFromApi } from '../../utils/api';
 import ProductItem from '../ProductItem';
 import { Product, RootStackParamList } from '../../types';
 
-const PRODUCTS_PER_PAGE = 25;
+const PRODUCTS_PER_PAGE = 20;
 const { width } = Dimensions.get('window');
 const IS_SMALL_SCREEN = width < 375;
 const CARD_GAP = 8;

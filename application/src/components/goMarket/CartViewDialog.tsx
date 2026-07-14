@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppDispatch, useAppSelector } from "@/src/store";
 import { setCartData } from "@/src/store/appSlice";
 import { gmImg } from "@/src/utils/goMarketMedia";
@@ -51,6 +52,8 @@ type BusyState = {
 export function CartViewDialog({ visible, onClose }: CartViewDialogProps) {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
+  const footerBottomPadding = Math.max(insets.bottom, 12) + 10;
   const cartData = useAppSelector((s: any) => s.app.cartData || []);
   const slideAnim = useRef(new Animated.Value(SCREEN_W)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
@@ -280,7 +283,7 @@ export function CartViewDialog({ visible, onClose }: CartViewDialogProps) {
 
           {/* Footer */}
           {cartData.length > 0 && (
-            <View style={S.footer}>
+            <View style={[S.footer, { paddingBottom: footerBottomPadding }]}>
               <View style={S.totalRow}>
                 <Text style={S.totalLabel}>Total Amount</Text>
                 <Text style={S.totalAmount}>₹{totalAmount.toLocaleString("en-IN")}</Text>
@@ -504,7 +507,7 @@ const S = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: T.border,
     backgroundColor: T.white,

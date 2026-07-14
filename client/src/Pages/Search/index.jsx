@@ -405,6 +405,15 @@ const SearchPage = () => {
     setAiInsights(productsData?.aiInsights || null);
   }, [productsData, searchQuery]);
 
+  /* ── Execute search when query changes in URL ── */
+  useEffect(() => {
+    if (searchQuery && searchQuery.trim()) {
+      // Trigger Sidebar to fetch by ensuring all dependencies update
+      setProductsData({});
+      setIsLoading(true);
+    }
+  }, [searchQuery]);
+
   useEffect(() => { dispatch(setGlobalLoading(isLoading)); }, [isLoading, dispatch]);
 
   const paginatedProducts = productsData?.products || [];
@@ -583,13 +592,14 @@ const SearchPage = () => {
             </div>
 
             {/* Spell correction */}
-            {context?.searchData?.correctedQuery && (
+            {(context?.searchData?.didYouMean || context?.searchData?.correctedQuery) && (
               <div className="sp-correction">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}>
                   <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
-                Showing results for&nbsp;
-                <strong>"{context.searchData.correctedQuery}"</strong>
+                Did you mean&nbsp;
+                <strong>"{context.searchData.didYouMean || context.searchData.correctedQuery}"</strong>
+                ?
               </div>
             )}
 
@@ -640,12 +650,26 @@ const SearchPage = () => {
                   <div className="sp-empty">
                     <div className="sp-empty-icon">😕</div>
                     <h3 className="sp-display" style={{ fontSize: 20, fontWeight: 700, color: "#0d0d12", marginBottom: 8 }}>
-                      No Products Found
+                      No Exact Match Found
                     </h3>
                     <p style={{ fontSize: 14, color: "#9ca3af", maxWidth: 300, lineHeight: 1.65, margin: 0 }}>
                       No results for <strong style={{ color: "#0d0d12" }}>"{searchQuery}"</strong>.
-                      Try different keywords or remove some filters.
+                      Try different keywords or browse trending picks below.
                     </p>
+                    {(productsData?.related?.length > 0 || productsData?.popular?.length > 0) && (
+                      <div style={{ marginTop: 24, width: "100%" }}>
+                        <h4 className="sp-display" style={{ fontSize: 16, fontWeight: 700, color: "#0d0d12", marginBottom: 12 }}>
+                          Recommended For You
+                        </h4>
+                        <div className="sp-grid">
+                          {(productsData.related || productsData.popular || []).slice(0, 5).map((item, index) => (
+                            <div key={item?._id || index} className="sp-item">
+                              <ProductItem item={item} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {activeFiltersCount > 0 && (
                       <button className="sp-reset-btn" onClick={handleResetAllFilters}>
                         <MdClose size={13} /> Clear All Filters

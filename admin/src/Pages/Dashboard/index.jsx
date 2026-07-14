@@ -689,7 +689,8 @@ const Dashboard = () => {
 
   const context       = useContext(MyContext);
   const isSellerPanel = isSellerRole(context?.userData?.role);
-  
+  const isDeliveryRider = context?.userData?.role === "DELIVERY_RIDER";
+
   // Check if seller is a QuickCommerce seller (all shop sellers + restaurant)
   const isQuickCommerceSeller = GO_MARKET_SHOP_SELLERS.includes(context?.userData?.role) || context?.userData?.role === "RESTAURANT_SELLER";
 
@@ -815,6 +816,7 @@ const Dashboard = () => {
   const deliveredCount = orderStats.delivered || allOrders.filter(o => o?.order_status?.toLowerCase() === "delivered").length;
   const totalProducts  = productData?.products?.length || productData?.totalProducts || 0;
 
+  if (isDeliveryRider) return <DeliveryRiderDashboard context={context} />;
   if (isQuickCommerceSeller) return <QuickCommerceDashboard />;
   if (isSellerPanel) return <SellerDashboard context={context} />;
 

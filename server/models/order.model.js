@@ -99,6 +99,20 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    goMarketData: {
+      type: {
+        type: String,
+        default: "standard",
+      },
+      distanceKm: {
+        type: Number,
+        default: 0,
+      },
+      userLocation: {
+        type: Object,
+        default: null,
+      },
+    },
     discount_amount: {
       type: Number,
       default: 0,
@@ -133,7 +147,7 @@ const orderSchema = new mongoose.Schema(
       earningCredited: { type: Boolean, default: false },
       status: {
         type: String,
-        enum: ["unassigned", "assigned", "confirmed", "otp_sent", "delivered"],
+        enum: ["unassigned", "broadcast", "assigned", "confirmed", "otp_sent", "delivered"],
         default: "unassigned",
       },
     },

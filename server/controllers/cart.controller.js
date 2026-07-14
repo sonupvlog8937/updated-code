@@ -47,6 +47,7 @@ export const addToCartItemController = async (request, response) => {
       color,
       colorCode,
       selectedOptions,
+      source,
     } = request.body;
     if (!productId) {
       return response.status(402).json({
@@ -72,9 +73,17 @@ export const addToCartItemController = async (request, response) => {
       });
     }
 
-    const productDetails = await ProductModel.findById(productId).select(
-      "images colorOptions",
-    );
+    const productDetails = await ProductModel.findById(productId)
+      .select("images colorOptions seller")
+      .populate({
+        path: 'seller',
+        select: 'storeProfile',
+        populate: {
+          path: 'storeProfile.marketId',
+          select: 'latitude longitude'
+        }
+      });
+    
     const selectedImage =
       image || getImageFromSelectedColor(productDetails, color, colorCode);
 
@@ -84,6 +93,29 @@ export const addToCartItemController = async (request, response) => {
         error: true,
         success: false,
       });
+    }
+
+    // Get shop/restaurant coordinates from seller's storeProfile
+    let shopLatitude, shopLongitude, restaurantLatitude, restaurantLongitude, shopId, restaurantId;
+    
+    if (productDetails?.seller?.storeProfile) {
+      const storeProfile = productDetails.seller.storeProfile;
+      
+      // Check if it's a Go Market shop
+      if (storeProfile.marketId) {
+        shopId = productDetails.seller._id;
+        shopLatitude = storeProfile.marketId.latitude;
+        shopLongitude = storeProfile.marketId.longitude;
+        console.log("📍 Shop coordinates added to cart:", { shopLatitude, shopLongitude });
+      }
+      
+      // Check if it's a restaurant (you can add restaurant-specific logic here)
+      // For now, using same coordinates
+      if (storeProfile.marketId && source?.toLowerCase().includes('restaurant')) {
+        restaurantId = productDetails.seller._id;
+        restaurantLatitude = storeProfile.marketId.latitude;
+        restaurantLongitude = storeProfile.marketId.longitude;
+      }
     }
 
     const cartItem = new CartProductModel({
@@ -105,6 +137,13 @@ export const addToCartItemController = async (request, response) => {
       color: color,
       colorCode: colorCode,
       selectedOptions: selectedOptions || {},
+      source: source || "",
+      shopId: shopId || "",
+      shopLatitude: shopLatitude,
+      shopLongitude: shopLongitude,
+      restaurantId: restaurantId || "",
+      restaurantLatitude: restaurantLatitude,
+      restaurantLongitude: restaurantLongitude,
     });
 
     const save = await cartItem.save();

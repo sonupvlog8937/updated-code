@@ -52,9 +52,12 @@ export { default as productsReducer } from "./productsSlice";
 // Export search slice
 export {
     clearRecentSearches, clearSearchQuery,
-    clearSearchResults, fetchSearchSuggestions, loadRecentSearches, performSearch, removeFromRecentSearches, saveRecentSearch, setIsDropdownOpen, setSearchQuery, type AIInsights, type SearchResponse, type SearchState,
-    type SearchSuggestion
+    clearSearchResults, fetchSearchDefaults, fetchSearchSuggestions, loadRecentSearches, performSearch, removeFromRecentSearches, saveRecentSearch, setIsDropdownOpen, setSearchQuery, type SearchState,
+    type SearchProduct, type SearchCategory, type SearchBrand, type RecentSearchItem
 } from "./searchSlice";
+
+// Alias for actions used in SearchComponent
+export { removeFromRecentSearches as deleteRecentSearch, clearRecentSearches as clearAllRecentSearches } from "./searchSlice";
 
 // Export seller store slice
 export {

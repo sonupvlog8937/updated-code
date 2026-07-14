@@ -11,6 +11,7 @@ import {
   SafeAreaView,
   RefreshControl,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -66,6 +67,8 @@ export default function StoreScreen() {
   const { sellerId } = useLocalSearchParams<{ sellerId: string }>();
   const colors = useColors();
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
+  const footerBottomPadding = Math.max(insets.bottom, 12) + 12;
 
   // Redux state
   const {
@@ -566,7 +569,7 @@ export default function StoreScreen() {
         </ScrollView>
 
         {/* Footer buttons */}
-        <View style={[styles.filterFooter, { borderTopColor: colors.border }]}>
+        <View style={[styles.filterFooter, { borderTopColor: colors.border, paddingBottom: footerBottomPadding }]}>
           {activeFilterCount > 0 && (
             <TouchableOpacity
               onPress={handleResetFilters}

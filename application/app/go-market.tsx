@@ -38,6 +38,7 @@ export default function GoMarketScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [locBusy, setLocBusy] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [showNearby, setShowNearby] = useState(false);
   const fade = useRef(new Animated.Value(0)).current;
 
   const { markets, nearbyMarkets, loading } = useAppSelector((s: any) => s.goMarket);
@@ -75,8 +76,8 @@ export default function GoMarketScreen() {
   }, []);
 
   const allMarkets = useMemo(
-    () => Array.from(new Map([...nearbyMarkets, ...markets].map((m: any) => [m._id, m])).values()),
-    [markets, nearbyMarkets],
+    () => showNearby ? nearbyMarkets : Array.from(new Map([...nearbyMarkets, ...markets].map((m: any) => [m._id, m])).values()),
+    [markets, nearbyMarkets, showNearby],
   );
 
   // Fuzzy search function - matches even with typos
@@ -137,7 +138,7 @@ export default function GoMarketScreen() {
       if (result?.data && result.data.length > 0) {
         const nearestMarket = result.data[0];
         console.log("🎯 Navigating to nearest market:", nearestMarket.name);
-        await saveAndNavigate(nearestMarket._id);
+        await saveAndNavigate(nearestMarket._id, { lat: loc.coords.latitude, lng: loc.coords.longitude }, "Current location");
       } else {
         Alert.alert("No markets found", "No nearby markets found in your area.");
       }
@@ -152,6 +153,7 @@ export default function GoMarketScreen() {
   const handleSearchChange = (text: string) => {
     setSearch(text);
     setShowSuggestions(text.trim().length > 0);
+    setShowNearby(false);
   };
 
   const handleSuggestionClick = (market: any) => {
@@ -160,10 +162,8 @@ export default function GoMarketScreen() {
     saveAndNavigate(market._id);
   };
 
-  const saveAndNavigate = async (marketId: string) => {
-    // Save preferred market to database
-    await dispatch(savePreferredMarket(marketId));
-    // Navigate to market page
+  const saveAndNavigate = async (marketId: string, location?: { lat: number; lng: number }, address?: string) => {
+    await dispatch(savePreferredMarket({ marketId, location, address }));
     router.push(`/go-market-market/${marketId}` as never);
   };
 

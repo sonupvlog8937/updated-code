@@ -152,6 +152,24 @@ const userSchema = mongoose.Schema({
         ref: 'Market',
         default: null
          },
+    goMarketLocation: {
+        type: {
+            type: String,
+            default: "Point"
+        },
+        coordinates: {
+            type: [Number],
+            default: [0, 0]
+        },
+        address: {
+            type: String,
+            default: ""
+        },
+        updatedAt: {
+            type: Date,
+            default: null
+        }
+    },
     riderProfile: {
         marketId: { type: mongoose.Schema.ObjectId, ref: 'Market', default: null },
         drivingLicense: { type: String, default: "" },

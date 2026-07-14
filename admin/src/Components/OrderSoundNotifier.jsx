@@ -80,7 +80,7 @@ const playProfessionalOrderTone = (audioCtxRef) => {
   return true;
 };
 
-const OrderSoundNotifier = () => {
+const OrderSoundNotifier = ({ inline = false }) => {
   const context = useContext(MyContext);
   const role = context?.userData?.role;
   const isSeller = SELLER_ROLES.includes(role);
@@ -187,6 +187,11 @@ const OrderSoundNotifier = () => {
     : settings.enabled ? "#4caf50"
     : "#bdbdbd";
 
+  const handleToggleClick = (event) => {
+    event.stopPropagation();
+    toggleEnabled();
+  };
+
   const widget = (
     <div
       aria-label="Order notification sound controls"
@@ -195,7 +200,7 @@ const OrderSoundNotifier = () => {
         top: "0px",
         left: "50%",
         transform: "translateX(-50%)",
-        zIndex: 2147483647,           /* max possible z-index */
+        zIndex: 2147483647,
         display: "flex",
         alignItems: "center",
         gap: "10px",
@@ -210,7 +215,6 @@ const OrderSoundNotifier = () => {
         pointerEvents: "auto",
       }}
     >
-      {/* Pulse dot */}
       <div
         aria-hidden="true"
         style={{
@@ -225,7 +229,6 @@ const OrderSoundNotifier = () => {
         }}
       />
 
-      {/* Text body */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: "12px", fontWeight: 600, color: "#212121", lineHeight: 1.3 }}>
           {label}
@@ -235,9 +238,8 @@ const OrderSoundNotifier = () => {
         </div>
       </div>
 
-      {/* Toggle button */}
       <button
-        onClick={toggleEnabled}
+        onClick={handleToggleClick}
         type="button"
         style={{
           fontSize: "11px",
@@ -255,10 +257,9 @@ const OrderSoundNotifier = () => {
         {statusLabel}
       </button>
 
-      {/* Unlock button */}
       {settings.enabled && !settings.unlocked && (
         <button
-          onClick={unlockAudio}
+          onClick={(event) => { event.stopPropagation(); unlockAudio(); }}
           type="button"
           style={{
             fontSize: "11px",
@@ -278,7 +279,67 @@ const OrderSoundNotifier = () => {
     </div>
   );
 
-  /* Portal — renders directly on <body>, bypasses ALL parent stacking contexts */
+  if (inline) {
+    return (
+      <div
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          padding: "8px 12px",
+          minWidth: "260px",
+          color: "inherit",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+          <div>
+            <div style={{ fontSize: "13px", fontWeight: 600 }}>{label}</div>
+            <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>
+              {statusLabel}
+            </div>
+          </div>
+          <button
+            onClick={handleToggleClick}
+            type="button"
+            style={{
+              fontSize: "11px",
+              fontWeight: 600,
+              padding: "6px 12px",
+              borderRadius: "6px",
+              border: "none",
+              cursor: "pointer",
+              background: settings.enabled ? "#212121" : "#eeeeee",
+              color: settings.enabled ? "#ffffff" : "#616161",
+            }}
+          >
+            {statusLabel}
+          </button>
+        </div>
+        {settings.enabled && !settings.unlocked && (
+          <button
+            onClick={(event) => { event.stopPropagation(); unlockAudio(); }}
+            type="button"
+            style={{
+              fontSize: "11px",
+              fontWeight: 600,
+              padding: "6px 12px",
+              borderRadius: "6px",
+              border: "1px solid #212121",
+              cursor: "pointer",
+              background: "transparent",
+              color: "#212121",
+              width: "100%",
+              textAlign: "center",
+            }}
+          >
+            Enable sound
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return ReactDOM.createPortal(widget, document.body);
 };
 

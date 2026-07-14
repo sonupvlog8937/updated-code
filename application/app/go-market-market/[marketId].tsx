@@ -1,5 +1,7 @@
 import { fetchDataFromApi } from "@/src/utils/api";
 import { gmImg, GO_MARKET_FALLBACK, GO_MARKET_LOGO_FALLBACK } from "@/src/utils/goMarketMedia";
+import { getOutletBaseMinutes, getOutletDistanceEta } from "@/src/utils/geoCoords";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   followGoRestaurant,
   followGoShop,
@@ -9,7 +11,8 @@ import {
   useAppSelector,
 } from "@/src/store";
 import { showToast } from "@/src/utils/toast";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import * as Location from "expo-location";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -31,6 +34,7 @@ import {
 } from "react-native";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const GM_LOC_KEY = "gm_user_location";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
@@ -70,6 +74,16 @@ const T = {
   restaurantText: "#B45309",
   groceryBg: "#EBF5FF",
   groceryText: "#1D4ED8",
+  fashionBg: "#FDF2F8",
+  fashionText: "#BE185D",
+  electronicsBg: "#F0FDF4",
+  electronicsText: "#15803D",
+  medicalBg: "#FEF2F2",
+  medicalText: "#DC2626",
+  beautyBg: "#FFF7ED",
+  beautyText: "#C2410C",
+  defaultBg: "#F3F4F6",
+  defaultText: "#4B5563",
 
   // Radii
   r4: 4,
@@ -146,12 +160,27 @@ function FollowButton({ isFollowing, onPress }: { isFollowing: boolean; onPress:
 }
 
 // ─── Type badge ────────────────────────────────────────────────────────────────
+const SHOP_TYPE_CONFIG: Record<string, { icon: string; label: string; bg: string; color: string }> = {
+  restaurant: { icon: "🍽", label: "Restaurant", bg: T.restaurantBg, color: T.restaurantText },
+  grocery: { icon: "🛒", label: "Grocery", bg: T.groceryBg, color: T.groceryText },
+  fashion: { icon: "👕", label: "Fashion", bg: T.fashionBg, color: T.fashionText },
+  electronics: { icon: "📱", label: "Electronics", bg: T.electronicsBg, color: T.electronicsText },
+  medical: { icon: "💊", label: "Medical", bg: T.medicalBg, color: T.medicalText },
+  beauty: { icon: "💄", label: "Beauty", bg: T.beautyBg, color: T.beautyText },
+  home_kitchen: { icon: "🏠", label: "Home & Kitchen", bg: T.defaultBg, color: T.defaultText },
+  gifts_toys: { icon: "🎁", label: "Gifts & Toys", bg: T.defaultBg, color: T.defaultText },
+  books_stationery: { icon: "📚", label: "Books", bg: T.defaultBg, color: T.defaultText },
+  jewellery: { icon: "💎", label: "Jewellery", bg: T.defaultBg, color: T.defaultText },
+  hardware: { icon: "🔧", label: "Hardware", bg: T.defaultBg, color: T.defaultText },
+  automobile: { icon: "🚗", label: "Automobile", bg: T.defaultBg, color: T.defaultText },
+};
+
 function TypeBadge({ type }: { type: string }) {
-  const isRest = type === "restaurant";
+  const config = SHOP_TYPE_CONFIG[type] || SHOP_TYPE_CONFIG.grocery;
   return (
-    <View style={[S.typeBadge, { backgroundColor: isRest ? T.restaurantBg : T.groceryBg }]}>
-      <Text style={[S.typeBadgeTxt, { color: isRest ? T.restaurantText : T.groceryText }]}>
-        {isRest ? "🍽  Restaurant" : "🛒  Grocery"}
+    <View style={[S.typeBadge, { backgroundColor: config.bg }]}>
+      <Text style={[S.typeBadgeTxt, { color: config.color }]}>
+        {config.icon}  {config.label}
       </Text>
     </View>
   );
@@ -198,7 +227,7 @@ export default function GoMarketMarketScreen() {
   const { marketId } = useLocalSearchParams<{ marketId: string }>();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { isLogin } = useAppSelector((s: any) => s.app);
+  const { isLogin, userData } = useAppSelector((s: any) => s.app);
   const [authChecked, setAuthChecked] = useState(false);
 
   // Wait for auth to be checked before redirecting
@@ -235,6 +264,44 @@ export default function GoMarketMarketScreen() {
   const [totalPages, setTotalPages] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+  const [userLocation, setUserLocationState] = useState<{ lat: number; lng: number } | null>(null);
+  const locationSourceRef = useRef<"gps" | "address" | "cache" | null>(null);
+
+  const applyAddressFallback = useCallback(() => {
+    if (locationSourceRef.current === "gps") return;
+    const addresses: any[] = userData?.address_details || [];
+    const selected = addresses.find((a: any) => a.selected) || addresses[0];
+    if (selected?.latitude && selected?.longitude) {
+      locationSourceRef.current = "address";
+      const loc = { lat: Number(selected.latitude), lng: Number(selected.longitude) };
+      setUserLocationState(loc);
+      AsyncStorage.setItem(GM_LOC_KEY, JSON.stringify(loc)).catch(() => {});
+    }
+  }, [userData]);
+
+  const setUserLocation = useCallback((loc: { lat: number; lng: number }, source: "gps" | "address" | "cache" = "cache") => {
+    if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return;
+    if (locationSourceRef.current === "gps" && source !== "gps") return;
+    locationSourceRef.current = source;
+    setUserLocationState(loc);
+    AsyncStorage.setItem(GM_LOC_KEY, JSON.stringify(loc)).catch(() => {});
+  }, []);
+
+  const refreshCurrentLocation = useCallback(async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        applyAddressFallback();
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude }, "gps");
+    } catch {
+      applyAddressFallback();
+    }
+  }, [setUserLocation, applyAddressFallback]);
 
   const searchInputRef = useRef<TextInput>(null);
   const headerOpacity = useRef(new Animated.Value(1)).current;
@@ -246,33 +313,66 @@ export default function GoMarketMarketScreen() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // ── Suggestions ──
+  // Restore cached location, then address while GPS loads
   useEffect(() => {
-    if (search.trim().length < 1) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-    setLoadingSuggestions(true);
-    setShowSuggestions(true);
-    const params = new URLSearchParams({ q: search.trim(), type, limit: "8" });
-    fetchDataFromApi(`/api/go-market/markets/${marketId}/shop-suggestions?${params}`)
-      .then((res) => {
-        if (res?.success || res?.error === false) setSuggestions(res.suggestions || []);
+    let cancelled = false;
+    AsyncStorage.getItem(GM_LOC_KEY)
+      .then((raw) => {
+        if (cancelled || !raw) return;
+        const parsed = JSON.parse(raw);
+        if (Number.isFinite(parsed?.lat) && Number.isFinite(parsed?.lng)) {
+          setUserLocation({ lat: parsed.lat, lng: parsed.lng }, "cache");
+        }
       })
-      .catch(() => setSuggestions([]))
-      .finally(() => setLoadingSuggestions(false));
-  }, [search, marketId, type]);
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [setUserLocation]);
+
+  useEffect(() => {
+    if (locationSourceRef.current) return;
+    applyAddressFallback();
+  }, [userData, applyAddressFallback]);
+
+  // Refresh GPS on screen focus — updates cards only, no shop reload
+  useFocusEffect(
+    useCallback(() => {
+      refreshCurrentLocation();
+    }, [refreshCurrentLocation]),
+  );
+
+  // ── Suggestions disabled for Go Market ──
+  // useEffect(() => {
+  //   if (search.trim().length < 1) {
+  //     setSuggestions([]);
+  //     setShowSuggestions(false);
+  //     return;
+  //   }
+  //   setLoadingSuggestions(true);
+  //   setShowSuggestions(true);
+  //   const params = new URLSearchParams({ q: search.trim(), type, limit: "8" });
+  //   fetchDataFromApi(`/api/go-market/markets/${marketId}/shop-suggestions?${params}`)
+  //     .then((res) => {
+  //       if (res?.success || res?.error === false) setSuggestions(res.suggestions || []);
+  //     })
+  //     .catch(() => setSuggestions([]))
+  //     .finally(() => setLoadingSuggestions(false));
+  // }, [search, marketId, type]);
+
+  const loadingMoreRef = useRef(false);
+  const hasMoreRef = useRef(true);
 
   // ── Load outlets ──
   const load = useCallback(
     (pageNum: number, append: boolean) => {
       if (!marketId) return;
       if (append) {
-        if (loadingMore || !hasMore) return;
+        if (loadingMoreRef.current || !hasMoreRef.current) return;
+        loadingMoreRef.current = true;
         setLoadingMore(true);
       } else {
         setLoading(true);
+        setOutlets([]);  // clear immediately so skeleton shows on tab/filter change
+        hasMoreRef.current = true;
         setHasMore(true);
       }
       const params = new URLSearchParams({
@@ -294,22 +394,26 @@ export default function GoMarketMarketScreen() {
             const cur = res.pagination?.currentPage || pageNum;
             const total = res.pagination?.totalPages || 1;
             setHasMore(cur < total);
+            hasMoreRef.current = cur < total;
           }
         })
-        .catch(() => setHasMore(false))
+        .catch(() => {
+          setHasMore(false);
+          hasMoreRef.current = false;
+        })
         .finally(() => {
           setLoading(false);
+          loadingMoreRef.current = false;
           setLoadingMore(false);
           setRefreshing(false);
         });
     },
-    [marketId, type, sort, debouncedSearch, openOnly, minRating, loadingMore, hasMore],
+    [marketId, type, sort, debouncedSearch, openOnly, minRating],
   );
 
   useEffect(() => {
-    setPage(1);
     load(1, false);
-  }, [type, sort, debouncedSearch, openOnly, minRating, marketId]);
+  }, [type, sort, debouncedSearch, openOnly, minRating, marketId, load]);
 
   const handleLoadMore = () => {
     if (!loadingMore && !loading && hasMore && page < totalPages) load(page + 1, true);
@@ -318,6 +422,7 @@ export default function GoMarketMarketScreen() {
   const handleRefresh = () => {
     setRefreshing(true);
     setPage(1);
+    refreshCurrentLocation();
     load(1, false);
   };
 
@@ -389,6 +494,28 @@ export default function GoMarketMarketScreen() {
   // ─────────────────────────────────────────────────────────────────────────────
   const renderOutlet = ({ item: o, index }: { item: any; index: number }) => {
     const isFollowing = o.isFollowing;
+
+    const { distanceDisplay, estimatedTime } = getOutletDistanceEta({
+      userLat: userLocation?.lat ?? null,
+      userLng: userLocation?.lng ?? null,
+      shopLat: o.latitude,
+      shopLng: o.longitude,
+      marketLat: market?.latitude,
+      marketLng: market?.longitude,
+      baseMinutes: getOutletBaseMinutes(o.outletType),
+    });
+    
+    // Debug log
+    if (index === 0) {
+      console.log('🔍 Distance Debug:', {
+        userLocation,
+        shopCoords: { lat: o.latitude, lng: o.longitude },
+        marketCoords: { lat: market?.latitude, lng: market?.longitude },
+        distanceDisplay,
+        estimatedTime
+      });
+    }
+    
     return (
       <View style={S.cardWrap}>
         {/* Banner */}
@@ -445,6 +572,22 @@ export default function GoMarketMarketScreen() {
               <StatChip icon="💬" value={o.reviewCount || 0} label="reviews" />
               <StatChip icon="📦" value={o.totalProducts || 0} label="items" />
             </View>
+
+            {/* Distance & Delivery Time */}
+            {distanceDisplay != null && (
+              <View style={S.distanceRow}>
+                <View style={S.distanceChip}>
+                  <Text style={S.distanceIcon}>📍</Text>
+                  <Text style={S.distanceText}>{distanceDisplay}</Text>
+                </View>
+                {estimatedTime != null && (
+                  <View style={[S.distanceChip, { backgroundColor: "#FEF3C7" }]}>
+                    <Text style={S.distanceIcon}>🕐</Text>
+                    <Text style={[S.distanceText, { color: "#92400E" }]}>{estimatedTime} min</Text>
+                  </View>
+                )}
+              </View>
+            )}
 
             {!!o.meta && (
               <View style={S.metaChip}>
@@ -553,7 +696,7 @@ export default function GoMarketMarketScreen() {
               value={search}
               onChangeText={setSearch}
               returnKeyType="search"
-              onFocus={() => search.trim().length > 0 && setShowSuggestions(true)}
+              onFocus={() => {}} // Suggestions disabled
               onSubmitEditing={() => setShowSuggestions(false)}
             />
             {search.length > 0 && (
@@ -590,15 +733,15 @@ export default function GoMarketMarketScreen() {
                     onPress={() => handleSuggestionSelect(s)}
                   >
                     <View style={S.suggestIconWrap}>
-                      <Text style={{ fontSize: 18 }}>{s.type === "restaurant" ? "🍽️" : "🛒"}</Text>
+                      <Text style={{ fontSize: 18 }}>{(SHOP_TYPE_CONFIG[s.type] || SHOP_TYPE_CONFIG.grocery).icon}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={S.suggestName} numberOfLines={1}>{s.label || s.displayName}</Text>
                       <Text style={S.suggestAddr} numberOfLines={1}>{s.address}</Text>
                     </View>
-                    <View style={[S.suggestTypePill, { backgroundColor: s.type === "restaurant" ? T.restaurantBg : T.groceryBg }]}>
-                      <Text style={{ fontSize: 10, fontWeight: "700", color: s.type === "restaurant" ? T.restaurantText : T.groceryText }}>
-                        {s.type === "restaurant" ? "Restaurant" : "Grocery"}
+                    <View style={[S.suggestTypePill, { backgroundColor: (SHOP_TYPE_CONFIG[s.type] || SHOP_TYPE_CONFIG.grocery).bg }]}>
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: (SHOP_TYPE_CONFIG[s.type] || SHOP_TYPE_CONFIG.grocery).color }}>
+                        {(SHOP_TYPE_CONFIG[s.type] || SHOP_TYPE_CONFIG.grocery).label}
                       </Text>
                     </View>
                   </Pressable>
@@ -688,9 +831,9 @@ export default function GoMarketMarketScreen() {
       </View>
 
       {/* Skeleton loading */}
-      {loading && !outlets.length && (
+      {loading && (
         <View style={{ paddingHorizontal: 14, paddingTop: 4 }}>
-          {[0, 1, 2].map((i) => <SkeletonCard key={i} />)}
+          {[0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)}
         </View>
       )}
     </View>
@@ -704,6 +847,7 @@ export default function GoMarketMarketScreen() {
         data={loading ? [] : outlets}
         keyExtractor={(o, idx) => `${o.outletType}-${o._id}-${idx}`}
         renderItem={renderOutlet}
+        extraData={userLocation}
         ListHeaderComponent={ListHeader}
         contentContainerStyle={{ paddingBottom: 100 }}
         onEndReached={handleLoadMore}
@@ -1131,6 +1275,28 @@ const S = StyleSheet.create({
     marginTop: 8,
   },
   metaChipTxt: { fontSize: 11, color: T.primary, fontWeight: "600" },
+
+  // ── Distance & delivery time ──
+  distanceRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 8,
+    flexWrap: "wrap",
+  },
+  distanceChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#EEF2FF",
+    borderRadius: T.r999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  distanceIcon: { fontSize: 11 },
+  distanceText: { fontSize: 11, fontWeight: "700", color: "#3730A3" },
   cardActions: {
     flexDirection: "row",
     gap: 8,

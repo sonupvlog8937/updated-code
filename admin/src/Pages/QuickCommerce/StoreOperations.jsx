@@ -71,6 +71,7 @@ const StoreOperations = () => {
   const context = useContext(MyContext);
   const role = context?.userData?.role;
   const isGrocery = role === "GROCERY_SELLER";
+  const isFixedDelivery = role === "GROCERY_SELLER" || role === "RESTAURANT_SELLER";
   const theme = isGrocery
     ? { primary: "#059669", bg: "#ecfdf5", title: "Grocery store operations" }
     : { primary: "#ea580c", bg: "#fff7ed", title: "Restaurant kitchen operations" };
@@ -116,9 +117,9 @@ const StoreOperations = () => {
     setSaving(true);
     const payload = {
       isOpen: form.isOpen,
-      deliveryMinutes: Number(form.deliveryMinutes),
       minOrderValue: Number(form.minOrderValue),
     };
+    if (!isFixedDelivery) payload.deliveryMinutes = Number(form.deliveryMinutes);
     if (!isGrocery) payload.avgPrepMinutes = Number(form.avgPrepMinutes);
 
     editData("/api/user/seller/quick-commerce/outlet", payload).then((res) => {
@@ -225,9 +226,10 @@ const StoreOperations = () => {
             <label>Delivery promise (minutes)</label>
             <input
               type="number"
-              min={5}
+              min={0}
               max={120}
-              value={form.deliveryMinutes}
+              disabled={isFixedDelivery}
+              value={isFixedDelivery ? 0 : form.deliveryMinutes}
               onChange={(e) => setForm((f) => ({ ...f, deliveryMinutes: e.target.value }))}
             />
           </div>
@@ -254,6 +256,11 @@ const StoreOperations = () => {
           )}
         </div>
 
+        {isFixedDelivery && (
+          <p className="ops-info">
+            Delivery promise is managed by the platform and cannot be changed from this panel.
+          </p>
+        )}
         <p className="ops-info">
           Tip: Keep delivery promise realistic — customers see this on checkout, similar to quick-commerce apps like Blinkit or Flipkart Minutes.
         </p>

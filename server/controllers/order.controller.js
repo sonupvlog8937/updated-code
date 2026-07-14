@@ -12,6 +12,8 @@ import OrderConfirmationEmail from "../utils/orderEmailTemplate.js";
 import getOtpEmailHtml from "../utils/emailTemplates.js";
 import sendEmailFun from "../config/sendEmail.js";
 import { getRazorpayCredentials } from "./payment.controller.js";
+import { calculateGoMarketFees, isGoMarketOrder } from "../utils/goMarketPricing.js";
+import AppSettings from "../models/appSettings.model.js";
 
 
 const isRazorpaySignaturePayload = (body = {}) =>
@@ -196,31 +198,49 @@ export const createOrderController = async (request, response) => {
         }
 
         const productsWithSeller = await attachSellerToProducts(request.body.products);
+        const goMarketOrder = isGoMarketOrder(productsWithSeller);
 
         // Check if this is user's first order
         const existingOrders = await OrderModel.countDocuments({ userId: request.body.userId });
         const isFirstOrder = existingOrders === 0;
 
-        console.log("🔍 First Order Check:", {
-            userId: request.body.userId,
-            existingOrders,
-            isFirstOrder,
-            requestShipping: request.body.shippingFee,
-            requestDelivery: request.body.deliveryFee,
-            requestTotal: request.body.totalAmt
-        });
+        let settings = await AppSettings.findOne({ key: "commerce" }).lean();
+        settings = settings || {};
 
-        // Recalculate shipping and delivery fees for first order
-        const shippingFee = isFirstOrder ? 0 : (request.body.shippingFee || 0);
-        const deliveryFee = isFirstOrder ? 0 : (request.body.deliveryFee || 0);
-        
-        // Recalculate total amount if first order (subtract fees from frontend total)
+        let shippingFee = 0;
+        let deliveryFee = 0;
         let totalAmt = request.body.totalAmt;
-        if (isFirstOrder && (request.body.shippingFee || request.body.deliveryFee)) {
-            totalAmt = totalAmt - (request.body.shippingFee || 0) - (request.body.deliveryFee || 0);
+
+        if (goMarketOrder) {
+            const feeResult = calculateGoMarketFees({
+                settings,
+                subtotal: Number(request.body.subtotal || request.body.subTotal || request.body.totalAmt || 0),
+                distanceKm: Number(request.body.distanceKm || 0),
+                isFirstOrder,
+            });
+            shippingFee = feeResult.shippingFee;
+            deliveryFee = feeResult.deliveryFee;
+            totalAmt = feeResult.total;
+        } else {
+            console.log("🔍 First Order Check:", {
+                userId: request.body.userId,
+                existingOrders,
+                isFirstOrder,
+                requestShipping: request.body.shippingFee,
+                requestDelivery: request.body.deliveryFee,
+                requestTotal: request.body.totalAmt
+            });
+
+            shippingFee = isFirstOrder ? 0 : (request.body.shippingFee || 0);
+            deliveryFee = isFirstOrder ? 0 : (request.body.deliveryFee || 0);
+            
+            if (isFirstOrder && (request.body.shippingFee || request.body.deliveryFee)) {
+                totalAmt = totalAmt - (request.body.shippingFee || 0) - (request.body.deliveryFee || 0);
+            }
         }
 
         console.log("✅ Final Order Values:", {
+            goMarketOrder,
             shippingFee,
             deliveryFee,
             totalAmt,
@@ -239,6 +259,11 @@ export const createOrderController = async (request, response) => {
             shippingFee: shippingFee,
             deliveryFee: deliveryFee,
             discount_amount: request.body.discount_amount || request.body.discountAmount || 0,
+            goMarketData: {
+                orderType: goMarketOrder ? "go_market" : "standard",
+                distanceKm: Number(request.body.distanceKm || 0),
+                userLocation: request.body.userLocation || null,
+            },
             date: request.body.date
         });
 
@@ -1166,6 +1191,54 @@ export const listDeliveryRidersController = async (request, response) => {
     }
 };
 
+export const broadcastOrderToMarketController = async (request, response) => {
+    try {
+        const order = await OrderModel.findOne({ _id: request.params.id, "products.sellerId": request.userId });
+        if (!order && request.currentUser?.role !== "ADMIN") {
+            return response.status(404).json({ success: false, error: true, message: "Seller order not found" });
+        }
+
+        const targetOrder = order || await OrderModel.findById(request.params.id);
+        if (!targetOrder) return response.status(404).json({ success: false, error: true, message: "Order not found" });
+
+        if (targetOrder.deliveryAssignment?.riderId || ["assigned", "confirmed", "otp_sent", "delivered"].includes(targetOrder.deliveryAssignment?.status)) {
+            return response.status(400).json({ success: false, error: true, message: "Order is already assigned or in delivery" });
+        }
+
+        const marketIds = request.currentUser?.role === "ADMIN"
+            ? []
+            : await getSellerMarketIds(request.userId, request.currentUser?.email);
+
+        const riderQuery = { role: "DELIVERY_RIDER", status: "Active" };
+        if (request.currentUser?.role !== "ADMIN") {
+            if (!marketIds.length) {
+                return response.status(400).json({ success: false, error: true, message: "No active market found for this seller" });
+            }
+            riderQuery["riderProfile.marketId"] = { $in: marketIds };
+        }
+
+        const activeRiders = await UserModel.find(riderQuery).lean();
+        if (!activeRiders.length) {
+            return response.status(400).json({ success: false, error: true, message: "No active riders found in your market" });
+        }
+
+        targetOrder.deliveryAssignment = {
+            ...(targetOrder.deliveryAssignment || {}),
+            riderId: null,
+            assignedBy: request.userId,
+            assignedAt: new Date(),
+            earningAmount: RIDER_DELIVERY_FEE,
+            status: "broadcast",
+        };
+        targetOrder.order_status = "assigned_to_rider";
+        await targetOrder.save();
+
+        return response.json({ success: true, error: false, message: "Order broadcast to market riders", data: targetOrder });
+    } catch (error) {
+        return response.status(500).json({ success: false, error: true, message: error.message || error });
+    }
+};
+
 export const assignOrderToRiderController = async (request, response) => {
     try {
         const { riderId } = request.body || {};
@@ -1209,13 +1282,84 @@ export const assignOrderToRiderController = async (request, response) => {
 export const getRiderOrdersController = async (request, response) => {
     try {
         const status = String(request.query.status || "");
-        const filter = { "deliveryAssignment.riderId": request.userId };
-        if (status) filter["deliveryAssignment.status"] = status;
-        const orders = await OrderModel.find(filter)
+        const page = parseInt(request.query.page) || 1;
+        const limit = parseInt(request.query.limit) || 20;
+        const skip = (page - 1) * limit;
+        
+        const rider = await UserModel.findById(request.userId).select("riderProfile.marketId").lean();
+        const riderMarketId = rider?.riderProfile?.marketId;
+
+        const isAvailableTab = status === "broadcast";
+        const isMyOrdersTab = !status || status === "assigned";
+
+        const filters = [];
+
+        if (isMyOrdersTab) {
+            const assignedFilter = { "deliveryAssignment.riderId": request.userId };
+            assignedFilter["deliveryAssignment.status"] = { $in: ["confirmed", "otp_sent", "delivered", "cancelled"] };
+            filters.push(assignedFilter);
+        }
+
+        if (riderMarketId && isAvailableTab) {
+            const sellerRoles = [
+                "GROCERY_SELLER",
+                "FASHION_SELLER",
+                "ELECTRONICS_SELLER",
+                "MEDICAL_SELLER",
+                "BEAUTY_SELLER",
+                "HOME_KITCHEN_SELLER",
+                "GIFTS_TOYS_STATIONERY_SELLER",
+                "BOOKS_STATIONERY_SELLER",
+                "JEWELLERY_SELLER",
+                "HARDWARE_SELLER",
+                "AUTOMOBILE_SELLER",
+                "RESTAURANT_SELLER",
+            ];
+            const marketSellers = await UserModel.find({
+                role: { $in: sellerRoles },
+                status: "Active",
+                "storeProfile.marketId": riderMarketId,
+            }).select("_id").lean();
+            const sellerIds = marketSellers.map((seller) => seller._id);
+
+            if (sellerIds.length) {
+                const availableFilter = {
+                    "products.sellerId": { $in: sellerIds },
+                    "deliveryAssignment.status": "broadcast",
+                    $or: [
+                        { "deliveryAssignment.riderId": { $exists: false } },
+                        { "deliveryAssignment.riderId": null }
+                    ]
+                };
+                filters.push(availableFilter);
+            }
+        }
+
+        const query = filters.length === 1 ? filters[0] : { $or: filters };
+        
+        // Get total count for pagination
+        const total = await OrderModel.countDocuments(query);
+        
+        // Get paginated orders
+        const orders = await OrderModel.find(query)
             .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
             .populate("delivery_address userId products.sellerId")
             .lean();
-        return response.json({ success: true, error: false, data: orders, orders });
+        
+        const totalPages = Math.ceil(total / limit);
+        
+        return response.json({ 
+            success: true, 
+            error: false, 
+            data: orders, 
+            orders,
+            total,
+            page,
+            limit,
+            totalPages
+        });
     } catch (error) {
         return response.status(500).json({ success: false, error: true, message: error.message || error });
     }
@@ -1284,12 +1428,87 @@ export const getRiderRecentDeliveriesController = async (request, response) => {
 
 export const confirmRiderOrderController = async (request, response) => {
     try {
-        const order = await OrderModel.findOne({ _id: request.params.id, "deliveryAssignment.riderId": request.userId });
-        if (!order) return response.status(404).json({ success: false, error: true, message: "Assigned order not found" });
-        order.deliveryAssignment.status = "confirmed";
-        order.deliveryAssignment.confirmedAt = new Date();
-        order.order_status = "out_for_delivery";
-        await order.save();
+        const rider = await UserModel.findById(request.userId).select("riderProfile.marketId").lean();
+        const riderMarketId = rider?.riderProfile?.marketId;
+
+        const sellerRoles = [
+            "GROCERY_SELLER",
+            "FASHION_SELLER",
+            "ELECTRONICS_SELLER",
+            "MEDICAL_SELLER",
+            "BEAUTY_SELLER",
+            "HOME_KITCHEN_SELLER",
+            "GIFTS_TOYS_SELLER",
+            "BOOKS_STATIONERY_SELLER",
+            "JEWELLERY_SELLER",
+            "HARDWARE_SELLER",
+            "AUTOMOBILE_SELLER",
+            "RESTAURANT_SELLER",
+        ];
+        let sellerIds = [];
+
+        if (riderMarketId) {
+            const marketSellers = await UserModel.find({
+                role: { $in: sellerRoles },
+                status: "Active",
+                "storeProfile.marketId": riderMarketId,
+            }).select("_id").lean();
+            sellerIds = marketSellers.map((seller) => seller._id);
+        }
+
+        const searchConditions = [
+            { "deliveryAssignment.riderId": request.userId, "deliveryAssignment.status": { $in: ["assigned", "broadcast"] } },
+        ];
+        if (sellerIds.length) {
+            searchConditions.push({ "deliveryAssignment.status": "broadcast", "products.sellerId": { $in: sellerIds } });
+        }
+
+        // First check if order exists and its current status
+        const existingOrder = await OrderModel.findOne({ _id: request.params.id });
+        
+        if (!existingOrder) {
+            return response.status(404).json({ success: false, error: true, message: "Order not found" });
+        }
+
+        // Check if order is already confirmed by another rider
+        if (existingOrder.deliveryAssignment?.status === "confirmed" && 
+            String(existingOrder.deliveryAssignment?.riderId) !== String(request.userId)) {
+            return response.status(400).json({ 
+                success: false, 
+                error: true, 
+                message: "This order has already been confirmed by another rider" 
+            });
+        }
+
+        // Check if order is already delivered
+        if (existingOrder.deliveryAssignment?.status === "delivered") {
+            return response.status(400).json({ 
+                success: false, 
+                error: true, 
+                message: "This order has already been delivered" 
+            });
+        }
+
+        const order = await OrderModel.findOneAndUpdate(
+            {
+                _id: request.params.id,
+                $or: searchConditions,
+            },
+            {
+                $set: {
+                    "deliveryAssignment.riderId": request.userId,
+                    "deliveryAssignment.status": "confirmed",
+                    "deliveryAssignment.confirmedAt": new Date(),
+                    order_status: "out_for_delivery",
+                },
+            },
+            { new: true }
+        );
+
+        if (!order) {
+            return response.status(404).json({ success: false, error: true, message: "Assigned or available order not found" });
+        }
+
         return response.json({ success: true, error: false, message: "Order confirmed", data: order });
     } catch (error) {
         return response.status(500).json({ success: false, error: true, message: error.message || error });
@@ -1378,6 +1597,50 @@ export const deliverRiderOrderController = async (request, response) => {
             data: order,
             wallet: riderData?.wallet,
             riderProfile: riderData?.riderProfile
+        });
+    } catch (error) {
+        return response.status(500).json({ success: false, error: true, message: error.message || error });
+    }
+};
+
+export const cancelRiderOrderController = async (request, response) => {
+    try {
+        const order = await OrderModel.findOne({ 
+            _id: request.params.id, 
+            "deliveryAssignment.riderId": request.userId 
+        });
+        
+        if (!order) {
+            return response.status(404).json({ success: false, error: true, message: "Assigned order not found" });
+        }
+
+        // Only allow cancellation if order is not yet delivered
+        if (order.deliveryAssignment.status === "delivered") {
+            return response.status(400).json({ success: false, error: true, message: "Cannot cancel a delivered order" });
+        }
+
+        // Update order status and reset delivery assignment
+        order.order_status = "cancelled";
+        order.deliveryAssignment = {
+            riderId: null,
+            assignedBy: null,
+            assignedAt: null,
+            confirmedAt: null,
+            deliveredAt: null,
+            deliveryOtp: "",
+            deliveryOtpExpires: null,
+            earningAmount: 20,
+            earningCredited: false,
+            status: "unassigned"
+        };
+
+        await order.save();
+
+        return response.json({ 
+            success: true, 
+            error: false, 
+            message: "Order cancelled successfully and removed from your assignments",
+            data: order
         });
     } catch (error) {
         return response.status(500).json({ success: false, error: true, message: error.message || error });

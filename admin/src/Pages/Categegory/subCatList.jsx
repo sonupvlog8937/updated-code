@@ -70,6 +70,7 @@ export const SubCategoryList = () => {
                                                                     <EditSubCatBox
                                                                         name={subCat?.name}
                                                                         id={subCat?._id}
+                                                                        images={subCat?.images}
                                                                         catData={context?.catData}
                                                                         index={index_}
                                                                         selectedCat={subCat?.parentId}
@@ -88,6 +89,7 @@ export const SubCategoryList = () => {
                                                             >
                                                                 <EditSubCatBox
                                                                     name={thirdLevel.name}
+                                                                    images={thirdLevel?.images}
                                                                     catData={firstLavelCat?.children}
                                                                     index={index__}
                                                                     selectedCat={thirdLevel?.parentId}

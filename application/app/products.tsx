@@ -31,6 +31,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -53,6 +54,76 @@ const SORT_OPTIONS = [
   { value: "priceAsc", label: "💰 Price: Low → High" },
   { value: "priceDesc", label: "💰 Price: High → Low" },
 ];
+
+// ---------- Skeleton Loader ----------
+const SkeletonCard: React.FC = () => {
+  const colors = useColors();
+  return (
+    <View style={[styles.gridItem, skeletonStyles.card]}>
+      <View style={[skeletonStyles.image, { backgroundColor: colors.muted }]} />
+      <View style={[skeletonStyles.line, { width: "85%", backgroundColor: colors.muted }]} />
+      <View style={[skeletonStyles.line, { width: "55%", backgroundColor: colors.muted }]} />
+      <View
+        style={[
+          skeletonStyles.line,
+          skeletonStyles.priceLine,
+          { width: "40%", backgroundColor: colors.muted },
+        ]}
+      />
+    </View>
+  );
+};
+
+const SkeletonGrid: React.FC<{ viewMode: "grid" | "list" }> = ({ viewMode }) => {
+  const count = viewMode === "grid" ? 6 : 4;
+  return (
+    <View style={skeletonStyles.wrapper}>
+      {Array.from({ length: count }).map((_, i) => (
+        <View
+          key={i}
+          style={[
+            viewMode === "grid" ? styles.gridItem : skeletonStyles.listFullItem,
+            i % 2 === 0 ? styles.gridItemLeft : styles.gridItemRight,
+          ]}
+        >
+          <SkeletonCard />
+        </View>
+      ))}
+    </View>
+  );
+};
+
+const skeletonStyles = StyleSheet.create({
+  wrapper: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 0,
+  },
+  card: {
+    padding: 4,
+  },
+  listFullItem: {
+    width: "100%",
+  },
+  image: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 10,
+    marginBottom: 8,
+    opacity: 0.6,
+  },
+  line: {
+    height: 10,
+    borderRadius: 4,
+    marginBottom: 6,
+    opacity: 0.5,
+  },
+  priceLine: {
+    height: 14,
+    marginTop: 2,
+  },
+});
+// ---------- End Skeleton Loader ----------
 
 const ProductListingPage: React.FC = () => {
   const colors = useColors();
@@ -109,6 +180,10 @@ const ProductListingPage: React.FC = () => {
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [toolbarVisible, setToolbarVisible] = useState(true);
+  const { width: screenWidth } = useWindowDimensions();
+
+  // NEW: local flag for page-change loading (independent of initial isLoading logic)
+  const [pageChanging, setPageChanging] = useState(false);
 
   const scrollViewRef = useRef<FlatList>(null);
   const lastScrollY = useRef(0);
@@ -315,6 +390,13 @@ const ProductListingPage: React.FC = () => {
     handleFetchProducts();
   }, [page]);
 
+  // NEW: turn off page-changing skeleton once redux isLoading resolves
+  useEffect(() => {
+    if (!isLoading && pageChanging) {
+      setPageChanging(false);
+    }
+  }, [isLoading, pageChanging]);
+
   const onScroll = useCallback((event: any) => {
     const y = event.nativeEvent.contentOffset.y;
     const diff = y - lastScrollY.current;
@@ -337,32 +419,43 @@ const ProductListingPage: React.FC = () => {
 
   const handlePageChange = useCallback(
     (newPage: number) => {
-      if (newPage >= 1 && newPage <= totalPages) {
+      if (newPage >= 1 && newPage <= totalPages && newPage !== page) {
+        setPageChanging(true);
         dispatch(goToPage(newPage));
         scrollViewRef.current?.scrollToOffset({ offset: 0, animated: true });
       }
     },
-    [totalPages, dispatch],
+    [totalPages, dispatch, page],
   );
 
   const handlePrevPage = useCallback(() => {
+    if (page <= 1) return;
+    setPageChanging(true);
     dispatch(previousPage());
     scrollViewRef.current?.scrollToOffset({ offset: 0, animated: true });
-  }, [dispatch]);
+  }, [dispatch, page]);
 
   const handleNextPage = useCallback(() => {
+    if (page >= totalPages) return;
+    setPageChanging(true);
     dispatch(nextPage());
     scrollViewRef.current?.scrollToOffset({ offset: 0, animated: true });
-  }, [dispatch]);
+  }, [dispatch, page, totalPages]);
 
   const handleSortBy = useCallback((sortTypeVal: string, label: string) => {setSortLabel(label);setSortOpen(false);dispatch(setSortType(sortTypeVal));dispatch(setPage(1));}, [dispatch],);
 
   const products = productsData?.products || [];
 
+  // Show skeleton when: initial page-1 load OR a page-change is in flight
+  const showSkeleton = (isLoading && page === 1) || pageChanging;
+
   // Generate page numbers for dynamic pagination
   const getPageNumbers = useCallback(() => {
     const pages: (number | string)[] = [];
-    const maxVisible = 5;
+    const maxVisible = Math.min(
+      totalPages,
+      screenWidth < 360 ? 3 : screenWidth < 420 ? 5 : 7,
+    );
     const halfVisible = Math.floor(maxVisible / 2);
 
     let startPage = Math.max(1, page - halfVisible);
@@ -387,7 +480,7 @@ const ProductListingPage: React.FC = () => {
     }
 
     return pages;
-  }, [page, totalPages]);
+  }, [page, totalPages, screenWidth]);
 
   const renderProduct = useCallback(
     ({ item, index }: { item: Product; index: number }) => {
@@ -588,7 +681,7 @@ const ProductListingPage: React.FC = () => {
   );
 
   const ListFooter = useCallback(() => {
-    if (!products.length || totalPages <= 1) return null;
+    if (!products.length || totalPages <= 1 || showSkeleton) return null;
 
     const pageNumbers = getPageNumbers();
 
@@ -597,20 +690,23 @@ const ProductListingPage: React.FC = () => {
         {/* Previous/Next + Page Info */}
         <View style={styles.paginationControls}>
           <TouchableOpacity
-            style={[styles.pagBtn, page === 1 && styles.pagBtnDisabled]}
+            style={[
+              styles.pagBtn,
+              (page === 1 || isLoading) && styles.pagBtnDisabled,
+            ]}
             onPress={handlePrevPage}
-            disabled={page === 1}
-            activeOpacity={page === 1 ? 1 : 0.7}
+            disabled={page === 1 || isLoading}
+            activeOpacity={page === 1 || isLoading ? 1 : 0.7}
           >
             <Ionicons
               name="chevron-back"
               size={16}
-              color={page === 1 ? "#d1d5db" : "#2563eb"}
+              color={page === 1 || isLoading ? "#d1d5db" : "#2563eb"}
             />
             <Text
               style={[
                 styles.pagBtnText,
-                page === 1 && styles.pagBtnTextDisabled,
+                (page === 1 || isLoading) && styles.pagBtnTextDisabled,
               ]}
             >
               Prev
@@ -618,21 +714,28 @@ const ProductListingPage: React.FC = () => {
           </TouchableOpacity>
 
           <View style={styles.pageCountInfo}>
-            <Text style={styles.pageCountText}>
-              {Math.min(page * 20, totalCount)} of {totalCount}
-            </Text>
+            {isLoading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text style={styles.pageCountText}>
+                {Math.min(page * 20, totalCount)} of {totalCount}
+              </Text>
+            )}
           </View>
 
           <TouchableOpacity
-            style={[styles.pagBtn, page >= totalPages && styles.pagBtnDisabled]}
+            style={[
+              styles.pagBtn,
+              (page >= totalPages || isLoading) && styles.pagBtnDisabled,
+            ]}
             onPress={handleNextPage}
-            disabled={page >= totalPages}
-            activeOpacity={page >= totalPages ? 1 : 0.7}
+            disabled={page >= totalPages || isLoading}
+            activeOpacity={page >= totalPages || isLoading ? 1 : 0.7}
           >
             <Text
               style={[
                 styles.pagBtnText,
-                page >= totalPages && styles.pagBtnTextDisabled,
+                (page >= totalPages || isLoading) && styles.pagBtnTextDisabled,
               ]}
             >
               Next
@@ -640,7 +743,7 @@ const ProductListingPage: React.FC = () => {
             <Ionicons
               name="chevron-forward"
               size={16}
-              color={page >= totalPages ? "#d1d5db" : "#2563eb"}
+              color={page >= totalPages || isLoading ? "#d1d5db" : "#2563eb"}
             />
           </TouchableOpacity>
         </View>
@@ -651,33 +754,40 @@ const ProductListingPage: React.FC = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.pageNumbersScroll}
         >
-          {pageNumbers.map((num, idx) => (
-            <View key={idx}>
-              {num === "..." ? (
-                <View style={styles.pageEllipsis}>
-                  <Text style={styles.pageEllipsisText}>...</Text>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={[
-                    styles.pageNumber,
-                    num === page && styles.pageNumberActive,
-                  ]}
-                  onPress={() => handlePageChange(num as number)}
-                  activeOpacity={0.7}
-                >
-                  <Text
+          {pageNumbers.map((num, idx) => {
+            const pageSize = screenWidth < 360 ? 30 : screenWidth < 420 ? 34 : 36;
+            const pageFont = screenWidth < 360 ? 11 : 12;
+            return (
+              <View key={idx}>
+                {num === "..." ? (
+                  <View style={[styles.pageEllipsis, { width: pageSize, height: pageSize }]}> 
+                    <Text style={styles.pageEllipsisText}>...</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
                     style={[
-                      styles.pageNumberText,
-                      num === page && styles.pageNumberTextActive,
+                      styles.pageNumber,
+                      num === page && styles.pageNumberActive,
+                      { width: pageSize, height: pageSize, borderRadius: pageSize / 2 },
                     ]}
+                    onPress={() => handlePageChange(num as number)}
+                    activeOpacity={0.7}
+                    disabled={isLoading}
                   >
-                    {num}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ))}
+                    <Text
+                      style={[
+                        styles.pageNumberText,
+                        num === page && styles.pageNumberTextActive,
+                        { fontSize: pageFont },
+                      ]}
+                    >
+                      {num}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })}
         </ScrollView>
 
         {/* Progress Bar */}
@@ -700,6 +810,11 @@ const ProductListingPage: React.FC = () => {
     totalCount,
     handlePageChange,
     getPageNumbers,
+    isLoading,
+    showSkeleton,
+    colors,
+    handlePrevPage,
+    handleNextPage,
   ]);
 
   return (
@@ -708,7 +823,7 @@ const ProductListingPage: React.FC = () => {
 
       <FlatList
         ref={scrollViewRef}
-        data={isLoading && page === 1 ? [] : products}
+        data={showSkeleton ? [] : products}
         keyExtractor={(item, i) => item?._id?.toString() || `product-${i}`}
         numColumns={viewMode === "grid" ? 2 : 1}
         key={viewMode}
@@ -719,10 +834,8 @@ const ProductListingPage: React.FC = () => {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={<ListHeader />}
         ListEmptyComponent={
-          isLoading && page === 1 ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
+          showSkeleton ? (
+            <SkeletonGrid viewMode={viewMode} />
           ) : (
             <ListEmpty />
           )
@@ -1063,5 +1176,3 @@ const styles = StyleSheet.create({
 });
 
 export default ProductListingPage;
-
-

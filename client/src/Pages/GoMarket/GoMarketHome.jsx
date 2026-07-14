@@ -16,6 +16,7 @@ const GoMarketHome = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [collections, setCollections] = useState([]);
+  const [showNearby, setShowNearby] = useState(false);
 
   // Redirect to login if not logged in
   useEffect(() => {
@@ -41,9 +42,10 @@ const GoMarketHome = () => {
   fetchDataFromApi("/api/settings/commerce").then((res) => setCollections((res?.data?.collections || []).filter((c) => c.isActive !== false)));
 
   const allMarkets = useMemo(() => {
+    if (showNearby) return nearbyMarkets;
     const map = new Map([...nearbyMarkets, ...markets].map((m) => [m._id, m]));
     return Array.from(map.values());
-  }, [markets, nearbyMarkets]);
+  }, [markets, nearbyMarkets, showNearby]);
 
   // Fuzzy search function - matches even with typos
   const fuzzyMatch = (text, query) => {
@@ -89,6 +91,7 @@ const GoMarketHome = () => {
   const handleSearchChange = (e) => {
     setSearch(e.target.value);
     setShowSuggestions(true);
+    setShowNearby(false);
     setFocusedIndex(-1);
   };
 
@@ -97,7 +100,7 @@ const GoMarketHome = () => {
     setSearch(market.name);
     setShowSuggestions(false);
     // Save preferred market and navigate
-    dispatch(savePreferredMarket(market._id));
+    dispatch(savePreferredMarket({ marketId: market._id }));
     openMarket(market._id);
   };
 
@@ -119,30 +122,33 @@ const GoMarketHome = () => {
   };
 
   const useLocation = useMyLocation((lat, lng) => {
+    console.log("📍 User coordinates detected:", { lat, lng });
     dispatch(fetchNearbyMarkets({ latitude: lat, longitude: lng }))
       .unwrap()
       .then((response) => {
-        console.log("📍 Nearby markets response:", response);
-        // Get the nearest market (first one in the sorted list)
+        console.log("📍 API Response from nearby markets:", response);
+        console.log("📍 Full response.data:", response?.data);
         if (response?.data && response.data.length > 0) {
           const nearestMarket = response.data[0];
-          console.log("🎯 Navigating to nearest market:", nearestMarket.name);
+          console.log("🎯 Nearest market found:", nearestMarket.name, "at", nearestMarket.distanceKm, "km");
           // Save preferred market and navigate
-          dispatch(savePreferredMarket(nearestMarket._id));
+          dispatch(savePreferredMarket({ marketId: nearestMarket._id, location: { lat, lng }, address: "Current location" }));
           openMarket(nearestMarket._id);
         } else {
-          console.log("⚠️ No nearby markets found");
+          console.warn("⚠️ No nearby markets found. Response:", response);
+          alert("❌ No markets found in your area. Please try searching or check back later.");
         }
       })
       .catch((error) => {
         console.error("❌ Error fetching nearby markets:", error);
+        alert("❌ Failed to find nearby markets. Error: " + (error?.message || "Unknown error"));
       });
   });
 
   const openMarket = (marketId) => {
     if (!marketId) return;
     // Save preferred market before navigating
-    dispatch(savePreferredMarket(marketId));
+    dispatch(savePreferredMarket({ marketId, location: userData?.goMarketLocation ? { lat: userData.goMarketLocation.coordinates?.[1], lng: userData.goMarketLocation.coordinates?.[0] } : undefined, address: userData?.goMarketLocation?.address || "" }));
     navigate(`/go-market/market/${marketId}`);
   };
 

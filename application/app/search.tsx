@@ -70,6 +70,81 @@ interface RouteParams {
   query?: string;
 }
 
+// ─── Skeleton Loader ───────────────────────────────────────────────────────────
+
+const SkeletonCard: React.FC = () => {
+  const colors = useColors();
+  return (
+    <View style={skeletonStyles.card}>
+      <View style={[skeletonStyles.image, { backgroundColor: colors.muted }]} />
+      <View style={[skeletonStyles.line, { width: "85%", backgroundColor: colors.muted }]} />
+      <View style={[skeletonStyles.line, { width: "55%", backgroundColor: colors.muted }]} />
+      <View
+        style={[
+          skeletonStyles.line,
+          skeletonStyles.priceLine,
+          { width: "40%", backgroundColor: colors.muted },
+        ]}
+      />
+    </View>
+  );
+};
+
+const SkeletonGrid: React.FC<{ viewMode: "grid" | "list" }> = ({ viewMode }) => {
+  const count = viewMode === "grid" ? 6 : 4;
+  return (
+    <View style={skeletonStyles.wrapper}>
+      {Array.from({ length: count }).map((_, i) => (
+        <View
+          key={i}
+          style={
+            viewMode === "grid"
+              ? [styles.gridItem, skeletonStyles.gridSlot]
+              : skeletonStyles.listFullItem
+          }
+        >
+          <SkeletonCard />
+        </View>
+      ))}
+    </View>
+  );
+};
+
+const skeletonStyles = StyleSheet.create({
+  wrapper: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  gridSlot: {
+    minWidth: "47%",
+  },
+  listFullItem: {
+    width: "100%",
+    marginBottom: 10,
+  },
+  card: {
+    padding: 4,
+  },
+  image: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 10,
+    marginBottom: 8,
+    opacity: 0.6,
+  },
+  line: {
+    height: 10,
+    borderRadius: 4,
+    marginBottom: 6,
+    opacity: 0.5,
+  },
+  priceLine: {
+    height: 14,
+    marginTop: 2,
+  },
+});
+
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function SearchScreen() {
@@ -115,6 +190,9 @@ export default function SearchScreen() {
   const [searchQuery, setLocalSearchQuery] = useState(routeQuery || "");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+  // NEW: page-change loading flag (drives skeleton independently of initial load)
+  const [pageChanging, setPageChanging] = useState(false);
 
   const listRef = useRef<FlatList>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -289,6 +367,13 @@ export default function SearchScreen() {
     loadProducts();
   }, [loadProducts]);
 
+  // NEW: turn off page-changing skeleton once redux isLoading resolves
+  useEffect(() => {
+    if (!isLoading && pageChanging) {
+      setPageChanging(false);
+    }
+  }, [isLoading, pageChanging]);
+
   // ── Scroll hide/show toolbar ──────────────────────────────────────────────
   const onScroll = useCallback(
     (event: any) => {
@@ -341,12 +426,13 @@ export default function SearchScreen() {
 
   const handlePageChange = useCallback(
     (newPage: number) => {
-      if (newPage >= 1 && newPage <= totalPages) {
+      if (newPage >= 1 && newPage <= totalPages && newPage !== page) {
+        setPageChanging(true);
         dispatch(setPage(newPage));
         listRef.current?.scrollToOffset({ offset: 0, animated: true });
       }
     },
-    [totalPages, dispatch],
+    [totalPages, dispatch, page],
   );
 
   // ── Render product ────────────────────────────────────────────────────────
@@ -808,8 +894,16 @@ export default function SearchScreen() {
   }, [isSearchFocused, routeQuery, colors, error, activeFiltersCount]);
 
   // ── Pagination footer ─────────────────────────────────────────────────────
+  const showSkeleton = (isLoading && page === 1) || pageChanging;
+
   const ListFooter = useCallback(() => {
-    if (!allProducts.length || totalPages <= 1 || isSearchFocused) return null;
+    if (
+      !allProducts.length ||
+      totalPages <= 1 ||
+      isSearchFocused ||
+      showSkeleton
+    )
+      return null;
     const progress = page / totalPages;
     return (
       <View style={styles.paginationWrapper}>
@@ -823,20 +917,23 @@ export default function SearchScreen() {
         </View>
         <View style={styles.paginationRow}>
           <TouchableOpacity
-            style={[styles.pagBtn, page === 1 && styles.pagBtnDisabled]}
+            style={[
+              styles.pagBtn,
+              (page === 1 || isLoading) && styles.pagBtnDisabled,
+            ]}
             onPress={() => handlePageChange(page - 1)}
-            disabled={page === 1}
+            disabled={page === 1 || isLoading}
             activeOpacity={0.7}
           >
             <Ionicons
               name="chevron-back"
               size={16}
-              color={page === 1 ? colors.mutedForeground : "#2563eb"}
+              color={page === 1 || isLoading ? colors.mutedForeground : "#2563eb"}
             />
             <Text
               style={[
                 styles.pagBtnText,
-                page === 1 && { color: colors.mutedForeground },
+                (page === 1 || isLoading) && { color: colors.mutedForeground },
               ]}
             >
               Prev
@@ -848,29 +945,43 @@ export default function SearchScreen() {
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-            <Text style={[styles.pageNum, { color: colors.foreground }]}>
-              <Text style={{ color: "#2563eb" }}>{page}</Text>
-              <Text style={{ color: colors.mutedForeground }}>
-                {" "}
-                / {totalPages}
-              </Text>
-            </Text>
-            <Text
-              style={[styles.pageSubtext, { color: colors.mutedForeground }]}
-            >
-              {Math.min(page * 20, totalCount)} of {totalCount}
-            </Text>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#2563eb" />
+            ) : (
+              <>
+                <Text style={[styles.pageNum, { color: colors.foreground }]}>
+                  <Text style={{ color: "#2563eb" }}>{page}</Text>
+                  <Text style={{ color: colors.mutedForeground }}>
+                    {" "}
+                    / {totalPages}
+                  </Text>
+                </Text>
+                <Text
+                  style={[
+                    styles.pageSubtext,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {Math.min(page * 20, totalCount)} of {totalCount}
+                </Text>
+              </>
+            )}
           </View>
           <TouchableOpacity
-            style={[styles.pagBtn, page >= totalPages && styles.pagBtnDisabled]}
+            style={[
+              styles.pagBtn,
+              (page >= totalPages || isLoading) && styles.pagBtnDisabled,
+            ]}
             onPress={() => handlePageChange(page + 1)}
-            disabled={page >= totalPages}
+            disabled={page >= totalPages || isLoading}
             activeOpacity={0.7}
           >
             <Text
               style={[
                 styles.pagBtnText,
-                page >= totalPages && { color: colors.mutedForeground },
+                (page >= totalPages || isLoading) && {
+                  color: colors.mutedForeground,
+                },
               ]}
             >
               Next
@@ -878,7 +989,11 @@ export default function SearchScreen() {
             <Ionicons
               name="chevron-forward"
               size={16}
-              color={page >= totalPages ? colors.mutedForeground : "#2563eb"}
+              color={
+                page >= totalPages || isLoading
+                  ? colors.mutedForeground
+                  : "#2563eb"
+              }
             />
           </TouchableOpacity>
         </View>
@@ -892,6 +1007,8 @@ export default function SearchScreen() {
     colors,
     isSearchFocused,
     handlePageChange,
+    isLoading,
+    showSkeleton,
   ]);
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -922,7 +1039,7 @@ export default function SearchScreen() {
       {!isSearchFocused && (
         <FlatList
           ref={listRef}
-          data={isLoading && page === 1 ? [] : allProducts}
+          data={showSkeleton ? [] : allProducts}
           keyExtractor={(item, i) => item?._id || String(i)}
           numColumns={viewMode === "grid" ? 2 : 1}
           key={viewMode}
@@ -933,18 +1050,8 @@ export default function SearchScreen() {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={<ListHeader />}
           ListEmptyComponent={
-            isLoading && page === 1 ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#2563eb" />
-                <Text
-                  style={[
-                    styles.loadingText,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  Finding products…
-                </Text>
-              </View>
+            showSkeleton ? (
+              <SkeletonGrid viewMode={viewMode} />
             ) : (
               <ListEmpty />
             )

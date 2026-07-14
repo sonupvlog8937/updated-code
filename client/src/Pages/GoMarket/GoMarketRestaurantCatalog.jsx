@@ -29,6 +29,7 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
   const { isLogin, userData, myListData } = useSelector((s) => s.app);
   const [search, setSearch] = useState(initialQuery);
   const debouncedSearch = useDebouncedValue(search, 350);
+  const [appliedSearch, setAppliedSearch] = useState(initialQuery);
   const [tab, setTab] = useState("featured");
   const [sort, setSort] = useState("");
   const [availableOnly, setAvailableOnly] = useState(true);
@@ -44,33 +45,45 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState({ 
+    suggestions: [], 
+    recentSearches: [], 
+    trendingSearches: [], 
+    popularProducts: [],
+    topSearches: []
+  });
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [optionProduct, setOptionProduct] = useState(null);
   const [quickSelections, setQuickSelections] = useState({});
   const [restaurantData, setRestaurantData] = useState(null);
 
   useEffect(() => setSearch(initialQuery), [initialQuery]);
 
-  const state = useMemo(() => ({ tab, sort, availableOnly, categoryId, subCategoryId, minPrice, maxPrice, debouncedSearch }), [tab, sort, availableOnly, categoryId, subCategoryId, minPrice, maxPrice, debouncedSearch]);
+  const state = useMemo(() => ({ tab, sort, availableOnly, categoryId, subCategoryId, minPrice, maxPrice, appliedSearch }), [tab, sort, availableOnly, categoryId, subCategoryId, minPrice, maxPrice, appliedSearch]);
   const apiPath = searchMode ? `/api/go-market/restaurants/${restaurantId}/search` : `/api/go-market/restaurants/${restaurantId}/catalog`;
 
   const loadPage = useCallback(async (pageNum, append) => {
     if (!restaurantId) return;
-    append ? setLoadingMore(true) : setLoading(true);
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+      setItems([]); // clear immediately so skeleton shows on tab change
+    }
     const p = new URLSearchParams({
       page: String(pageNum),
       limit: "16",
       tab: state.tab,
       ...(state.sort ? { sort: state.sort } : {}),
-      search: state.debouncedSearch,
+      search: state.appliedSearch,
       ...(state.availableOnly ? { availableOnly: "true" } : {}),
       ...(state.categoryId ? { categoryId: state.categoryId } : {}),
       ...(state.subCategoryId ? { subCategoryId: state.subCategoryId } : {}),
       ...(state.minPrice ? { minPrice: state.minPrice } : {}),
       ...(state.maxPrice ? { maxPrice: state.maxPrice } : {}),
     });
-    if (searchMode && state.debouncedSearch) p.set("q", state.debouncedSearch);
+    if (searchMode && state.appliedSearch) p.set("q", state.appliedSearch);
     try {
       const res = await fetchDataFromApi(`${apiPath}?${p}`);
       if (res?.success || res?.error === false) {
@@ -93,11 +106,32 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
 
   useEffect(() => { loadPage(1, false); }, [loadPage]);
 
+  // Enhanced suggestions with recent searches, trending, etc.
   useEffect(() => {
-    if (!restaurantId || !search.trim()) return setSuggestions([]);
+    if (!restaurantId) return;
+    
+    if (!search.trim()) {
+      // Show default content when not searching
+      fetchDataFromApi(`/api/go-market/restaurants/${restaurantId}/search-defaults`).then((res) => {
+        if (res?.success || res?.error === false) {
+          setSuggestions(res.data || {
+            recentSearches: [],
+            trendingSearches: [],
+            popularProducts: [],
+            topSearches: []
+          });
+        }
+      });
+      return;
+    }
+    
     const t = setTimeout(() => {
       fetchDataFromApi(`/api/go-market/restaurants/${restaurantId}/search-suggestions?q=${encodeURIComponent(search.trim())}`)
-        .then((res) => setSuggestions((res?.success || res?.error === false) ? (res.suggestions || []) : []));
+        .then((res) => {
+          if (res?.success || res?.error === false) {
+            setSuggestions(res.data || res.suggestions || []);
+          }
+        });
     }, 200);
     return () => clearTimeout(t);
   }, [restaurantId, search]);
@@ -117,7 +151,7 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
       return;
     }
     const name = product.itemName || product.name;
-    await dispatch(addToCart({ product: { _id: product._id, name, price: priceOverride ?? product.price, oldPrice: product.oldPrice || product.price, image: product.image, images: product.images || [product.image], countInStock: product.countInStock ?? 99, rating: product.rating || product.averageRating || 0, brand: product.brand || "GoMarket Restaurant", discount: product.discount, selectedOptions }, userId: userData?._id, quantity: 1 }));
+    await dispatch(addToCart({ product: { _id: product._id, name, price: priceOverride ?? product.price, oldPrice: product.oldPrice || product.price, image: product.image, images: product.images || [product.image], countInStock: product.countInStock ?? 99, rating: product.rating || product.averageRating || 0, brand: product.brand || "GoMarket Restaurant", source: "goMarket", discount: product.discount, selectedOptions }, userId: userData?._id, quantity: 1 }));
   };
   const handleQuickAdd = (e, product) => { e.preventDefault(); e.stopPropagation(); const options = normalizeProductOptions(product.productOptions || []); if (options.length) { setOptionProduct(product); setQuickSelections({}); return; } addProductWithOptions(product); };
   const handleQuickWishlist = async (e, product) => { e.preventDefault(); e.stopPropagation(); if (!isLogin) { toast.error("Please login first"); navigate("/login"); return; } if (myListData?.some((item) => item?.productId === product._id)) { toast.success("Already in wishlist"); return; } const name = product.itemName || product.name; const res = await postData("/api/myList/add", { productTitle: name, image: product.image, rating: product.rating || product.averageRating || 0, price: product.price, oldPrice: product.oldPrice || product.price, productId: product._id, brand: product.brand || "GoMarket Restaurant", discount: product.discount }); if (res?.error === false) { toast.success("Added to wishlist"); dispatch(fetchMyListData()); } else toast.error(res?.message || "Wishlist failed"); };
@@ -126,20 +160,303 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
   const goSearch = (q) => {
     const query = (q || search).trim();
     if (!query) return;
-    navigate(`/go-market/restaurant/${restaurantId}/search?q=${encodeURIComponent(query)}`);
-    setShowSuggestions(false);
+    setAppliedSearch(query);
+    if (searchMode) {
+      // In search mode, just apply the search to trigger filtering
+      setShowSuggestions(false);
+    } else {
+      // Navigate to search page
+      navigate(`/go-market/restaurant/${restaurantId}/search?q=${encodeURIComponent(query)}`);
+      setShowSuggestions(false);
+    }
   };
 
   return (
     <div>
       <div className="gmp-toolbar" style={{ position: "relative" }}>
-        <form onSubmit={(e) => { e.preventDefault(); searchMode ? loadPage(1, false) : goSearch(); }} style={{ display: "flex", flex: 1, gap: 8, minWidth: 220 }}>
+        <form onSubmit={(e) => { e.preventDefault(); setAppliedSearch(search.trim()); setShowSuggestions(false); }} style={{ display: "flex", flex: 1, gap: 8, minWidth: 220 }}>
           <div className="gmp-input-wrap" style={{ flex: 1, position: "relative" }}>
             <span className="gmp-input-icon">🔍</span>
-            <input className="gmp-input" value={search} placeholder="Search dishes in this restaurant…" onFocus={() => search.trim() && setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 180)} onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }} />
-            {showSuggestions && suggestions.length > 0 && (
-              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, marginTop: 4, boxShadow: "0 12px 28px rgba(15,23,42,.12)", overflow: "hidden" }}>
-                {suggestions.map((s) => <button key={s._id} type="button" style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", border: 0, background: "transparent", cursor: "pointer", fontSize: 13, fontWeight: 600 }} onMouseDown={() => goSearch(s.label)}>{s.label}</button>)}
+            <input className="gmp-input" value={search} placeholder="Search dishes in this restaurant…" 
+              onFocus={() => {
+                setShowSuggestions(true);
+                // Load defaults if no search query
+                if (!search.trim()) {
+                  fetchDataFromApi(`/api/go-market/restaurants/${restaurantId}/search-defaults`).then((res) => {
+                    if (res?.success || res?.error === false) {
+                      setSuggestions(res.data || {});
+                    }
+                  });
+                }
+              }} 
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 180)} 
+              onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }} 
+            />
+            {showSuggestions && (
+              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, marginTop: 4, boxShadow: "0 12px 28px rgba(15,23,42,.12)", overflow: "hidden", maxHeight: "400px", overflowY: "auto" }}>
+                {suggestionsLoading && (
+                  <div style={{ padding: "12px 14px", color: "#94a3b8", fontSize: 13 }}>
+                    Searching...
+                  </div>
+                )}
+                
+                {/* When searching - show suggestions */}
+                {search.trim() ? (
+                  <>
+                    {suggestions.suggestions?.length > 0 && (
+                      <>
+                        <div style={{ padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          Suggestions
+                        </div>
+                        {suggestions.suggestions.map((s) => (
+                          <button
+                            key={s._id || s.label || s}
+                            type="button"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "10px 14px",
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              transition: "background 0.13s",
+                            }}
+                            onMouseDown={() => {
+                              const query = s.label || s;
+                              goSearch(query);
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = "#f5f5f7"}
+                            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                          >
+                            <span style={{ fontSize: 14 }}>🔍</span>
+                            <span>{s.label || s}</span>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                    
+                    {suggestions.popularProducts?.length > 0 && (
+                      <>
+                        <div style={{ height: 1, background: "#f0f0f0", margin: "4px 0" }} />
+                        <div style={{ padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          Popular Dishes
+                        </div>
+                        {suggestions.popularProducts.slice(0, 5).map((p) => (
+                          <button
+                            key={p._id}
+                            type="button"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "8px 14px",
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              transition: "background 0.13s",
+                            }}
+                            onMouseDown={() => {
+                              navigate(`/go-market/product/restaurant/${p._id}`);
+                              setShowSuggestions(false);
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = "#f5f5f7"}
+                            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                          >
+                            <div style={{ width: 32, height: 32, borderRadius: 6, background: "#f0f0f5", flexShrink: 0, overflow: "hidden" }}>
+                              {p.image && <img src={img(p.image)} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a2e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {p.name}
+                              </div>
+                              <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                                ₹{p.price}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </>
+                ) : (
+                  /* When not searching - show recent, trending, popular */
+                  <>
+                    {suggestions.recentSearches?.length > 0 && (
+                      <>
+                        <div style={{ padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          🕒 Recent Searches
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "4px 10px 8px" }}>
+                          {suggestions.recentSearches.map((item, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                                padding: "5px 12px",
+                                borderRadius: 20,
+                                background: "#eef1ff",
+                                border: "none",
+                                fontSize: 12.5,
+                                color: "#4a6cf7",
+                                cursor: "pointer",
+                                fontWeight: 500,
+                                transition: "background 0.13s",
+                              }}
+                              onMouseDown={() => goSearch(item)}
+                              onMouseEnter={(e) => e.currentTarget.style.background = "#dde3ff"}
+                              onMouseLeave={(e) => e.currentTarget.style.background = "#eef1ff"}
+                            >
+                              {item}
+                            </button>
+                          ))}
+                        </div>
+                        <div style={{ height: 1, background: "#f0f0f0", margin: "4px 0" }} />
+                      </>
+                    )}
+                    
+                    {suggestions.trendingSearches?.length > 0 && (
+                      <>
+                        <div style={{ padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          🔥 Trending in this restaurant
+                        </div>
+                        {suggestions.trendingSearches.map((item, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "9px 14px",
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              fontSize: 14,
+                              color: "#1a1a2e",
+                              transition: "background 0.13s",
+                            }}
+                            onMouseDown={() => goSearch(item)}
+                            onMouseEnter={(e) => e.currentTarget.style.background = "#f5f5f7"}
+                            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                          >
+                            <span style={{ 
+                              display: "flex", 
+                              alignItems: "center", 
+                              justifyContent: "center",
+                              width: 30, 
+                              height: 30, 
+                              borderRadius: 8, 
+                              background: "#fff2f0", 
+                              color: "#e74c3c",
+                              fontSize: 13,
+                              flexShrink: 0
+                            }}>
+                              🔥
+                            </span>
+                            <span>{item}</span>
+                          </button>
+                        ))}
+                        <div style={{ height: 1, background: "#f0f0f0", margin: "4px 0" }} />
+                      </>
+                    )}
+                    
+                    {suggestions.topSearches?.length > 0 && (
+                      <>
+                        <div style={{ padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          ⭐ Top Searches
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "4px 10px 8px" }}>
+                          {suggestions.topSearches.map((item, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                                padding: "5px 12px",
+                                borderRadius: 20,
+                                background: "#fff0f5",
+                                border: "1px solid #ffd6e8",
+                                fontSize: 12.5,
+                                color: "#e91e8c",
+                                cursor: "pointer",
+                                fontWeight: 500,
+                                transition: "background 0.13s",
+                              }}
+                              onMouseDown={() => goSearch(item)}
+                              onMouseEnter={(e) => e.currentTarget.style.background = "#ffe0ed"}
+                              onMouseLeave={(e) => e.currentTarget.style.background = "#fff0f5"}
+                            >
+                              {item}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    
+                    {suggestions.popularProducts?.length > 0 && (
+                      <>
+                        <div style={{ height: 1, background: "#f0f0f0", margin: "4px 0" }} />
+                        <div style={{ padding: "8px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          Popular Dishes
+                        </div>
+                        {suggestions.popularProducts.slice(0, 6).map((p) => (
+                          <button
+                            key={p._id}
+                            type="button"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "8px 14px",
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              transition: "background 0.13s",
+                            }}
+                            onMouseDown={() => {
+                              navigate(`/go-market/product/restaurant/${p._id}`);
+                              setShowSuggestions(false);
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = "#f5f5f7"}
+                            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                          >
+                            <div style={{ width: 38, height: 38, borderRadius: 8, background: "#f0f0f5", flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              {p.image ? (
+                                <img src={img(p.image)} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              ) : (
+                                "🍽️"
+                              )}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13.5, fontWeight: 600, color: "#1a1a2e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {p.name}
+                              </div>
+                              <div style={{ fontSize: 11.5, color: "#94a3b8" }}>
+                                ₹{p.price}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </div>

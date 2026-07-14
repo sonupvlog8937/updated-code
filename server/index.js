@@ -13,6 +13,7 @@ import cookieParser from 'cookie-parser'
 import morgan from 'morgan';
 import helmet from 'helmet';
 import connectDB from './config/connectDb.js';
+import { cacheClearAll } from './utils/searchCache.js';
 import userRouter from './route/user.route.js'
 import categoryRouter from './route/category.route.js';
 import productRouter from './route/product.route.js';
@@ -34,6 +35,8 @@ import couponRouter from './route/coupon.route.js';
 import notificationSettingRouter from './route/notificationSetting.route.js';
 import paymentRouter from './route/payment.route.js';
 import goMarketRouter from './route/goMarket.route.js';
+import searchRouter from './route/search.route.js';
+import searchSettingsRouter from './route/searchSettings.route.js';
 
 const app = express();
 
@@ -65,7 +68,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Cookie"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Cookie", "X-Platform"],
   exposedHeaders: ["Content-Range", "X-Content-Range"],
   maxAge: 86400,
 };
@@ -138,6 +141,8 @@ app.use("/api/coupon", couponRouter)
 app.use("/api/notification-settings", notificationSettingRouter)
 app.use("/api/payment", paymentRouter)
 app.use("/api/go-market", goMarketRouter)
+app.use("/api/search", searchRouter)
+app.use("/api/search-settings", searchSettingsRouter)
 
 // Error handlers
 app.use(notFoundHandler)
@@ -145,6 +150,9 @@ app.use(globalErrorHandler)
 
 // Start server
 connectDB().then(() => {
+  // Clear search cache on server restart to ensure fresh data
+  cacheClearAll();
+
   app.listen(process.env.PORT, () => {
     console.log("✅ Server is running on port", process.env.PORT);
     console.log("🔒 Allowed origins:", allowedOrigins);

@@ -103,6 +103,8 @@ export interface UserAddress {
   landmark?: string;
   userId?: string;
   selected?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface UserData {

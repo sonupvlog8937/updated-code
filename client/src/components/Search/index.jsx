@@ -1,13 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect } from "react";
 import { useAppContext } from "../../hooks/useAppContext";
 import { useLocation, useNavigate } from "react-router-dom";
-import { postData } from "../../utils/api";
 import CircularProgress from "@mui/material/CircularProgress";
-import { IoSearch, IoTimeOutline, IoClose, IoFlameOutline, IoSparklesOutline } from "react-icons/io5";
-
-const TRENDING_TERMS = ["shirt", "jeans", "t shirts", "bag", "watches", "trouser"];
-const POPULAR_TERMS = ["formal pant", "zara jeans", "formal shirt", "baggy jeans", "black shirt", "white shirt"];
-const MAX_TYPEAHEAD_SUGGESTIONS = 7;
+import { IoSearch, IoTimeOutline, IoClose, IoFlameOutline, IoSparklesOutline, IoStorefrontOutline, IoPricetagOutline } from "react-icons/io5";
+import useSearch from "../../hooks/useSearch";
 
 const styles = `
   .search-root * { box-sizing: border-box; }
@@ -29,23 +25,16 @@ const styles = `
     padding: 0 8px 0 16px;
     gap: 8px;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
   }
 
   .search-box:focus-within {
     border-color: #1a1a2e;
-    box-shadow: 0 0 0 4px rgba(26, 26, 46, 0.07);
+    box-shadow: 0 4px 20px rgba(26, 26, 46, 0.12);
   }
 
-  .search-icon {
-    font-size: 18px;
-    color: #9e9e9e;
-    flex-shrink: 0;
-    transition: color 0.2s;
-  }
-
-  .search-box:focus-within .search-icon {
-    color: #1a1a2e;
-  }
+  .search-icon { font-size: 18px; color: #9e9e9e; flex-shrink: 0; transition: color 0.2s; }
+  .search-box:focus-within .search-icon { color: #1a1a2e; }
 
   .search-input {
     flex: 1;
@@ -139,11 +128,7 @@ const styles = `
 
   .section-label svg { font-size: 13px; }
 
-  .suggestion-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
+  .suggestion-list { list-style: none; margin: 0; padding: 0; }
 
   .suggestion-list li button,
   .suggestion-item {
@@ -165,7 +150,8 @@ const styles = `
   }
 
   .suggestion-list li button:hover,
-  .suggestion-item:hover { background: #f5f5f7; }
+  .suggestion-item:hover,
+  .suggestion-list li button.active { background: #f5f5f7; }
 
   .sugg-icon {
     display: flex;
@@ -182,13 +168,10 @@ const styles = `
 
   .recent-icon { background: #f0f3ff; color: #4a6cf7; }
   .trending-icon { background: #fff2f0; color: #e74c3c; }
+  .brand-icon { background: #fff8e6; color: #f59e0b; }
+  .category-icon { background: #ecfdf5; color: #10b981; }
 
-  .chip-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 4px 6px 8px;
-  }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 6px 8px; }
 
   .chip {
     display: inline-flex;
@@ -213,11 +196,7 @@ const styles = `
   .chip.popular-chip { background: #fff0f5; color: #e91e8c; border: 1px solid #ffd6e8; }
   .chip.popular-chip:hover { background: #ffe0ed; }
 
-  .divider {
-    height: 1px;
-    background: #f0f0f0;
-    margin: 4px 0;
-  }
+  .divider { height: 1px; background: #f0f0f0; margin: 4px 0; }
 
   .did-you-mean-btn {
     display: flex;
@@ -240,46 +219,13 @@ const styles = `
   .did-you-mean-label { color: #9e9e9e; font-size: 12px; }
   .did-you-mean-word { font-weight: 600; color: #4a6cf7; }
 
-  .ai-card {
-    background: linear-gradient(135deg, #f0f4ff 0%, #f5f0ff 100%);
-    border: 1px solid #dde2ff;
-    border-radius: 12px;
-    padding: 10px 12px;
-    margin-bottom: 4px;
-  }
-
-  .ai-card-label {
+  .loading-row {
     display: flex;
     align-items: center;
-    gap: 5px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: #6c63ff;
-    margin-bottom: 4px;
-  }
-
-  .ai-card-label svg { font-size: 12px; }
-
-  .ai-summary {
+    gap: 8px;
+    padding: 12px 10px;
+    color: #9e9e9e;
     font-size: 13px;
-    color: #2a2a4a;
-    line-height: 1.5;
-    margin: 0;
-  }
-
-  .ai-highlights {
-    margin: 6px 0 0;
-    padding-left: 14px;
-    list-style-position: outside;
-  }
-
-  .ai-highlights li {
-    font-size: 12px;
-    color: #4a4a7a;
-    line-height: 1.5;
-    margin-bottom: 2px;
   }
 
   .product-card {
@@ -308,288 +254,335 @@ const styles = `
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
+    overflow: hidden;
   }
 
-  .product-name {
-    font-size: 13.5px;
-    font-weight: 600;
-    color: #1a1a2e;
-    margin: 0 0 2px;
-    letter-spacing: -0.01em;
-  }
+  .product-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
-  .product-brand {
-    font-size: 11.5px;
-    color: #9e9e9e;
-    margin: 0;
-  }
+  .product-name { font-size: 13.5px; font-weight: 600; color: #1a1a2e; margin: 0 0 2px; letter-spacing: -0.01em; }
+  .product-brand { font-size: 11.5px; color: #9e9e9e; margin: 0; }
+  .products-grid { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 
-  .products-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    margin-top: 4px;
+  .search-dropdown mark {
+    background: #fff3cd;
+    color: inherit;
+    padding: 0 2px;
+    border-radius: 2px;
   }
 `;
 
 const Search = ({ onSearchComplete, inputRef: externalInputRef }) => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [querySuggestions, setQuerySuggestions] = useState([]);
-  const [suggestedProducts, setSuggestedProducts] = useState([]);
-  const [recentSearches, setRecentSearches] = useState([]);
-  const [suggestedCorrection, setSuggestedCorrection] = useState("");
-  const [aiHintSummary, setAiHintSummary] = useState("");
-  const [aiHintHighlights, setAiHintHighlights] = useState([]);
-
   const context = useAppContext();
-  const history = useNavigate();
+  const navigate = useNavigate();
   const location = useLocation();
-  const STORAGE_KEY = "recent_searches_v1";
-  const searchWrapperRef = useRef(null);
-  const debounceTimeoutRef = useRef(null);
-  const inputRef = externalInputRef || useRef(null);
+  const inputRef = externalInputRef || React.useRef(null);
 
-  const normalizedSuggestions = useMemo(() => {
-    return querySuggestions
-      ?.map((item) => item?.toLowerCase()?.trim())
-      .filter(Boolean)
-      .slice(0, 10);
-  }, [querySuggestions]);
-
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-      if (Array.isArray(saved)) setRecentSearches(saved.slice(0, 6));
-    } catch {
-      setRecentSearches([]);
-    }
-  }, []);
-
-  const performSearch = (query = searchQuery) => {
-    const trimmedQuery = query.trim();
-    if (!trimmedQuery) {
-      context?.alertBox("error", "Please type something to search");
-      return;
-    }
-
-    setIsDropdownOpen(false);
-    setIsLoading(true);
-
-    postData(`/api/product/search/get`, { page: 1, limit: 20, query: trimmedQuery }).then((res) => {
-      context?.setSearchData(res);
-      setRecentSearches((prev) => {
-        const unique = [trimmedQuery, ...prev.filter((i) => i !== trimmedQuery)].slice(0, 6);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(unique));
-        return unique;
-      });
-      setTimeout(() => {
-        setIsLoading(false);
-        context?.setOpenSearchPanel(false);
-        onSearchComplete?.(); // Call callback if provided
-        history(`/search?query=${encodeURIComponent(trimmedQuery)}&page=1`);
-      }, 500);
-    });
-  };
-
-  const onChangeInput = (e) => {
-    setSearchQuery(e.target.value);
-    setIsDropdownOpen(true);
-  };
-
-  const onSelectSuggestion = (suggestion) => {
-    setSearchQuery(suggestion);
-    performSearch(suggestion);
-  };
-
-  const onClearSearch = () => {
-    setSearchQuery("");
-    setQuerySuggestions([]);
-    setSuggestedProducts([]);
-    setSuggestedCorrection("");
-    setAiHintSummary("");
-    setAiHintHighlights([]);
-    setIsDropdownOpen(true);
-    inputRef.current?.focus();
-  };
+  const {
+    wrapperRef,
+    search,
+    loading,
+    suggestionsLoading,
+    suggestions,
+    recentKeywords,
+    topSearches,
+    trending,
+    products,
+    categories,
+    brands,
+    didYouMean,
+    popularCategories,
+    popularBrands,
+    isDropdownOpen,
+    activeIndex,
+    onQueryChange,
+    onFocus,
+    executeSearch,
+    onKeyDown,
+    clearSearch,
+    openDropdown,
+  } = useSearch();
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    setSearchQuery(params.get("query") || "");
+    const q = params.get("query") || "";
+    if (q) onQueryChange(q);
   }, [location.search]);
-
-  useEffect(() => {
-    const handleOutside = (e) => {
-      if (!searchWrapperRef.current?.contains(e.target)) setIsDropdownOpen(false);
-    };
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, []);
 
   useEffect(() => {
     if (context?.openSearchPanel) {
       setTimeout(() => inputRef.current?.focus(), 0);
     }
-  }, [context?.openSearchPanel]);
+  }, [context?.openSearchPanel, inputRef]);
 
-  useEffect(() => {
-    clearTimeout(debounceTimeoutRef.current);
-    if (searchQuery.trim().length < 2) {
-      setQuerySuggestions([]);
-      setSuggestedProducts([]);
-      setSuggestedCorrection("");
-      setAiHintSummary("");
-      setAiHintHighlights([]);
+  const handleSearch = async (query = search) => {
+    const trimmed = String(query || "").trim();
+    console.log("🔍 handleSearch called with:", trimmed);
+    
+    if (!trimmed) {
+      context?.alertBox?.("error", "Please type something to search");
       return;
     }
-    debounceTimeoutRef.current = setTimeout(() => {
-      // Use lightweight suggestions endpoint with fuzzy matching
-      fetch(`/api/product/search/suggestions?q=${encodeURIComponent(searchQuery.trim())}`)
-        .then(res => res.json())
-        .then((data) => {
-          if (data.success && data.suggestions) {
-            // Extract product names for quick suggestions
-            const productNames = data.suggestions.map(s => s.name);
-            setQuerySuggestions(productNames || []);
-            setSuggestedProducts(data.suggestions || []);
-          }
-        })
-        .catch((err) => {
-          console.error("Suggestion fetch error:", err);
-        });
-    }, 300);
-    return () => clearTimeout(debounceTimeoutRef.current);
-  }, [searchQuery]);
 
-  const predictiveSuggestions = useMemo(
-    () => [...new Set(normalizedSuggestions)].slice(0, 10),
-    [normalizedSuggestions]
-  );
+    try {
+      console.log("🚀 Executing search for:", trimmed);
+      const payload = await executeSearch(trimmed);
+      console.log("✅ Search payload received:", payload);
+      
+      if (!payload) {
+        console.warn("⚠️ Search returned no results");
+        return;
+      }
+      
+      // Close dropdown
+      context?.setOpenSearchPanel?.(false);
+      onSearchComplete?.();
+      
+      // Navigate to search results page
+      console.log("🧭 Navigating to search results page");
+      navigate(`/search?query=${encodeURIComponent(trimmed)}&page=1`);
+    } catch (error) {
+      console.error("❌ Search error:", error);
+      if (error?.message && error.message !== "null") {
+        context?.alertBox?.("error", error.message || "Search failed");
+      }
+    }
+  };
 
-  const typeaheadSuggestions = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return [];
-    const pool = [
-      ...recentSearches,
-      ...TRENDING_TERMS,
-      ...POPULAR_TERMS,
-      ...suggestedProducts.map((p) => p?.name || ""),
-    ];
-    const ranked = [...predictiveSuggestions, ...pool]
-      .map((i) => i?.toString().trim())
-      .filter(Boolean)
-      .filter((i) => i.toLowerCase().includes(q));
-    return [...new Set(ranked)].slice(0, MAX_TYPEAHEAD_SUGGESTIONS);
-  }, [searchQuery, recentSearches, predictiveSuggestions, suggestedProducts]);
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const trimmed = search.trim();
+      if (trimmed) {
+        console.log("⌨️ Enter pressed with query:", trimmed);
+        // Use navigate for smooth transition with loading skeleton
+        const url = `/search?query=${encodeURIComponent(trimmed)}&page=1`;
+        console.log("🚀 Navigating to:", url);
+        
+        // Close dropdown/modal before navigation
+        context?.setOpenSearchPanel?.(false);
+        onSearchComplete?.();
+        
+        // Navigate using React Router for smooth transition
+        navigate(url);
+      }
+      return;
+    }
+    // Call the original onKeyDown for other keys (arrow keys, escape, etc.)
+    onKeyDown(e);
+  };
 
-  const hasLiveSuggestions =
-    typeaheadSuggestions.length > 0 ||
-    suggestedProducts.length > 0 ||
-    Boolean(suggestedCorrection) ||
-    Boolean(aiHintSummary);
+  const onSelectSuggestion = async (value) => {
+    console.log("👆 Suggestion clicked:", value);
+    
+    // First execute search, then close dropdown
+    try {
+      await handleSearch(value);
+    } catch (error) {
+      console.error("Error in onSelectSuggestion:", error);
+    }
+  };
 
-  const isSearching = searchQuery.trim().length > 0;
+  const isSearching = search.trim().length > 0;
+  const displayTrending = trending.length ? trending : topSearches.slice(0, 6);
+  const displayPopular = popularBrands.length
+    ? popularBrands.map((b) => b.name || b)
+    : topSearches.slice(6, 12);
 
   return (
-    <div ref={searchWrapperRef} className="search-root search-wrapper">
+    <div ref={wrapperRef} className="search-root search-wrapper">
       <style>{styles}</style>
 
-      {/* Search Box */}
       <div className="search-box">
-        {/* <IoSearch className="search-icon" /> */}
         <input
           ref={inputRef}
           type="text"
           placeholder="Search products, brands & more..."
           className="search-input"
-          value={searchQuery}
-          onFocus={() => setIsDropdownOpen(true)}
-          onChange={onChangeInput}
-          onKeyDown={(e) => e.key === "Enter" && performSearch()}
+          value={search}
+          onFocus={onFocus}
+          onChange={(e) => onQueryChange(e.target.value)}
+          onKeyDown={handleKeyDown}
           autoComplete="off"
+          role="combobox"
+          aria-expanded={isDropdownOpen}
+          aria-autocomplete="list"
         />
         {isSearching && (
-          <button className="clear-btn" onClick={onClearSearch} aria-label="Clear">
+          <button className="clear-btn" onClick={() => { clearSearch(); openDropdown(); inputRef.current?.focus(); }} aria-label="Clear">
             <IoClose style={{ fontSize: 16 }} />
           </button>
         )}
-        <button className="search-btn" onClick={() => performSearch()} aria-label="Search">
-          {isLoading ? (
-            <CircularProgress size={18} style={{ color: "#fff" }} />
+        <button className="search-btn" onClick={() => handleSearch()} aria-label="Search">
+          {loading ? (
+            <CircularProgress size={18} />
           ) : (
             <IoSearch style={{ fontSize: 17 }} />
           )}
         </button>
       </div>
 
-      {/* Dropdown */}
       {isDropdownOpen && (
-        <div className="search-dropdown">
+        <div className="search-dropdown" role="listbox">
           <div className="dropdown-scroll">
-            {isSearching && hasLiveSuggestions ? (
+            {suggestionsLoading && isSearching && (
+              <div className="loading-row">
+                <CircularProgress size={16} />
+                Searching...
+              </div>
+            )}
+
+            {isSearching ? (
               <>
-                {/* Did You Mean */}
-                {suggestedCorrection && suggestedCorrection !== searchQuery.trim().toLowerCase() && (
-                  <button className="did-you-mean-btn" onClick={() => onSelectSuggestion(suggestedCorrection)}>
+                {didYouMean && didYouMean !== search.trim().toLowerCase() && (
+                  <button 
+                    className="did-you-mean-btn" 
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      console.log("👆 Clicked did-you-mean:", didYouMean);
+                      
+                      // Close dropdown/modal first
+                      context?.setOpenSearchPanel?.(false);
+                      onSearchComplete?.();
+                      
+                      // Navigate using React Router
+                      const url = `/search?query=${encodeURIComponent(didYouMean)}&page=1`;
+                      console.log("🚀 Navigating to:", url);
+                      navigate(url);
+                    }}
+                  >
+                    <IoSparklesOutline />
                     <span className="did-you-mean-label">Did you mean</span>
-                    <span className="did-you-mean-word">"{suggestedCorrection}"</span>
+                    <span className="did-you-mean-word">{didYouMean}</span>
                   </button>
                 )}
 
-                {/* AI Hint */}
-                {aiHintSummary && (
-                  <div className="ai-card">
-                    <div className="ai-card-label">
-                      <IoSparklesOutline />
-                      AI Suggestion
-                    </div>
-                    <p className="ai-summary">{aiHintSummary}</p>
-                    {aiHintHighlights.length > 0 && (
-                      <ul className="ai-highlights">
-                        {aiHintHighlights.map((hint) => (
-                          <li key={hint}>{hint}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-
-                {/* Typeahead Suggestions */}
-                {typeaheadSuggestions.length > 0 && (
-                  <ul className="suggestion-list">
-                    {typeaheadSuggestions.map((item) => {
-                      const isRecent = recentSearches.includes(item);
-                      return (
+                {suggestions.length > 0 && (
+                  <>
+                    <div className="section-label"><IoSearch /> Suggestions</div>
+                    <ul className="suggestion-list">
+                      {suggestions.map((item, idx) => (
                         <li key={item}>
-                          <button onClick={() => onSelectSuggestion(item)}>
-                            <span className={`sugg-icon ${isRecent ? "recent-icon" : ""}`}>
-                              {isRecent ? <IoTimeOutline /> : <IoSearch style={{ fontSize: 13 }} />}
-                            </span>
+                          <button
+                            className={activeIndex === idx ? "active" : ""}
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              console.log("👆 Clicked suggestion:", item);
+                              
+                              // Close dropdown/modal first
+                              context?.setOpenSearchPanel?.(false);
+                              onSearchComplete?.();
+                              
+                              // Navigate using React Router for smooth transition
+                              const url = `/search?query=${encodeURIComponent(item)}&page=1`;
+                              console.log("🚀 Navigating to:", url);
+                              navigate(url);
+                            }}
+                          >
+                            <span className="sugg-icon"><IoSearch style={{ fontSize: 13 }} /></span>
                             <span>{item}</span>
                           </button>
                         </li>
-                      );
-                    })}
-                  </ul>
+                      ))}
+                    </ul>
+                  </>
                 )}
 
-                {/* Suggested Products */}
-                {suggestedProducts.length > 0 && (
+                {brands.length > 0 && (
                   <>
-                    <div className="divider" style={{ margin: "8px 0" }} />
-                    <div className="section-label">Suggested Products</div>
+                    <div className="divider" />
+                    <div className="section-label"><IoPricetagOutline /> Brands</div>
+                    <ul className="suggestion-list">
+                      {brands.slice(0, 5).map((brand) => (
+                        <li key={brand.name}>
+                          <button 
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              console.log("👆 Clicked brand:", brand.name);
+                              
+                              context?.setOpenSearchPanel?.(false);
+                              onSearchComplete?.();
+                              
+                              const url = `/search?query=${encodeURIComponent(brand.name)}&page=1`;
+                              console.log("🚀 Navigating to:", url);
+                              navigate(url);
+                            }}
+                          >
+                            <span className="sugg-icon brand-icon"><IoPricetagOutline style={{ fontSize: 13 }} /></span>
+                            <span dangerouslySetInnerHTML={{ __html: brand.highlightedName || brand.name }} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+
+                {categories.length > 0 && (
+                  <>
+                    <div className="divider" />
+                    <div className="section-label"><IoStorefrontOutline /> Categories</div>
+                    <ul className="suggestion-list">
+                      {categories.slice(0, 5).map((cat) => (
+                        <li key={cat._id || cat.name}>
+                          <button 
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              console.log("👆 Clicked category:", cat.name);
+                              
+                              context?.setOpenSearchPanel?.(false);
+                              onSearchComplete?.();
+                              
+                              const url = `/search?query=${encodeURIComponent(cat.name)}&page=1`;
+                              console.log("🚀 Navigating to:", url);
+                              navigate(url);
+                            }}
+                          >
+                            <span className="sugg-icon category-icon"><IoStorefrontOutline style={{ fontSize: 13 }} /></span>
+                            <span dangerouslySetInnerHTML={{ __html: cat.highlightedName || cat.name }} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+
+                {products.length > 0 && (
+                  <>
+                    <div className="divider" />
+                    <div className="section-label">Products</div>
                     <div className="products-grid">
-                      {suggestedProducts.map((product) => (
+                      {products.slice(0, 6).map((product) => (
                         <button
                           key={product?._id || product?.name}
                           className="product-card"
-                          onClick={() => onSelectSuggestion(product?.name || "")}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            console.log("👆 Clicked product:", product?.name);
+                            
+                            context?.setOpenSearchPanel?.(false);
+                            onSearchComplete?.();
+                            
+                            const url = `/search?query=${encodeURIComponent(product?.name || "")}&page=1`;
+                            console.log("🚀 Navigating to:", url);
+                            navigate(url);
+                          }}
                         >
-                          <div className="product-thumb">🛍️</div>
+                          <div className="product-thumb">
+                            {product?.image ? (
+                              <img src={product.image} alt="" />
+                            ) : (
+                              "🛍️"
+                            )}
+                          </div>
                           <div>
-                            <p className="product-name">{product?.name}</p>
+                            <p
+                              className="product-name"
+                              dangerouslySetInnerHTML={{ __html: product?.highlightedName || product?.name }}
+                            />
                             {product?.brand && <p className="product-brand">{product.brand}</p>}
                           </div>
                         </button>
@@ -600,16 +593,27 @@ const Search = ({ onSearchComplete, inputRef: externalInputRef }) => {
               </>
             ) : (
               <>
-                {/* Recent Searches */}
-                {recentSearches.length > 0 && (
+                {recentKeywords.length > 0 && (
                   <>
-                    <div className="section-label">
-                      <IoTimeOutline />
-                      Recent
-                    </div>
+                    <div className="section-label"><IoTimeOutline /> Recent</div>
                     <div className="chip-row">
-                      {recentSearches.map((item) => (
-                        <button key={item} className="chip recent-chip" onClick={() => onSelectSuggestion(item)}>
+                      {recentKeywords.map((item) => (
+                        <button 
+                          key={item} 
+                          className="chip recent-chip" 
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            console.log("👆 Clicked recent:", item);
+                            
+                            context?.setOpenSearchPanel?.(false);
+                            onSearchComplete?.();
+                            
+                            const url = `/search?query=${encodeURIComponent(item)}&page=1`;
+                            console.log("🚀 Navigating to:", url);
+                            navigate(url);
+                          }}
+                        >
                           <IoTimeOutline style={{ fontSize: 11 }} />
                           {item}
                         </button>
@@ -619,34 +623,94 @@ const Search = ({ onSearchComplete, inputRef: externalInputRef }) => {
                   </>
                 )}
 
-                {/* Trending */}
-                <div className="section-label" style={{ marginTop: 4 }}>
-                  <IoFlameOutline />
-                  Trending
-                </div>
-                <ul className="suggestion-list">
-                  {TRENDING_TERMS.map((item) => (
-                    <li key={item}>
-                      <button onClick={() => onSelectSuggestion(item)}>
-                        <span className="sugg-icon trending-icon">
-                          <IoFlameOutline style={{ fontSize: 13 }} />
-                        </span>
-                        <span>{item}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                {displayTrending.length > 0 && (
+                  <>
+                    <div className="section-label"><IoFlameOutline /> Trending</div>
+                    <ul className="suggestion-list">
+                      {displayTrending.map((item) => (
+                        <li key={item}>
+                          <button 
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              console.log("👆 Clicked trending:", item);
+                              
+                              context?.setOpenSearchPanel?.(false);
+                              onSearchComplete?.();
+                              
+                              const url = `/search?query=${encodeURIComponent(item)}&page=1`;
+                              console.log("🚀 Navigating to:", url);
+                              navigate(url);
+                            }}
+                          >
+                            <span className="sugg-icon trending-icon">
+                              <IoFlameOutline style={{ fontSize: 13 }} />
+                            </span>
+                            <span>{item}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
 
-                {/* Most Searched */}
-                <div className="divider" style={{ margin: "8px 0" }} />
-                <div className="section-label">Most Searched</div>
-                <div className="chip-row" style={{ paddingBottom: 4 }}>
-                  {POPULAR_TERMS.map((item) => (
-                    <button key={item} className="chip popular-chip" onClick={() => onSelectSuggestion(item)}>
-                      {item}
-                    </button>
-                  ))}
-                </div>
+                {popularCategories.length > 0 && (
+                  <>
+                    <div className="divider" />
+                    <div className="section-label">Popular Categories</div>
+                    <div className="chip-row">
+                      {popularCategories.slice(0, 8).map((cat) => (
+                        <button 
+                          key={cat._id || cat.name} 
+                          className="chip" 
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            console.log("👆 Clicked popular category:", cat.name);
+                            
+                            context?.setOpenSearchPanel?.(false);
+                            onSearchComplete?.();
+                            
+                            const url = `/search?query=${encodeURIComponent(cat.name)}&page=1`;
+                            console.log("🚀 Navigating to:", url);
+                            navigate(url);
+                          }}
+                        >
+                          {cat.name}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {displayPopular.length > 0 && (
+                  <>
+                    <div className="divider" />
+                    <div className="section-label">Popular Brands</div>
+                    <div className="chip-row">
+                      {displayPopular.map((item) => (
+                        <button 
+                          key={item} 
+                          className="chip popular-chip" 
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            console.log("👆 Clicked popular brand:", item);
+                            
+                            context?.setOpenSearchPanel?.(false);
+                            onSearchComplete?.();
+                            
+                            const url = `/search?query=${encodeURIComponent(item)}&page=1`;
+                            console.log("🚀 Navigating to:", url);
+                            navigate(url);
+                          }}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>

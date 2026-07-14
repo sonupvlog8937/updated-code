@@ -4,6 +4,7 @@ import { fetchDataFromApi } from "@/src/utils/api";
 import { gmImg } from "@/src/utils/goMarketMedia";
 import { showToast } from "@/src/utils/toast";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -56,6 +57,7 @@ export default function GoMarketProductScreen() {
   const { kind, id } = useLocalSearchParams<{ kind: string; id: string }>();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
   const { isLogin, userData } = useAppSelector((s: any) => s.app);
   const userId = userData?._id || userData?.id;
   const userName = userData?.name;
@@ -645,7 +647,7 @@ export default function GoMarketProductScreen() {
       </ScrollView>
 
       {/* Sticky Footer with Action Buttons */}
-      <View style={S.stickyFooter}>
+      <View style={[S.stickyFooter, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
         <TouchableOpacity 
           style={[S.cartBtn, busy && S.actionDisabled, shopData && shopData.isOpen === false && S.actionDisabled]} 
           onPress={addCart} 
@@ -702,8 +704,7 @@ const S = StyleSheet.create({
     right: 0,
     backgroundColor: T.white,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    paddingBottom: Platform.OS === "ios" ? 28 : 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: T.border,
     flexDirection: "row",

@@ -5,21 +5,21 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 
 export type SortOption = {
   key: string;
   label: string;
-  icon: string;
+  icon: keyof typeof Feather.glyphMap;
 };
 
 export const SORT_OPTIONS: SortOption[] = [
-  { key: "latest", label: "Latest", icon: "🕐" },
-  { key: "popular", label: "Popular", icon: "🔥" },
-  { key: "rating", label: "Highest Rated", icon: "⭐" },
-  { key: "price_low", label: "Price: Low to High", icon: "📉" },
-  { key: "price_high", label: "Price: High to Low", icon: "📈" },
+  { key: "latest", label: "Latest", icon: "clock" },
+  { key: "popular", label: "Popular", icon: "trending-up" },
+  { key: "rating", label: "Highest Rated", icon: "star" },
+  { key: "price_low", label: "Price: Low to High", icon: "arrow-down" },
+  { key: "price_high", label: "Price: High to Low", icon: "arrow-up" },
 ];
 
 interface SortModalProps {
@@ -36,112 +36,80 @@ export function SortModal({ visible, selectedSort, onSelect, onClose }: SortModa
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={S.container}>
-        <View style={S.header}>
-          <Text style={S.title}>Sort By</Text>
-          <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={S.closeBtn}>✕</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={S.optionsContainer}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <TouchableOpacity 
+        style={S.sortOverlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <View style={S.sortMenu}>
           {SORT_OPTIONS.map((option) => (
             <TouchableOpacity
               key={option.key}
-              style={[S.option, selectedSort === option.key && S.optionActive]}
+              style={[
+                S.sortOption, 
+                selectedSort === option.key && S.sortOptionActive
+              ]}
               onPress={() => handleSelect(option.key)}
+              activeOpacity={0.7}
             >
-              <Text style={S.optionIcon}>{option.icon}</Text>
-              <Text style={[S.optionLabel, selectedSort === option.key && S.optionLabelActive]}>
+              <Text style={[
+                S.sortText,
+                selectedSort === option.key && S.sortTextActive
+              ]}>
                 {option.label}
               </Text>
-              {selectedSort === option.key && <Text style={S.checkmark}>✓</Text>}
+              {selectedSort === option.key && (
+                <Feather name="check" size={16} color="#fff" />
+              )}
             </TouchableOpacity>
           ))}
         </View>
-
-        <TouchableOpacity style={S.applyBtn} onPress={onClose}>
-          <Text style={S.applyBtnText}>Done</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
+      </TouchableOpacity>
     </Modal>
   );
 }
 
 const S = StyleSheet.create({
-  container: {
+  sortOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
-  header: {
+  sortMenu: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    paddingVertical: 8,
+    paddingBottom: 20,
+  },
+  sortOption: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    borderRadius: 8,
+    marginHorizontal: 8,
+    marginVertical: 2,
   },
-  title: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#0f172a",
+  sortOptionActive: {
+    backgroundColor: "#2563eb",
   },
-  closeBtn: {
-    fontSize: 20,
-    color: "#64748b",
-    fontWeight: "700",
-  },
-  optionsContainer: {
-    backgroundColor: "#fff",
-    maxHeight: "70%",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  option: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginVertical: 4,
-    backgroundColor: "#f8fafc",
-  },
-  optionActive: {
-    backgroundColor: "#f0f9ff",
-  },
-  optionIcon: {
-    fontSize: 18,
-    marginRight: 12,
-  },
-  optionLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#475569",
-    flex: 1,
-  },
-  optionLabelActive: {
-    color: "#0f172a",
-    fontWeight: "700",
-  },
-  checkmark: {
-    fontSize: 16,
-    color: "#2563eb",
-    fontWeight: "700",
-  },
-  applyBtn: {
-    backgroundColor: "#0f172a",
-    marginHorizontal: 16,
-    marginBottom: 16,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  applyBtnText: {
-    color: "#fff",
+  sortText: {
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "600",
+    color: "#111827",
+  },
+  sortTextActive: {
+    color: "#fff",
   },
 });

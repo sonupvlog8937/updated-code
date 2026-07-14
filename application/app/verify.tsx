@@ -118,6 +118,8 @@ export default function VerifyScreen() {
                   inputs.current[i] = r;
                 }}
                 value={c}
+                textContentType="oneTimeCode"
+                autoComplete="sms-otp"
                 onChangeText={(v) => onChange(i, v)}
                 onKeyPress={({ nativeEvent }) => {
                   if (nativeEvent.key === "Backspace" && !c && i > 0) {

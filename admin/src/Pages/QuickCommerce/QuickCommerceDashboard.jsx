@@ -169,6 +169,7 @@ const QuickCommerceDashboard = () => {
   const stats = data?.orderStats || {};
   const catalog = data?.catalog || {};
   const recentOrders = data?.recentOrders || [];
+  const displayDeliveryMinutes = (isGrocery || isRestaurant) ? 0 : outlet?.deliveryMinutes ?? "—";
 
   // Generic labels based on seller type
   const getControlLabel = () => {
@@ -271,7 +272,7 @@ const QuickCommerceDashboard = () => {
             <div className="qc-hero-pills">
               <div className="qc-pill">
                 <div className="qc-pill-lbl">Delivery promise</div>
-                <div className="qc-pill-val">{outlet?.deliveryMinutes ?? "—"} min</div>
+                <div className="qc-pill-val">{displayDeliveryMinutes} min</div>
               </div>
               <div className="qc-pill">
                 <div className="qc-pill-lbl">Min order</div>

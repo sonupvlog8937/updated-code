@@ -1,13 +1,15 @@
 import React, { useState } from 'react'
 import { Button } from '@mui/material';
 import { FaCloudUploadAlt } from "react-icons/fa";
+import { IoMdClose } from "react-icons/io";
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import { useContext } from 'react';
 import { MyContext } from '../../App';
 import CircularProgress from '@mui/material/CircularProgress';
-import { postData } from '../../utils/api';
+import { postData, deleteImages } from '../../utils/api';
 import { useNavigate } from 'react-router-dom';
+import UploadBox from '../../Components/UploadBox';
 
 const AddSubCategory = () => {
     const [productCat, setProductCat] = useState('');
@@ -17,6 +19,7 @@ const AddSubCategory = () => {
 
     const [formFields, setFormFields] = useState({
         name: "",
+        images: [],
         parentCatName: null,
         parentId: null
     })
@@ -24,10 +27,14 @@ const AddSubCategory = () => {
 
     const [formFields2, setFormFields2] = useState({
         name: "",
+        images: [],
         parentCatName: null,
         parentId: null
 
     })
+
+    const [previews, setPreviews] = useState([]);
+    const [previews2, setPreviews2] = useState([]);
 
     const context = useContext(MyContext);
     const history = useNavigate();
@@ -79,6 +86,62 @@ const AddSubCategory = () => {
         })
     }
 
+    const setPreviewsFun = (previewsArr) => {
+        const imgArr = previews;
+        for (let i = 0; i < previewsArr.length; i++) {
+            imgArr.push(previewsArr[i])
+        }
+
+        setPreviews([])
+        setTimeout(() => {
+            setPreviews(imgArr)
+            formFields.images = imgArr
+        }, 10);
+    }
+
+    const removeImg = (image, index) => {
+        var imageArr = [];
+        imageArr = previews;
+        deleteImages(`/api/category/deteleImage?img=${image}`).then((res) => {
+            imageArr.splice(index, 1);
+
+            setPreviews([]);
+            setTimeout(() => {
+                setPreviews(imageArr);
+                formFields.images = imageArr
+            }, 100);
+
+        })
+    }
+
+    const setPreviewsFun2 = (previewsArr) => {
+        const imgArr = previews2;
+        for (let i = 0; i < previewsArr.length; i++) {
+            imgArr.push(previewsArr[i])
+        }
+
+        setPreviews2([])
+        setTimeout(() => {
+            setPreviews2(imgArr)
+            formFields2.images = imgArr
+        }, 10);
+    }
+
+    const removeImg2 = (image, index) => {
+        var imageArr = [];
+        imageArr = previews2;
+        deleteImages(`/api/category/deteleImage?img=${image}`).then((res) => {
+            imageArr.splice(index, 1);
+
+            setPreviews2([]);
+            setTimeout(() => {
+                setPreviews2(imageArr);
+                formFields2.images = imageArr
+            }, 100);
+
+        })
+    }
+
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -93,6 +156,12 @@ const AddSubCategory = () => {
 
         if (productCat === "") {
             context.alertBox("error", "Please select parent category");
+            setIsLoading(false);
+            return false
+        }
+
+        if (previews?.length === 0) {
+            context.alertBox("error", "Please select category image");
             setIsLoading(false);
             return false
         }
@@ -127,6 +196,12 @@ const AddSubCategory = () => {
 
         if (productCat2 === "") {
             context.alertBox("error", "Please select parent category");
+            setIsLoading2(false);
+            return false
+        }
+
+        if (previews2?.length === 0) {
+            context.alertBox("error", "Please select category image");
             setIsLoading2(false);
             return false
         }
@@ -179,6 +254,33 @@ const AddSubCategory = () => {
 
                     </div>
 
+                    <br />
+
+                    <h3 className='text-[14px] font-[500] mb-2 text-black'>Sub Category Image</h3>
+                 
+                    <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
+                        {
+                            previews?.length !== 0 && previews?.map((image, index) => {
+                                return (
+                                    <div className="uploadBoxWrapper mr-3 relative" key={index}>
+
+                                        <span className='absolute w-[20px] h-[20px] rounded-full  overflow-hidden bg-red-700 -top-[5px] -right-[5px] flex items-center justify-center z-50 cursor-pointer' onClick={() => removeImg(image, index)}><IoMdClose className='text-white text-[17px]' /></span>
+
+
+                                        <div className='uploadBox p-0 rounded-md overflow-hidden border border-dashed border-[rgba(0,0,0,0.3)] h-[150px] w-[100%] bg-gray-100 cursor-pointer hover:bg-gray-200 flex items-center justify-center flex-col relative'>
+
+                                            <img src={image} className='w-100' />
+                                        </div>
+                                    </div>
+                                )
+                            })
+                        }
+
+
+                        <UploadBox multiple={true} name="images" url="/api/category/uploadImages" setPreviewsFun={setPreviewsFun} />
+                    </div>
+
+                    <br />
                     <br />
 
                 </div>
@@ -242,6 +344,33 @@ const AddSubCategory = () => {
 
                     </div>
 
+                    <br />
+
+                    <h3 className='text-[14px] font-[500] mb-2 text-black'>Third Level Category Image</h3>
+                 
+                    <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
+                        {
+                            previews2?.length !== 0 && previews2?.map((image, index) => {
+                                return (
+                                    <div className="uploadBoxWrapper mr-3 relative" key={index}>
+
+                                        <span className='absolute w-[20px] h-[20px] rounded-full  overflow-hidden bg-red-700 -top-[5px] -right-[5px] flex items-center justify-center z-50 cursor-pointer' onClick={() => removeImg2(image, index)}><IoMdClose className='text-white text-[17px]' /></span>
+
+
+                                        <div className='uploadBox p-0 rounded-md overflow-hidden border border-dashed border-[rgba(0,0,0,0.3)] h-[150px] w-[100%] bg-gray-100 cursor-pointer hover:bg-gray-200 flex items-center justify-center flex-col relative'>
+
+                                            <img src={image} className='w-100' />
+                                        </div>
+                                    </div>
+                                )
+                            })
+                        }
+
+
+                        <UploadBox multiple={true} name="images" url="/api/category/uploadImages" setPreviewsFun={setPreviewsFun2} />
+                    </div>
+
+                    <br />
                     <br />
 
                 </div>

@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -24,6 +25,7 @@ export default function AddressScreen() {
   const colors = useColors();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
   const userData = useAppSelector((s) => s.app.userData);
   const isLogin = useAppSelector((s) => s.app.isLogin);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -377,6 +379,7 @@ export default function AddressScreen() {
           {
             backgroundColor: colors.background,
             borderTopColor: colors.border,
+            paddingBottom: Math.max(insets.bottom, 16) + 8,
           },
         ]}
       >
@@ -445,7 +448,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     borderTopWidth: 1,
   },
 });

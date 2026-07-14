@@ -115,13 +115,18 @@ export const editData = async (url, updatedData ) => {
     
     } 
 
-    var response;
-    await axios.put(apiUrl + url,updatedData, params).then((res)=>{
-        response=res;
-        
-    })
-    return response;
-   
+    try {
+        const response = await axios.put(apiUrl + url, updatedData, params);
+        return response;
+    } catch (error) {
+        return error?.response || {
+            data: {
+                success: false,
+                error: true,
+                message: error?.message || "Request failed"
+            }
+        };
+    }
 }
 
 

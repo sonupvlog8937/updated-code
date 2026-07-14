@@ -12,7 +12,12 @@ import {
 } from "../controllers/coupon.controller.js";
 
 const couponRouter = Router();
-const sellerRoles = authorizeRole("GROCERY_SELLER", "RESTAURANT_SELLER");
+const GO_MARKET_SHOP_SELLERS = [
+  "GROCERY_SELLER", "FASHION_SELLER", "ELECTRONICS_SELLER", "MEDICAL_SELLER",
+  "BEAUTY_SELLER", "HOME_KITCHEN_SELLER", "GIFTS_TOYS_SELLER",
+  "BOOKS_STATIONERY_SELLER", "JEWELLERY_SELLER", "HARDWARE_SELLER", "AUTOMOBILE_SELLER"
+];
+const sellerRoles = authorizeRole(...GO_MARKET_SHOP_SELLERS, "RESTAURANT_SELLER");
 
 couponRouter.get("/active", getActiveCouponsController);
 couponRouter.post("/validate", validateCouponController);

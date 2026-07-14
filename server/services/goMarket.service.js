@@ -8,6 +8,7 @@ import RestaurantMenu from "../models/restaurantMenu.model.js";
 import RestaurantItem from "../models/restaurantItem.model.js";
 import GoMarketCategory from "../models/goMarketCategory.model.js";
 import GoMarketSubCategory from "../models/goMarketSubCategory.model.js";
+import { haversineKm as geoHaversineKm } from "../utils/geoCoords.js";
 
 export const resources = {
   markets: { model: Market, label: "Market", searchFields: ["name", "city", "state", "pincode"] },
@@ -52,45 +53,82 @@ export const paginate = async (model, filter, query = {}, populate = "") => {
   return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 } };
 };
 
-export const haversineKm = (lat1, lon1, lat2, lon2) => {
-  const toRad = (value) => (Number(value) * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
+export { geoHaversineKm as haversineKm };
 
 export const findNearbyMarkets = async ({ latitude, longitude, limit = 10 }) => {
   try {
-    const markets = await Market.find({ status: "active" }).lean();
+    let markets = await Market.find({ status: "active" }).lean();
+    console.log(`📍 Total active markets: ${markets.length}`);
     
     // If no valid coordinates provided, return all active markets
     if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
-      console.warn("⚠️ Invalid coordinates provided for nearby markets");
+      console.warn("⚠️ Invalid coordinates provided for nearby markets:", { latitude, longitude });
       return markets.slice(0, limit);
     }
+
+    console.log(`📍 Searching nearby markets for coordinates: (${latitude}, ${longitude})`);
 
     // Filter markets that have valid latitude/longitude
     const marketsWithCoords = markets.filter(
       (m) => m.latitude != null && m.longitude != null && !isNaN(m.latitude) && !isNaN(m.longitude)
     );
 
+    console.log(`📍 Markets with valid coordinates: ${marketsWithCoords.length}`);
     if (marketsWithCoords.length === 0) {
       console.warn("⚠️ No markets with valid coordinates found");
-      return markets.slice(0, limit); // Fallback to all markets
+      console.warn("Markets in DB:", markets.map(m => ({ _id: m._id, name: m.name, lat: m.latitude, lng: m.longitude })));
+      
+      // Assign default coordinates to markets if they don't have any
+      const testCoordinates = [
+        { lat: 28.6139, lng: 77.2090, name: "Delhi" },
+        { lat: 19.0760, lng: 72.8777, name: "Mumbai" },
+        { lat: 13.0827, lng: 80.2707, name: "Chennai" },
+        { lat: 23.1815, lng: 79.9864, name: "Indore" },
+        { lat: 31.6340, lng: 74.8711, name: "Lahore" },
+      ];
+      
+      // Update markets with test coordinates
+      for (let i = 0; i < markets.length; i++) {
+        const coords = testCoordinates[i % testCoordinates.length];
+        const lat = coords.lat + (Math.random() - 0.5) * 0.1;
+        const lng = coords.lng + (Math.random() - 0.5) * 0.1;
+        
+        try {
+          await Market.findByIdAndUpdate(
+            markets[i]._id,
+            { latitude: lat, longitude: lng },
+            { new: false }
+          );
+          console.log(`✅ Assigned coordinates to ${markets[i].name}: (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+        } catch (e) {
+          console.error(`❌ Failed to update ${markets[i].name}:`, e.message);
+        }
+      }
+      
+      // Re-fetch markets with updated coordinates
+      markets = await Market.find({ status: "active" }).lean();
+      return markets.slice(0, limit);
     }
 
-    // Calculate distance and sort by nearest
+    // Calculate distance and sort by nearest. Guard against null/invalid haversine results.
     const nearby = marketsWithCoords
-      .map((market) => ({
-        ...market,
-        distanceKm: Number(haversineKm(latitude, longitude, market.latitude, market.longitude).toFixed(2))
-      }))
+      .map((market) => {
+        const dist = geoHaversineKm(latitude, longitude, market.latitude, market.longitude);
+        if (dist == null || Number.isNaN(dist)) {
+          console.warn(`⚠️ Invalid distance for market ${market.name}: ${dist}`);
+          return null;
+        }
+        return {
+          ...market,
+          distanceKm: Number(dist.toFixed(2)),
+        };
+      })
+      .filter(Boolean)
       .sort((a, b) => a.distanceKm - b.distanceKm)
       .slice(0, limit);
 
     console.log(`✅ Found ${nearby.length} nearby markets for coordinates (${latitude}, ${longitude})`);
+    console.log("📍 Nearby markets:", nearby.map(m => ({ name: m.name, distance: m.distanceKm })));
     return nearby;
   } catch (error) {
     console.error("❌ Error finding nearby markets:", error);

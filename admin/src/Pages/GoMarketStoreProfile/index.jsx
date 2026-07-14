@@ -216,10 +216,14 @@ const GoMarketStoreProfile = () => {
     shopLogo: "",
     address: "",
     description: "",
+    latitude: "",
+    longitude: "",
+    deliveryMinutes: "",
   };
 
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
+  const [isLocating, setIsLocating] = useState(false);
 
   useEffect(() => {
     const endpoint = isGoMarketSeller ? "/api/go-market/seller/grocery-shop" : "/api/go-market/seller/restaurant";
@@ -232,6 +236,9 @@ const GoMarketStoreProfile = () => {
           shopLogo: shop.shopLogo || "",
           address: shop.address || "",
           description: shop.description || "",
+          latitude: shop.latitude != null ? String(shop.latitude) : "",
+          longitude: shop.longitude != null ? String(shop.longitude) : "",
+          deliveryMinutes: shop.deliveryMinutes != null ? String(shop.deliveryMinutes) : "",
         };
         setForm(data);
         setEditForm(data);
@@ -268,6 +275,30 @@ const GoMarketStoreProfile = () => {
     setIsEditMode(false);
   };
 
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setEditForm((prev) => ({
+          ...prev,
+          latitude: String(pos.coords.latitude.toFixed(6)),
+          longitude: String(pos.coords.longitude.toFixed(6)),
+        }));
+        toast.success("Location captured successfully!");
+        setIsLocating(false);
+      },
+      (err) => {
+        toast.error("Could not get location: " + err.message);
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
@@ -275,20 +306,34 @@ const GoMarketStoreProfile = () => {
     setIsLoading(true);
     try {
       const endpoint = isGoMarketSeller ? "/api/go-market/seller/grocery-shop" : "/api/go-market/seller/restaurant";
-      const res = await editData(endpoint, editForm);
-      const payload = res?.data || res;
-      const isSuccess = payload?.success === true || payload?.error === false;
+      const payload = { ...editForm };
+      // Convert numeric fields
+      if (payload.latitude !== "") payload.latitude = parseFloat(payload.latitude);
+      else delete payload.latitude;
+      if (payload.longitude !== "") payload.longitude = parseFloat(payload.longitude);
+      else delete payload.longitude;
+      delete payload.deliveryMinutes;
+      const res = await editData(endpoint, payload);
+      const resData = res?.data || res;
+      const isSuccess = resData?.success === true || resData?.error === false;
       
       if (isSuccess) {
         setForm({ ...editForm });
         setIsEditMode(false);
         setErrors({});
-        context?.alertBox("success", payload?.message || "Shop profile updated successfully!");
+        context?.alertBox("success", resData?.message || "Shop profile updated successfully!");
       } else {
-        context?.alertBox("error", payload?.message || "Unable to update shop profile.");
+        context?.alertBox("error", resData?.message || "Unable to update shop profile.");
       }
     } catch (error) {
-      context?.alertBox("error", "Something went wrong.");
+      const msg = error?.response?.data?.message || error?.message || "";
+      if (error?.response?.status === 403) {
+        context?.alertBox("error", "Access denied. Please make sure your seller account is fully set up and try again.");
+      } else if (error?.response?.status === 404 || msg.toLowerCase().includes("not found")) {
+        context?.alertBox("error", "Shop not found. Please contact support to set up your shop.");
+      } else {
+        context?.alertBox("error", msg || "Could not update shop profile. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -403,6 +448,105 @@ const GoMarketStoreProfile = () => {
                 ? <textarea name="description" value={editForm.description} onChange={onChange} rows={3} placeholder="Tell customers about your shop..." style={S.textarea(false)} />
                 : <div style={{...S.viewValue, alignItems: "flex-start", paddingTop: 12}}>{form.description || "Not set"}</div>}
             </Field>
+          </div>
+
+          {/* Location & Delivery Card */}
+          <div style={{ ...S.card, padding: 24, marginBottom: 24 }} className="card-hover">
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 22, paddingBottom: 16, borderBottom: "1px solid #F1F5F9" }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <FiMapPin size={15} color="#10B981" />
+              </div>
+              <div>
+                <h2 style={{ fontSize: 14, fontWeight: 700, color: "#0F172A" }}>Location & Delivery</h2>
+                <p style={{ fontSize: 12, color: "#94A3B8" }}>Set your shop's coordinates for distance & ETA display</p>
+              </div>
+            </div>
+
+            {isEditMode ? (
+              <>
+                {/* Get Location Button */}
+                <div style={{ marginBottom: 18 }}>
+                  <button
+                    type="button"
+                    onClick={getCurrentLocation}
+                    disabled={isLocating}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      padding: "10px 18px", borderRadius: 10,
+                      background: isLocating ? "#F1F5F9" : "rgba(16,185,129,0.1)",
+                      border: "1px solid rgba(16,185,129,0.3)",
+                      color: isLocating ? "#94A3B8" : "#059669",
+                      fontSize: 13, fontWeight: 700, cursor: isLocating ? "not-allowed" : "pointer",
+                      transition: "all 0.2s", fontFamily: "'Outfit', sans-serif",
+                    }}
+                  >
+                    {isLocating ? (
+                      <>
+                        <div style={{ width: 14, height: 14, border: "2px solid #E2E8F0", borderTopColor: "#10B981", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                        Getting location…
+                      </>
+                    ) : (
+                      <><FiMapPin size={14} /> 📍 Get Current Location</>
+                    )}
+                  </button>
+                  <p style={{ fontSize: 11, color: "#94A3B8", marginTop: 6 }}>
+                    Click to auto-fill latitude & longitude from your browser location. Make sure you're at your shop.
+                  </p>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 20px" }}>
+                  <Field icon={FiMapPin} label="Latitude">
+                    <input
+                      name="latitude"
+                      value={editForm.latitude}
+                      onChange={onChange}
+                      placeholder="e.g. 28.613939"
+                      type="number"
+                      step="any"
+                      style={S.input(false)}
+                    />
+                  </Field>
+                  <Field icon={FiMapPin} label="Longitude">
+                    <input
+                      name="longitude"
+                      value={editForm.longitude}
+                      onChange={onChange}
+                      placeholder="e.g. 77.209023"
+                      type="number"
+                      step="any"
+                      style={S.input(false)}
+                    />
+                  </Field>
+                  <Field icon={FiTruck} label="Shipping Minutes">
+                    <input
+                      name="deliveryMinutes"
+                      value="0"
+                      disabled
+                      type="number"
+                      style={S.input(false)}
+                    />
+                    <p style={{ fontSize: 11, color: "#94A3B8", marginTop: 6 }}>
+                      Shipping time is managed by the platform and cannot be edited.
+                    </p>
+                  </Field>
+                </div>
+              </>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 20px" }}>
+                <div>
+                  <label style={S.label}><FiMapPin size={10} />Latitude</label>
+                  <div style={S.viewValue}>{form.latitude || "Not set"}</div>
+                </div>
+                <div>
+                  <label style={S.label}><FiMapPin size={10} />Longitude</label>
+                  <div style={S.viewValue}>{form.longitude || "Not set"}</div>
+                </div>
+                <div>
+                  <label style={S.label}><FiTruck size={10} />Shipping Minutes</label>
+                  <div style={S.viewValue}>0 min</div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Banner & Logo Card */}

@@ -494,7 +494,7 @@ const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
           </TouchableOpacity>
           <TouchableOpacity style={styles.cancelFooterBtn} onPress={onClose}>
             <Ionicons name="close" size={14} color="#374151" />
-            <Text style={styles.cancelFooterText}>Close</Text>
+            <Text style={styles.cancelFooterText}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -569,18 +569,19 @@ const styles = StyleSheet.create({
   switchRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
   switchLabel: { fontSize: 13, fontWeight: '500', color: '#374151' },
   footer: {
-    flexDirection: 'row', gap: 8, padding: 16, paddingBottom: 28,
+    flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+    padding: 16, paddingBottom: 28,
     borderTopWidth: 1, borderTopColor: '#f0f0f5',
   },
   applyBtn: {
-    flex: 1, height: 46, borderRadius: 12, backgroundColor: '#0d0d12',
+    flex: 1, minWidth: 140, height: 46, borderRadius: 12, backgroundColor: '#0d0d12',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
   },
   applyText: { fontSize: 14, fontWeight: '700', color: '#fff' },
   cancelFooterBtn: {
-    height: 46, paddingHorizontal: 16, borderRadius: 12,
+    flex: 1, minWidth: 140, height: 46, paddingHorizontal: 16, borderRadius: 12,
     backgroundColor: '#f8f8fb', borderWidth: 1.5, borderColor: '#e8e8f0',
-    flexDirection: 'row', alignItems: 'center', gap: 5,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
   },
   cancelFooterText: { fontSize: 13, fontWeight: '600', color: '#374151' },
 });

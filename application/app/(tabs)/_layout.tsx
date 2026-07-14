@@ -8,6 +8,7 @@ import {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { useTabsVisibility } from "@/src/context/ScrollVisibilityContext";
@@ -42,6 +43,7 @@ function OrdersIcon({ color, size }: { color: string; size: number }) {
 export default function TabLayout() {
   const colors = useColors();
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
@@ -80,8 +82,8 @@ export default function TabLayout() {
             borderTopWidth: 1,
             borderTopColor: "#f0f0f0",
             elevation: 0,
-            height: isWeb ? 70 : 65,
-            paddingBottom: isIOS ? 18 : 6,
+            height: isWeb ? 70 : (50 + Math.max(insets.bottom, 10)),
+            paddingBottom: Math.max(insets.bottom, 6),
             paddingTop: 6,
             paddingHorizontal: 0,
             overflow: "hidden",

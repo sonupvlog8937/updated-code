@@ -13,6 +13,7 @@ import {
   Modal,
   SafeAreaView,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -50,6 +51,8 @@ const DISCOUNT_OPTS = [
 export default function SellerStorePage() {
   const colors = useColors();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const footerBottomPadding = Math.max(insets.bottom, 12) + 12;
   const { sellerId } = useLocalSearchParams();
 
   // Remote state
@@ -632,7 +635,13 @@ export default function SellerStorePage() {
         </ScrollView>
 
         {/* Footer buttons */}
-        <View style={[styles.filterFooter, { borderTopColor: colors.border }]}>
+        <View style={[styles.filterFooter, { borderTopColor: colors.border, paddingBottom: footerBottomPadding }]}> 
+          <TouchableOpacity
+            onPress={() => setFilterModalOpen(false)}
+            style={[styles.filterBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}
+          >
+            <Text style={[styles.filterBtnText, { color: colors.foreground }]}>Cancel</Text>
+          </TouchableOpacity>
           {activeFilterCount > 0 && (
             <TouchableOpacity
               onPress={resetFilters}
@@ -1010,7 +1019,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingTop: 18,
+    paddingBottom: 14,
     borderBottomWidth: 1,
   },
   filterTitle: {

@@ -32,6 +32,10 @@ import {
   UIManager,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
+import { getOutletBaseMinutes, getOutletDistanceEta } from "@/src/utils/geoCoords";
 
 if (
   Platform.OS === "android" &&
@@ -66,6 +70,7 @@ const BANNER_H = 180;
 const LOGO_SIZE = 68;
 const STATUS_H =
   Platform.OS === "android" ? (StatusBar.currentHeight ?? 20) : 44;
+const GM_LOC_KEY = "gm_user_location";
 
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -335,13 +340,58 @@ export default function GoMarketShopDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const { isLogin } = useAppSelector((s: any) => s.app);
+  const insets = useSafeAreaInsets();
+  const { isLogin, userData } = useAppSelector((s: any) => s.app);
   const [authChecked, setAuthChecked] = useState(false);
 
   const cardSlide = useRef(new Animated.Value(20)).current;
   const cardOpacity = useRef(new Animated.Value(0)).current;
   const sectionSlide = useRef(new Animated.Value(16)).current;
   const sectionOpacity = useRef(new Animated.Value(0)).current;
+
+  const [shop, setShop] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [cartDialogVisible, setCartDialogVisible] = useState(false);
+  const [userLocation, setUserLocationState] = useState<{ lat: number; lng: number } | null>(null);
+  const locationSourceRef = useRef<"gps" | "address" | "cache" | null>(null);
+
+  const applyAddressFallback = useCallback(() => {
+    if (locationSourceRef.current === "gps") return;
+    const addresses: any[] = userData?.address_details || [];
+    const selected = addresses.find((a: any) => a.selected) || addresses[0];
+    if (selected?.latitude && selected?.longitude) {
+      locationSourceRef.current = "address";
+      const loc = { lat: Number(selected.latitude), lng: Number(selected.longitude) };
+      setUserLocationState(loc);
+      AsyncStorage.setItem(GM_LOC_KEY, JSON.stringify(loc)).catch(() => {});
+    }
+  }, [userData]);
+
+  const setUserLocation = useCallback((loc: { lat: number; lng: number }, source: "gps" | "address" | "cache" = "cache") => {
+    if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return;
+    if (locationSourceRef.current === "gps" && source !== "gps") return;
+    locationSourceRef.current = source;
+    setUserLocationState(loc);
+    AsyncStorage.setItem(GM_LOC_KEY, JSON.stringify(loc)).catch(() => {});
+  }, []);
+
+  const refreshCurrentLocation = useCallback(async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        applyAddressFallback();
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude }, "gps");
+    } catch {
+      applyAddressFallback();
+    }
+  }, [setUserLocation, applyAddressFallback]);
 
   useEffect(() => {
     const t = setTimeout(() => setAuthChecked(true), 100);
@@ -352,11 +402,30 @@ export default function GoMarketShopDetails() {
     if (authChecked && !isLogin) router.replace("/login" as never);
   }, [isLogin, authChecked]);
 
-  const [shop, setShop] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [followBusy, setFollowBusy] = useState(false);
-  const [descExpanded, setDescExpanded] = useState(false);
-  const [cartDialogVisible, setCartDialogVisible] = useState(false);
+  // Restore cached location
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(GM_LOC_KEY)
+      .then((raw) => {
+        if (cancelled || !raw) return;
+        const parsed = JSON.parse(raw);
+        if (Number.isFinite(parsed?.lat) && Number.isFinite(parsed?.lng)) {
+          setUserLocation({ lat: parsed.lat, lng: parsed.lng }, "cache");
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [setUserLocation]);
+
+  useEffect(() => {
+    if (locationSourceRef.current) return;
+    applyAddressFallback();
+  }, [userData, applyAddressFallback]);
+
+  // Load GPS location on mount
+  useEffect(() => {
+    refreshCurrentLocation();
+  }, [refreshCurrentLocation]);
 
   const loadShop = useCallback(() => {
     if (!id) return;
@@ -466,6 +535,25 @@ export default function GoMarketShopDetails() {
   const isOpen = shop.isOpen ?? shop.status === "open";
   const descShort = (shop.description || "").length > 80;
 
+  // Calculate distance and delivery time
+  const { distanceDisplay, estimatedTime } = getOutletDistanceEta({
+    userLat: userLocation?.lat ?? null,
+    userLng: userLocation?.lng ?? null,
+    shopLat: shop.latitude,
+    shopLng: shop.longitude,
+    marketLat: null,
+    marketLng: null,
+    baseMinutes: getOutletBaseMinutes("grocery"),
+  });
+  
+  // Debug log
+  console.log('🔍 Shop Distance Debug:', {
+    userLocation,
+    shopCoords: { lat: shop.latitude, lng: shop.longitude },
+    distanceDisplay,
+    estimatedTime
+  });
+
   // ─── Shop Info Header ──────────────────────────────────────────────────────
   // Passed to GoMarketShopCatalog as listHeader so it renders inside FlatList.
   // This removes the outer ScrollView and enables native infinite scroll.
@@ -561,6 +649,22 @@ export default function GoMarketShopDetails() {
               <Text style={S.shopAddr} numberOfLines={1}>
                 {shop.openingHours}
               </Text>
+            </View>
+          )}
+
+          {/* Distance & Delivery Time */}
+          {distanceDisplay != null && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6, justifyContent: "center" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: T.goldLight, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 }}>
+                <Text style={{ fontSize: 10 }}>📍</Text>
+                <Text style={{ fontSize: 10, fontWeight: "700", color: T.green }}>{distanceDisplay}</Text>
+              </View>
+              {estimatedTime != null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#FEF3C7", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 }}>
+                  <Text style={{ fontSize: 10 }}>🕐</Text>
+                  <Text style={{ fontSize: 10, fontWeight: "700", color: "#92400E" }}>{estimatedTime} min</Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -690,7 +794,10 @@ export default function GoMarketShopDetails() {
 
       {/* Sticky Cart Button — absolute over the FlatList */}
       <TouchableOpacity
-        style={S.stickyCartBtn}
+        style={[
+          S.stickyCartBtn,
+          { bottom: Math.max(insets.bottom, 12) + 12 }
+        ]}
         onPress={() => setCartDialogVisible(true)}
         activeOpacity={0.9}
       >
@@ -934,7 +1041,7 @@ const S = StyleSheet.create({
 
   stickyCartBtn: {
     position: "absolute",
-    bottom: 20,
+    // bottom is set dynamically using insets
     left: 20,
     right: 20,
     height: 56,

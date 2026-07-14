@@ -16,8 +16,63 @@ import { displayProductTitle, mergeSpecifications } from "../utils/productSpecs.
 import { apiBaseFromRequest, resolveMediaUrl } from "../utils/resolveMediaUrl.js";
 import { buildProductOptionsFromSpecs } from "../utils/productOptions.js";
 import { rankSuggestions } from "../utils/searchSuggest.js";
+import {
+  resolveShopCoords,
+  coordsNearlyEqual,
+  formatDistanceKm,
+  haversineKm,
+  estimateDeliveryMinutes,
+  isValidCoordPair,
+} from "../utils/geoCoords.js";
+import { geocodeAddress } from "../utils/geocodeAddress.js";
 
 const ok = (res, body) => res.json({ error: false, success: true, ...body });
+
+const resolveOutletCoords = async (entity, marketFallback = null) => {
+  const shopOnly = resolveShopCoords(entity.latitude, entity.longitude);
+
+  const persistGeocoded = async () => {
+    if (!entity.address) return null;
+    const geocoded = await geocodeAddress(entity.address);
+    if (!isValidCoordPair(geocoded?.lat, geocoded?.lng)) return null;
+    if (entity._id) {
+      const model = entity.shopName != null ? GroceryShop : Restaurant;
+      model.updateOne(
+        { _id: entity._id },
+        { latitude: geocoded.lat, longitude: geocoded.lng },
+      ).catch(() => {});
+    }
+    return { lat: geocoded.lat, lng: geocoded.lng, source: "address" };
+  };
+
+  if (isValidCoordPair(shopOnly.lat, shopOnly.lng)) {
+    const matchesMarket =
+      marketFallback &&
+      coordsNearlyEqual(shopOnly.lat, shopOnly.lng, marketFallback.latitude, marketFallback.longitude);
+
+    if (matchesMarket) {
+      const geocoded = await persistGeocoded();
+      if (geocoded) return geocoded;
+    }
+    return shopOnly;
+  }
+
+  const geocoded = await persistGeocoded();
+  if (geocoded) return geocoded;
+
+  if (
+    marketFallback &&
+    isValidCoordPair(marketFallback.latitude, marketFallback.longitude)
+  ) {
+    return {
+      lat: marketFallback.latitude,
+      lng: marketFallback.longitude,
+      source: "market",
+    };
+  }
+
+  return { lat: null, lng: null, source: null };
+};
 
 // Fallback images when shops don't have banners/logos
 const GROCERY_BANNER_FALLBACK = "https://placehold.co/800x160/e8f5e9/2e7d32?text=Grocery+Shop";
@@ -176,21 +231,34 @@ const resolveOutletSort = (sortKey) => {
   return (a, b) => followedFirst(a, b) || selectedSort(a, b);
 };
 
-const mapGroceryOutlet = (shop, userId = null, baseUrl = "") => {
+const mapGroceryOutlet = (shop, userId = null, baseUrl = "", userLat = null, userLng = null, outletCoords = null) => {
   const followers = Array.isArray(shop.followers) ? shop.followers : [];
   
   // Use fallback images if empty
   const bannerUrl = shop.shopBanner?.trim() ? resolveMediaUrl(shop.shopBanner, baseUrl) : GROCERY_BANNER_FALLBACK;
   const logoUrl = shop.shopLogo?.trim() ? resolveMediaUrl(shop.shopLogo, baseUrl) : LOGO_FALLBACK;
-  
+
+  const shopLat = outletCoords?.lat ?? null;
+  const shopLng = outletCoords?.lng ?? null;
+
+  const distanceKm = haversineKm(userLat, userLng, shopLat, shopLng);
+  const distanceDisplay = formatDistanceKm(distanceKm);
+  const estimatedTime = distanceKm == null
+    ? null  // no distance = no time shown
+    : estimateDeliveryMinutes(distanceKm, shop.deliveryMinutes || 10);
+
   return {
     _id: shop._id,
-    outletType: "grocery",
+    outletType: shop.shopType || "grocery",
+    shopType: shop.shopType || "grocery",
     displayName: shop.shopName,
     name: shop.shopName,
     banner: bannerUrl,
     logo: logoUrl,
     address: shop.address,
+    latitude: shopLat,
+    longitude: shopLng,
+    deliveryMinutes: shop.deliveryMinutes || 10,
     rating: shop.rating || 0,
     reviewCount: shop.reviewCount ?? shop.totalReviews ?? 0,
     followerCount: followers.length,
@@ -200,17 +268,29 @@ const mapGroceryOutlet = (shop, userId = null, baseUrl = "") => {
     isOpen: shop.isOpen !== false,
     totalProducts: shop.totalProducts || 0,
     meta: `${shop.totalProducts || 0} products`,
+    distance: distanceKm != null ? parseFloat(distanceKm.toFixed(2)) : null,
+    distanceDisplay,
+    estimatedTime,
     createdAt: shop.createdAt,
   };
 };
 
-const mapRestaurantOutlet = (r, userId = null, baseUrl = "") => {
+const mapRestaurantOutlet = (r, userId = null, baseUrl = "", userLat = null, userLng = null, outletCoords = null) => {
   const followers = Array.isArray(r.followers) ? r.followers : [];
   
   // Use fallback images if empty
   const bannerUrl = r.restaurantBanner?.trim() ? resolveMediaUrl(r.restaurantBanner, baseUrl) : RESTAURANT_BANNER_FALLBACK;
   const logoUrl = r.restaurantLogo?.trim() ? resolveMediaUrl(r.restaurantLogo, baseUrl) : LOGO_FALLBACK;
-  
+
+  const restLat = outletCoords?.lat ?? null;
+  const restLng = outletCoords?.lng ?? null;
+
+  const distanceKm = haversineKm(userLat, userLng, restLat, restLng);
+  const distanceDisplay = formatDistanceKm(distanceKm);
+  const estimatedTime = distanceKm == null
+    ? null  // no distance = no time shown
+    : estimateDeliveryMinutes(distanceKm, 20);
+
   return {
     _id: r._id,
     outletType: "restaurant",
@@ -219,6 +299,9 @@ const mapRestaurantOutlet = (r, userId = null, baseUrl = "") => {
     banner: bannerUrl,
     logo: logoUrl,
     address: r.address,
+    latitude: restLat,
+    longitude: restLng,
+    deliveryMinutes: (r.deliveryMinutes || 10) + (r.avgPrepMinutes || 0),
     rating: r.rating || 0,
     reviewCount: r.reviewCount ?? r.totalReviews ?? 0,
     followerCount: followers.length,
@@ -228,6 +311,9 @@ const mapRestaurantOutlet = (r, userId = null, baseUrl = "") => {
     isOpen: r.isOpen !== false,
     totalProducts: r.totalItems || 0,
     meta: `${r.totalMenus || 0} menus · ${r.totalItems || 0} dishes`,
+    distance: distanceKm != null ? parseFloat(distanceKm.toFixed(2)) : null,
+    distanceDisplay,
+    estimatedTime,
     createdAt: r.createdAt,
   };
 };
@@ -242,7 +328,7 @@ export const marketShopSearchSuggestions = async (req, res) => {
 
     // Fetch all shops and restaurants in this market
     const [groceryShops, restaurants] = await Promise.all([
-      GroceryShop.find({ marketId }).select("shopName address").lean(),
+      GroceryShop.find({ marketId }).select("shopName address shopType").lean(),
       Restaurant.find({ marketId }).select("restaurantName address").lean(),
     ]);
 
@@ -252,7 +338,7 @@ export const marketShopSearchSuggestions = async (req, res) => {
         _id: s._id, 
         name: s.shopName, 
         address: s.address,
-        type: "grocery" 
+        type: s.shopType || "grocery" 
       })),
       ...restaurants.map(r => ({ 
         _id: r._id, 
@@ -270,7 +356,7 @@ export const marketShopSearchSuggestions = async (req, res) => {
       _id: o._id,
       label: o.name,
       address: o.address,
-      type: o.type === "restaurant" ? "restaurant" : "shop",
+      type: o.type === "restaurant" ? "restaurant" : (o.type || "grocery"),
     }));
 
     ok(res, { suggestions });
@@ -293,14 +379,30 @@ export const listMarketOutlets = async (req, res) => {
     const search = String(req.query.search || req.query.q || "").trim().toLowerCase();
     const minRating = Number(req.query.minRating || 0);
     const openOnly = req.query.openOnly === "true" || req.query.isOpen === "true";
+    const userLat = req.query.userLat ? parseFloat(req.query.userLat) : null;
+    const userLng = req.query.userLng ? parseFloat(req.query.userLng) : null;
 
     let outlets = [];
 
     const userId = req.userId || null;
     const baseUrl = apiBaseFromRequest(req);
 
-    if (type === "all" || type === "grocery") {
+    // All non-restaurant shop types
+    const SHOP_TYPES = ["grocery","fashion","electronics","medical","beauty","home_kitchen","gifts_toys","books_stationery","jewellery","hardware","automobile"];
+    const isShopType = SHOP_TYPES.includes(type);
+
+    if (type === "all" || type === "grocery" || isShopType) {
       const groceryFilter = { marketId };
+      if (type === "grocery") {
+        // Match both explicit "grocery" and shops without shopType (legacy data)
+        groceryFilter.$or = [
+          { shopType: "grocery" },
+          { shopType: { $exists: false } },
+          { shopType: null },
+        ];
+      } else if (isShopType) {
+        groceryFilter.shopType = type;  // filter by specific non-grocery type
+      }
       if (openOnly) groceryFilter.isOpen = true;
       const shops = await GroceryShop.find(groceryFilter).populate("ownerId").lean();
       
@@ -319,9 +421,13 @@ export const listMarketOutlets = async (req, res) => {
       });
       const ratingStats = await Promise.all(ratingStatsPromises);
       const ratingMap = Object.fromEntries(ratingStats.map(rs => [rs.shopId, rs]));
+
+      const shopCoordsList = await Promise.all(
+        shops.map((s) => resolveOutletCoords(s, market))
+      );
       
-      outlets.push(...shops.map((s) => {
-        const mapped = mapGroceryOutlet(s, userId, baseUrl);
+      outlets.push(...shops.map((s, index) => {
+        const mapped = mapGroceryOutlet(s, userId, baseUrl, userLat, userLng, shopCoordsList[index]);
         const productCount = productCountMap[String(s._id)] || 0;
         const stats = ratingMap[String(s._id)] || { rating: 0, reviewCount: 0 };
         return {
@@ -354,9 +460,13 @@ export const listMarketOutlets = async (req, res) => {
       });
       const ratingStats = await Promise.all(ratingStatsPromises);
       const ratingMap = Object.fromEntries(ratingStats.map(rs => [rs.restaurantId, rs]));
+
+      const restaurantCoordsList = await Promise.all(
+        restaurants.map((r) => resolveOutletCoords(r, market))
+      );
       
-      outlets.push(...restaurants.map((r) => {
-        const mapped = mapRestaurantOutlet(r, userId, baseUrl);
+      outlets.push(...restaurants.map((r, index) => {
+        const mapped = mapRestaurantOutlet(r, userId, baseUrl, userLat, userLng, restaurantCoordsList[index]);
         const itemCount = itemCountMap[String(r._id)] || 0;
         const stats = ratingMap[String(r._id)] || { rating: 0, reviewCount: 0 };
         return {
@@ -480,11 +590,19 @@ export const listShopProductsCatalog = async (req, res) => {
     const result = await paginate(GroceryProduct, filter, { ...req.query, sort }, "categoryId subCategoryId");
     const filterMeta = await buildShopFilterMeta(shopId);
 
+    // Add shop location and ID to each product
+    const productsWithShopData = (await applyProductReviewStats(result.data || [], baseUrl)).map((p) => ({
+      ...p,
+      shopId,
+      shopLatitude: shopDoc.latitude,
+      shopLongitude: shopDoc.longitude,
+    }));
+
     ok(res, {
       shop,
       tab,
       filterMeta,
-      data: await applyProductReviewStats(result.data || [], baseUrl),
+      data: productsWithShopData,
       pagination: result.pagination,
     });
   } catch (error) {
@@ -558,11 +676,19 @@ export const searchShopProducts = async (req, res) => {
     const filterMeta = await buildShopFilterMeta(shopId);
     const queryLabel = String(req.query.q || req.query.search || "").trim();
 
+    // Add shop location and ID to each product
+    const productsWithShopData = (await applyProductReviewStats(result.data || [], baseUrl)).map((p) => ({
+      ...p,
+      shopId,
+      shopLatitude: shopDoc.latitude,
+      shopLongitude: shopDoc.longitude,
+    }));
+
     ok(res, {
       shop,
       query: queryLabel,
       filterMeta,
-      data: await applyProductReviewStats(result.data || [], baseUrl),
+      data: productsWithShopData,
       pagination: result.pagination,
     });
   } catch (error) {
@@ -657,6 +783,9 @@ export const listRestaurantItemsCatalog = async (req, res) => {
         mrp: item.price,
         discount,
         productOptions: item.productOptions || [],
+        restaurantId,
+        restaurantLatitude: restaurantDoc.latitude,
+        restaurantLongitude: restaurantDoc.longitude,
       };
     });
 
@@ -941,6 +1070,238 @@ export const getRestaurantItemStorefront = async (req, res) => {
         total: relatedTotal,
         totalPages: Math.ceil(relatedTotal / relatedLimit) || 1,
       },
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+
+/**
+ * Get default search content for shop (recent, trending, popular products)
+ */
+export const shopSearchDefaults = async (req, res) => {
+  try {
+    const { shopId } = req.params;
+    if (!isObjectId(shopId)) return sendError(res, "Invalid shop id", 400);
+
+    const baseUrl = apiBaseFromRequest(req);
+    const userId = req.userId || null;
+
+    // Get recent searches for this user + shop (if userId available)
+    const recentSearches = userId 
+      ? [] // TODO: Implement recent search tracking per user/shop
+      : [];
+
+    // Get trending/top searches for this specific shop
+    const trendingSearches = []; // TODO: Implement shop-level trending
+    const topSearches = []; // TODO: Implement shop-level top searches
+
+    // Get popular/featured products from this shop
+    const popularProducts = await GroceryProduct.find({ 
+      shopId, 
+      $or: [
+        { isFeatured: true },
+        { soldCount: { $gt: 5 } }
+      ]
+    })
+    .select("_id name price discountPrice image soldCount rating")
+    .sort("-soldCount -isFeatured -createdAt")
+    .limit(8)
+    .lean();
+
+    const data = {
+      recentSearches,
+      trendingSearches,
+      topSearches,
+      popularProducts: popularProducts.map(p => ({
+        _id: p._id,
+        name: p.name,
+        price: p.discountPrice > 0 ? p.discountPrice : p.price,
+        image: resolveMediaUrl(p.image, baseUrl),
+      })),
+    };
+
+    ok(res, { data });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+/**
+ * Enhanced shop search suggestions with products
+ */
+export const shopSearchSuggestionsEnhanced = async (req, res) => {
+  try {
+    const { shopId } = req.params;
+    if (!isObjectId(shopId)) return sendError(res, "Invalid shop id", 400);
+
+    const q = String(req.query.q || req.query.search || "").trim();
+    if (!q) return ok(res, { data: { suggestions: [], popularProducts: [] } });
+
+    const baseUrl = apiBaseFromRequest(req);
+
+    const products = await GroceryProduct.find({ shopId })
+      .select("_id name title keywords tags searchKeywords seoDescription attributes price discountPrice image soldCount isFeatured rating")
+      .limit(200)
+      .lean();
+
+    const suggestions = rankSuggestions(q, products, {
+      limit: 8,
+      getLabel: (p) => {
+        const searchFields = [
+          displayProductTitle(p, p.name),
+          p.title || "",
+          p.keywords || "",
+          p.tags || "",
+          p.searchKeywords || "",
+          p.seoDescription || "",
+          p.attributes || "",
+        ].filter(Boolean).join(" ");
+        return searchFields;
+      },
+    }).map((p) => ({
+      _id: p._id,
+      label: displayProductTitle(p, p.name),
+      type: "product",
+    }));
+
+    // Popular products matching the search
+    const popularProducts = rankSuggestions(q, products, {
+      limit: 6,
+      getLabel: (p) => displayProductTitle(p, p.name),
+    })
+    .filter(p => p.soldCount > 0 || p.isFeatured)
+    .map(p => ({
+      _id: p._id,
+      name: displayProductTitle(p, p.name),
+      price: p.discountPrice > 0 ? p.discountPrice : p.price,
+      image: resolveMediaUrl(p.image, baseUrl),
+      soldCount: p.soldCount || 0,
+      rating: p.rating || 0,
+    }))
+    .sort((a, b) => b.soldCount - a.soldCount)
+    .slice(0, 6);
+
+    ok(res, { 
+      data: { 
+        suggestions, 
+        popularProducts,
+        trendingSearches: [], // TODO: Implement
+        topSearches: [], // TODO: Implement
+      } 
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+/**
+ * Restaurant search defaults
+ */
+export const restaurantSearchDefaults = async (req, res) => {
+  try {
+    const { restaurantId } = req.params;
+    if (!isObjectId(restaurantId)) return sendError(res, "Invalid restaurant id", 400);
+
+    const baseUrl = apiBaseFromRequest(req);
+    const userId = req.userId || null;
+
+    const recentSearches = userId ? [] : [];
+    const trendingSearches = [];
+    const topSearches = [];
+
+    const popularItems = await RestaurantItem.find({ 
+      restaurantId, 
+      $or: [
+        { isFeatured: true },
+        { soldCount: { $gt: 5 } }
+      ]
+    })
+    .select("_id itemName price discountPrice image soldCount rating")
+    .sort("-soldCount -isFeatured -createdAt")
+    .limit(8)
+    .lean();
+
+    const data = {
+      recentSearches,
+      trendingSearches,
+      topSearches,
+      popularProducts: popularItems.map(p => ({
+        _id: p._id,
+        name: p.itemName,
+        price: p.discountPrice > 0 ? p.discountPrice : p.price,
+        image: resolveMediaUrl(p.image, baseUrl),
+      })),
+    };
+
+    ok(res, { data });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
+/**
+ * Enhanced restaurant search suggestions
+ */
+export const restaurantSearchSuggestionsEnhanced = async (req, res) => {
+  try {
+    const { restaurantId } = req.params;
+    if (!isObjectId(restaurantId)) return sendError(res, "Invalid restaurant id", 400);
+
+    const q = String(req.query.q || req.query.search || "").trim();
+    if (!q) return ok(res, { data: { suggestions: [], popularProducts: [] } });
+
+    const baseUrl = apiBaseFromRequest(req);
+
+    const items = await RestaurantItem.find({ restaurantId })
+      .select("_id itemName title keywords tags searchKeywords seoDescription attributes price discountPrice image soldCount isFeatured rating")
+      .limit(200)
+      .lean();
+
+    const suggestions = rankSuggestions(q, items, {
+      limit: 8,
+      getLabel: (i) => {
+        const searchFields = [
+          i.itemName,
+          i.title || "",
+          i.keywords || "",
+          i.tags || "",
+          i.searchKeywords || "",
+          i.seoDescription || "",
+          i.attributes || "",
+        ].filter(Boolean).join(" ");
+        return searchFields;
+      },
+    }).map((i) => ({
+      _id: i._id,
+      label: i.itemName,
+      type: "item",
+    }));
+
+    const popularProducts = rankSuggestions(q, items, {
+      limit: 6,
+      getLabel: (i) => i.itemName,
+    })
+    .filter(i => i.soldCount > 0 || i.isFeatured)
+    .map(i => ({
+      _id: i._id,
+      name: i.itemName,
+      price: i.discountPrice > 0 ? i.discountPrice : i.price,
+      image: resolveMediaUrl(i.image, baseUrl),
+      soldCount: i.soldCount || 0,
+      rating: i.rating || 0,
+    }))
+    .sort((a, b) => b.soldCount - a.soldCount)
+    .slice(0, 6);
+
+    ok(res, { 
+      data: { 
+        suggestions, 
+        popularProducts,
+        trendingSearches: [],
+        topSearches: [],
+      } 
     });
   } catch (error) {
     sendError(res, error);

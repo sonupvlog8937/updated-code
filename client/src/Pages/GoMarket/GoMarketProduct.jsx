@@ -188,6 +188,7 @@ const GoMarketProduct = () => {
         countInStock: product.countInStock ?? product.stock ?? 0,
         rating: data?.averageRating || product.rating,
         brand: product.brand,
+        source: "goMarket",
         discount: discountPercent,
         selectedOptions,
       }
@@ -247,6 +248,8 @@ const GoMarketProduct = () => {
           subTotal: activePrice * quantity,
           selectedOptions,
           sellerId: product.sellerId || null,
+          source: "goMarket",
+          brand: product.brand || "GoMarket",
         },
       },
     });

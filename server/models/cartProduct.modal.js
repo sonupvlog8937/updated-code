@@ -66,6 +66,30 @@ const cartProductSchema = new mongoose.Schema({
     },
     brand:{
         type:String,
+    },
+    source:{
+        type:String,
+        default:""
+    },
+    shopId:{
+        type:String,
+        default:""
+    },
+    shopLatitude:{
+        type:Number,
+    },
+    shopLongitude:{
+        type:Number,
+    },
+    restaurantId:{
+        type:String,
+        default:""
+    },
+    restaurantLatitude:{
+        type:Number,
+    },
+    restaurantLongitude:{
+        type:Number,
     }
 },{
     timestamps : true

@@ -34,7 +34,7 @@ export const FooterActionButtons: React.FC<FooterActionButtonsProps> = ({
       style={[
         styles.footer,
         {
-          paddingBottom: insets.bottom + (IS_SMALL ? 10 : 12),
+          paddingBottom: Math.max(insets.bottom, IS_SMALL ? 10 : 12) + 8,
           paddingHorizontal: IS_SMALL ? 12 : 16,
         },
       ]}

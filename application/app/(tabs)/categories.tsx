@@ -183,6 +183,7 @@ export default function CategoriesScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const catData = useAppSelector((s) => s.app.catData);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [isChanging, setIsChanging] = useState(false);
 
   const active = useMemo(
     () => catData.find((c) => c._id === (activeId || catData[0]?._id)) || null,
@@ -192,6 +193,12 @@ export default function CategoriesScreen() {
   const cardWidth = Math.floor(
     (screenWidth - SIDEBAR_WIDTH - RIGHT_H_PAD * 2 - GRID_GAP) / 2,
   );
+
+  const handleCategoryChange = (catId: string) => {
+    setIsChanging(true);
+    setActiveId(catId);
+    setTimeout(() => setIsChanging(false), 300);
+  };
 
   if (!catData?.length) {
     return (
@@ -251,7 +258,7 @@ export default function CategoriesScreen() {
                   key={cat._id}
                   cat={cat}
                   isActive={isActive}
-                  onPress={() => setActiveId(cat._id)}
+                  onPress={() => handleCategoryChange(cat._id)}
                   colors={colors}
                 />
               );
@@ -263,112 +270,157 @@ export default function CategoriesScreen() {
         {/* ── Right panel: plain ScrollView, no nested ScrollablePage ── */}
         <ScrollView
           style={styles.right}
-          contentContainerStyle={{ padding: RIGHT_H_PAD, paddingTop: 16 }}
+          contentContainerStyle={{ padding: RIGHT_H_PAD, paddingTop: 16, paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
         >
-          {/* Banner */}
-          {active?.images?.[0] ? (
-            <Pressable
-              onPress={() =>
-                router.push(
-                  `/products?catId=${active._id}&catName=${encodeURIComponent(active.name)}` as never,
-                )
-              }
-              style={styles.banner}
-            >
-              <Image
-                source={{ uri: active.images[0] }}
-                style={StyleSheet.absoluteFillObject}
-                contentFit="cover"
-              />
-              <View style={styles.bannerOverlay} />
-              <View style={styles.bannerContent}>
-                <Text style={styles.bannerEyebrow}>Explore</Text>
-                <Text style={styles.bannerText}>{active.name}</Text>
-                <View style={styles.bannerCtaBadge}>
-                  <Text style={styles.bannerCtaText}>View all</Text>
-                  <Feather name="arrow-right" size={12} color="#fff" />
-                </View>
-              </View>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={() =>
-                router.push(
-                  `/products?catId=${active?._id}&catName=${encodeURIComponent(active?.name ?? "")}` as never,
-                )
-              }
-              style={[
-                styles.banner,
-                styles.bannerFallback,
-                { backgroundColor: active?.color || colors.muted },
-              ]}
-            >
-              <View style={styles.bannerContent}>
-                <Text style={[styles.bannerText, { color: colors.foreground }]}>
-                  {active?.name}
-                </Text>
-                <View
-                  style={[
-                    styles.bannerCtaBadge,
-                    { backgroundColor: colors.primary },
-                  ]}
-                >
-                  <Text style={styles.bannerCtaText}>View all</Text>
-                  <Feather name="arrow-right" size={12} color="#fff" />
-                </View>
-              </View>
-            </Pressable>
-          )}
-
-          {/* Subcategories */}
-          {active?.children?.length ? (
+          {isChanging ? (
+            // Skeleton Loader
             <>
-              <SectionHeader
-                title="Subcategories"
-                count={active.children.length}
-                colors={colors}
-              />
+              {/* Banner Skeleton */}
+              <View style={[styles.banner, { backgroundColor: colors.muted }]}>
+                <Animated.View
+                  style={{
+                    ...StyleSheet.absoluteFillObject,
+                    backgroundColor: colors.background,
+                    opacity: 0.5,
+                  }}
+                />
+              </View>
+
+              {/* Subcategories Skeleton */}
+              <View style={styles.sectionHeaderRow}>
+                <View style={{ height: 16, width: 120, backgroundColor: colors.muted, borderRadius: 4 }} />
+                <View style={[styles.countBadge, { backgroundColor: colors.muted, width: 40 }]} />
+              </View>
+
               <View style={[styles.subGrid, { gap: GRID_GAP }]}>
-                {active.children.map((sub) => (
-                  <SubcategoryCard
-                    key={sub._id}
-                    sub={sub}
-                    cardWidth={cardWidth}
-                    onPress={() =>
-                      router.push(
-                        `/products?subCatId=${sub._id}&catName=${encodeURIComponent(sub.name)}` as never,
-                      )
-                    }
-                    colors={colors}
-                  />
+                {[1, 2, 3, 4].map((i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.subItem,
+                      {
+                        width: cardWidth,
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <View style={{ width: cardWidth, aspectRatio: 1, backgroundColor: colors.muted }} />
+                    <View style={styles.subLabelRow}>
+                      <View style={{ height: 12, flex: 1, backgroundColor: colors.muted, borderRadius: 4 }} />
+                    </View>
+                  </View>
                 ))}
               </View>
             </>
           ) : (
-            <View style={[styles.emptySubcat, { borderColor: colors.border }]}>
-              <View
-                style={[styles.emptyIcon, { backgroundColor: colors.muted }]}
-              >
-                <Feather name="layers" size={24} color={colors.primary} />
-              </View>
-              <Text
-                style={[styles.emptySubcatText, { color: colors.foreground }]}
-              >
-                No Subcategories
-              </Text>
-              <Text
-                style={[
-                  styles.emptySubcatSub,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                Tap banner above to browse all products
-              </Text>
-            </View>
-          )}
+            <>
+              {/* Banner */}
+              {active?.images?.[0] ? (
+                <Pressable
+                  onPress={() =>
+                    router.push(
+                      `/products?catId=${active._id}&catName=${encodeURIComponent(active.name)}` as never,
+                    )
+                  }
+                  style={styles.banner}
+                >
+                  <Image
+                    source={{ uri: active.images[0] }}
+                    style={StyleSheet.absoluteFillObject}
+                    contentFit="cover"
+                  />
+                  <View style={styles.bannerOverlay} />
+                  <View style={styles.bannerContent}>
+                    <Text style={styles.bannerEyebrow}>Explore</Text>
+                    <Text style={styles.bannerText}>{active.name}</Text>
+                    <View style={styles.bannerCtaBadge}>
+                      <Text style={styles.bannerCtaText}>View all</Text>
+                      <Feather name="arrow-right" size={12} color="#fff" />
+                    </View>
+                  </View>
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() =>
+                    router.push(
+                      `/products?catId=${active?._id}&catName=${encodeURIComponent(active?.name ?? "")}` as never,
+                    )
+                  }
+                  style={[
+                    styles.banner,
+                    styles.bannerFallback,
+                    { backgroundColor: active?.color || colors.muted },
+                  ]}
+                >
+                  <View style={styles.bannerContent}>
+                    <Text style={[styles.bannerText, { color: colors.foreground }]}>
+                      {active?.name}
+                    </Text>
+                    <View
+                      style={[
+                        styles.bannerCtaBadge,
+                        { backgroundColor: colors.primary },
+                      ]}
+                    >
+                      <Text style={styles.bannerCtaText}>View all</Text>
+                      <Feather name="arrow-right" size={12} color="#fff" />
+                    </View>
+                  </View>
+                </Pressable>
+              )}
 
-          <View style={{ height: 32 }} />
+              {/* Subcategories */}
+              {active?.children?.length ? (
+                <>
+                  <SectionHeader
+                    title="Subcategories"
+                    count={active.children.length}
+                    colors={colors}
+                  />
+                  <View style={[styles.subGrid, { gap: GRID_GAP }]}>
+                    {active.children.map((sub) => (
+                      <SubcategoryCard
+                        key={sub._id}
+                        sub={sub}
+                        cardWidth={cardWidth}
+                        onPress={() =>
+                          router.push(
+                            `/subcategory/${sub._id}?name=${encodeURIComponent(sub.name)}` as never
+                          )
+                        }
+                        colors={colors}
+                      />
+                    ))}
+                  </View>
+                </>
+              ) : (
+                <View style={[styles.emptySubcat, { borderColor: colors.border }]}>
+                  <View
+                    style={[styles.emptyIcon, { backgroundColor: colors.muted }]}
+                  >
+                    <Feather name="layers" size={24} color={colors.primary} />
+                  </View>
+                  <Text
+                    style={[styles.emptySubcatText, { color: colors.foreground }]}
+                  >
+                    No Subcategories
+                  </Text>
+                  <Text
+                    style={[
+                      styles.emptySubcatSub,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Tap banner above to browse all products
+                  </Text>
+                </View>
+              )}
+
+              <View style={{ height: 32 }} />
+            </>
+          )}
         </ScrollView>
       </View>
     </View>

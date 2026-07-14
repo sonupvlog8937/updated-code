@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
+  AppState,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -41,6 +42,7 @@ import { showToast } from "@/src/utils/toast";
 
 const { width, height } = Dimensions.get("window");
 const IS_SMALL = width < 375;
+const LOGIN_FLOW_KEY = "loginFlowState";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -68,12 +70,16 @@ interface AnimatedFieldProps extends React.ComponentProps<typeof TextInput> {
   icon: keyof typeof Feather.glyphMap;
   onFocus?: (e?: any) => void;
   delay?: number;
+  rightIcon?: keyof typeof Feather.glyphMap;
+  onRightPress?: () => void;
 }
 
-const Field: React.FC<AnimatedFieldProps> = ({
+export const Field: React.FC<AnimatedFieldProps> = ({
   icon,
   onFocus,
   delay = 0,
+  rightIcon,
+  onRightPress,
   ...rest
 }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -156,6 +162,15 @@ const Field: React.FC<AnimatedFieldProps> = ({
           onBlur={handleBlur}
           style={[styles.input, { color: THEME.textPrimary }, rest.style]}
         />
+        {rightIcon && onRightPress ? (
+          <Pressable onPress={onRightPress} style={styles.rightIconButton}>
+            <Feather
+              name={rightIcon}
+              size={18}
+              color={THEME.textSecondary}
+            />
+          </Pressable>
+        ) : null}
       </Animated.View>
     </View>
   );
@@ -308,6 +323,7 @@ export default function LoginScreen() {
   const [isResending, setIsResending] = useState(false);
   
   const scrollViewRef = useRef<ScrollView>(null);
+  const [isRestored, setIsRestored] = useState(false);
 
   const headerOpacity = useSharedValue(0);
   const headerTranslateY = useSharedValue(30);
@@ -321,6 +337,61 @@ export default function LoginScreen() {
     );
     formOpacity.value = withDelay(400, withTiming(1, { duration: 600 }));
   }, []);
+
+  useEffect(() => {
+    const restoreLoginState = async () => {
+      try {
+        const savedState = await AsyncStorage.getItem(LOGIN_FLOW_KEY);
+        if (!savedState) {
+          setIsRestored(true);
+          return;
+        }
+
+        const parsed = JSON.parse(savedState);
+        if (parsed?.email) setEmail(parsed.email);
+        if (parsed?.otp) setOtp(parsed.otp);
+        if (parsed?.name) setName(parsed.name);
+        if (typeof parsed?.isNewUser === "boolean") setIsNewUser(parsed.isNewUser);
+        if (parsed?.step && ["email", "otp", "name"].includes(parsed.step)) {
+          setStep(parsed.step);
+        }
+      } catch (err) {
+        console.warn("Failed to restore login flow state", err);
+      } finally {
+        setIsRestored(true);
+      }
+    };
+
+    restoreLoginState();
+  }, []);
+
+  useEffect(() => {
+    const saveLoginState = async () => {
+      if (!isRestored) return;
+      try {
+        await AsyncStorage.setItem(
+          LOGIN_FLOW_KEY,
+          JSON.stringify({ email, otp, name, isNewUser, step }),
+        );
+      } catch (err) {
+        console.warn("Failed to save login flow state", err);
+      }
+    };
+
+    saveLoginState();
+  }, [email, otp, name, isNewUser, step, isRestored]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState.match(/inactive|background/)) {
+        AsyncStorage.setItem(
+          LOGIN_FLOW_KEY,
+          JSON.stringify({ email, otp, name, isNewUser, step }),
+        ).catch((err) => console.warn("Failed to persist login flow on app state change", err));
+      }
+    });
+    return () => subscription.remove();
+  }, [email, otp, name, isNewUser, step]);
 
   const headerStyle = useAnimatedStyle(() => ({
     opacity: headerOpacity.value,
@@ -338,10 +409,11 @@ export default function LoginScreen() {
       return;
     }
     
+    const normalizedEmail = email.trim().toLowerCase();
     setLoading(true);
     try {
       // Try existing user login OTP first
-      const res = await postData("/api/user/send-login-otp", { email: email.trim() });
+      const res = await postData("/api/user/send-login-otp", { email: normalizedEmail });
       
       if (res?.error === false) {
         // User exists and is active
@@ -349,12 +421,15 @@ export default function LoginScreen() {
         setStep("otp");
         showToast("success", "✅ OTP sent to your email!");
       } else if (
+        res?.registrationPending === true ||
         res?.message?.toLowerCase().includes("not found") ||
-        res?.message?.toLowerCase().includes("not registered")
+        res?.message?.toLowerCase().includes("not registered") ||
+        res?.message?.toLowerCase().includes("not verified") ||
+        res?.message?.toLowerCase().includes("registration otp")
       ) {
-        // New user - send registration OTP with temporary name
+        // New user or pending verification user - send registration OTP with temporary name
         const registerRes = await postData("/api/user/send-register-otp", {
-          email: email.trim(),
+          email: normalizedEmail,
           name: "User", // Temporary name, will be updated after OTP verification
         });
 
@@ -398,6 +473,7 @@ export default function LoginScreen() {
         });
 
         if (res?.error === false) {
+          await clearLoginState();
           await AsyncStorage.setItem("accessToken", res?.data?.accesstoken || "");
           await AsyncStorage.setItem("refreshToken", res?.data?.refreshToken || "");
           await AsyncStorage.setItem("userEmail", email);
@@ -440,6 +516,7 @@ export default function LoginScreen() {
       });
 
       if (res?.error === false) {
+        await clearLoginState();
         await AsyncStorage.setItem("accessToken", res?.data?.accesstoken || "");
         await AsyncStorage.setItem("refreshToken", res?.data?.refreshToken || "");
         await AsyncStorage.setItem("userEmail", email);
@@ -474,13 +551,22 @@ export default function LoginScreen() {
     }
   };
 
+  const clearLoginState = async () => {
+    try {
+      await AsyncStorage.removeItem(LOGIN_FLOW_KEY);
+    } catch (err) {
+      console.warn("Failed to clear login flow state", err);
+    }
+  };
+
   const handleResendOtp = async () => {
     setIsResending(true);
     try {
+      const normalizedEmail = email.trim().toLowerCase();
       const endpoint = isNewUser ? "/api/user/send-register-otp" : "/api/user/send-login-otp";
       const payload = isNewUser
-        ? { email: email.trim(), name: "User" }
-        : { email: email.trim() };
+        ? { email: normalizedEmail, name: "User" }
+        : { email: normalizedEmail };
 
       const res = await postData(endpoint, payload);
       if (res?.error === false) {
@@ -583,6 +669,8 @@ export default function LoginScreen() {
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
+                    textContentType="emailAddress"
+                    autoComplete="email"
                     autoCapitalize="none"
                     editable={!loading}
                     delay={500}
@@ -614,6 +702,10 @@ export default function LoginScreen() {
                     maxLength={6}
                     editable={!loading}
                     delay={500}
+                    textContentType="oneTimeCode"
+                    autoComplete="sms-otp"
+                    importantForAutofill="yes"
+                    autoCapitalize="none"
                   />
 
                   <Animated.View
@@ -789,6 +881,13 @@ const styles = StyleSheet.create({
     fontSize: IS_SMALL ? 14 : 15,
     fontFamily: "Inter_500Medium",
     paddingVertical: 0,
+  },
+  rightIconButton: {
+    position: "absolute",
+    right: 14,
+    top: "50%",
+    transform: [{ translateY: -9 }],
+    padding: 8,
   },
 
   resendRow: {

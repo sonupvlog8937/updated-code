@@ -80,6 +80,12 @@ const STYLES = `
   to { transform: rotate(360deg); }
 }
 
+/* Pulse animation for live location indicator */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+
 /* ── Stats strip ── */
 .ao-stats {
   display: flex; gap: 1px;
@@ -553,7 +559,7 @@ const fmt = (n) =>
   Number(n || 0).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 
 const fmtDate = (d) =>
-  d ? new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
+  d ? new Date(d).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) : "—";
 
 /* ── Status badge ── */
 const STATUS_COLORS = {
@@ -710,6 +716,7 @@ const ReceiptModal = ({ order, onClose }) => {
 
   // Filter products for seller view - only show products that belong to this seller
   const isSellerView = SELLER_ROLES.includes(context?.userData?.role);
+  const isDeliveryRider = context?.userData?.role === "DELIVERY_RIDER";
   const currentSellerId = context?.userData?._id || context?.userData?.id;
   
   const products = isSellerView && currentSellerId
@@ -920,26 +927,229 @@ const ReceiptModal = ({ order, onClose }) => {
                   
                   const attrs = attrParts.join(" · ");
                   
+                  // Get seller info for this product (for delivery riders)
+                  const seller = item.sellerId;
+                  const sellerProfile = seller?.sellerProfile || seller?.storeProfile || {};
+                  const storeName = sellerProfile?.storeName || seller?.name || 'N/A';
+                  const storeAddress = sellerProfile?.storeAddress || sellerProfile?.address || '';
+                  const phone = seller?.mobile || seller?.phone || sellerProfile?.mobile || '';
+                  const storeLatitude = sellerProfile?.latitude || sellerProfile?.storeLatitude;
+                  const storeLongitude = sellerProfile?.longitude || sellerProfile?.storeLongitude;
+                  
+                  // Current/live location (if available, different from store address)
+                  const currentLatitude = seller?.currentLatitude || seller?.liveLatitude;
+                  const currentLongitude = seller?.currentLongitude || seller?.liveLongitude;
+                  const hasCurrentLocation = currentLatitude && currentLongitude;
+                  const locationUpdatedAt = seller?.locationUpdatedAt;
+                  
                   return (
-                    <tr key={i}>
-                      <td style={{ paddingLeft:14 }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                          {item.image
-                            ? <img src={item.image} alt={item.productTitle} className="ao-rcpt-prod-img" />
-                            : <div className="ao-rcpt-prod-noimg">🖼️</div>
-                          }
-                          <div>
-                            <div className="ao-rcpt-prod-name">{item.productTitle || "—"}</div>
-                            {attrs && <div className="ao-rcpt-prod-attr">{attrs}</div>}
-                            <div className="ao-rcpt-prod-attr" style={{ marginTop:2 }}>{fmt(item.price)} / unit</div>
+                    <React.Fragment key={i}>
+                      <tr>
+                        <td style={{ paddingLeft:14 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                            {item.image
+                              ? <img src={item.image} alt={item.productTitle} className="ao-rcpt-prod-img" />
+                              : <div className="ao-rcpt-prod-noimg">🖼️</div>
+                            }
+                            <div>
+                              <div className="ao-rcpt-prod-name">{item.productTitle || "—"}</div>
+                              {attrs && <div className="ao-rcpt-prod-attr">{attrs}</div>}
+                              <div className="ao-rcpt-prod-attr" style={{ marginTop:2 }}>{fmt(item.price)} / unit</div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td style={{ textAlign:"center", fontWeight:700, fontSize:13 }}>×{item.quantity || 1}</td>
-                      <td style={{ paddingRight:14 }}>
-                        <div className="ao-rcpt-prod-amt">{fmt((item.price || 0) * (item.quantity || 1))}</div>
-                      </td>
-                    </tr>
+                        </td>
+                        <td style={{ textAlign:"center", fontWeight:700, fontSize:13 }}>×{item.quantity || 1}</td>
+                        <td style={{ paddingRight:14 }}>
+                          <div className="ao-rcpt-prod-amt">{fmt((item.price || 0) * (item.quantity || 1))}</div>
+                        </td>
+                      </tr>
+                      
+                      {/* Seller info row - only for delivery riders */}
+                      {isDeliveryRider && seller && (
+                        <tr>
+                          <td colSpan="3" style={{ paddingLeft:14, paddingRight:14, paddingTop:4, paddingBottom:10, background:"#fffbeb", borderBottom:"1px solid #fef3c7" }}>
+                            <div style={{ 
+                              display:"flex", 
+                              alignItems:"center", 
+                              gap:10, 
+                              background:"#fff", 
+                              border:"1px solid #fde68a", 
+                              borderRadius:8, 
+                              padding:"8px 12px"
+                            }}>
+                              {/* Store icon */}
+                              <div style={{ 
+                                width:32, 
+                                height:32, 
+                                background:"#fef3c7", 
+                                borderRadius:6, 
+                                display:"flex", 
+                                alignItems:"center", 
+                                justifyContent:"center", 
+                                fontSize:16,
+                                flexShrink:0
+                              }}>
+                                🏪
+                              </div>
+                              
+                              {/* Seller details */}
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ 
+                                  fontSize:12, 
+                                  fontWeight:700, 
+                                  color:"#92400e", 
+                                  marginBottom:3,
+                                  display:"flex",
+                                  alignItems:"center",
+                                  gap:6
+                                }}>
+                                  <span>Pickup from: {storeName}</span>
+                                  {storeLatitude && storeLongitude && (
+                                    <a
+                                      href={`https://www.google.com/maps?q=${storeLatitude},${storeLongitude}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        display:"inline-flex",
+                                        alignItems:"center",
+                                        gap:3,
+                                        fontSize:10,
+                                        fontWeight:600,
+                                        color:"#2563eb",
+                                        textDecoration:"none",
+                                        padding:"2px 6px",
+                                        background:"#dbeafe",
+                                        border:"1px solid #93c5fd",
+                                        borderRadius:4,
+                                        transition:"all 0.15s"
+                                      }}
+                                      onMouseOver={(e) => {
+                                        e.currentTarget.style.background = "#bfdbfe";
+                                      }}
+                                      onMouseOut={(e) => {
+                                        e.currentTarget.style.background = "#dbeafe";
+                                      }}
+                                    >
+                                      📍 Navigate
+                                    </a>
+                                  )}
+                                </div>
+                                <div style={{ 
+                                  fontSize:11, 
+                                  color:"#78716c",
+                                  display:"flex",
+                                  flexWrap:"wrap",
+                                  gap:8,
+                                  alignItems:"center"
+                                }}>
+                                  {storeAddress && (
+                                    <span>📍 {storeAddress}</span>
+                                  )}
+                                  {phone && (
+                                    <span>
+                                      📞 <a 
+                                        href={`tel:${phone}`} 
+                                        style={{ 
+                                          color:"#2563eb", 
+                                          textDecoration:"none", 
+                                          fontWeight:600 
+                                        }}
+                                      >
+                                        {phone}
+                                      </a>
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {/* Current Location - Live location of seller */}
+                                {hasCurrentLocation && (
+                                  <div style={{ 
+                                    marginTop: 8,
+                                    padding: "6px 10px",
+                                    background: "#dcfce7",
+                                    border: "1px solid #86efac",
+                                    borderRadius: 6,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 11
+                                  }}>
+                                    <span style={{ 
+                                      width: 6, 
+                                      height: 6, 
+                                      background: "#16a34a", 
+                                      borderRadius: "50%",
+                                      display: "inline-block",
+                                      animation: "pulse 2s infinite"
+                                    }} />
+                                    <span style={{ fontWeight: 600, color: "#15803d" }}>
+                                      Current Location:
+                                    </span>
+                                    <a
+                                      href={`https://www.google.com/maps?q=${currentLatitude},${currentLongitude}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        color: "#15803d",
+                                        textDecoration: "none",
+                                        fontWeight: 600
+                                      }}
+                                    >
+                                      {currentLatitude.toFixed(6)}, {currentLongitude.toFixed(6)}
+                                    </a>
+                                    <a
+                                      href={`https://www.google.com/maps?q=${currentLatitude},${currentLongitude}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        display:"inline-flex",
+                                        alignItems:"center",
+                                        gap:3,
+                                        fontSize:10,
+                                        fontWeight:600,
+                                        color:"#15803d",
+                                        textDecoration:"none",
+                                        padding:"2px 6px",
+                                        background:"#bbf7d0",
+                                        border:"1px solid #86efac",
+                                        borderRadius:4,
+                                        transition:"all 0.15s",
+                                        marginLeft: "auto"
+                                      }}
+                                      onMouseOver={(e) => {
+                                        e.currentTarget.style.background = "#a7f3d0";
+                                      }}
+                                      onMouseOut={(e) => {
+                                        e.currentTarget.style.background = "#bbf7d0";
+                                      }}
+                                    >
+                                      🚀 Track Live
+                                    </a>
+                                    {locationUpdatedAt && (
+                                      <span style={{ 
+                                        fontSize: 9, 
+                                        color: "#16a34a",
+                                        marginLeft: 4
+                                      }}>
+                                        {(() => {
+                                          const now = new Date();
+                                          const updated = new Date(locationUpdatedAt);
+                                          const diffMinutes = Math.floor((now - updated) / (1000 * 60));
+                                          if (diffMinutes < 1) return "Just now";
+                                          if (diffMinutes < 60) return `${diffMinutes}m ago`;
+                                          const diffHours = Math.floor(diffMinutes / 60);
+                                          return `${diffHours}h ago`;
+                                        })()}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -1035,13 +1245,14 @@ const ReceiptModal = ({ order, onClose }) => {
 /* ═══════════════════════════════════════════════════════
    MAIN ORDERS COMPONENT
 ═══════════════════════════════════════════════════════ */
-
+const GO_MARKET_SHOP_SELLERS = ["GROCERY_SELLER", "FASHION_SELLER", "ELECTRONICS_SELLER", "MEDICAL_SELLER", "BEAUTY_SELLER", "HOME_KITCHEN_SELLER", "GIFTS_TOYS_SELLER", "BOOKS_STATIONERY_SELLER", "JEWELLERY_SELLER", "HARDWARE_SELLER", "AUTOMOBILE_SELLER"];
 const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER", "FASHION_SELLER", "ELECTRONICS_SELLER", "MEDICAL_SELLER", "BEAUTY_SELLER", "HOME_KITCHEN_SELLER", "GIFTS_TOYS_SELLER", "BOOKS_STATIONERY_SELLER", "JEWELLERY_SELLER", "HARDWARE_SELLER", "AUTOMOBILE_SELLER"];
 const isSellerRole = (role) => SELLER_ROLES.includes(role);
 
 const Orders = () => {
   const [openOrderId,      setOpenOrderId]       = useState(null);
   const [orderStatus,      setOrderStatus]        = useState("");
+  const [riderFilter,      setRiderFilter]        = useState("available");
   const [ordersData,       setOrdersData]         = useState([]);
   const [orders,           setOrders]             = useState([]);
   const [pageOrder,        setPageOrder]          = useState(1);
@@ -1051,11 +1262,14 @@ const Orders = () => {
   const [receiptOrder,     setReceiptOrder]       = useState(null);
   const [riders,           setRiders]             = useState([]);
   const [assigningOrderId, setAssigningOrderId]   = useState(null);
+  const [isRefreshing,    setIsRefreshing]      = useState(false);
+  const [processingOrderId, setProcessingOrderId] = useState(null);
+  const [processingAction, setProcessingAction] = useState(null);
 
   const context = useContext(MyContext);
 const isSellerView = isSellerRole(context?.userData?.role);
   const isDeliveryRider = context?.userData?.role === "DELIVERY_RIDER";
-  const isGrocerySeller = context?.userData?.role === "GROCERY_SELLER";
+  const isGoMarketShopSeller = GO_MARKET_SHOP_SELLERS.includes(context?.userData?.role);
   const isRestaurantSeller = context?.userData?.role === "RESTAURANT_SELLER";
   const ordersListEndpoint = isDeliveryRider
     ? "/api/order/rider/orders"
@@ -1063,11 +1277,15 @@ const isSellerView = isSellerRole(context?.userData?.role);
       ? "/api/order/seller/orders" 
       : "/api/order/order-list";
   const ordersTitle = isDeliveryRider
-    ? "My Assigned Orders"
-    : isGrocerySeller ? "Live Grocery Orders" : isRestaurantSeller ? "Live Kitchen Orders" : isSellerView ? "Store Orders" : "Orders";
+    ? riderFilter === "available"
+      ? "Available Orders"
+      : "My Assigned Orders"
+     : isGoMarketShopSeller ? "Live Shop Orders" : isRestaurantSeller ? "Live Kitchen Orders" : isSellerView ? "Store Orders" : "Orders";
   const ordersSubtitle = isDeliveryRider
-    ? "Orders assigned to you for delivery"
-    : isGrocerySeller
+    ? riderFilter === "available"
+      ? "Browse open rider orders in your market"
+      : "Orders you have accepted or confirmed"
+    : isGoMarketShopSeller
     ? "Accept, pack, and dispatch quick-commerce orders"
     : isRestaurantSeller
       ? "Accept and prepare orders for minutes delivery"
@@ -1087,10 +1305,10 @@ const isSellerView = isSellerRole(context?.userData?.role);
   };
 
   useEffect(() => {
-    if (isGrocerySeller || isRestaurantSeller || context?.userData?.role === "ADMIN") {
+    if (isGoMarketShopSeller || isRestaurantSeller || context?.userData?.role === "ADMIN") {
       fetchDataFromApi('/api/order/delivery-riders').then((res) => setRiders(res?.riders || res?.data || []));
     }
-  }, [isGrocerySeller, isRestaurantSeller, context?.userData?.role]);
+  }, [isGoMarketShopSeller, isRestaurantSeller, context?.userData?.role]);
 
   const assignRider = (orderId, riderId) => {
     if (!riderId) return;
@@ -1105,42 +1323,122 @@ const isSellerView = isSellerRole(context?.userData?.role);
     }).finally(() => setAssigningOrderId(null));
   };
 
-  const refreshOrders = () => {
-    fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=20`).then((res) => {
-      if (res?.error === false) { setOrdersData(res?.data || []); setOrders(res); }
-    });
-    fetchDataFromApi(`${ordersListEndpoint}`).then((res) => {
-      if (res?.error === false) setTotalOrdersData(res);
-    });
+  const broadcastOrder = (orderId) => {
+    setAssigningOrderId(orderId);
+    editData(`/api/order/broadcast-order/${orderId}`, {}).then((res) => {
+      if (res?.data?.success || res?.data?.error === false) {
+        context.alertBox('success', res?.data?.message || 'Order broadcast to market riders');
+        refreshOrders();
+      } else {
+        context.alertBox('error', res?.data?.message || 'Could not broadcast order');
+      }
+    }).finally(() => setAssigningOrderId(null));
   };
 
+  const buildOrdersListUrl = (includeTotals = false, filterValue = riderFilter) => {
+    if (!isDeliveryRider) {
+      return includeTotals ? ordersListEndpoint : `${ordersListEndpoint}?page=${pageOrder}&limit=20`;
+    }
+
+    const params = new URLSearchParams();
+    if (!includeTotals) {
+      params.set('page', pageOrder);
+      params.set('limit', 20);
+    }
+    if (filterValue === 'available') {
+      params.set('status', 'broadcast');
+    } else if (filterValue === 'assigned') {
+      params.set('status', 'assigned');
+    }
+    const queryString = params.toString();
+    return `${ordersListEndpoint}${queryString ? `?${queryString}` : ''}`;
+  };
+
+  const refreshOrders = (filterValue = riderFilter) => {
+    setIsRefreshing(true);
+    fetchDataFromApi(buildOrdersListUrl(false, filterValue)).then((res) => {
+      if (res?.error === false) { setOrdersData(res?.data || []); setOrders(res); }
+    });
+    // For rider, we don't need separate totals call since pagination is included in the same response
+    if (!isDeliveryRider) {
+      fetchDataFromApi(buildOrdersListUrl(true, filterValue)).then((res) => {
+        if (res?.error === false) setTotalOrdersData(res);
+      }).finally(() => setIsRefreshing(false));
+    } else {
+      // For rider, use the same response for totals
+      fetchDataFromApi(buildOrdersListUrl(false, filterValue)).then((res) => {
+        if (res?.error === false) setTotalOrdersData(res);
+      }).finally(() => setIsRefreshing(false));
+    }
+  };
+
+  const handleRiderFilterChange = (nextFilter) => {
+    setRiderFilter(nextFilter);
+    setPageOrder(1);
+    refreshOrders(nextFilter);
+  };
+
+  const startOrderProcessing = (orderId, action) => {
+    setProcessingOrderId(orderId);
+    setProcessingAction(action);
+  };
+
+  const finishOrderProcessing = () => {
+    setProcessingOrderId(null);
+    setProcessingAction(null);
+  };
+
+  const isProcessingAction = (orderId, action) => processingOrderId === orderId && processingAction === action;
+
   const confirmAssignedOrder = (orderId) => {
+    startOrderProcessing(orderId, 'confirm');
     editData(`/api/order/rider/orders/${orderId}/confirm`, {}).then((res) => {
       if (res?.data?.success || res?.data?.error === false) {
         context.alertBox('success', res?.data?.message || 'Order confirmed for delivery');
-        refreshOrders();
+        setRiderFilter('assigned');
+        refreshOrders('assigned');
       } else context.alertBox('error', res?.data?.message || 'Could not confirm order');
-    });
+    }).finally(() => finishOrderProcessing());
   };
 
   const sendOtpAndDeliver = async (orderId) => {
+    startOrderProcessing(orderId, 'deliver');
     const sent = await postData(`/api/order/rider/orders/${orderId}/send-otp`, {});
-    if (sent?.error === true) return context.alertBox('error', sent?.message || 'Could not send delivery OTP');
+    if (sent?.error === true) {
+      finishOrderProcessing();
+      return context.alertBox('error', sent?.message || 'Could not send delivery OTP');
+    }
     context.alertBox('success', sent?.message || 'OTP sent to customer email');
     const otp = window.prompt('Enter the OTP received by customer to mark this order delivered');
-    if (!otp) return;
+    if (!otp) {
+      finishOrderProcessing();
+      return;
+    }
     editData(`/api/order/rider/orders/${orderId}/deliver`, { otp }).then((res) => {
       if (res?.data?.success || res?.data?.error === false) {
         context.alertBox('success', res?.data?.message || 'Order delivered and ₹20 earning credited');
         refreshOrders();
       } else context.alertBox('error', res?.data?.message || 'Delivery OTP verification failed');
-    });
+    }).finally(() => finishOrderProcessing());
   };
 
   const callCustomer = (order) => {
     const phone = order?.delivery_address?.mobile || order?.userId?.mobile;
     if (!phone) return context.alertBox('error', 'Customer phone number is not available');
     window.location.href = `tel:${phone}`;
+  };
+
+  const cancelRiderOrder = (orderId) => {
+    if (!window.confirm('Are you sure you want to cancel this order? This will remove it from your assignments and the order will be available for other riders.')) {
+      return;
+    }
+    startOrderProcessing(orderId, 'cancel');
+    editData(`/api/order/rider/orders/${orderId}/cancel`, {}).then((res) => {
+      if (res?.data?.success || res?.data?.error === false) {
+        context.alertBox('success', res?.data?.message || 'Order cancelled successfully');
+        refreshOrders();
+      } else context.alertBox('error', res?.data?.message || 'Could not cancel order');
+    }).finally(() => finishOrderProcessing());
   };
 
   const handleReturnRefundUpdate = (id, mode) => {
@@ -1184,13 +1482,13 @@ const isSellerView = isSellerRole(context?.userData?.role);
   /* fetch on page / status change */
   useEffect(() => {
     context?.setProgress(50);
-    fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=20`).then((res) => {
+    fetchDataFromApi(buildOrdersListUrl()).then((res) => {
       if (res?.error === false) { setOrdersData(res?.data); setOrders(res); context?.setProgress(100); }
     });
-    fetchDataFromApi(`${ordersListEndpoint}`).then((res) => {
+    fetchDataFromApi(buildOrdersListUrl(true)).then((res) => {
       if (res?.error === false) setTotalOrdersData(res);
     });
-  }, [orderStatus, pageOrder]);
+  }, [orderStatus, pageOrder, riderFilter]);
 
   /* search filter */
   useEffect(() => {
@@ -1204,11 +1502,11 @@ const isSellerView = isSellerRole(context?.userData?.role);
       );
       setOrdersData(filtered);
     } else {
-      fetchDataFromApi(`${ordersListEndpoint}?page=${pageOrder}&limit=20`).then((res) => {
+      fetchDataFromApi(buildOrdersListUrl()).then((res) => {
         if (res?.error === false) { setOrders(res); setOrdersData(res?.data); }
       });
     }
-  }, [searchQuery]);
+  }, [searchQuery, riderFilter, pageOrder]);
 
   /* stats */
   const allOrders   = totalOrdersData?.data || [];
@@ -1238,15 +1536,49 @@ const isSellerView = isSellerRole(context?.userData?.role);
           <div className="ao-topbar-left">
            <h2 className="ao-topbar-title">{ordersTitle}</h2>
             <p className="ao-topbar-sub">{ordersSubtitle}</p>
+            {isDeliveryRider && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => handleRiderFilterChange('available')}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 10,
+                    border: riderFilter === 'available' ? '1px solid #2563eb' : '1px solid #d1d5db',
+                    background: riderFilter === 'available' ? '#eff6ff' : '#ffffff',
+                    color: riderFilter === 'available' ? '#1d4ed8' : '#374151',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Available Orders
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRiderFilterChange('assigned')}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 10,
+                    border: riderFilter === 'assigned' ? '1px solid #2563eb' : '1px solid #d1d5db',
+                    background: riderFilter === 'assigned' ? '#eff6ff' : '#ffffff',
+                    color: riderFilter === 'assigned' ? '#1d4ed8' : '#374151',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  My Orders
+                </button>
+              </div>
+            )}
           </div>
           <button 
             className="ao-refresh-btn" 
-            onClick={refreshOrders}
-            disabled={false}
+            onClick={() => refreshOrders(riderFilter)}
+            disabled={isRefreshing}
             title="Refresh orders"
           >
-            <span className="ao-refresh-icon">🔄</span>
-            Refresh
+            <span className={`ao-refresh-icon${isRefreshing ? ' spinning' : ''}`}>🔄</span>
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
           </button>
           <div className="ao-search-wrap">
             <SearchBox
@@ -1462,23 +1794,93 @@ const isSellerView = isSellerRole(context?.userData?.role);
                             >
                               🧾 Receipt
                             </button>
-                            {(isGrocerySeller || isRestaurantSeller || context?.userData?.role === "ADMIN") && order?.order_status !== "delivered" && (
-                              <Select size="small" displayEmpty value={order?.deliveryAssignment?.riderId?._id || order?.deliveryAssignment?.riderId || ""} onChange={(e) => assignRider(order._id, e.target.value)} disabled={assigningOrderId === order._id} sx={{ minWidth: 150, fontSize: 11, background: '#eef2ff', borderRadius: '8px' }}>
-                                <MenuItem value="" disabled>{order?.deliveryAssignment?.riderId ? 'Assigned rider' : 'Assign rider'}</MenuItem>
-                                {riders.map((r) => <MenuItem key={r._id} value={r._id}>{r.name}</MenuItem>)}
-                              </Select>
+                             {(isGoMarketShopSeller || isRestaurantSeller || context?.userData?.role === "ADMIN") && order?.order_status !== "delivered" && (
+                              <>
+                                {(isGoMarketShopSeller || isRestaurantSeller || context?.userData?.role === "ADMIN") && (
+                                  <button className="ao-receipt-btn" onClick={() => broadcastOrder(order._id)} disabled={assigningOrderId === order._id || order?.deliveryAssignment?.status === 'broadcast'}>
+                                    {assigningOrderId === order._id ? (
+                                      <>
+                                        <span style={{ display: 'inline-block', animation: 'spin 0.8s linear infinite' }}>🔄</span>
+                                        {' Broadcasting...'}
+                                      </>
+                                    ) : order?.deliveryAssignment?.status === 'broadcast' ? 'Broadcasted to riders' : 'Broadcast to market riders'}
+                                  </button>
+                                )}
+                                {context?.userData?.role === "ADMIN" && (
+                                  <Select size="small" displayEmpty value={order?.deliveryAssignment?.riderId?._id || order?.deliveryAssignment?.riderId || ""} onChange={(e) => assignRider(order._id, e.target.value)} disabled={assigningOrderId === order._id} sx={{ minWidth: 150, fontSize: 11, background: '#eef2ff', borderRadius: '8px' }}>
+                                    <MenuItem value="" disabled>{order?.deliveryAssignment?.riderId ? 'Assigned rider' : 'Assign rider'}</MenuItem>
+                                    {riders.map((r) => <MenuItem key={r._id} value={r._id}>{r.name}</MenuItem>)}
+                                  </Select>
+                                )}
+                              </>
                             )}
                             {order?.deliveryAssignment?.status && <span className="ao-badge ao-badge-online">Rider: {order.deliveryAssignment.status}</span>}
                             {isDeliveryRider && (
                               <>
-                                <button className="ao-receipt-btn" onClick={() => callCustomer(order)}>📞 Call Customer</button>
+                                {order?.deliveryAssignment?.status === "broadcast" && (
+                                  <button className="ao-receipt-btn" onClick={() => confirmAssignedOrder(order._id)} disabled={isProcessingAction(order._id, 'confirm')}>
+                                    {isProcessingAction(order._id, 'confirm') ? (
+                                      <>
+                                        <span style={{ display: 'inline-block', animation: 'spin 0.8s linear infinite' }}>🔄</span>
+                                        {' Confirming...'}
+                                      </>
+                                    ) : '✅ Confirm Order'}
+                                  </button>
+                                )}
                                 {order?.deliveryAssignment?.status === "assigned" && (
-                                  <button className="ao-receipt-btn" onClick={() => confirmAssignedOrder(order._id)}>✅ Confirm Order</button>
+                                  <>
+                                    <button className="ao-receipt-btn" onClick={() => confirmAssignedOrder(order._id)} disabled={isProcessingAction(order._id, 'confirm')}>
+                                      {isProcessingAction(order._id, 'confirm') ? (
+                                        <>
+                                          <span style={{ display: 'inline-block', animation: 'spin 0.8s linear infinite' }}>🔄</span>
+                                          {' Confirming...'}
+                                        </>
+                                      ) : '✅ Confirm Order'}
+                                    </button>
+                                    <button className="ao-receipt-btn" onClick={() => cancelRiderOrder(order._id)} disabled={isProcessingAction(order._id, 'cancel')} style={{ background: '#fee2e2', color: '#dc2626', borderColor: '#fca5a5' }}>
+                                      {isProcessingAction(order._id, 'cancel') ? (
+                                        <>
+                                          <span style={{ display: 'inline-block', animation: 'spin 0.8s linear infinite' }}>🔄</span>
+                                          {' Cancelling...'}
+                                        </>
+                                      ) : '❌ Cancel Order'}
+                                    </button>
+                                  </>
                                 )}
-                                {order?.deliveryAssignment?.status !== "delivered" && order?.deliveryAssignment?.status !== "assigned" && (
-                                  <button className="ao-receipt-btn" onClick={() => sendOtpAndDeliver(order._id)}>📬 Deliver with OTP</button>
+                                {order?.deliveryAssignment?.status === "confirmed" && (
+                                  <>
+                                    <button className="ao-receipt-btn" onClick={() => callCustomer(order)}>📞 Call Customer</button>
+                                    <button className="ao-receipt-btn" onClick={() => sendOtpAndDeliver(order._id)} disabled={isProcessingAction(order._id, 'deliver')}>
+                                      {isProcessingAction(order._id, 'deliver') ? (
+                                        <>
+                                          <span style={{ display: 'inline-block', animation: 'spin 0.8s linear infinite' }}>🔄</span>
+                                          {' Delivering...'}
+                                        </>
+                                      ) : '📬 Deliver with OTP'}
+                                    </button>
+                                    <button className="ao-receipt-btn" onClick={() => cancelRiderOrder(order._id)} disabled={isProcessingAction(order._id, 'cancel')} style={{ background: '#fee2e2', color: '#dc2626', borderColor: '#fca5a5' }}>
+                                      {isProcessingAction(order._id, 'cancel') ? (
+                                        <>
+                                          <span style={{ display: 'inline-block', animation: 'spin 0.8s linear infinite' }}>🔄</span>
+                                          {' Cancelling...'}
+                                        </>
+                                      ) : '❌ Cancel Order'}
+                                    </button>
+                                  </>
                                 )}
-                                <span className="ao-badge ao-badge-online">Earning: ₹{Number(order?.deliveryAssignment?.earningAmount || 20).toFixed(0)}</span>
+                                {order?.deliveryAssignment?.status === "otp_sent" && (
+                                  <>
+                                    <button className="ao-receipt-btn" onClick={() => callCustomer(order)}>📞 Call Customer</button>
+                                    <button className="ao-receipt-btn" onClick={() => sendOtpAndDeliver(order._id)} disabled={isProcessingAction(order._id, 'deliver')}>
+                                      {isProcessingAction(order._id, 'deliver') ? (
+                                        <>
+                                          <span style={{ display: 'inline-block', animation: 'spin 0.8s linear infinite' }}>🔄</span>
+                                          {' Delivering...'}
+                                        </>
+                                      ) : '📬 Deliver with OTP'}
+                                    </button>
+                                  </>
+                                )}
                               </>
                             )}
                             {order?.returnRequest?.requested && order?.refund?.status !== "processed" && (

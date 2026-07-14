@@ -17,6 +17,12 @@ import { Edit, Delete, Tag, Info } from "@mui/icons-material";
 import { MyContext } from "../../App";
 import { deleteData, editData, fetchDataFromApi, postData } from "../../utils/api";
 
+const GO_MARKET_SHOP_SELLERS = [
+  "GROCERY_SELLER", "FASHION_SELLER", "ELECTRONICS_SELLER", "MEDICAL_SELLER",
+  "BEAUTY_SELLER", "HOME_KITCHEN_SELLER", "GIFTS_TOYS_SELLER",
+  "BOOKS_STATIONERY_SELLER", "JEWELLERY_SELLER", "HARDWARE_SELLER", "AUTOMOBILE_SELLER"
+];
+
 const initialForm = {
   code: "",
   title: "",
@@ -40,7 +46,7 @@ const CouponsPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const userRole = localStorage.getItem("userRole") || context?.userData?.role || "";
-  const isSellerCoupon = ["GROCERY_SELLER", "RESTAURANT_SELLER"].includes(userRole);
+  const isSellerCoupon = GO_MARKET_SHOP_SELLERS.includes(userRole) || userRole === "RESTAURANT_SELLER";
   const endpointBase = isSellerCoupon ? "/api/coupon/seller" : "/api/coupon/admin";
 
   const fetchCoupons = () => {

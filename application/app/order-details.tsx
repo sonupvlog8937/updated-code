@@ -136,7 +136,7 @@ export default function OrderDetailsScreen() {
   const [modalType, setModalType] = useState<"return" | "refund">("return");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const [commerceSettings, setCommerceSettings] = useState<any>({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0 });
+  const [commerceSettings, setCommerceSettings] = useState<any>({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0, goMarketShippingFee: 0, goMarketDeliveryFeePerKm: 0 });
 
   // Fetch commerce settings for fallback pricing
   useEffect(() => {
@@ -303,19 +303,23 @@ export default function OrderDetailsScreen() {
   // Use order's fees if available, otherwise use commerce settings
   const hasOrderFees = (order?.shippingFee !== undefined && order?.shippingFee !== null) || 
                        (order?.deliveryFee !== undefined && order?.deliveryFee !== null);
+  const isGoMarketOrder = order?.products?.some((item: any) => String(item?.brand || "").toLowerCase().includes("gomarket") || String(item?.source || "").toLowerCase().includes("gomarket"));
   
   let displayShippingFee = 0;
   let displayDeliveryFee = 0;
   
   if (hasOrderFees) {
-    // Order has fees saved - use them
     displayShippingFee = order?.shippingFee || 0;
     displayDeliveryFee = order?.deliveryFee || 0;
   } else if (commerceSettings.shippingFee > 0 || commerceSettings.deliveryFee > 0) {
-    // Fallback to commerce settings for old orders
     const freeByRule = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove;
-    displayShippingFee = freeByRule ? 0 : Number(commerceSettings.shippingFee || 0);
-    displayDeliveryFee = freeByRule ? 0 : Number(commerceSettings.deliveryFee || 0);
+    if (isGoMarketOrder) {
+      displayShippingFee = freeByRule ? 0 : Number(commerceSettings.goMarketShippingFee || 0);
+      displayDeliveryFee = freeByRule ? 0 : Number((commerceSettings.goMarketDeliveryFeePerKm || 0) * 3);
+    } else {
+      displayShippingFee = freeByRule ? 0 : Number(commerceSettings.shippingFee || 0);
+      displayDeliveryFee = freeByRule ? 0 : Number(commerceSettings.deliveryFee || 0);
+    }
   }
 
   return (

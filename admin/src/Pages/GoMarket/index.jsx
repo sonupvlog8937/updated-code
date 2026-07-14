@@ -18,6 +18,7 @@ const configs = {
     icon: MdStorefront,
     color: "#6366f1",
     endpoint: "/api/go-market/markets",
+    tableColumns: ["name", "city", "latitude", "longitude"],
     fields: [
       { key: "name",      label: "Market Name",  type: "text",   required: true },
       { key: "city",      label: "City",         type: "text",   required: true },
@@ -52,7 +53,7 @@ const configs = {
     endpoint: "/api/go-market/categories",
     fields: [
       { key: "name", label: "Category Name", type: "text", required: true },
-      { key: "type", label: "Category Type", type: "select", options: ["grocery", "restaurant"], required: true },
+      { key: "type", label: "Category Type", type: "select", options: ["grocery", "restaurant", "fashion", "electronics", "medical", "beauty", "home_kitchen", "gifts_toys", "books_stationery", "jewellery", "hardware", "automobile"], required: true },
       { key: "image", label: "Image URL", type: "url" },
       { key: "description", label: "Description", type: "textarea" },
       { key: "status", label: "Status", type: "select", options: ["active", "inactive"] },
@@ -60,14 +61,14 @@ const configs = {
   },
   subcategories: {
     title: "Go Market Sub Categories",
-    subtitle: "Admin only — linked to a parent category",
+    subtitle: "Admin only — linked to a parent category or subcategory",
     icon: MdCategory,
     color: "#0d9488",
     endpoint: "/api/go-market/subcategories",
     fields: [
-      { key: "parentId", label: "Parent Category", type: "parentCategory", required: true },
+      { key: "parentId", label: "Parent Category / Subcategory", type: "parentCategory", required: true },
       { key: "name", label: "Sub Category Name", type: "text", required: true },
-      { key: "type", label: "Category Type", type: "select", options: ["grocery", "restaurant"], required: true },
+      { key: "type", label: "Category Type", type: "select", options: ["grocery", "restaurant", "fashion", "electronics", "medical", "beauty", "home_kitchen", "gifts_toys", "books_stationery", "jewellery", "hardware", "automobile"], required: true },
       { key: "image", label: "Image URL", type: "url" },
       { key: "description", label: "Description", type: "textarea" },
       { key: "status", label: "Status", type: "select", options: ["active", "inactive"] },
@@ -79,6 +80,7 @@ const configs = {
     icon: MdShoppingCart,
     color: "#10b981",
     endpoint: "/api/go-market/grocery-shops",
+    tableColumns: ["shopName", "address", "latitude", "longitude"],
     fields: [
       { key: "marketId",      label: "Market",         type: "marketSelect",     required: true },
       { key: "ownerId",       label: "Owner",          type: "ownerSelect",     required: true },
@@ -88,6 +90,7 @@ const configs = {
       { key: "address",       label: "Address",        type: "text" },
       { key: "latitude",      label: "Latitude",       type: "number" },
       { key: "longitude",     label: "Longitude",      type: "number" },
+      { key: "deliveryMinutes", label: "Delivery Minutes", type: "number" },
       { key: "rating",        label: "Rating",         type: "number" },
       { key: "totalProducts", label: "Total Products", type: "number" },
       { key: "description",   label: "Description",    type: "textarea" },
@@ -100,6 +103,7 @@ const configs = {
     icon: MdRestaurant,
     color: "#ef4444",
     endpoint: "/api/go-market/restaurants",
+    tableColumns: ["restaurantName", "address", "latitude", "longitude"],
     fields: [
       { key: "marketId",        label: "Market",        type: "marketSelect",     required: true },
       { key: "ownerId",         label: "Owner",         type: "ownerSelect",     required: true },
@@ -109,6 +113,7 @@ const configs = {
       { key: "address",         label: "Address",       type: "text" },
       { key: "latitude",        label: "Latitude",      type: "number" },
       { key: "longitude",       label: "Longitude",     type: "number" },
+      { key: "deliveryMinutes", label: "Delivery Minutes", type: "number" },
       { key: "rating",          label: "Rating",        type: "number" },
       { key: "totalMenus",      label: "Total Menus",   type: "number" },
       { key: "totalItems",      label: "Total Items",   type: "number" },
@@ -213,12 +218,36 @@ const FieldInput = ({ field, value, onChange, parentCategoryOptions = [], market
     );
   }
   if (field.type === "parentCategory") {
+    const selectedValue = value && typeof value === "object"
+      ? JSON.stringify({ id: value.id, model: value.model, type: value.type })
+      : value ?? "";
+
     return (
-      <select className={base} value={value ?? ""} onChange={(e) => onChange(e.target.value)}>
+      <select
+        className={base}
+        value={selectedValue}
+        onChange={(e) => {
+          const raw = e.target.value;
+          if (!raw) return onChange("");
+          try {
+            const parsed = JSON.parse(raw);
+            return onChange(parsed);
+          } catch {
+            return onChange(raw);
+          }
+        }}
+      >
         <option value="">Select parent category</option>
-        {parentCategoryOptions.map((cat) => (
-          <option key={cat._id} value={cat._id}>{cat.name}</option>
-        ))}
+        {parentCategoryOptions.map((cat) => {
+          const isSubcategory = Boolean(cat.parentId);
+          const model = cat.parentModel || (isSubcategory ? "GoMarketSubCategory" : "GoMarketCategory");
+          const optionValue = JSON.stringify({ id: cat._id, model, type: cat.type });
+          return (
+            <option key={`${cat._id}-${model}`} value={optionValue}>
+              {isSubcategory ? "Subcategory" : "Category"}: {cat.name}
+            </option>
+          );
+        })}
       </select>
     );
   }
@@ -307,6 +336,7 @@ const GoMarketAdminPage = () => {
 
   const [rows, setRows] = useState([]);
   const [parentCategories, setParentCategories] = useState([]);
+  const [parentSubcategories, setParentSubcategories] = useState([]);
   const [markets, setMarkets] = useState([]);
   const [owners, setOwners] = useState([]);
   const [form, setForm] = useState(blankFor(config.fields));
@@ -320,7 +350,7 @@ const GoMarketAdminPage = () => {
   const [formOpen, setFormOpen] = useState(false);
 
   useEffect(() => {
-    setForm(blankFor(config.fields));
+    setForm({ ...blankFor(config.fields), parentModel: "GoMarketCategory" });
     setEditingId(null);
     setPage(1);
     setFormOpen(false);
@@ -344,6 +374,10 @@ const GoMarketAdminPage = () => {
     let url = "/api/go-market/categories?limit=100&status=active";
     if (sellerCategoryType) url += `&type=${sellerCategoryType}`;
     fetchDataFromApi(url).then((res) => setParentCategories(res?.data || []));
+
+    let subUrl = "/api/go-market/subcategories?limit=1000&status=active";
+    if (sellerCategoryType) subUrl += `&type=${sellerCategoryType}`;
+    fetchDataFromApi(subUrl).then((res) => setParentSubcategories(res?.data || []));
   }, [resource, sellerCategoryType]);
 
   useEffect(() => {
@@ -368,13 +402,22 @@ const GoMarketAdminPage = () => {
     e.preventDefault();
     setSaving(true);
     const payload = Object.fromEntries(
-      Object.entries(form).map(([k, v]) => [k, v === "true" ? true : v === "false" ? false : v])
+      Object.entries(form).map(([k, v]) => {
+        let value = v === "true" ? true : v === "false" ? false : v;
+        if (k === "parentId" && value && typeof value === "object") {
+          value = value.id;
+        }
+        return [k, value];
+      })
     );
     if (sellerCategoryType && resource === "categories") {
       payload.type = sellerCategoryType;
     }
     if (resource === "subcategories" && sellerCategoryType) {
       payload.type = sellerCategoryType;
+    }
+    if (resource === "subcategories") {
+      payload.parentModel = form.parentModel || "GoMarketCategory";
     }
     const res = editingId
       ? await editData(`${config.endpoint}/${editingId}`, payload)
@@ -384,7 +427,7 @@ const GoMarketAdminPage = () => {
       toast.error(res?.message || "Save failed");
     } else {
       toast.success(res?.message || (editingId ? "Record updated" : "Record created"));
-      setForm(blankFor(config.fields));
+      setForm({ ...blankFor(config.fields), parentModel: "GoMarketCategory" });
       setEditingId(null);
       setFormOpen(false);
       load();
@@ -393,11 +436,12 @@ const GoMarketAdminPage = () => {
 
   const edit = (row) => {
     setEditingId(row._id);
-    setForm(
-      Object.fromEntries(
+    setForm({
+      ...Object.fromEntries(
         config.fields.map((f) => [f.key, (row[f.key]?._id ?? row[f.key]) ?? ""])
-      )
-    );
+      ),
+      parentModel: row.parentModel || "GoMarketCategory",
+    });
     setFormOpen(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -417,7 +461,12 @@ const GoMarketAdminPage = () => {
 
   const visibleFields = useMemo(() => config.fields, [config.fields]);
 
-  const displayColumns = useMemo(() => visibleFields.slice(0, 4), [visibleFields]);
+  const displayColumns = useMemo(
+    () => config.tableColumns
+      ? visibleFields.filter(f => config.tableColumns.includes(f.key))
+      : visibleFields.slice(0, 4),
+    [visibleFields, config.tableColumns]
+  );
 
   const getCellValue = (row, key) => {
     const v = row[key];
@@ -425,6 +474,13 @@ const GoMarketAdminPage = () => {
     if (typeof v === "boolean") return v
       ? <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-xs"><MdCheck /> Yes</span>
       : <span className="text-gray-400 text-xs">No</span>;
+    // Highlight missing/zero coordinates in red
+    if ((key === "latitude" || key === "longitude") && (!v || v === 0 || v === "0")) {
+      return <span className="text-red-500 font-bold text-xs">⚠ {v || "not set"}</span>;
+    }
+    if (key === "latitude" || key === "longitude") {
+      return <span className="text-emerald-700 font-mono font-bold text-xs">📍 {v}</span>;
+    }
     const str = String(v?.name || v?.shopName || v?.restaurantName || v);
     return <span className="truncate block max-w-[160px]" title={str}>{str}</span>;
   };
@@ -506,6 +562,39 @@ const GoMarketAdminPage = () => {
             </div>
 
             <form onSubmit={submit} className="p-5">
+              {/* Get Current Location button — shown for resources that have lat/lng fields */}
+              {visibleFields.some(f => f.key === "latitude") && (
+                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="text-xs font-bold text-emerald-700">📍 Location Coordinates</p>
+                    <p className="text-[11px] text-emerald-600 mt-0.5">
+                      Current: lat <strong>{form.latitude || "—"}</strong>, lng <strong>{form.longitude || "—"}</strong>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!navigator.geolocation) { toast.error("Geolocation not supported"); return; }
+                      toast.loading("Getting location…", { id: "geo" });
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          setForm(f => ({
+                            ...f,
+                            latitude: pos.coords.latitude.toFixed(6),
+                            longitude: pos.coords.longitude.toFixed(6),
+                          }));
+                          toast.success(`Location set: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`, { id: "geo" });
+                        },
+                        (err) => toast.error("Could not get location: " + err.message, { id: "geo" }),
+                        { enableHighAccuracy: true, timeout: 10000 }
+                      );
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition"
+                  >
+                    📍 Use My Location
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-5">
                 {visibleFields.map((field) => (
                   <label key={field.key} className={`flex flex-col gap-1.5 ${field.type === "textarea" ? "sm:col-span-2" : ""}`}>
@@ -517,7 +606,7 @@ const GoMarketAdminPage = () => {
                       field={field}
                       value={form[field.key]}
                       onChange={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
-                      parentCategoryOptions={parentCategories}
+                      parentCategoryOptions={resource === "subcategories" ? [...parentCategories, ...parentSubcategories] : parentCategories}
                       marketOptions={markets}
                       ownerOptions={owners}
                     />

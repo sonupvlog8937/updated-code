@@ -9,6 +9,7 @@ import {
   Dimensions,
   Platform,
 } from "react-native";
+import { useRouter } from "expo-router";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -89,6 +90,7 @@ interface GoMarketHeroSectionProps {
 const GoMarketHeroSection: React.FC<GoMarketHeroSectionProps> = ({
   onExplorePress,
 }) => {
+  const router = useRouter();
   // Entry animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideLeft = useRef(new Animated.Value(-40)).current;
@@ -231,7 +233,13 @@ const GoMarketHeroSection: React.FC<GoMarketHeroSectionProps> = ({
           <TouchableOpacity
             activeOpacity={0.85}
             style={styles.ctaButton}
-            onPress={onExplorePress}
+            onPress={() => {
+              if (onExplorePress) {
+                onExplorePress();
+              } else {
+                router.push("/go-market" as never);
+              }
+            }}
           >
             <Text style={styles.ctaText}>Explore Nearby Market</Text>
             <Text style={styles.ctaArrow}>→</Text>

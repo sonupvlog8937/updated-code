@@ -15,6 +15,23 @@ import UploadBox from '../../Components/UploadBox';
 import ProductSpecsEditor from '../../Components/ProductSpecsEditor';
 import ProductOptionsEditor, { normalizeProductOptionsForSubmit } from '../../Components/ProductOptionsEditor';
 
+const ROLE_CATEGORY_TYPE = {
+  GROCERY_SELLER: "grocery",
+  FASHION_SELLER: "fashion",
+  ELECTRONICS_SELLER: "electronics",
+  MEDICAL_SELLER: "medical",
+  BEAUTY_SELLER: "beauty",
+  HOME_KITCHEN_SELLER: "home-kitchen",
+  GIFTS_TOYS_SELLER: "gifts-toys",
+  BOOKS_STATIONERY_SELLER: "books-stationery",
+  JEWELLERY_SELLER: "jewellery",
+  HARDWARE_SELLER: "hardware",
+  AUTOMOBILE_SELLER: "automobile",
+};
+
+const getSellerCategoryType = (role) => ROLE_CATEGORY_TYPE[role] || "grocery";
+const getSellerCategoryLabel = (role) => getSellerCategoryType(role).replace(/-/g, " ");
+
 const UNITS = [
   { value: 'piece', label: 'Per Piece' },
   { value: 'kg', label: 'Per Kg' },
@@ -28,6 +45,9 @@ const UNITS = [
 
 const GroceryAddProduct = () => {
   const context = useContext(MyContext);
+  const userRole = context?.userData?.role || localStorage.getItem('userRole') || '';
+  const categoryType = getSellerCategoryType(userRole);
+  const categoryLabel = getSellerCategoryLabel(userRole);
   const history = useNavigate();
 
   const [shop, setShop] = useState(null);
@@ -63,13 +83,15 @@ const GroceryAddProduct = () => {
   useEffect(() => {
     Promise.all([
       fetchDataFromApi('/api/go-market/seller/grocery-shop'),
-      fetchDataFromApi('/api/go-market/categories?type=grocery&limit=100&status=active'),
+      fetchDataFromApi(`/api/go-market/categories?type=${categoryType}&limit=100&status=active`),
     ]).then(([shopRes, catRes]) => {
       setShop(shopRes?.shop || null);
       setCategories(catRes?.data || []);
       setLoadingMeta(false);
+    }).catch(() => {
+      setLoadingMeta(false);
     });
-  }, []);
+  }, [categoryType]);
 
   useEffect(() => {
     if (!categoryId) {
@@ -428,13 +450,13 @@ const GroceryAddProduct = () => {
                 </div>
                 <div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Category</div>
-                  <div style={{ fontSize: 12, color: '#6b7280' }}>Go Market grocery categories</div>
+                  <div style={{ fontSize: 12, color: '#6b7280' }}>Go Market {categoryLabel} categories</div>
                 </div>
               </div>
 
               {categories.length === 0 ? (
                 <div style={{ padding: 16, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, fontSize: 13, color: '#92400e' }}>
-                  No categories available yet. Please ask the <strong>admin</strong> to add grocery categories — you can then select them here.
+                  No categories available yet. Please ask the <strong>admin</strong> to add {categoryLabel} categories — you can then select them here.
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>

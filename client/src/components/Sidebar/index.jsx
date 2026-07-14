@@ -11,7 +11,7 @@ import "react-range-slider-input/dist/style.css";
 import Rating from "@mui/material/Rating";
 import { useAppContext } from "../../hooks/useAppContext";
 import { useLocation } from "react-router-dom";
-import { postData } from "../../utils/api";
+import { postData, fetchDataFromApi } from "../../utils/api";
 import { MdOutlineFilterAlt, MdRefresh, MdCheck, MdClose, MdSearch, MdFilterList } from "react-icons/md";
 import { FiSearch, FiX, FiChevronDown, FiChevronUp, FiCheck } from "react-icons/fi";
 
@@ -537,23 +537,64 @@ export const Sidebar = (props) => {
         sortType: p.selectedSortType || "bestseller", query: p.searchQuery || "",
         page: p.page ?? 1, limit: 25,
       };
-      const apiUrl = p.searchQuery ? `/api/product/search/get` : `/api/product/filters`;
+      const apiUrl = p.searchQuery ? null : `/api/product/filters`;
+
+      const handleResponse = (res) => {
+        if (isLoadMore) {
+          p.setProductsData(prev => ({
+            ...res,
+            products: [...(prev?.products || []), ...(res?.products || [])]
+          }));
+        } else {
+          p.setProductsData(res);
+        }
+        p.setIsLoading(false);
+        p.setLoadingMore?.(false);
+        p.setTotalPages(res?.totalPages || 1);
+        if (p.setTotalProducts) p.setTotalProducts(res?.totalProducts || res?.total || 0);
+        if (!isLoadMore) window.scrollTo({ top: 0, behavior: "smooth" });
+      };
+
+      if (p.searchQuery) {
+        const sortMap = {
+          bestseller: "popular",
+          priceAsc: "priceAsc",
+          priceDesc: "priceDesc",
+          rating: "rating",
+          latest: "latest",
+          nameAsc: "nameAsc",
+          nameDesc: "nameDesc",
+        };
+        const params = new URLSearchParams({
+          q: p.searchQuery,
+          page: String(p.page ?? 1),
+          limit: "25",
+          sortBy: sortMap[p.selectedSortType] || "relevance",
+          platform: "website",
+        });
+        if (payload.brands?.length) params.set("brands", payload.brands.join(","));
+        if (minPrice != null) params.set("minPrice", String(minPrice));
+        if (maxPrice != null) params.set("maxPrice", String(maxPrice));
+        if (payload.discountRanges?.length) params.set("minDiscount", String(payload.discountRanges[0] || 0));
+        if (payload.ratingBands?.length) params.set("minRating", String(payload.ratingBands[0]?.min || 0));
+        if (payload.stockStatus === "inStock") params.set("inStock", "true");
+
+        fetchDataFromApi(`/api/search?${params}`)
+          .then((res) => handleResponse({
+            ...res,
+            correctedQuery: res.didYouMean,
+            total: res.totalProducts,
+            filterOptions: res.filterOptions,
+          }))
+          .catch(() => {
+            p.setIsLoading(false);
+            p.setLoadingMore?.(false);
+          });
+        return;
+      }
+
       postData(apiUrl, payload)
-        .then((res) => {
-          if (isLoadMore) {
-            p.setProductsData(prev => ({
-              ...res,
-              products: [...(prev?.products || []), ...(res?.products || [])]
-            }));
-          } else {
-            p.setProductsData(res);
-          }
-          p.setIsLoading(false);
-          p.setLoadingMore?.(false);
-          p.setTotalPages(res?.totalPages || 1);
-          if (p.setTotalProducts) p.setTotalProducts(res?.totalProducts || res?.total || 0);
-          if (!isLoadMore) window.scrollTo({ top: 0, behavior: "smooth" });
-        })
+        .then(handleResponse)
         .catch(() => {
           p.setIsLoading(false);
           p.setLoadingMore?.(false);

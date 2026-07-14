@@ -1,19 +1,23 @@
 import React, { useContext, useEffect, useState } from "react";
 import { MdOutlineModeEdit } from "react-icons/md";
 import { FaRegTrashAlt } from "react-icons/fa";
+import { IoMdClose } from "react-icons/io";
 import { Button } from "@mui/material";
 import { MyContext } from "../../App";
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import CircularProgress from '@mui/material/CircularProgress';
-import { deleteData, editData } from "../../utils/api";
+import { deleteData, editData, deleteImages } from "../../utils/api";
+import UploadBox from '../../Components/UploadBox';
 
 export const EditSubCatBox = (props) => {
   const [isLoading, setIsLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectVal, setSelectVal] = useState('');
+  const [previews, setPreviews] = useState([]);
   const [formFields, setFormFields] = useState({
     name: "",
+    images: [],
     parentCatName: null,
     parentId: null
   })
@@ -25,7 +29,9 @@ export const EditSubCatBox = (props) => {
     formFields.name = props?.name;
     formFields.parentCatName = props?.selectedCatName;
     formFields.parentId = props?.selectedCat;
-    setSelectVal(props?.selectedCat)
+    formFields.images = props?.images || [];
+    setSelectVal(props?.selectedCat);
+    setPreviews(props?.images || []);
   }, [])
 
 
@@ -47,6 +53,34 @@ export const EditSubCatBox = (props) => {
     setSelectVal(event.target.value);
     formFields.parentId = event.target.value;
   };
+
+  const setPreviewsFun = (previewsArr) => {
+    const imgArr = previews;
+    for (let i = 0; i < previewsArr.length; i++) {
+      imgArr.push(previewsArr[i])
+    }
+
+    setPreviews([])
+    setTimeout(() => {
+      setPreviews(imgArr)
+      formFields.images = imgArr
+    }, 10);
+  }
+
+  const removeImg = (image, index) => {
+    var imageArr = [];
+    imageArr = previews;
+    deleteImages(`/api/category/deteleImage?img=${image}`).then((res) => {
+      imageArr.splice(index, 1);
+
+      setPreviews([]);
+      setTimeout(() => {
+        setPreviews(imageArr);
+        formFields.images = imageArr
+      }, 100);
+
+    })
+  }
 
 
   const handleSubmit = (e) => {
@@ -125,6 +159,27 @@ export const EditSubCatBox = (props) => {
             </div>
 
 
+          </div>
+
+          <div className="w-full px-4 pb-4">
+            <h3 className='text-[12px] font-[500] mb-2 text-black'>Category Image</h3>
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
+              {
+                previews?.length !== 0 && previews?.map((image, index) => {
+                  return (
+                    <div className="uploadBoxWrapper mr-3 relative" key={index}>
+                      <span className='absolute w-[20px] h-[20px] rounded-full overflow-hidden bg-red-700 -top-[5px] -right-[5px] flex items-center justify-center z-50 cursor-pointer' onClick={() => removeImg(image, index)}>
+                        <IoMdClose className='text-white text-[17px]' />
+                      </span>
+                      <div className='uploadBox p-0 rounded-md overflow-hidden border border-dashed border-[rgba(0,0,0,0.3)] h-[100px] w-[100%] bg-gray-100 cursor-pointer hover:bg-gray-200 flex items-center justify-center flex-col relative'>
+                        <img src={image} className='w-100' />
+                      </div>
+                    </div>
+                  )
+                })
+              }
+              <UploadBox multiple={true} name="images" url="/api/category/uploadImages" setPreviewsFun={setPreviewsFun} />
+            </div>
           </div>
         </>
       }
