@@ -5,7 +5,7 @@
 // import TextField from "@mui/material/TextField";
 // import CartItems from "./cartItems";
 // import { useAppContext } from "../../hooks/useAppContext";
-// import { fetchDataFromApi } from "../../utils/api";
+// import { fetchDataFromApi, postData } from "../../utils/api";
 // import { Link } from "react-router-dom";
 
 // const COUPON_CONFIG = {
@@ -271,7 +271,7 @@ import { BsFillBagCheckFill } from "react-icons/bs";
 import TextField from "@mui/material/TextField";
 import CartItems from "./cartItems";
 import { useAppContext } from "../../hooks/useAppContext";
-import { fetchDataFromApi } from "../../utils/api";
+import { fetchDataFromApi, postData } from "../../utils/api";
 import { Link } from "react-router-dom";
 
 const CartPage = () => {
@@ -285,7 +285,8 @@ const CartPage = () => {
   const [couponMessage, setCouponMessage] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponSummary, setCouponSummary] = useState({ discountAmount: Number(localStorage.getItem("couponDiscount") || 0), isValid: false, message: "" });
-  const [commerceSettings, setCommerceSettings] = useState({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0 });
+  const [commerceSettings, setCommerceSettings] = useState({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0, goMarketShippingFee: 0, goMarketDeliveryFeePerKm: 0 });
+  const [goMarketDistanceKm, setGoMarketDistanceKm] = useState(0);
 
   const context = useAppContext();
 
@@ -360,6 +361,39 @@ const CartPage = () => {
     setCouponSummary({ discountAmount: 0, isValid: false, message: "" });
   };
 
+  const goMarketItems = useMemo(() => (context?.cartData || []).filter((item) => {
+    const source = String(item?.source || "").toLowerCase();
+    const brand = String(item?.brand || "").toLowerCase();
+    const isGoMarketSeller = item?.sellerId?.storeProfile?.marketId != null || item?.sellerId?.storeProfile?.goMarketOwnerId != null;
+    return source.includes("gomarket") || brand.includes("gomarket") || isGoMarketSeller;
+  }), [context?.cartData]);
+
+  const nonGoMarketItems = useMemo(() => (context?.cartData || []).filter((item) => !goMarketItems.includes(item)), [context?.cartData, goMarketItems]);
+  const hasGoMarketItems = goMarketItems.length > 0;
+  const hasNonGoMarketItems = nonGoMarketItems.length > 0;
+
+  useEffect(() => {
+    if (!hasGoMarketItems || !context?.userData?.goMarketLocation?.coordinates?.length) {
+      setGoMarketDistanceKm(0);
+      return;
+    }
+
+    let cancelled = false;
+    postData("/api/order/go-market-distance", {
+      userId: context?.userData?._id,
+      products: goMarketItems,
+      userLocation: context?.userData?.goMarketLocation,
+    }).then((res) => {
+      if (cancelled) return;
+      const nextDistance = Number(res?.data?.distanceKm || 0);
+      setGoMarketDistanceKm(Number.isFinite(nextDistance) ? nextDistance : 0);
+    }).catch(() => {
+      if (!cancelled) setGoMarketDistanceKm(0);
+    });
+
+    return () => { cancelled = true; };
+  }, [hasGoMarketItems, goMarketItems, context?.userData?.goMarketLocation, context?.userData?._id]);
+
   // ✅ SIZE SELECT FIX
   const selectedSize = (item) => {
     if (item?.size) return item.size;
@@ -368,11 +402,15 @@ const CartPage = () => {
     return "";
   };
 
-  // Calculate fees
+  // Calculate fees (rounded)
   const baseAfterDiscount = Math.max(cartSubTotal - (couponSummary?.discountAmount || 0), 0);
   const freeByRule = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove;
-  const shippingFee = freeByRule ? 0 : Number(commerceSettings.shippingFee || 0);
-  const deliveryFee = freeByRule ? 0 : Number(commerceSettings.deliveryFee || 0);
+  const goMarketShippingFee = hasGoMarketItems ? Math.round(Number(commerceSettings.goMarketShippingFee || 0)) : 0;
+  const goMarketDeliveryFee = hasGoMarketItems ? Math.round(Number((commerceSettings.goMarketDeliveryFeePerKm || 0) * goMarketDistanceKm)) : 0;
+  const standardShippingFee = hasNonGoMarketItems ? Math.round(Number(commerceSettings.shippingFee || 0)) : 0;
+  const standardDeliveryFee = hasNonGoMarketItems ? Math.round(Number(commerceSettings.deliveryFee || 0)) : 0;
+  const shippingFee = freeByRule ? 0 : goMarketShippingFee + standardShippingFee;
+  const deliveryFee = freeByRule ? 0 : goMarketDeliveryFee + standardDeliveryFee;
   const totalAfterDiscount = baseAfterDiscount + shippingFee + deliveryFee;
 
   return (
@@ -474,7 +512,7 @@ const CartPage = () => {
             </p>
 
             <p className="flex justify-between">
-              <span>Delivery Fee</span>
+               <span>Delivery Fee{hasGoMarketItems && goMarketDistanceKm > 0 ? ` (${goMarketDistanceKm.toFixed(1)} km)` : ""}</span>
               <span className={deliveryFee === 0 ? "text-green-600 font-[600]" : ""}>
                 {deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}
               </span>

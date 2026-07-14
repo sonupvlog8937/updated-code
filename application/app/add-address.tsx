@@ -272,7 +272,6 @@ export default function AddAddressScreen() {
     if (!mobile.trim()) e.mobile = "Please enter mobile number";
     else if (!/^\d{10}$/.test(mobile.replace(/\D/g, "")))
       e.mobile = "Mobile number must be 10 digits";
-    if (!latitude || !longitude) e.location = "Please capture your location first";
     setErrors(e);
     return Object.keys(e).length === 0;
   };

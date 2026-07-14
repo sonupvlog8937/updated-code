@@ -404,10 +404,10 @@ export default function CartScreen() {
 
   const itemDiscount = Math.max(0, oldTotal - subTotal);
   const freeByRule = commerceSettings.freeShippingAbove > 0 && subTotal >= commerceSettings.freeShippingAbove;
-  const shipping = freeByRule ? 0 : Number(commerceSettings.shippingFee || 0);
-  const deliveryFee = freeByRule ? 0 : Number(commerceSettings.deliveryFee || 0);
+  const shipping = freeByRule ? 0 : Math.round(Number(commerceSettings.shippingFee || 0));
+  const deliveryFee = freeByRule ? 0 : Math.round(Number(commerceSettings.deliveryFee || 0));
   const grandTotal = subTotal + shipping + deliveryFee;
-  const totalSavings = itemDiscount + (freeByRule && subTotal > 0 ? (Number(commerceSettings.shippingFee || 0) + Number(commerceSettings.deliveryFee || 0)) : 0);
+  const totalSavings = itemDiscount + (freeByRule && subTotal > 0 ? (Math.round(Number(commerceSettings.shippingFee || 0)) + Math.round(Number(commerceSettings.deliveryFee || 0))) : 0);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   const updateQty = async (item: CartItem, next: number) => {

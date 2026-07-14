@@ -156,7 +156,7 @@ const getSavedGoMarketLocation = async (userId) => {
     return null;
 };
 
-const computeGoMarketDistance = async ({ products = [], userId, requestLocation }) => {
+export const computeGoMarketDistance = async ({ products = [], userId, requestLocation }) => {
     const userLocation = normalizeLatLng(requestLocation) || await getSavedGoMarketLocation(userId);
     if (!userLocation || !Array.isArray(products) || products.length === 0) {
         return { distanceKm: 0, distanceDisplay: null, userLocation, farthestSource: null };
@@ -195,6 +195,30 @@ const computeGoMarketDistance = async ({ products = [], userId, requestLocation 
         farthestSource: farthest,
     };
 };
+
+export const calculateGoMarketDistanceController = async (request, response) => {
+    try {
+        const products = Array.isArray(request.body?.products) ? request.body.products : [];
+        const distance = await computeGoMarketDistance({
+            products,
+            userId: request.body?.userId || request.userId,
+            requestLocation: request.body?.userLocation,
+        });
+
+        return response.status(200).json({
+            error: false,
+            success: true,
+            data: distance,
+        });
+    } catch (error) {
+        return response.status(500).json({
+            message: error.message || error,
+            error: true,
+            success: false,
+        });
+    }
+};
+
 
 const countSellerGoMarketProducts = async (sellerId) => {
     const ownerIds = (await ShopOwner.find({ userId: sellerId }).select("_id").lean()).map((owner) => owner._id);
