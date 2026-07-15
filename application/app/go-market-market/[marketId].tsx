@@ -333,12 +333,12 @@ export default function GoMarketMarketScreen() {
     applyAddressFallback();
   }, [userData, applyAddressFallback]);
 
-  // Refresh GPS on screen focus — updates cards only, no shop reload
-  useFocusEffect(
-    useCallback(() => {
-      refreshCurrentLocation();
-    }, [refreshCurrentLocation]),
-  );
+  // Refresh GPS ONLY when explicitly requested - do NOT auto-fetch on focus
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     refreshCurrentLocation();
+  //   }, [refreshCurrentLocation]),
+  // );
 
   // ── Suggestions disabled for Go Market ──
   // useEffect(() => {
@@ -623,14 +623,14 @@ export default function GoMarketMarketScreen() {
         <View style={S.heroOverlay} />
         
         {/* Change Market Button */}
-        <TouchableOpacity 
+        {/* <TouchableOpacity 
           style={S.changeMarketBtn}
           onPress={() => router.push("/go-market?edit=true" as never)}
           activeOpacity={0.85}
         >
           <Text style={{ fontSize: 14, marginRight: 4 }}>✏️</Text>
           <Text style={S.changeMarketBtnTxt}>Change Market</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         <TouchableOpacity
           style={[S.changeMarketBtn, { top: 62, backgroundColor: T.green }]}
           onPress={() => router.push("/go-market?edit=true&updateLocation=true" as never)}

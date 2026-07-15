@@ -295,7 +295,11 @@ const GoMarketStoreProfile = () => {
         toast.error("Could not get location: " + err.message);
         setIsLocating(false);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { 
+        enableHighAccuracy: true, 
+        timeout: 10000,
+        maximumAge: 0  // Always fetch fresh location, don't use cached
+      }
     );
   };
 

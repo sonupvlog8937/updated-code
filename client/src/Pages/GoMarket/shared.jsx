@@ -136,11 +136,15 @@ export const useMyLocation = (onCoords) => {
     toast.loading("Detecting location…", { id: "gm-loc" });
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
+        console.log("✅ Current location obtained:", coords.latitude, coords.longitude);
         onCoords(coords.latitude, coords.longitude);
         toast.success("Location updated", { id: "gm-loc" });
       },
-      () => toast.error("Unable to detect location", { id: "gm-loc" }),
-      { enableHighAccuracy: true, timeout: 10000 },
+      (error) => {
+        console.error("❌ Location error:", error.message);
+        toast.error("Unable to detect location. Please check permissions.", { id: "gm-loc" });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }, // maximumAge: 0 for fresh location
     );
   };
 };

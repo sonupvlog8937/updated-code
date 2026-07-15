@@ -889,6 +889,117 @@ const ReceiptModal = ({ order, onClose }) => {
             </div>
           </div>
 
+          {/* User's Current Location (Go Market) - Show if user clicked "Use Current Location" */}
+          {order?.goMarketData?.userLocation?.coordinates && order.goMarketData.userLocation.coordinates[0] !== 0 && order.goMarketData.userLocation.coordinates[1] !== 0 && (
+            <div style={{ marginTop: '16px' }}>
+              <div className="ao-rcpt-info-card" style={{ background: '#ecfdf5', border: '1.5px solid #86efac' }}>
+                <div className="ao-rcpt-info-title" style={{ color: '#15803d' }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <circle cx="12" cy="12" r="10"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  Customer's Current Location (Go Market)
+                </div>
+                <div style={{ 
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.07em',
+                  background: '#d1fae5',
+                  color: '#065f46',
+                  padding: '3px 8px',
+                  borderRadius: 5,
+                  marginBottom: 8
+                }}>
+                  <span style={{ 
+                    width: 6, 
+                    height: 6, 
+                    background: '#10b981', 
+                    borderRadius: '50%',
+                    display: 'inline-block'
+                  }} />
+                  Live GPS Location
+                </div>
+                <div className="ao-rcpt-info-line" style={{ fontWeight: 600, color: '#065f46', fontSize: '12px' }}>
+                  📍 {order.goMarketData.userLocation.coordinates[1].toFixed(6)}, {order.goMarketData.userLocation.coordinates[0].toFixed(6)}
+                </div>
+                {order.goMarketData.distanceDisplay && (
+                  <div className="ao-rcpt-info-line" style={{ color: '#059669', fontSize: '11px', marginTop: '4px' }}>
+                    📏 Distance: {order.goMarketData.distanceDisplay}
+                  </div>
+                )}
+                {order.goMarketData.userLocation.address && (
+                  <div className="ao-rcpt-info-line" style={{ color: '#047857', fontSize: '11px', marginTop: '4px' }}>
+                    {order.goMarketData.userLocation.address}
+                  </div>
+                )}
+                <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <a
+                    href={`https://www.google.com/maps?q=${order.goMarketData.userLocation.coordinates[1]},${order.goMarketData.userLocation.coordinates[0]}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: '#15803d',
+                      textDecoration: 'none',
+                      padding: '5px 12px',
+                      background: '#bbf7d0',
+                      border: '1px solid #86efac',
+                      borderRadius: '6px',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = '#a7f3d0';
+                      e.currentTarget.style.borderColor = '#6ee7b7';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = '#bbf7d0';
+                      e.currentTarget.style.borderColor = '#86efac';
+                    }}
+                  >
+                    🗺️ View on Map
+                  </a>
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${order.goMarketData.userLocation.coordinates[1]},${order.goMarketData.userLocation.coordinates[0]}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: '#2563eb',
+                      textDecoration: 'none',
+                      padding: '5px 12px',
+                      background: '#dbeafe',
+                      border: '1px solid #93c5fd',
+                      borderRadius: '6px',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = '#bfdbfe';
+                      e.currentTarget.style.borderColor = '#60a5fa';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = '#dbeafe';
+                      e.currentTarget.style.borderColor = '#93c5fd';
+                    }}
+                  >
+                    🧭 Get Directions
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Products */}
           <div className="ao-rcpt-sec-lbl">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
@@ -1706,6 +1817,58 @@ const isSellerView = isSellerRole(context?.userData?.role);
                             {[addr.city, addr.state].filter(Boolean).join(", ")}
                           </div>
                           <div className="ao-addr-pin">PIN {addr.pincode}</div>
+                          
+                          {/* DEBUG: Log goMarketData */}
+                          {console.log('Order goMarketData:', order._id, order?.goMarketData)}
+                          
+                          {/* User's Current Location (Go Market) - Show if coordinates are valid */}
+                          {order?.goMarketData?.userLocation?.coordinates && 
+                           Array.isArray(order.goMarketData.userLocation.coordinates) &&
+                           order.goMarketData.userLocation.coordinates.length >= 2 &&
+                           order.goMarketData.userLocation.coordinates[0] !== 0 && 
+                           order.goMarketData.userLocation.coordinates[1] !== 0 && (
+                            <div style={{ marginTop: '6px' }}>
+                              <a
+                                href={`https://www.google.com/maps?q=${order.goMarketData.userLocation.coordinates[1]},${order.goMarketData.userLocation.coordinates[0]}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '10px',
+                                  fontWeight: 600,
+                                  color: '#059669',
+                                  textDecoration: 'none',
+                                  background: '#d1fae5',
+                                  padding: '3px 7px',
+                                  borderRadius: '5px',
+                                  border: '1px solid #86efac',
+                                  transition: 'all 0.15s'
+                                }}
+                                onMouseOver={(e) => {
+                                  e.currentTarget.style.background = '#bbf7d0';
+                                  e.currentTarget.style.borderColor = '#6ee7b7';
+                                }}
+                                onMouseOut={(e) => {
+                                  e.currentTarget.style.background = '#d1fae5';
+                                  e.currentTarget.style.borderColor = '#86efac';
+                                }}
+                                title={`GPS Location: ${order.goMarketData.userLocation.coordinates[1].toFixed(6)}, ${order.goMarketData.userLocation.coordinates[0].toFixed(6)}`}
+                              >
+                                <span style={{ 
+                                  width: 5, 
+                                  height: 5, 
+                                  background: '#10b981', 
+                                  borderRadius: '50%',
+                                  display: 'inline-block',
+                                  animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                                }} />
+                                📍 Live GPS
+                              </a>
+                            </div>
+                          )}
+                          
                           {addr?.latitude && addr?.longitude && (
                             <div style={{ marginTop: '6px' }}>
                               <a

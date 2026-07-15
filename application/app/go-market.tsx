@@ -127,18 +127,32 @@ export default function GoMarketScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         Alert.alert("Permission needed", "Enable location to find nearby markets.");
+        setLocBusy(false);
         return;
       }
-      const loc = await Location.getCurrentPositionAsync({});
+      
+      console.log("📍 Getting current location...");
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      
+      const lat = loc.coords.latitude;
+      const lng = loc.coords.longitude;
+      console.log("✅ Location obtained:", lat, lng);
+      
       const result = await dispatch(
-        fetchGoNearbyMarkets({ latitude: loc.coords.latitude, longitude: loc.coords.longitude }),
+        fetchGoNearbyMarkets({ latitude: lat, longitude: lng }),
       ).unwrap();
       
-      // Auto-navigate to nearest market and save preference
+      // Auto-navigate to nearest market and save preference WITH CURRENT LOCATION
       if (result?.data && result.data.length > 0) {
         const nearestMarket = result.data[0];
+        const locationAddress = `Current Location: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
         console.log("🎯 Navigating to nearest market:", nearestMarket.name);
-        await saveAndNavigate(nearestMarket._id, { lat: loc.coords.latitude, lng: loc.coords.longitude }, "Current location");
+        console.log("💾 Saving location:", locationAddress);
+        
+        await saveAndNavigate(nearestMarket._id, { lat, lng }, locationAddress);
+        Alert.alert("Success", `Location updated!\nNearest market: ${nearestMarket.name}`);
       } else {
         Alert.alert("No markets found", "No nearby markets found in your area.");
       }

@@ -123,42 +123,33 @@ const GoMarketMarket = () => {
     applyAddressFallback();
   }, [userData, applyAddressFallback]);
 
-  // GPS — updates distance on cards without refetching outlets
+  // GPS — ONLY use cached location or fallback to address, do NOT auto-fetch GPS on page load
   useEffect(() => {
-    if (!navigator.geolocation) {
-      applyAddressFallback();
+    // Skip automatic GPS fetch - only use saved/cached location or address fallback
+    if (locationSourceRef.current) {
+      // Already have location from cache or profile
+      console.log("📍 Using existing location source:", locationSourceRef.current);
       return;
     }
-    const setLoc = (pos) => setUserLocation(
-      { lat: pos.coords.latitude, lng: pos.coords.longitude },
-      "gps",
-    );
-    navigator.geolocation.getCurrentPosition(
-      setLoc,
-      () => {
-        navigator.geolocation.getCurrentPosition(
-          setLoc,
-          () => applyAddressFallback(),
-          { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
-        );
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
-    );
-  }, [setUserLocation, applyAddressFallback]);
+    console.log("📍 No location found, using address fallback");
+    applyAddressFallback();
+  }, [applyAddressFallback]);
 
-  // Auto-save GPS location to database when GPS detects it
+  // Auto-save GPS location to database when GPS detects it (ONLY when manually updated)
   useEffect(() => {
     if (locationSourceRef.current !== "gps" || !userLocation || !isLogin || !marketId) return;
     
     const saveLocationToDB = async () => {
       try {
+        console.log("💾 Saving GPS location to database:", userLocation);
         await dispatch(savePreferredMarket({ 
           marketId, 
           location: userLocation,
-          address: `${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}`
+          address: `${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}`
         })).unwrap();
+        console.log("✅ Location saved successfully");
       } catch (err) {
-        console.error("Failed to save location:", err);
+        console.error("❌ Failed to save location:", err);
       }
     };
     
@@ -384,7 +375,7 @@ const GoMarketMarket = () => {
                 <h2>{market.name}</h2>
                 <p>{market.city}, {market.state} · {market.pincode}</p>
               </div>
-              <button
+              {/* <button
                 type="button"
                 onClick={() => navigate("/go-market?edit=true")}
                 style={{
@@ -415,7 +406,7 @@ const GoMarketMarket = () => {
               >
                 <span>✏️</span>
                 Change Market
-              </button>
+              </button> */}
               <button
                 type="button"
                 onClick={() => navigate("/go-market?edit=true&updateLocation=true")}

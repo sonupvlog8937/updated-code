@@ -100,7 +100,7 @@ const orderSchema = new mongoose.Schema(
       default: 0,
     },
     goMarketData: {
-      type: {
+      orderType: {
         type: String,
         default: "standard",
       },
@@ -113,8 +113,18 @@ const orderSchema = new mongoose.Schema(
         default: "",
       },
       userLocation: {
-        type: Object,
-        default: null,
+        type: {
+          type: String,
+          default: "Point",
+        },
+        coordinates: {
+          type: [Number],
+          default: [0, 0],
+        },
+        address: {
+          type: String,
+          default: "",
+        },
       },
       farthestSource: {
         type: Object,

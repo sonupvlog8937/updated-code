@@ -150,15 +150,29 @@ const normalizeLatLng = (value = {}) => {
 const getSavedGoMarketLocation = async (userId) => {
     const user = await UserModel.findById(userId).select("goMarketLocation").lean();
     const coords = user?.goMarketLocation?.coordinates;
+    console.log("📍 getSavedGoMarketLocation for user:", userId);
+    console.log("   Raw coordinates from DB:", coords);
+    
     if (Array.isArray(coords) && coords.length >= 2) {
-        return normalizeLatLng({ lat: coords[1], lng: coords[0] });
+        const location = normalizeLatLng({ lat: coords[1], lng: coords[0] }); // GeoJSON: [lng, lat]
+        console.log("   ✅ Normalized location:", location);
+        return location;
     }
+    console.log("   ⚠️ No valid coordinates found");
     return null;
 };
 
 export const computeGoMarketDistance = async ({ products = [], userId, requestLocation }) => {
+    console.log("\n🧮 computeGoMarketDistance called:");
+    console.log("   userId:", userId);
+    console.log("   requestLocation:", requestLocation);
+    console.log("   products count:", products?.length);
+    
     const userLocation = normalizeLatLng(requestLocation) || await getSavedGoMarketLocation(userId);
+    console.log("   Final userLocation:", userLocation);
+    
     if (!userLocation || !Array.isArray(products) || products.length === 0) {
+        console.log("   ⚠️ Returning zero distance - invalid data");
         return { distanceKm: 0, distanceDisplay: null, userLocation, farthestSource: null };
     }
 
@@ -358,6 +372,14 @@ export const createOrderController = async (request, response) => {
                 farthestSource: goMarketDistance.farthestSource || null,
             },
             date: request.body.date
+        });
+        
+        // Debug log for user location
+        console.log("📍 Order created with goMarketData:", {
+            orderType: order.goMarketData.orderType,
+            userLocation: order.goMarketData.userLocation,
+            distanceKm: order.goMarketData.distanceKm,
+            hasCoordinates: order.goMarketData.userLocation?.coordinates ? 'YES' : 'NO'
         });
 
         if (!order) {

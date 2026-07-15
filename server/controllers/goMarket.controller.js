@@ -414,6 +414,8 @@ export const setPreferredMarket = async (req, res) => {
     const userId = req.userId;
     const { marketId, location, address } = req.body;
     
+    console.log("📍 setPreferredMarket called with:", { marketId, location, address });
+    
     if (!userId) return sendError(res, "Login required", 401);
     if (!marketId || !isObjectId(marketId)) return sendError(res, "Valid marketId is required", 400);
     
@@ -425,13 +427,23 @@ export const setPreferredMarket = async (req, res) => {
     const UserModel = (await import("../models/user.model.js")).default;
     
     const update = { preferredMarketId: marketId };
+    
+    // Validate and save location in GeoJSON format
     if (location && Number.isFinite(Number(location?.lat)) && Number.isFinite(Number(location?.lng))) {
+      const lat = Number(location.lat);
+      const lng = Number(location.lng);
+      
+      console.log("✅ Valid location coordinates:", { lat, lng });
+      console.log("📝 Saving in GeoJSON format: [lng, lat] =", [lng, lat]);
+      
       update.goMarketLocation = {
         type: "Point",
-        coordinates: [Number(location.lng), Number(location.lat)],
-        address: String(address || ""),
+        coordinates: [lng, lat], // GeoJSON format: [longitude, latitude]
+        address: String(address || `Location: ${lat.toFixed(6)}, ${lng.toFixed(6)}`),
         updatedAt: new Date(),
       };
+    } else {
+      console.warn("⚠️ Invalid location provided:", location);
     }
 
     // Update user's preferred market
@@ -443,8 +455,11 @@ export const setPreferredMarket = async (req, res) => {
     
     if (!user) return sendError(res, "User not found", 404);
     
+    console.log("💾 Saved goMarketLocation:", user?.goMarketLocation);
+    
     ok(res, { message: "Preferred market saved", data: { preferredMarketId: marketId, goMarketLocation: user?.goMarketLocation || null } });
   } catch (error) {
+    console.error("❌ setPreferredMarket error:", error);
     sendError(res, error);
   }
 };
