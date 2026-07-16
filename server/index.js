@@ -46,6 +46,7 @@ const allowedOrigins = [
   "https://zeedaddy.in",
   "https://decemberadmin-2grx.vercel.app",
   "https://zeedaddyseller.vercel.app",
+  "https://decemberadmin-7dec.vercel.app",
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:8000",

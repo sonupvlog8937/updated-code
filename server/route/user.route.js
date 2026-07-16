@@ -59,7 +59,7 @@ userRouter.get('/seller/store-profile/:sellerId',getSellerStoreProfile);
 userRouter.get('/seller/quick-commerce/outlet', auth, authorizeRole(...ALL_GO_MARKET_SELLERS), getQuickCommerceOutlet);
 userRouter.put('/seller/quick-commerce/outlet', auth, authorizeRole(...ALL_GO_MARKET_SELLERS), updateQuickCommerceOutlet);
 userRouter.get('/seller/quick-commerce/dashboard', auth, authorizeRole(...ALL_GO_MARKET_SELLERS), getQuickCommerceDashboard);
-userRouter.get('/wallet/overview',auth,authorizeRole('ADMIN',...ALL_SELLER_ROLES),getCommissionOverview);
+userRouter.get('/wallet/overview',auth,authorizeRole('ADMIN',...ALL_SELLER_ROLES,'DELIVERY_RIDER'),getCommissionOverview);
 userRouter.get('/seller/commission',auth,authorizeRole(...ALL_SELLER_ROLES),getCommissionOverview);
 userRouter.post('/wallet/request',auth,authorizeRole(...ALL_SELLER_ROLES),createWalletRequest);
 userRouter.put('/wallet/request/approve',auth,authorizeRole('ADMIN'),approveWalletRequest);

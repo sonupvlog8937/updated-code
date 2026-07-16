@@ -17,7 +17,8 @@ const GoMarketHome = () => {
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [collections, setCollections] = useState([]);
   const [showNearby, setShowNearby] = useState(false);
-  const updateLocationMode = new URLSearchParams(window.location.search).get("updateLocation") === "true";
+  const queryParams = useMemo(() => new URLSearchParams(window.location.search), []);
+  const updateLocationMode = queryParams.get("updateLocation") === "true";
 
   // Redirect to login if not logged in
   useEffect(() => {
@@ -29,7 +30,7 @@ const GoMarketHome = () => {
   // Auto-navigate to preferred market if exists (skip if coming from edit)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const isFromEdit = params.get("edit") === "true";
+    const isFromEdit = params.get("edit") === "true" || params.get("updateLocation") === "true";
     
     if (isLogin && userData?.preferredMarketId && !isFromEdit) {
       console.log("🎯 Auto-navigating to preferred market:", userData.preferredMarketId);
@@ -40,7 +41,9 @@ const GoMarketHome = () => {
   useEffect(() => {
     dispatch(fetchMarkets({ search: "" }));
   }, [dispatch]);
-  fetchDataFromApi("/api/settings/commerce").then((res) => setCollections((res?.data?.collections || []).filter((c) => c.isActive !== false)));
+  useEffect(() => {
+    fetchDataFromApi("/api/settings/commerce").then((res) => setCollections((res?.data?.collections || []).filter((c) => c.isActive !== false)));
+  }, []);
 
   const allMarkets = useMemo(() => {
     if (showNearby) return nearbyMarkets;
@@ -133,8 +136,8 @@ const GoMarketHome = () => {
           const nearestMarket = response.data[0];
           console.log("🎯 Nearest market found:", nearestMarket.name, "at", nearestMarket.distanceKm, "km");
           // Save preferred market and navigate
-          dispatch(savePreferredMarket({ marketId: nearestMarket._id, location: { lat, lng }, address: `Current location: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, forceLocationUpdate: updateLocationMode }));
-          openMarket(nearestMarket._id);
+          dispatch(savePreferredMarket({ marketId: nearestMarket._id, location: { lat, lng }, address: `Current location: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, forceLocationUpdate: true }))
+            .finally(() => navigate(`/go-market/market/${nearestMarket._id}`));
         } else {
           console.warn("⚠️ No nearby markets found. Response:", response);
           alert("❌ No markets found in your area. Please try searching or check back later.");

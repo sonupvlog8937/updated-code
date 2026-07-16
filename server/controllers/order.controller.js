@@ -152,7 +152,7 @@ const getSavedGoMarketLocation = async (userId) => {
     const coords = user?.goMarketLocation?.coordinates;
     console.log("📍 getSavedGoMarketLocation for user:", userId);
     console.log("   Raw coordinates from DB:", coords);
-    
+
     if (Array.isArray(coords) && coords.length >= 2) {
         const location = normalizeLatLng({ lat: coords[1], lng: coords[0] }); // GeoJSON: [lng, lat]
         console.log("   ✅ Normalized location:", location);
@@ -167,10 +167,10 @@ export const computeGoMarketDistance = async ({ products = [], userId, requestLo
     console.log("   userId:", userId);
     console.log("   requestLocation:", requestLocation);
     console.log("   products count:", products?.length);
-    
+
     const userLocation = normalizeLatLng(requestLocation) || await getSavedGoMarketLocation(userId);
     console.log("   Final userLocation:", userLocation);
-    
+
     if (!userLocation || !Array.isArray(products) || products.length === 0) {
         console.log("   ⚠️ Returning zero distance - invalid data");
         return { distanceKm: 0, distanceDisplay: null, userLocation, farthestSource: null };
@@ -338,7 +338,7 @@ export const createOrderController = async (request, response) => {
 
             shippingFee = isFirstOrder ? 0 : (request.body.shippingFee || 0);
             deliveryFee = isFirstOrder ? 0 : (request.body.deliveryFee || 0);
-            
+
             if (isFirstOrder && (request.body.shippingFee || request.body.deliveryFee)) {
                 totalAmt = totalAmt - (request.body.shippingFee || 0) - (request.body.deliveryFee || 0);
             }
@@ -373,7 +373,7 @@ export const createOrderController = async (request, response) => {
             },
             date: request.body.date
         });
-        
+
         // Debug log for user location
         console.log("📍 Order created with goMarketData:", {
             orderType: order.goMarketData.orderType,
@@ -592,7 +592,7 @@ export const captureOrderPaypalController = async (request, response) => {
         // Recalculate shipping and delivery fees for first order
         const shippingFee = isFirstOrder ? 0 : (request.body.shippingFee || 0);
         const deliveryFee = isFirstOrder ? 0 : (request.body.deliveryFee || 0);
-        
+
         // Recalculate total amount if first order (subtract fees from frontend total)
         let totalAmt = request.body.totalAmount;
         if (isFirstOrder && (request.body.shippingFee || request.body.deliveryFee)) {
@@ -1278,6 +1278,18 @@ export async function getSellerDashboardStats(request, response) {
 }
 const RIDER_DELIVERY_FEE = 20;
 
+const calculateRiderEarning = async (order) => {
+    const settings = await AppSettings.findOne({ key: "commerce" }).lean();
+    const riderPerKm = Number(settings?.goMarketRiderFeePerKm || settings?.goMarketDeliveryFeePerKm || 0);
+    const pickupFee = Number(settings?.goMarketRiderPickupFee || 0);
+    const distanceKm = Number(order?.goMarketData?.distanceKm || 0);
+    const deliveryEarning = riderPerKm > 0 && distanceKm > 0
+        ? Number((distanceKm * riderPerKm).toFixed(2))
+        : Number(order?.deliveryAssignment?.deliveryEarning || order?.deliveryAssignment?.earningAmount || RIDER_DELIVERY_FEE);
+    const total = Number((deliveryEarning + pickupFee).toFixed(2));
+    return { deliveryEarning, pickupFee, total };
+};
+
 const getSellerMarketIds = async (sellerId, sellerEmail = "") => {
     const ownerQuery = sellerEmail ? { $or: [{ userId: sellerId }, { email: sellerEmail }] } : { userId: sellerId };
     const ownerIds = (await ShopOwner.find(ownerQuery).select("_id").lean()).map((o) => o._id);
@@ -1285,7 +1297,17 @@ const getSellerMarketIds = async (sellerId, sellerEmail = "") => {
         GroceryShop.find({ ownerId: { $in: ownerIds } }).select("marketId").lean(),
         Restaurant.find({ ownerId: { $in: ownerIds } }).select("marketId").lean(),
     ]);
-    return [...shops, ...restaurants].map((o) => o.marketId).filter(Boolean).map(String);
+    const marketIds = [...shops, ...restaurants].map((o) => o.marketId).filter(Boolean).map(String);
+
+    // Fallback: if ShopOwner chain returned nothing, check User.storeProfile.marketId directly
+    if (!marketIds.length) {
+        const user = await UserModel.findById(sellerId).select("storeProfile.marketId").lean();
+        if (user?.storeProfile?.marketId) {
+            marketIds.push(String(user.storeProfile.marketId));
+        }
+    }
+
+    return [...new Set(marketIds)];
 };
 
 export const listDeliveryRidersController = async (request, response) => {
@@ -1320,16 +1342,36 @@ export const broadcastOrderToMarketController = async (request, response) => {
             return response.status(400).json({ success: false, error: true, message: "Order is already assigned or in delivery" });
         }
 
-        const marketIds = request.currentUser?.role === "ADMIN"
-            ? []
-            : await getSellerMarketIds(request.userId, request.currentUser?.email);
+        let marketIds;
+        if (request.currentUser?.role === "ADMIN") {
+            // Admin: derive market from the order's product sellers
+            const sellerIds = targetOrder.products.map(p => p.sellerId).filter(Boolean);
+            const uniqueSellerIds = [...new Set(sellerIds.map(String))];
+            marketIds = [];
+            if (uniqueSellerIds.length) {
+                const sellers = await UserModel.find({ _id: { $in: uniqueSellerIds } }).select("storeProfile.marketId").lean();
+                marketIds = [...new Set(sellers.map(s => s?.storeProfile?.marketId).filter(Boolean).map(String))];
+                if (!marketIds.length) {
+                    // Fallback: try ShopOwner chain
+                    const ownerIds = (await ShopOwner.find({ userId: { $in: uniqueSellerIds } }).select("_id").lean()).map(o => o._id);
+                    if (ownerIds.length) {
+                        const [shops, rests] = await Promise.all([
+                            GroceryShop.find({ ownerId: { $in: ownerIds } }).select("marketId").lean(),
+                            Restaurant.find({ ownerId: { $in: ownerIds } }).select("marketId").lean(),
+                        ]);
+                        marketIds = [...new Set([...shops, ...rests].map(o => o.marketId).filter(Boolean).map(String))];
+                    }
+                }
+            }
+        } else {
+            marketIds = await getSellerMarketIds(request.userId, request.currentUser?.email);
+        }
 
         const riderQuery = { role: "DELIVERY_RIDER", status: "Active" };
-        if (request.currentUser?.role !== "ADMIN") {
-            if (!marketIds.length) {
-                return response.status(400).json({ success: false, error: true, message: "No active market found for this seller" });
-            }
+        if (marketIds.length) {
             riderQuery["riderProfile.marketId"] = { $in: marketIds };
+        } else if (request.currentUser?.role !== "ADMIN") {
+            return response.status(400).json({ success: false, error: true, message: "No active market found for this seller" });
         }
 
         const activeRiders = await UserModel.find(riderQuery).lean();
@@ -1337,12 +1379,15 @@ export const broadcastOrderToMarketController = async (request, response) => {
             return response.status(400).json({ success: false, error: true, message: "No active riders found in your market" });
         }
 
+        const earning = await calculateRiderEarning(targetOrder);
         targetOrder.deliveryAssignment = {
             ...(targetOrder.deliveryAssignment || {}),
             riderId: null,
             assignedBy: request.userId,
             assignedAt: new Date(),
-            earningAmount: RIDER_DELIVERY_FEE,
+            deliveryEarning: earning.deliveryEarning,
+            pickupFee: earning.pickupFee,
+            earningAmount: earning.total,
             status: "broadcast",
         };
         targetOrder.order_status = "assigned_to_rider";
@@ -1377,12 +1422,15 @@ export const assignOrderToRiderController = async (request, response) => {
             }
         }
 
+        const earning = await calculateRiderEarning(targetOrder);
         targetOrder.deliveryAssignment = {
             ...(targetOrder.deliveryAssignment || {}),
             riderId: rider._id,
             assignedBy: request.userId,
             assignedAt: new Date(),
-            earningAmount: RIDER_DELIVERY_FEE,
+            deliveryEarning: earning.deliveryEarning,
+            pickupFee: earning.pickupFee,
+            earningAmount: earning.total,
             status: "assigned",
         };
         targetOrder.order_status = "assigned_to_rider";
@@ -1400,7 +1448,7 @@ export const getRiderOrdersController = async (request, response) => {
         const page = parseInt(request.query.page) || 1;
         const limit = parseInt(request.query.limit) || 20;
         const skip = (page - 1) * limit;
-        
+
         const rider = await UserModel.findById(request.userId).select("riderProfile.marketId").lean();
         const riderMarketId = rider?.riderProfile?.marketId;
 
@@ -1423,7 +1471,7 @@ export const getRiderOrdersController = async (request, response) => {
                 "MEDICAL_SELLER",
                 "BEAUTY_SELLER",
                 "HOME_KITCHEN_SELLER",
-                "GIFTS_TOYS_STATIONERY_SELLER",
+                "GIFTS_TOYS_SELLER",
                 "BOOKS_STATIONERY_SELLER",
                 "JEWELLERY_SELLER",
                 "HARDWARE_SELLER",
@@ -1451,10 +1499,10 @@ export const getRiderOrdersController = async (request, response) => {
         }
 
         const query = filters.length === 1 ? filters[0] : { $or: filters };
-        
+
         // Get total count for pagination
         const total = await OrderModel.countDocuments(query);
-        
+
         // Get paginated orders
         const orders = await OrderModel.find(query)
             .sort({ createdAt: -1 })
@@ -1462,13 +1510,13 @@ export const getRiderOrdersController = async (request, response) => {
             .limit(limit)
             .populate("delivery_address userId products.sellerId")
             .lean();
-        
+
         const totalPages = Math.ceil(total / limit);
-        
-        return response.json({ 
-            success: true, 
-            error: false, 
-            data: orders, 
+
+        return response.json({
+            success: true,
+            error: false,
+            data: orders,
             orders,
             total,
             page,
@@ -1483,25 +1531,25 @@ export const getRiderOrdersController = async (request, response) => {
 export const getRiderStatsController = async (request, response) => {
     try {
         const riderId = request.userId;
-        
+
         // Get rider profile data
         const rider = await UserModel.findById(riderId).select('wallet riderProfile');
-        
+
         // Get order stats
         const allOrders = await OrderModel.find({ "deliveryAssignment.riderId": riderId }).lean();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         const todayOrders = allOrders.filter(o => {
             const deliveredAt = o.deliveryAssignment?.deliveredAt;
             return deliveredAt && new Date(deliveredAt) >= today;
         });
-        
-        const pending = allOrders.filter(o => 
-            o.deliveryAssignment?.status === "assigned" || 
+
+        const pending = allOrders.filter(o =>
+            o.deliveryAssignment?.status === "assigned" ||
             o.deliveryAssignment?.status === "confirmed"
         ).length;
-        
+
         const stats = {
             totalDelivered: rider?.riderProfile?.totalDelivered || 0,
             totalEarnings: rider?.riderProfile?.totalEarnings || 0,
@@ -1509,7 +1557,7 @@ export const getRiderStatsController = async (request, response) => {
             today: todayOrders.length,
             availableBalance: rider?.wallet?.availableBalance || 0
         };
-        
+
         return response.json({ success: true, error: false, stats });
     } catch (error) {
         return response.status(500).json({ success: false, error: true, message: error.message || error });
@@ -1519,22 +1567,22 @@ export const getRiderStatsController = async (request, response) => {
 export const getRiderRecentDeliveriesController = async (request, response) => {
     try {
         const limit = parseInt(request.query.limit) || 20;
-        const deliveries = await OrderModel.find({ 
+        const deliveries = await OrderModel.find({
             "deliveryAssignment.riderId": request.userId,
             "deliveryAssignment.status": "delivered"
         })
-        .sort({ "deliveryAssignment.deliveredAt": -1 })
-        .limit(limit)
-        .select('_id deliveryAssignment.deliveredAt deliveryAssignment.earningAmount totalAmt')
-        .lean();
-        
+            .sort({ "deliveryAssignment.deliveredAt": -1 })
+            .limit(limit)
+            .select('_id deliveryAssignment.deliveredAt deliveryAssignment.earningAmount totalAmt')
+            .lean();
+
         const formattedDeliveries = deliveries.map(d => ({
             orderId: d._id,
             deliveredAt: d.deliveryAssignment?.deliveredAt,
             riderEarning: d.deliveryAssignment?.earningAmount || RIDER_DELIVERY_FEE,
             amount: d.totalAmt
         }));
-        
+
         return response.json({ success: true, error: false, deliveries: formattedDeliveries, data: formattedDeliveries });
     } catch (error) {
         return response.status(500).json({ success: false, error: true, message: error.message || error });
@@ -1580,36 +1628,31 @@ export const confirmRiderOrderController = async (request, response) => {
 
         // First check if order exists and its current status
         const existingOrder = await OrderModel.findOne({ _id: request.params.id });
-        
+
         if (!existingOrder) {
             return response.status(404).json({ success: false, error: true, message: "Order not found" });
         }
 
         // Check if order is already confirmed by another rider
-        if (existingOrder.deliveryAssignment?.status === "confirmed" && 
+        if (existingOrder.deliveryAssignment?.status === "confirmed" &&
             String(existingOrder.deliveryAssignment?.riderId) !== String(request.userId)) {
-            return response.status(400).json({ 
-                success: false, 
-                error: true, 
-                message: "This order has already been confirmed by another rider" 
+            return response.status(400).json({
+                success: false,
+                error: true,
+                message: "This order has already been confirmed by another rider"
             });
         }
 
         // Check if order is already delivered
         if (existingOrder.deliveryAssignment?.status === "delivered") {
-            return response.status(400).json({ 
-                success: false, 
-                error: true, 
-                message: "This order has already been delivered" 
+            return response.status(400).json({
+                success: false,
+                error: true,
+                message: "This order has already been delivered"
             });
         }
 
-        const riderSettings = await AppSettings.findOne({ key: "commerce" }).lean();
-        const riderPerKm = Number(riderSettings?.goMarketRiderFeePerKm || 0);
-        const distanceKm = Number(existingOrder?.goMarketData?.distanceKm || 0);
-        const earningAmount = riderPerKm > 0 && distanceKm > 0
-            ? Number((distanceKm * riderPerKm).toFixed(2))
-            : Number(existingOrder?.deliveryAssignment?.earningAmount || RIDER_DELIVERY_FEE);
+        const earning = await calculateRiderEarning(existingOrder);
 
         const order = await OrderModel.findOneAndUpdate(
             {
@@ -1621,7 +1664,9 @@ export const confirmRiderOrderController = async (request, response) => {
                     "deliveryAssignment.riderId": request.userId,
                     "deliveryAssignment.status": "confirmed",
                     "deliveryAssignment.confirmedAt": new Date(),
-                    "deliveryAssignment.earningAmount": earningAmount,
+                    "deliveryAssignment.deliveryEarning": earning.deliveryEarning,
+                    "deliveryAssignment.pickupFee": earning.pickupFee,
+                    "deliveryAssignment.earningAmount": earning.total,
                     order_status: "out_for_delivery",
                 },
             },
@@ -1683,40 +1728,40 @@ export const deliverRiderOrderController = async (request, response) => {
         if (!order.deliveryAssignment.earningCredited) {
             const amount = Number(order.deliveryAssignment.earningAmount || RIDER_DELIVERY_FEE);
             console.log(`💰 Crediting ${amount} to rider ${request.userId} for order ${order._id}`);
-            
+
             const updatedUser = await UserModel.findByIdAndUpdate(
-                request.userId, 
+                request.userId,
                 {
                     $inc: {
                         "wallet.availableBalance": amount,
                         "riderProfile.totalDelivered": 1,
                         "riderProfile.totalEarnings": amount,
                     },
-                    $push: { 
-                        walletTransactions: { 
-                            type: "RIDER_EARNING", 
-                            amount, 
-                            status: "APPROVED", 
+                    $push: {
+                        walletTransactions: {
+                            type: "RIDER_EARNING",
+                            amount,
+                            status: "APPROVED",
                             note: `Delivery earning for order ${order._id}`,
                             createdAt: new Date()
-                        } 
+                        }
                     },
                 },
                 { new: true } // Return updated document
             );
-            
+
             order.deliveryAssignment.earningCredited = true;
             console.log(`✅ Wallet updated! New balance: ₹${updatedUser?.wallet?.availableBalance || 0}`);
         }
         await order.save();
-        
+
         // Fetch updated rider data to return in response
         const riderData = await UserModel.findById(request.userId).select('wallet riderProfile');
-        
-        return response.json({ 
-            success: true, 
-            error: false, 
-            message: `Order delivered successfully! ₹${order.deliveryAssignment.earningAmount || RIDER_DELIVERY_FEE} credited to your wallet.`, 
+
+        return response.json({
+            success: true,
+            error: false,
+            message: `Order delivered successfully! ₹${order.deliveryAssignment.earningAmount || RIDER_DELIVERY_FEE} credited to your wallet.`,
             data: order,
             wallet: riderData?.wallet,
             riderProfile: riderData?.riderProfile
@@ -1728,11 +1773,11 @@ export const deliverRiderOrderController = async (request, response) => {
 
 export const cancelRiderOrderController = async (request, response) => {
     try {
-        const order = await OrderModel.findOne({ 
-            _id: request.params.id, 
-            "deliveryAssignment.riderId": request.userId 
+        const order = await OrderModel.findOne({
+            _id: request.params.id,
+            "deliveryAssignment.riderId": request.userId
         });
-        
+
         if (!order) {
             return response.status(404).json({ success: false, error: true, message: "Assigned order not found" });
         }
@@ -1759,9 +1804,9 @@ export const cancelRiderOrderController = async (request, response) => {
 
         await order.save();
 
-        return response.json({ 
-            success: true, 
-            error: false, 
+        return response.json({
+            success: true,
+            error: false,
             message: "Order cancelled successfully and removed from your assignments",
             data: order
         });

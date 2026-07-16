@@ -471,10 +471,10 @@ export const Products = () => {
                                             <TableCell>
                                                 <div>
                                                     <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
-                                                        {product?.price?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
+                                                        {product?.oldPrice?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
                                                     </div>
                                                     <div style={{ fontSize: 11, color: '#9ca3af', textDecoration: 'line-through' }}>
-                                                        {product?.oldPrice?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
+                                                        {product?.price?.toLocaleString('en-US', { style: 'currency', currency: 'INR' })}
                                                     </div>
                                                     {product?.discount > 0 && (
                                                         <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: 10 }}>

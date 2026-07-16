@@ -5,7 +5,7 @@ import { MyContext } from "../App";
 import { fetchDataFromApi } from "../utils/api";
 
 const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER", "FASHION_SELLER", "ELECTRONICS_SELLER", "MEDICAL_SELLER", "BEAUTY_SELLER", "HOME_KITCHEN_SELLER", "GIFTS_TOYS_SELLER", "BOOKS_STATIONERY_SELLER", "JEWELLERY_SELLER", "HARDWARE_SELLER", "AUTOMOBILE_SELLER"];
-const NOTIFIER_ROLES = [...SELLER_ROLES, "DELIVERY_RIDER"];
+const NOTIFIER_ROLES = ["ADMIN", ...SELLER_ROLES, "DELIVERY_RIDER"];
 const STORAGE_KEY = "orderSoundNotifications:v1";
 const PERMISSION_ASKED_KEY = "orderSoundPermissionAsked:v1";
 const POLL_INTERVAL_MS = 15000;
@@ -84,6 +84,7 @@ const playProfessionalOrderTone = (audioCtxRef) => {
 const OrderSoundNotifier = ({ inline = false }) => {
   const context = useContext(MyContext);
   const role = context?.userData?.role;
+  const isAdmin = role === "ADMIN";
   const isSeller = SELLER_ROLES.includes(role);
   const isRider = role === "DELIVERY_RIDER";
   const isActive = NOTIFIER_ROLES.includes(role);
@@ -99,8 +100,9 @@ const OrderSoundNotifier = ({ inline = false }) => {
   const endpoint = useMemo(() => {
     if (isRider) return "/api/order/rider/orders";
     if (isSeller) return "/api/order/seller/orders?page=1&limit=25";
+    if (isAdmin) return "/api/order/order-list?page=1&limit=25";
     return "";
-  }, [isRider, isSeller]);
+  }, [isRider, isSeller, isAdmin]);
 
   useEffect(() => { writeSettings(settings); }, [settings]);
   
@@ -117,7 +119,7 @@ const OrderSoundNotifier = ({ inline = false }) => {
     }
   }, [isActive]);
 
-  const label = isRider ? "Rider assignment sound" : "New order sound";
+  const label = isRider ? "Rider assignment sound" : isAdmin ? "New order sound (Admin)" : "New order sound";
   const eventText = isRider ? "New delivery assigned" : "New order received";
 
   const unlockAudio = useCallback(() => {
@@ -146,7 +148,7 @@ const OrderSoundNotifier = ({ inline = false }) => {
         if (settings.enabled) playProfessionalOrderTone(audioCtxRef);
         toast.custom((t) => (
           <div className={`order-sound-toast ${t.visible ? "order-sound-toast--show" : ""}`}>
-            <div className="order-sound-toast__icon">{isRider ? "🛵" : "🔔"}</div>
+            <div className="order-sound-toast__icon">{isRider ? "🛵" : isAdmin ? "🛒" : "🔔"}</div>
             <div>
               <div className="order-sound-toast__title">{eventText}</div>
               <div className="order-sound-toast__sub">
@@ -257,7 +259,7 @@ const OrderSoundNotifier = ({ inline = false }) => {
         <div style={{ maxWidth: "600px", margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "16px" }}>
             <div style={{ fontSize: "48px" }}>
-              {isRider ? "🛵" : "🔔"}
+              {isRider ? "🛵" : isAdmin ? "🛒" : "🔔"}
             </div>
             <div style={{ flex: 1 }}>
               <h3 style={{ 
@@ -268,7 +270,7 @@ const OrderSoundNotifier = ({ inline = false }) => {
                 letterSpacing: "-0.02em",
                 marginBottom: "6px"
               }}>
-                {isRider ? "Get Delivery Notifications" : "Get Order Notifications"}
+                {isRider ? "Get Delivery Notifications" : isAdmin ? "Get New Order Notifications" : "Get Order Notifications"}
               </h3>
               <p style={{ 
                 margin: 0, 
@@ -278,6 +280,8 @@ const OrderSoundNotifier = ({ inline = false }) => {
               }}>
                 {isRider 
                   ? "Enable sound alerts for new delivery assignments so you never miss an order"
+                  : isAdmin
+                  ? "Enable sound alerts when new orders are placed so you stay updated in real-time"
                   : "Enable sound alerts when new orders arrive so you can respond quickly"
                 }
               </p>
@@ -499,7 +503,7 @@ const OrderSoundNotifier = ({ inline = false }) => {
   return (
     <>
       {permissionDialog}
-      {ReactDOM.createPortal(widget, document.body)}
+      {/* {ReactDOM.createPortal(widget, document.body)} */}
     </>
   );
 };

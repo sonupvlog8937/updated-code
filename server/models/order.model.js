@@ -161,6 +161,8 @@ const orderSchema = new mongoose.Schema(
       deliveredAt: { type: Date, default: null },
       deliveryOtp: { type: String, default: "" },
       deliveryOtpExpires: { type: Date, default: null },
+      deliveryEarning: { type: Number, default: 0 },
+      pickupFee: { type: Number, default: 0 },
       earningAmount: { type: Number, default: 20 },
       earningCredited: { type: Boolean, default: false },
       status: {

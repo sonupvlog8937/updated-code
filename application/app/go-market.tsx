@@ -62,7 +62,7 @@ export default function GoMarketScreen() {
   // Auto-navigate to preferred market if exists (skip if coming from edit)
   useEffect(() => {
     // Don't auto-redirect if in edit mode (coming from market page via edit button)
-    const isFromEdit = params?.edit === "true";
+    const isFromEdit = params?.edit === "true" || params?.updateLocation === "true";
     
     if (authChecked && isLogin && userData?.preferredMarketId && !isFromEdit) {
       console.log("🎯 Auto-navigating to preferred market:", userData.preferredMarketId);
@@ -151,7 +151,7 @@ export default function GoMarketScreen() {
         console.log("🎯 Navigating to nearest market:", nearestMarket.name);
         console.log("💾 Saving location:", locationAddress);
         
-        await saveAndNavigate(nearestMarket._id, { lat, lng }, locationAddress, params?.updateLocation === "true");
+        await saveAndNavigate(nearestMarket._id, { lat, lng }, locationAddress, true);
         Alert.alert("Success", `Location updated!\nNearest market: ${nearestMarket.name}`);
       } else {
         Alert.alert("No markets found", "No nearby markets found in your area.");

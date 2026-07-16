@@ -10,6 +10,7 @@ const CommerceSettings = () => {
     goMarketShippingFee: 0,
     goMarketDeliveryFeePerKm: 0,
     goMarketRiderFeePerKm: 0,
+    goMarketRiderPickupFee: 0,
     collections: [],
   });
   const [saving, setSaving] = useState(false);
@@ -130,7 +131,7 @@ const CommerceSettings = () => {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 16 }}>
               <div>
                 <label style={labelStyle}>Go Market Shipping Fee (₹)</label>
                 <input
@@ -172,6 +173,20 @@ const CommerceSettings = () => {
                 />
                 <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
                   Per-kilometer rider earning for Go Market deliveries
+                </p>
+              </div>
+               <div>
+                <label style={labelStyle}>Go Market Rider Pickup Fee (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={form.goMarketRiderPickupFee}
+                  onChange={(e) => set("goMarketRiderPickupFee", Number(e.target.value))}
+                  placeholder="10"
+                  style={inputStyle}
+                />
+                <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+                  Flat pickup earning added to rider delivery earning
                 </p>
               </div>
             </div>

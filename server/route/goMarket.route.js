@@ -129,6 +129,16 @@ const GO_MARKET_SHOP_SELLERS = [
 const pickDefined = (payload) =>
   Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
 
+const normalizeSellerLocationPayload = (payload) => {
+  ["latitude", "longitude"].forEach((key) => {
+    if (payload[key] === "" || payload[key] === null) delete payload[key];
+    else if (payload[key] !== undefined) payload[key] = Number(payload[key]);
+    if (payload[key] !== undefined && !Number.isFinite(payload[key])) delete payload[key];
+  });
+  if (payload.latitude !== undefined && payload.longitude !== undefined) payload.locationUpdatedAt = new Date();
+  return payload;
+};
+
 router.get("/seller/grocery-shop", auth, authorizeRole(...GO_MARKET_SHOP_SELLERS), async (req, res) => {
   try {
     let shop = await getSellerGroceryShop(req.userId, req.currentUser?.email);
@@ -194,7 +204,7 @@ router.put("/seller/grocery-shop", auth, authorizeRole(...GO_MARKET_SHOP_SELLERS
   try {
     const GroceryShop = (await import("../models/groceryShop.model.js")).default;
     const { shopName, shopBanner, shopLogo, address, description, latitude, longitude, deliveryMinutes } = req.body;
-    const payload = pickDefined({ shopName, shopBanner, shopLogo, address, description, latitude, longitude });
+    const payload = normalizeSellerLocationPayload(pickDefined({ shopName, shopBanner, shopLogo, address, description, latitude, longitude }));
     if (deliveryMinutes !== undefined) {
       const minutes = Number(deliveryMinutes) || 15;
       payload.deliveryMinutes = Math.max(15, Math.min(120, minutes));
@@ -233,7 +243,7 @@ router.put("/seller/restaurant", auth, authorizeRole("RESTAURANT_SELLER"), async
   try {
     const Restaurant = (await import("../models/restaurant.model.js")).default;
     const { shopName, shopBanner, shopLogo, restaurantName, restaurantBanner, restaurantLogo, address, description, latitude, longitude, deliveryMinutes, avgPrepMinutes } = req.body;
-    const payload = pickDefined({
+    const payload = normalizeSellerLocationPayload(pickDefined({
       restaurantName: restaurantName || shopName,
       restaurantBanner: restaurantBanner ?? shopBanner,
       restaurantLogo: restaurantLogo ?? shopLogo,
@@ -242,7 +252,7 @@ router.put("/seller/restaurant", auth, authorizeRole("RESTAURANT_SELLER"), async
       latitude,
       longitude,
       avgPrepMinutes,
-    });
+    }));
     if (deliveryMinutes !== undefined) {
       const minutes = Number(deliveryMinutes) || 25;
       payload.deliveryMinutes = Math.max(25, Math.min(120, minutes));

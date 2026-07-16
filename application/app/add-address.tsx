@@ -867,7 +867,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  },
+  
   pageTitle: {
     fontSize: 18,
     fontFamily: "Inter_700Bold",

@@ -7,6 +7,7 @@ const appSettingsSchema = new mongoose.Schema({
   goMarketShippingFee: { type: Number, default: 0, min: 0 },
   goMarketDeliveryFeePerKm: { type: Number, default: 0, min: 0 },
   goMarketRiderFeePerKm: { type: Number, default: 0, min: 0 },
+  goMarketRiderPickupFee: { type: Number, default: 0, min: 0 },
   collections: [{ title: { type: String, default: "" }, type: { type: String, default: "mixed" }, categoryId: { type: String, default: "" }, image: { type: String, default: "" }, sortOrder: { type: Number, default: 0 }, isActive: { type: Boolean, default: true } }],
 }, { timestamps: true });
 export default mongoose.model("AppSettings", appSettingsSchema);

@@ -1858,7 +1858,8 @@ export default function CheckoutScreen() {
                   value={goMarketDelivery === 0 ? "FREE" : `₹${goMarketDelivery}`} 
                   color={goMarketDelivery === 0 ? colors.success : undefined} 
                 />
-                {!isFirstOrder && !freeByRule && (goMarketShipping > 0 || goMarketDelivery > 0) && (
+                {/* Always show distance-based fee breakdown for Go Market items */}
+                {distanceKm > 0 && (
                   <View
                     style={{
                       backgroundColor: "#eff6ff",
@@ -1876,9 +1877,32 @@ export default function CheckoutScreen() {
                         color: "#1e40af",
                       }}
                     >
-                      ℹ️ Distance-based fees:{'\n'}
-                      Shipping: ₹{goMarketShipping}{'\n'}
-                      Delivery: ₹{(commerceSettings.goMarketDeliveryFeePerKm || 0)}/km × {distanceKm.toFixed(1)} km = ₹{goMarketDelivery}
+                      ℹ️ Distance-based delivery:{'\n'}
+                      Rate: ₹{(commerceSettings.goMarketDeliveryFeePerKm || 0)}/km × {distanceKm.toFixed(1)} km = ₹{goMarketDelivery}
+                      {isFirstOrder && '\n(FREE - First Order)'}
+                      {freeByRule && '\n(FREE - Order above threshold)'}
+                    </Text>
+                  </View>
+                )}
+                {distanceKm === 0 && (
+                  <View
+                    style={{
+                      backgroundColor: "#fef3c7",
+                      borderColor: "#fde047",
+                      borderWidth: 1,
+                      borderRadius: 6,
+                      padding: 8,
+                      marginTop: 4,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        color: "#92400e",
+                      }}
+                    >
+                      ⚠️ Distance not calculated. Enable location for accurate delivery fees.
                     </Text>
                   </View>
                 )}

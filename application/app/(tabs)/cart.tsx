@@ -22,7 +22,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { QtyBox } from "@/src/components/QtyBox";
 import { useAppDispatch, useAppSelector } from "@/src/store";
 import { CartItem, fetchCartItems, setCartData } from "@/src/store/appSlice";
-import { deleteData, fetchDataFromApi, putData } from "@/src/utils/api";
+import { deleteData, fetchDataFromApi, postData, putData } from "@/src/utils/api";
 import { showToast } from "@/src/utils/toast";
 
 const { width } = Dimensions.get("window");
@@ -369,7 +369,10 @@ export default function CartScreen() {
   const isLogin = useAppSelector((s) => s.app.isLogin);
 
   const [busy, setBusy] = useState<string | null>(null);
-  const [commerceSettings, setCommerceSettings] = useState<any>({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0 });
+  const [commerceSettings, setCommerceSettings] = useState<any>({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0, goMarketShippingFee: 0, goMarketDeliveryFeePerKm: 0 });
+  const [isFirstOrder, setIsFirstOrder] = useState(false);
+  const [distanceKm, setDistanceKm] = useState(0);
+  const [distanceCalculated, setDistanceCalculated] = useState(false);
 
   // Fetch commerce settings
   useEffect(() => {
@@ -388,6 +391,21 @@ export default function CartScreen() {
       });
   }, []);
 
+  // Check if user has any previous orders
+  useEffect(() => {
+    if (userData?._id) {
+      fetchDataFromApi(`/api/order/order-list/orders`)
+        .then((res) => {
+          console.log("✅ First Order Check - Response:", res);
+          setIsFirstOrder(res?.total === 0 || res?.data?.length === 0);
+        })
+        .catch((err) => {
+          console.error("❌ First Order Check Failed:", err);
+          setIsFirstOrder(false);
+        });
+    }
+  }, [userData]);
+
   const subTotal = useMemo(
     () => cartData.reduce((sum, c) => sum + c.price * c.quantity, 0),
     [cartData],
@@ -403,11 +421,82 @@ export default function CartScreen() {
   );
 
   const itemDiscount = Math.max(0, oldTotal - subTotal);
+  
+  // Separate Go Market and non-Go Market items
+  const goMarketItems = cartData.filter((item: any) => {
+    const source = String(item?.source || "").toLowerCase();
+    const brand = String(item?.brand || "").toLowerCase();
+    const isGoMarketSeller = item?.sellerId?.storeProfile?.marketId != null || 
+                             item?.sellerId?.storeProfile?.goMarketOwnerId != null;
+    return source.includes("gomarket") || brand.includes("gomarket") || isGoMarketSeller;
+  });
+  
+  const nonGoMarketItems = cartData.filter((item: any) => {
+    const source = String(item?.source || "").toLowerCase();
+    const brand = String(item?.brand || "").toLowerCase();
+    const isGoMarketSeller = item?.sellerId?.storeProfile?.marketId != null || 
+                             item?.sellerId?.storeProfile?.goMarketOwnerId != null;
+    return !source.includes("gomarket") && !brand.includes("gomarket") && !isGoMarketSeller;
+  });
+  
+  const hasGoMarketItems = goMarketItems.length > 0;
+  const hasNonGoMarketItems = nonGoMarketItems.length > 0;
+  
+  // Calculate distance for Go Market delivery fees
+  useEffect(() => {
+    if (!hasGoMarketItems) {
+      setDistanceKm(0);
+      setDistanceCalculated(false);
+      return;
+    }
+    
+    const userLocation = (userData as any)?.goMarketLocation || null;
+    if (!userLocation?.coordinates?.length) {
+      setDistanceKm(0);
+      setDistanceCalculated(false);
+      return;
+    }
+    
+    let cancelled = false;
+    postData("/api/order/go-market-distance", {
+      userId: userData?._id,
+      products: goMarketItems,
+      userLocation,
+    }).then((res: any) => {
+      if (cancelled) return;
+      const nextDistance = Number(res?.data?.distanceKm || 0);
+      setDistanceKm(Number.isFinite(nextDistance) ? nextDistance : 0);
+      setDistanceCalculated(Boolean(nextDistance > 0));
+    }).catch(() => {
+      if (!cancelled) setDistanceCalculated(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [hasGoMarketItems, goMarketItems, (userData as any)?.goMarketLocation, userData?._id]);
+  
   const freeByRule = commerceSettings.freeShippingAbove > 0 && subTotal >= commerceSettings.freeShippingAbove;
-  const shipping = freeByRule ? 0 : Math.round(Number(commerceSettings.shippingFee || 0));
-  const deliveryFee = freeByRule ? 0 : Math.round(Number(commerceSettings.deliveryFee || 0));
-  const grandTotal = subTotal + shipping + deliveryFee;
-  const totalSavings = itemDiscount + (freeByRule && subTotal > 0 ? (Math.round(Number(commerceSettings.shippingFee || 0)) + Math.round(Number(commerceSettings.deliveryFee || 0))) : 0);
+  
+  // Calculate Go Market fees
+  const goMarketShipping = (hasGoMarketItems && !isFirstOrder && !freeByRule) 
+    ? Math.round(Number(commerceSettings.goMarketShippingFee || 0))
+    : 0;
+  const goMarketDelivery = (hasGoMarketItems && !isFirstOrder && !freeByRule) 
+    ? Math.round(Number((commerceSettings.goMarketDeliveryFeePerKm || 0) * distanceKm))
+    : 0;
+  
+  // Calculate normal fees
+  const normalShipping = (hasNonGoMarketItems && !isFirstOrder && !freeByRule) 
+    ? Math.round(Number(commerceSettings.shippingFee || 0))
+    : 0;
+  const normalDelivery = (hasNonGoMarketItems && !isFirstOrder && !freeByRule) 
+    ? Math.round(Number(commerceSettings.deliveryFee || 0))
+    : 0;
+  
+  // Total fees
+  const totalShipping = goMarketShipping + normalShipping;
+  const totalDelivery = goMarketDelivery + normalDelivery;
+  const grandTotal = subTotal + totalShipping + totalDelivery;
+  const totalSavings = itemDiscount + (freeByRule && subTotal > 0 ? (totalShipping + totalDelivery) : 0);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   const updateQty = async (item: CartItem, next: number) => {
@@ -648,16 +737,64 @@ export default function CartScreen() {
               )}
               <SummaryRow
                 label="Shipping"
-                value={shipping === 0 ? "FREE" : `₹${shipping}`}
-                valueColor={shipping === 0 ? colors.success : undefined}
+                value={totalShipping === 0 ? "FREE" : `₹${totalShipping}`}
+                valueColor={totalShipping === 0 ? colors.success : undefined}
                 colors={colors}
               />
               <SummaryRow
                 label="Delivery Fee"
-                value={deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}
-                valueColor={deliveryFee === 0 ? colors.success : undefined}
+                value={totalDelivery === 0 ? "FREE" : `₹${totalDelivery}`}
+                valueColor={totalDelivery === 0 ? colors.success : undefined}
                 colors={colors}
               />
+              
+              {/* Fee breakdown for mixed carts or Go Market items */}
+              {(hasGoMarketItems && hasNonGoMarketItems) && (
+                <View style={[styles.feeBreakdown, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                  <Text style={[styles.feeBreakdownTitle, { color: colors.mutedForeground }]}>Fee Breakdown</Text>
+                  {hasGoMarketItems && (
+                    <View style={styles.feeBreakdownRow}>
+                      <Text style={[styles.feeBreakdownLabel, { color: colors.foreground }]}>Go Market</Text>
+                      <Text style={[styles.feeBreakdownValue, { color: colors.foreground }]}>
+                        Ship: {goMarketShipping === 0 ? "FREE" : `₹${goMarketShipping}`} | Del: {goMarketDelivery === 0 ? "FREE" : `₹${goMarketDelivery}`}
+                      </Text>
+                    </View>
+                  )}
+                  {hasNonGoMarketItems && (
+                    <View style={styles.feeBreakdownRow}>
+                      <Text style={[styles.feeBreakdownLabel, { color: colors.foreground }]}>Normal</Text>
+                      <Text style={[styles.feeBreakdownValue, { color: colors.foreground }]}>
+                        Ship: {normalShipping === 0 ? "FREE" : `₹${normalShipping}`} | Del: {normalDelivery === 0 ? "FREE" : `₹${normalDelivery}`}
+                      </Text>
+                    </View>
+                  )}
+                  {distanceKm > 0 && hasGoMarketItems && (
+                    <Text style={[styles.distanceText, { color: colors.mutedForeground }]}>
+                      Distance: {distanceKm.toFixed(1)} km (₹{commerceSettings.goMarketDeliveryFeePerKm || 0}/km)
+                    </Text>
+                  )}
+                  {distanceKm === 0 && hasGoMarketItems && (
+                    <Text style={[styles.distanceText, { color: colors.destructive }]}>
+                      ⚠️ Location not enabled for delivery fees
+                    </Text>
+                  )}
+                </View>
+              )}
+              
+              {hasGoMarketItems && !hasNonGoMarketItems && (
+                <>
+                  {distanceKm > 0 && (
+                    <Text style={[styles.distanceText, { color: colors.mutedForeground, marginTop: 4 }]}>
+                      Delivery distance: {distanceKm.toFixed(1)} km (₹{commerceSettings.goMarketDeliveryFeePerKm || 0}/km)
+                    </Text>
+                  )}
+                  {distanceKm === 0 && (
+                    <Text style={[styles.distanceText, { color: colors.destructive, marginTop: 4 }]}>
+                      ⚠️ Enable location for accurate delivery fees
+                    </Text>
+                  )}
+                </>
+              )}
               {freeByRule && commerceSettings.freeShippingAbove > 0 && (
                 <View style={[styles.freeShipBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
                   <Feather name="check-circle" size={12} color={colors.success} />
@@ -1001,6 +1138,37 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
     flex: 1,
+  },
+  feeBreakdown: {
+    padding: IS_SMALL ? 10 : 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 8,
+    gap: 6,
+  },
+  feeBreakdownTitle: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  feeBreakdownRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  feeBreakdownLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+  },
+  feeBreakdownValue: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+  },
+  distanceText: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    marginTop: 4,
   },
 
   // Trust badges
