@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchDataFromApi, editData } from "../utils/api";
+import OrderSoundNotifier from "../Components/OrderSoundNotifier";
 
 const CommerceSettings = () => {
   const [form, setForm] = useState({
@@ -301,6 +302,17 @@ const CommerceSettings = () => {
                 </p>
               )}
             </div>
+          </div>
+
+          {/* Order Notification Sound */}
+          <div style={cardStyle}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>
+              🔔 Order Notifications
+            </h3>
+            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16, lineHeight: 1.6 }}>
+              Control sound alerts for new orders. Enable to get instant audio notifications when orders arrive.
+            </p>
+            <OrderSoundNotifier inline={true} />
           </div>
 
           {/* Save Button */}

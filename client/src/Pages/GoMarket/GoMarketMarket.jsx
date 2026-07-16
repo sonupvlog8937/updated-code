@@ -375,6 +375,45 @@ const GoMarketMarket = () => {
                 <h2>{market.name}</h2>
                 <p>{market.city}, {market.state} · {market.pincode}</p>
               </div>
+              
+              {/* Update Location Button - Top Right */}
+              <button
+                type="button"
+                onClick={() => navigate("/go-market?edit=true&updateLocation=true")}
+                style={{
+                  position: "absolute",
+                  top: 16,
+                  right: 16,
+                  background: "rgba(16,185,129,.95)",
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,.5)",
+                  color: "#fff",
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  fontWeight: 700,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,.15)",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = "rgba(5,150,105,.95)";
+                  e.target.style.transform = "translateY(-2px)";
+                  e.target.style.boxShadow = "0 6px 16px rgba(0,0,0,.2)";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = "rgba(16,185,129,.95)";
+                  e.target.style.transform = "translateY(0)";
+                  e.target.style.boxShadow = "0 4px 12px rgba(0,0,0,.15)";
+                }}
+              >
+                <span style={{ fontSize: "16px" }}>📍</span>
+                Update Location
+              </button>
+              
               {/* <button
                 type="button"
                 onClick={() => navigate("/go-market?edit=true")}
@@ -407,17 +446,6 @@ const GoMarketMarket = () => {
                 <span>✏️</span>
                 Change Market
               </button> */}
-              <button
-                type="button"
-                onClick={() => navigate("/go-market?edit=true&updateLocation=true")}
-                style={{
-                  position: "absolute", top: 58, right: 16, background: "rgba(16,185,129,.95)",
-                  border: "1px solid rgba(255,255,255,.5)", color: "#fff", padding: "8px 14px",
-                  borderRadius: "6px", fontWeight: 700, fontSize: "13px", cursor: "pointer"
-                }}
-              >
-                📍 Update Location
-              </button>
             </div>
           </div>
         )}

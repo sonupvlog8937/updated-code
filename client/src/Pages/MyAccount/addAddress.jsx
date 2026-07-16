@@ -185,7 +185,10 @@ const AddAddress = () => {
             return false
         }
 
-       
+        if (!formFields.latitude || !formFields.longitude) {
+            context.alertBox("error", "Please capture your current location");
+            return false
+        }
 
       
 
@@ -459,7 +462,40 @@ const AddAddress = () => {
                 />
             </div>
 
-            
+            <div className="col w-[100%] mb-4">
+                <Button
+                    type="button"
+                    onClick={getCurrentLocation}
+                    disabled={locationLoading}
+                    className="w-full"
+                    variant="outlined"
+                    style={{
+                        borderColor: locationCaptured ? '#4caf50' : '#ff6b6b',
+                        color: locationCaptured ? '#4caf50' : '#ff6b6b',
+                        textTransform: 'none'
+                    }}
+                >
+                    {locationLoading ? (
+                        <>
+                            <CircularProgress size={20} style={{ marginRight: 8 }} />
+                            Capturing Location...
+                        </>
+                    ) : locationCaptured ? (
+                        <>
+                            ✓ Update Current Location
+                        </>
+                    ) : (
+                        <>
+                            📍 Get Current Location (Required)
+                        </>
+                    )}
+                </Button>
+                {locationCaptured && formFields.latitude && formFields.longitude && (
+                    <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
+                        Location: {formFields.latitude.toFixed(6)}, {formFields.longitude.toFixed(6)}
+                    </p>
+                )}
+            </div>
 
 
             <div className="flex gap-5 pb-5 flex-col">
@@ -482,6 +518,21 @@ const AddAddress = () => {
 
 
             <div className='flex items-center gap-5'>
+                <Button 
+                    type="button" 
+                    onClick={() => context.setOpenAddressPanel(false)}
+                    className="btn-lg w-full"
+                    variant="outlined"
+                    style={{
+                        borderColor: '#e5e7eb',
+                        color: '#6b7280',
+                        textTransform: 'none',
+                        fontWeight: 600
+                    }}
+                >
+                    Cancel
+                </Button>
+                
                 <Button type="submit" className="btn-org btn-lg w-full flex gap-2 items-center">
                     {
                         isLoading === true ?

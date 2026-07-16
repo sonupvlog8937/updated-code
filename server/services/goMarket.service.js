@@ -61,7 +61,7 @@ export const findNearbyMarkets = async ({ latitude, longitude, limit = 10 }) => 
     console.log(`📍 Total active markets: ${markets.length}`);
     
     // If no valid coordinates provided, return all active markets
-    if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+     if (latitude === undefined || latitude === null || longitude === undefined || longitude === null || isNaN(latitude) || isNaN(longitude)) {
       console.warn("⚠️ Invalid coordinates provided for nearby markets:", { latitude, longitude });
       return markets.slice(0, limit);
     }
@@ -76,38 +76,7 @@ export const findNearbyMarkets = async ({ latitude, longitude, limit = 10 }) => 
     console.log(`📍 Markets with valid coordinates: ${marketsWithCoords.length}`);
     if (marketsWithCoords.length === 0) {
       console.warn("⚠️ No markets with valid coordinates found");
-      console.warn("Markets in DB:", markets.map(m => ({ _id: m._id, name: m.name, lat: m.latitude, lng: m.longitude })));
-      
-      // Assign default coordinates to markets if they don't have any
-      const testCoordinates = [
-        { lat: 28.6139, lng: 77.2090, name: "Delhi" },
-        { lat: 19.0760, lng: 72.8777, name: "Mumbai" },
-        { lat: 13.0827, lng: 80.2707, name: "Chennai" },
-        { lat: 23.1815, lng: 79.9864, name: "Indore" },
-        { lat: 31.6340, lng: 74.8711, name: "Lahore" },
-      ];
-      
-      // Update markets with test coordinates
-      for (let i = 0; i < markets.length; i++) {
-        const coords = testCoordinates[i % testCoordinates.length];
-        const lat = coords.lat + (Math.random() - 0.5) * 0.1;
-        const lng = coords.lng + (Math.random() - 0.5) * 0.1;
-        
-        try {
-          await Market.findByIdAndUpdate(
-            markets[i]._id,
-            { latitude: lat, longitude: lng },
-            { new: false }
-          );
-          console.log(`✅ Assigned coordinates to ${markets[i].name}: (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
-        } catch (e) {
-          console.error(`❌ Failed to update ${markets[i].name}:`, e.message);
-        }
-      }
-      
-      // Re-fetch markets with updated coordinates
-      markets = await Market.find({ status: "active" }).lean();
-      return markets.slice(0, limit);
+      return [];
     }
 
     // Calculate distance and sort by nearest. Guard against null/invalid haversine results.

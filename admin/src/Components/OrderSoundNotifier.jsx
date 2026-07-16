@@ -7,6 +7,7 @@ import { fetchDataFromApi } from "../utils/api";
 const SELLER_ROLES = ["SELLER", "GROCERY_SELLER", "RESTAURANT_SELLER", "FASHION_SELLER", "ELECTRONICS_SELLER", "MEDICAL_SELLER", "BEAUTY_SELLER", "HOME_KITCHEN_SELLER", "GIFTS_TOYS_SELLER", "BOOKS_STATIONERY_SELLER", "JEWELLERY_SELLER", "HARDWARE_SELLER", "AUTOMOBILE_SELLER"];
 const NOTIFIER_ROLES = [...SELLER_ROLES, "DELIVERY_RIDER"];
 const STORAGE_KEY = "orderSoundNotifications:v1";
+const PERMISSION_ASKED_KEY = "orderSoundPermissionAsked:v1";
 const POLL_INTERVAL_MS = 15000;
 
 const normalizeOrders = (res) => {
@@ -89,6 +90,7 @@ const OrderSoundNotifier = ({ inline = false }) => {
   const [settings, setSettings] = useState(() => readSettings());
   const [lastEvent, setLastEvent] = useState(null);
   const [status, setStatus] = useState("idle");
+  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const knownKeysRef = useRef(new Set());
   const hydratedRef = useRef(false);
   const audioCtxRef = useRef(null);
@@ -101,6 +103,19 @@ const OrderSoundNotifier = ({ inline = false }) => {
   }, [isRider, isSeller]);
 
   useEffect(() => { writeSettings(settings); }, [settings]);
+  
+  // Check if permission dialog should be shown (first time)
+  useEffect(() => {
+    if (!isActive) return;
+    const asked = localStorage.getItem(PERMISSION_ASKED_KEY);
+    if (!asked) {
+      // Show dialog after 3 seconds
+      const timer = setTimeout(() => {
+        setShowPermissionDialog(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isActive]);
 
   const label = isRider ? "Rider assignment sound" : "New order sound";
   const eventText = isRider ? "New delivery assigned" : "New order received";
@@ -191,6 +206,144 @@ const OrderSoundNotifier = ({ inline = false }) => {
     event.stopPropagation();
     toggleEnabled();
   };
+  
+  const handleEnableSound = () => {
+    localStorage.setItem(PERMISSION_ASKED_KEY, "true");
+    setShowPermissionDialog(false);
+    unlockAudio();
+  };
+  
+  const handleNotNow = () => {
+    localStorage.setItem(PERMISSION_ASKED_KEY, "true");
+    setShowPermissionDialog(false);
+    setSettings((prev) => ({ ...prev, enabled: false }));
+    toast("You can enable order sounds anytime from settings", { icon: "ℹ️" });
+  };
+
+  const permissionDialog = showPermissionDialog && ReactDOM.createPortal(
+    <div
+      style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 2147483647,
+        animation: "slideUpPermission 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+      }}
+    >
+      <style>
+        {`
+          @keyframes slideUpPermission {
+            from {
+              transform: translateY(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+        `}
+      </style>
+      <div
+        style={{
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          padding: "24px",
+          boxShadow: "0 -10px 40px rgba(0,0,0,0.3)",
+          borderTopLeftRadius: "20px",
+          borderTopRightRadius: "20px",
+        }}
+      >
+        <div style={{ maxWidth: "600px", margin: "0 auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "16px" }}>
+            <div style={{ fontSize: "48px" }}>
+              {isRider ? "🛵" : "🔔"}
+            </div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ 
+                margin: 0, 
+                color: "#fff", 
+                fontSize: "20px", 
+                fontWeight: 800,
+                letterSpacing: "-0.02em",
+                marginBottom: "6px"
+              }}>
+                {isRider ? "Get Delivery Notifications" : "Get Order Notifications"}
+              </h3>
+              <p style={{ 
+                margin: 0, 
+                color: "rgba(255,255,255,0.9)", 
+                fontSize: "14px",
+                lineHeight: "1.5"
+              }}>
+                {isRider 
+                  ? "Enable sound alerts for new delivery assignments so you never miss an order"
+                  : "Enable sound alerts when new orders arrive so you can respond quickly"
+                }
+              </p>
+            </div>
+          </div>
+          
+          <div style={{ display: "flex", gap: "12px", marginTop: "20px" }}>
+            <button
+              onClick={handleEnableSound}
+              type="button"
+              style={{
+                flex: 1,
+                padding: "14px 24px",
+                borderRadius: "12px",
+                border: "none",
+                background: "#fff",
+                color: "#667eea",
+                fontSize: "15px",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.2s",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.2)";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+              }}
+            >
+              🔊 Enable Sound
+            </button>
+            
+            <button
+              onClick={handleNotNow}
+              type="button"
+              style={{
+                padding: "14px 24px",
+                borderRadius: "12px",
+                border: "2px solid rgba(255,255,255,0.3)",
+                background: "transparent",
+                color: "#fff",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s",
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.6)";
+                e.currentTarget.style.background = "rgba(255,255,255,0.1)";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)";
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              Not Now
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
 
   const widget = (
     <div
@@ -281,66 +434,74 @@ const OrderSoundNotifier = ({ inline = false }) => {
 
   if (inline) {
     return (
-      <div
-        onClick={(event) => event.stopPropagation()}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "8px",
-          padding: "8px 12px",
-          minWidth: "260px",
-          color: "inherit",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
-          <div>
-            <div style={{ fontSize: "13px", fontWeight: 600 }}>{label}</div>
-            <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>
-              {statusLabel}
+      <>
+        {permissionDialog}
+        <div
+          onClick={(event) => event.stopPropagation()}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+            padding: "8px 12px",
+            minWidth: "260px",
+            color: "inherit",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+            <div>
+              <div style={{ fontSize: "13px", fontWeight: 600 }}>{label}</div>
+              <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>
+                {statusLabel}
+              </div>
             </div>
+            <button
+              onClick={handleToggleClick}
+              type="button"
+              style={{
+                fontSize: "11px",
+                fontWeight: 600,
+                padding: "6px 12px",
+                borderRadius: "6px",
+                border: "none",
+                cursor: "pointer",
+                background: settings.enabled ? "#212121" : "#eeeeee",
+                color: settings.enabled ? "#ffffff" : "#616161",
+              }}
+            >
+              {statusLabel}
+            </button>
           </div>
-          <button
-            onClick={handleToggleClick}
-            type="button"
-            style={{
-              fontSize: "11px",
-              fontWeight: 600,
-              padding: "6px 12px",
-              borderRadius: "6px",
-              border: "none",
-              cursor: "pointer",
-              background: settings.enabled ? "#212121" : "#eeeeee",
-              color: settings.enabled ? "#ffffff" : "#616161",
-            }}
-          >
-            {statusLabel}
-          </button>
+          {settings.enabled && !settings.unlocked && (
+            <button
+              onClick={(event) => { event.stopPropagation(); unlockAudio(); }}
+              type="button"
+              style={{
+                fontSize: "11px",
+                fontWeight: 600,
+                padding: "6px 12px",
+                borderRadius: "6px",
+                border: "1px solid #212121",
+                cursor: "pointer",
+                background: "transparent",
+                color: "#212121",
+                width: "100%",
+                textAlign: "center",
+              }}
+            >
+              Enable sound
+            </button>
+          )}
         </div>
-        {settings.enabled && !settings.unlocked && (
-          <button
-            onClick={(event) => { event.stopPropagation(); unlockAudio(); }}
-            type="button"
-            style={{
-              fontSize: "11px",
-              fontWeight: 600,
-              padding: "6px 12px",
-              borderRadius: "6px",
-              border: "1px solid #212121",
-              cursor: "pointer",
-              background: "transparent",
-              color: "#212121",
-              width: "100%",
-              textAlign: "center",
-            }}
-          >
-            Enable sound
-          </button>
-        )}
-      </div>
+      </>
     );
   }
 
-  return ReactDOM.createPortal(widget, document.body);
+  return (
+    <>
+      {permissionDialog}
+      {ReactDOM.createPortal(widget, document.body)}
+    </>
+  );
 };
 
 export default OrderSoundNotifier;

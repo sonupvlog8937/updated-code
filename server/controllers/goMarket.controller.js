@@ -246,7 +246,7 @@ export const nearbyMarkets = async (req, res) => {
     console.log("📍 nearbyMarkets API called with params:", { latitude, longitude, limit });
     
     // Validate coordinates
-    if (!latitude || !longitude) {
+    if (latitude === undefined || latitude === null || longitude === undefined || longitude === null) {
       console.warn("⚠️ Missing latitude or longitude");
       return sendError(res, "Latitude and longitude are required", 400);
     }
@@ -412,9 +412,9 @@ export const unfollowRestaurant = async (req, res) => {
 export const setPreferredMarket = async (req, res) => {
   try {
     const userId = req.userId;
-    const { marketId, location, address } = req.body;
+    const { marketId, location, address, forceLocationUpdate = false } = req.body;
     
-    console.log("📍 setPreferredMarket called with:", { marketId, location, address });
+    console.log("📍 setPreferredMarket called with:", { marketId, location, address, forceLocationUpdate });
     
     if (!userId) return sendError(res, "Login required", 401);
     if (!marketId || !isObjectId(marketId)) return sendError(res, "Valid marketId is required", 400);
@@ -425,11 +425,17 @@ export const setPreferredMarket = async (req, res) => {
     
     // Import UserModel dynamically to avoid circular dependency
     const UserModel = (await import("../models/user.model.js")).default;
+
+    const existingUser = await UserModel.findById(userId).select("goMarketLocation").lean();
+    const hasSavedLocation = Array.isArray(existingUser?.goMarketLocation?.coordinates)
+      && existingUser.goMarketLocation.coordinates.length === 2
+      && existingUser.goMarketLocation.coordinates.some((value) => Number(value) !== 0);
     
     const update = { preferredMarketId: marketId };
     
-    // Validate and save location in GeoJSON format
-    if (location && Number.isFinite(Number(location?.lat)) && Number.isFinite(Number(location?.lng))) {
+    // Validate and save location in GeoJSON format. Once saved, keep it stable until the
+    // user explicitly comes from Update Location and confirms Use current location again.
+    if (location && (!hasSavedLocation || forceLocationUpdate) && Number.isFinite(Number(location?.lat)) && Number.isFinite(Number(location?.lng))) {
       const lat = Number(location.lat);
       const lng = Number(location.lng);
       
@@ -442,7 +448,9 @@ export const setPreferredMarket = async (req, res) => {
         address: String(address || `Location: ${lat.toFixed(6)}, ${lng.toFixed(6)}`),
         updatedAt: new Date(),
       };
-    } else {
+     } else if (location && hasSavedLocation && !forceLocationUpdate) {
+      console.log("📍 Existing Go Market location kept; explicit update not requested");
+    } else if (location) {
       console.warn("⚠️ Invalid location provided:", location);
     }
 

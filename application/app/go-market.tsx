@@ -151,7 +151,7 @@ export default function GoMarketScreen() {
         console.log("🎯 Navigating to nearest market:", nearestMarket.name);
         console.log("💾 Saving location:", locationAddress);
         
-        await saveAndNavigate(nearestMarket._id, { lat, lng }, locationAddress);
+        await saveAndNavigate(nearestMarket._id, { lat, lng }, locationAddress, params?.updateLocation === "true");
         Alert.alert("Success", `Location updated!\nNearest market: ${nearestMarket.name}`);
       } else {
         Alert.alert("No markets found", "No nearby markets found in your area.");
@@ -176,8 +176,8 @@ export default function GoMarketScreen() {
     saveAndNavigate(market._id);
   };
 
-  const saveAndNavigate = async (marketId: string, location?: { lat: number; lng: number }, address?: string) => {
-    await dispatch(savePreferredMarket({ marketId, location, address }));
+  const saveAndNavigate = async (marketId: string, location?: { lat: number; lng: number }, address?: string, forceLocationUpdate = false) => {
+    await dispatch(savePreferredMarket({ marketId, location, address, forceLocationUpdate }));
     router.push(`/go-market-market/${marketId}` as never);
   };
 
@@ -197,48 +197,7 @@ export default function GoMarketScreen() {
             <Text style={S.badgeTxt}>QUICK COMMERCE</Text>
           </View>
           <Text style={S.heroTitle}>Go Market</Text>
-          <Text style={S.heroCopy}>Search your market or use current location, then tap a market to browse shops.</Text>
-
-          <View style={S.inputRow}>
-            <Text style={{ fontSize: 13 }}>🔍</Text>
-            <TextInput
-              style={S.input}
-              placeholder="Search by name, city, pincode…"
-              placeholderTextColor={T.textSoft}
-              value={search}
-              onChangeText={handleSearchChange}
-              onSubmitEditing={() => dispatch(fetchGoMarkets(search))}
-              onFocus={() => search.trim() && setShowSuggestions(true)}
-              returnKeyType="search"
-            />
-          </View>
-
-          {/* Autocomplete Suggestions */}
-          {showSuggestions && search.trim() && filtered.length > 0 && (
-            <View style={S.suggestionsBox}>
-              {filtered.slice(0, 5).map((market: any) => (
-                <TouchableOpacity
-                  key={market._id}
-                  style={S.suggestionItem}
-                  onPress={() => handleSuggestionClick(market)}
-                  activeOpacity={0.7}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={S.suggestionName}>{market.name}</Text>
-                    <Text style={S.suggestionSub}>
-                      {market.city}{market.state ? `, ${market.state}` : ""} · {market.pincode || "—"}
-                      {market.distanceKm != null ? ` · ${market.distanceKm} km` : ""}
-                    </Text>
-                  </View>
-                  <Text style={{ fontSize: 16, color: T.orange }}>→</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          <TouchableOpacity style={S.searchBtn} onPress={() => dispatch(fetchGoMarkets(search))}>
-            <Text style={S.searchBtnTxt}>Search markets</Text>
-          </TouchableOpacity>
+          <Text style={S.heroCopy}>Use current location to save your delivery location and open the nearest market.</Text>
 
           <TouchableOpacity style={S.nearbyBtn} onPress={handleLoc} disabled={locBusy}>
             {locBusy ? (
@@ -253,22 +212,7 @@ export default function GoMarketScreen() {
         </Animated.View>
 
         <View style={S.listCard}>
-          <Text style={S.listTitle}>Select market</Text>
-          {loading && <ActivityIndicator color={T.orange} style={{ marginVertical: 16 }} />}
-          {!loading && filtered.length === 0 && (
-            <Text style={S.emptyTxt}>No markets found. Try search or location.</Text>
-          )}
-          {filtered.map((m: any) => (
-            <TouchableOpacity key={m._id} style={S.marketRow} onPress={() => openMarket(m._id)} activeOpacity={0.85}>
-              <View style={{ flex: 1 }}>
-                <Text style={S.marketName}>{m.name}</Text>
-                <Text style={S.marketSub}>
-                  {m.city}{m.distanceKm != null ? ` · ${m.distanceKm} km` : ""}
-                </Text>
-              </View>
-              <Text style={{ fontSize: 18, color: T.orange }}>›</Text>
-            </TouchableOpacity>
-          ))}
+          <Text style={S.emptyTxt}>Tap Use current location to save your Go Market delivery location and open the nearest market.</Text>
         </View>
         <View style={{ height: 80 }} />
       </ScrollView>

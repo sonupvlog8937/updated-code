@@ -11,8 +11,8 @@ export const followGoShop = createAsyncThunk<any, string>("goMarket/followShop",
 export const unfollowGoShop = createAsyncThunk<any, string>("goMarket/unfollowShop", async (shopId) => postData("/api/go-market/unfollow-shop", { shopId }));
 export const followGoRestaurant = createAsyncThunk<any, string>("goMarket/followRestaurant", async (restaurantId) => postData("/api/go-market/follow-restaurant", { restaurantId }));
 export const unfollowGoRestaurant = createAsyncThunk<any, string>("goMarket/unfollowRestaurant", async (restaurantId) => postData("/api/go-market/unfollow-restaurant", { restaurantId }));
-export const savePreferredMarket = createAsyncThunk<any, { marketId: string; location?: { lat: number; lng: number }; address?: string }>("goMarket/savePreferred", async ({ marketId, location, address }, { dispatch, getState }) => {
-  const result = await postData("/api/go-market/set-preferred-market", { marketId, location, address });
+export const savePreferredMarket = createAsyncThunk<any, { marketId: string; location?: { lat: number; lng: number }; address?: string; forceLocationUpdate?: boolean }>("goMarket/savePreferred", async ({ marketId, location, address, forceLocationUpdate = false }, { dispatch, getState }) => {
+  const result = await postData("/api/go-market/set-preferred-market", { marketId, location, address, forceLocationUpdate });
   if (result?.success || result?.error === false) {
     const state = getState() as any;
     const userData = state.app.userData;

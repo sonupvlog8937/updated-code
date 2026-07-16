@@ -272,6 +272,7 @@ export default function AddAddressScreen() {
     if (!mobile.trim()) e.mobile = "Please enter mobile number";
     else if (!/^\d{10}$/.test(mobile.replace(/\D/g, "")))
       e.mobile = "Mobile number must be 10 digits";
+    if (!latitude || !longitude) e.location = "Please capture your location first";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -402,6 +403,19 @@ export default function AddAddressScreen() {
                   : "Update your delivery details"}
               </Text>
             </View>
+            {/* Close/Cancel Button */}
+            <Pressable
+              onPress={() => router.back()}
+              style={({ pressed }) => [
+                styles.closeButton,
+                { 
+                  backgroundColor: pressed ? colors.accent : 'transparent',
+                  borderColor: colors.border
+                }
+              ]}
+            >
+              <Feather name="x" size={20} color={colors.foreground} />
+            </Pressable>
           </View>
 
           {/* ── Address Type ─────────────────────────────────────────────────── */}
@@ -844,6 +858,15 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   },
   pageTitle: {
     fontSize: 18,

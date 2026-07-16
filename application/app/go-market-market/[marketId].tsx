@@ -622,22 +622,33 @@ export default function GoMarketMarketScreen() {
         />
         <View style={S.heroOverlay} />
         
-        {/* Change Market Button */}
-        {/* <TouchableOpacity 
-          style={S.changeMarketBtn}
-          onPress={() => router.push("/go-market?edit=true" as never)}
-          activeOpacity={0.85}
-        >
-          <Text style={{ fontSize: 14, marginRight: 4 }}>✏️</Text>
-          <Text style={S.changeMarketBtnTxt}>Change Market</Text>
-        </TouchableOpacity> */}
+        {/* Update Location Button - Top Right */}
         <TouchableOpacity
-          style={[S.changeMarketBtn, { top: 62, backgroundColor: T.green }]}
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            backgroundColor: T.green,
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            borderRadius: 10,
+            flexDirection: "row",
+            alignItems: "center",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 8,
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.3)",
+          }}
           onPress={() => router.push("/go-market?edit=true&updateLocation=true" as never)}
           activeOpacity={0.85}
         >
-          <Text style={{ fontSize: 14, marginRight: 4 }}>📍</Text>
-          <Text style={S.changeMarketBtnTxt}>Update Location</Text>
+          <Text style={{ fontSize: 16, marginRight: 6 }}>📍</Text>
+          <Text style={{ color: T.white, fontWeight: "800", fontSize: 13, letterSpacing: 0.3 }}>
+            Update Location
+          </Text>
         </TouchableOpacity>
         
         <View style={S.heroContent}>
