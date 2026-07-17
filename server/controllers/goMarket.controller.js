@@ -33,7 +33,7 @@ const requiredFields = {
   menus: ["restaurantId", "menuName"],
   items: ["restaurantId", "menuId", "itemName", "price"],
   categories: ["name", "type"],
-  subcategories: ["parentId", "name", "type"],
+  subcategories: ["categoryId", "parentId", "name", "type"],
   subsubcategories: ["categoryId", "subCategoryId", "name", "type"],
 };
 

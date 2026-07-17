@@ -60,11 +60,12 @@ const configs = {
     ],
   },
   subcategories: {
-    title: "Go Market Parent Categories",
+    title: "Go Market Sub Categories",
     subtitle: "Admin only — linked to a parent category",
     icon: MdCategory,
     color: "#0d9488",
     endpoint: "/api/go-market/subcategories",
+    tableColumns: ["name", "categoryId", "status"],
     fields: [
       { key: "type", label: "Category Type", type: "select", options: ["grocery", "restaurant", "fashion", "electronics", "medical", "beauty", "home_kitchen", "gifts_toys", "books_stationery", "jewellery", "hardware", "automobile"], required: true },
       { key: "categoryId", label: "Parent Category", type: "categorySelect", required: true },
@@ -80,6 +81,7 @@ const configs = {
     icon: MdCategory,
     color: "#0f766e",
     endpoint: "/api/go-market/subsubcategories",
+    tableColumns: ["name", "categoryId", "subCategoryId", "status"],
     fields: [
       { key: "type", label: "Category Type", type: "select", options: ["grocery", "restaurant", "fashion", "electronics", "medical", "beauty", "home_kitchen", "gifts_toys", "books_stationery", "jewellery", "hardware", "automobile"], required: true },
       { key: "categoryId", label: "Parent Category", type: "categorySelect", required: true },
@@ -234,7 +236,7 @@ const FieldInput = ({ field, value, onChange, parentCategoryOptions = [], parent
     );
   }
   if (field.type === "categorySelect") {
-    const optionsToUse = filteredCategories.length > 0 ? filteredCategories : parentCategoryOptions;
+    const optionsToUse = form.type ? filteredCategories : [];
     return (
       <select
         className={base}
@@ -253,7 +255,7 @@ const FieldInput = ({ field, value, onChange, parentCategoryOptions = [], parent
     );
   }
   if (field.type === "subcategorySelect") {
-    const optionsToUse = filteredSubcategories.length > 0 ? filteredSubcategories : parentSubcategories;
+    const optionsToUse = form.categoryId ? filteredSubcategories : [];
     return (
       <select
         className={base}
@@ -441,22 +443,28 @@ const GoMarketAdminPage = () => {
     if ((resource === "subcategories" || resource === "subsubcategories") && form.type) {
       const filtered = parentCategories.filter(cat => cat.type === form.type);
       setFilteredCategories(filtered);
+      if (form.categoryId && !filtered.some((cat) => String(cat._id) === String(form.categoryId))) {
+        setForm((prev) => ({ ...prev, categoryId: "", subCategoryId: "" }));
+      }
     } else {
       setFilteredCategories(parentCategories);
     }
-  }, [form.type, parentCategories, resource]);
+  }, [form.type, form.categoryId, parentCategories, resource]);
 
   // Filter subcategories based on selected category
   useEffect(() => {
     if (resource === "subsubcategories" && form.categoryId) {
       const filtered = parentSubcategories.filter(sub => 
-        String(sub.parentId) === String(form.categoryId)
+        String(sub.categoryId) === String(form.categoryId) || String(sub.parentId) === String(form.categoryId)
       );
       setFilteredSubcategories(filtered);
+      if (form.subCategoryId && !filtered.some((sub) => String(sub._id) === String(form.subCategoryId))) {
+        setForm((prev) => ({ ...prev, subCategoryId: "" }));
+      }
     } else {
       setFilteredSubcategories(parentSubcategories);
     }
-  }, [form.categoryId, parentSubcategories, resource]);
+  }, [form.categoryId, form.subCategoryId, parentSubcategories, resource]);
 
   useEffect(() => {
     if (resource !== "grocery-shops" && resource !== "restaurants") return;
@@ -498,7 +506,7 @@ const GoMarketAdminPage = () => {
     if (resource === "subcategories") {
       if (payload.categoryId) {
         payload.parentId = payload.categoryId;
-        delete payload.categoryId;
+        // Keep categoryId as well for sub-sub-category filtering
       }
       payload.parentModel = "GoMarketCategory";
     }
@@ -527,10 +535,15 @@ const GoMarketAdminPage = () => {
 
   const edit = (row) => {
     setEditingId(row._id);
+    const formValues = Object.fromEntries(
+      config.fields.map((f) => [f.key, (row[f.key]?._id ?? row[f.key]) ?? ""])
+    );
+    // For subcategories, ensure categoryId is set from parentId if not present
+    if (resource === "subcategories" && row.parentId && !formValues.categoryId) {
+      formValues.categoryId = row.parentId._id || row.parentId;
+    }
     setForm({
-      ...Object.fromEntries(
-        config.fields.map((f) => [f.key, (row[f.key]?._id ?? row[f.key]) ?? ""])
-      ),
+      ...formValues,
       parentModel: row.parentModel || "GoMarketCategory",
     });
     setFormOpen(true);
@@ -571,6 +584,24 @@ const GoMarketAdminPage = () => {
     }
     if (key === "latitude" || key === "longitude") {
       return <span className="text-emerald-700 font-mono font-bold text-xs">📍 {v}</span>;
+    }
+    // For subcategories, show parent category name if populated
+    if (key === "categoryId" && resource === "subcategories") {
+      if (v?.name) {
+        return <span className="truncate block max-w-[160px]" title={v.name}>{v.name}</span>;
+      }
+      if (row.parentId?.name) {
+        return <span className="truncate block max-w-[160px]" title={row.parentId.name}>{row.parentId.name}</span>;
+      }
+    }
+    // For sub-sub-categories, show parent category and subcategory names
+    if (resource === "subsubcategories") {
+      if (key === "categoryId" && v?.name) {
+        return <span className="truncate block max-w-[160px]" title={v.name}>{v.name}</span>;
+      }
+      if (key === "subCategoryId" && v?.name) {
+        return <span className="truncate block max-w-[160px]" title={v.name}>{v.name}</span>;
+      }
     }
     const str = String(v?.name || v?.shopName || v?.restaurantName || v);
     return <span className="truncate block max-w-[160px]" title={str}>{str}</span>;

@@ -20,7 +20,7 @@ export const resources = {
   menus: { model: RestaurantMenu, label: "Restaurant menu", searchFields: ["menuName", "description"], populate: "restaurantId" },
   items: { model: RestaurantItem, label: "Restaurant item", searchFields: ["itemName", "description", "title", "keywords", "tags", "searchKeywords", "seoDescription", "attributes"], populate: "restaurantId menuId categoryId" },
   categories: { model: GoMarketCategory, label: "Go Market category", searchFields: ["name", "description"] },
-  subcategories: { model: GoMarketSubCategory, label: "Go Market sub category", searchFields: ["name", "description"], populate: "parentId" },
+  subcategories: { model: GoMarketSubCategory, label: "Go Market sub category", searchFields: ["name", "description"], populate: "categoryId parentId" },
   subsubcategories: { model: GoMarketSubSubCategory, label: "Go Market sub sub category", searchFields: ["name", "description"], populate: "categoryId subCategoryId" },
 };
 

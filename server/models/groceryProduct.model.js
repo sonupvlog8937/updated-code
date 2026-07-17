@@ -22,7 +22,7 @@ const groceryProductSchema = new mongoose.Schema({
   images: [{ type: String, default: "" }],
   categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "GoMarketCategory", default: null, index: true },
   subCategoryId: { type: mongoose.Schema.Types.ObjectId, ref: "GoMarketSubCategory", default: null, index: true },
-  subSubCategoryId: { type: mongoose.Schema.Types.ObjectId, ref: "GoMarketSubCategory", default: null, index: true },
+  subSubCategoryId: { type: mongoose.Schema.Types.ObjectId, ref: "GoMarketSubSubCategory", default: null, index: true },
   price: { type: Number, required: true, min: 0 },
   discountPrice: { type: Number, default: 0, min: 0 },
   stock: { type: Number, default: 0, min: 0 },

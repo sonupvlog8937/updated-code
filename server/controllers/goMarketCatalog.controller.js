@@ -149,6 +149,7 @@ const buildGroceryCatalogFilter = async (req, shopId) => {
   if (String(req.query.tab || "").toLowerCase() === "featured") filter.isFeatured = true;
   if (req.query.categoryId && isObjectId(req.query.categoryId)) filter.categoryId = req.query.categoryId;
   if (req.query.subCategoryId && isObjectId(req.query.subCategoryId)) filter.subCategoryId = req.query.subCategoryId;
+  if (req.query.subSubCategoryId && isObjectId(req.query.subSubCategoryId)) filter.subSubCategoryId = req.query.subSubCategoryId;
 
   const minPrice = Number(req.query.minPrice || 0);
   const maxPrice = Number(req.query.maxPrice || 0);
@@ -174,12 +175,13 @@ const buildGroceryCatalogFilter = async (req, shopId) => {
 
 const buildShopFilterMeta = async (shopId) => {
   const rows = await GroceryProduct.find({ shopId })
-    .select("price categoryId subCategoryId")
-    .populate("categoryId subCategoryId")
+    .select("price categoryId subCategoryId subSubCategoryId")
+    .populate("categoryId subCategoryId subSubCategoryId")
     .lean();
 
   const catMap = new Map();
   const subMap = new Map();
+  const subSubMap = new Map();
   let minPrice = null;
   let maxPrice = null;
 
@@ -202,11 +204,20 @@ const buildShopFilterMeta = async (shopId) => {
         parentId: row.subCategoryId.parentId,
       });
     }
+    if (row.subSubCategoryId?._id) {
+      subSubMap.set(String(row.subSubCategoryId._id), {
+        _id: row.subSubCategoryId._id,
+        name: row.subSubCategoryId.name,
+        categoryId: row.subSubCategoryId.categoryId,
+        subCategoryId: row.subSubCategoryId.subCategoryId,
+      });
+    }
   }
 
   return {
     categories: [...catMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
     subCategories: [...subMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    subSubCategories: [...subSubMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
     priceRange: { min: minPrice ?? 0, max: maxPrice ?? 0 },
     ratingOptions: [4, 3, 2],
   };
@@ -587,7 +598,7 @@ export const listShopProductsCatalog = async (req, res) => {
     const filter = await buildGroceryCatalogFilter(req, shopId);
     const tab = String(req.query.tab || "featured").toLowerCase();
     const sort = req.query.sort ? productSort(req.query) : sortForCatalogTab(tab);
-    const result = await paginate(GroceryProduct, filter, { ...req.query, sort }, "categoryId subCategoryId");
+    const result = await paginate(GroceryProduct, filter, { ...req.query, sort }, "categoryId subCategoryId subSubCategoryId");
     const filterMeta = await buildShopFilterMeta(shopId);
 
     // Add shop location and ID to each product
@@ -672,7 +683,7 @@ export const searchShopProducts = async (req, res) => {
 
     const filter = await buildGroceryCatalogFilter(req, shopId);
     const sort = productSort(req.query);
-    const result = await paginate(GroceryProduct, filter, { ...req.query, sort }, "categoryId subCategoryId");
+    const result = await paginate(GroceryProduct, filter, { ...req.query, sort }, "categoryId subCategoryId subSubCategoryId");
     const filterMeta = await buildShopFilterMeta(shopId);
     const queryLabel = String(req.query.q || req.query.search || "").trim();
 
@@ -696,7 +707,7 @@ export const searchShopProducts = async (req, res) => {
   }
 };
 
-const buildRestaurantCatalogFilter = (req, restaurantId) => {
+const buildRestaurantCatalogFilter = async (req, restaurantId) => {
   const filter = buildQuery({ ...req.query, restaurantId }, ["itemName", "description", "title", "keywords", "tags", "searchKeywords", "seoDescription", "attributes"]);
   const tab = String(req.query.tab || "featured").toLowerCase();
   if (tab === "featured") filter.isFeatured = true;
@@ -707,14 +718,24 @@ const buildRestaurantCatalogFilter = (req, restaurantId) => {
   if (req.query.subSubCategoryId && isObjectId(req.query.subSubCategoryId)) filter.subSubCategoryId = req.query.subSubCategoryId;
   if (req.query.minPrice) filter.price = { ...(filter.price || {}), $gte: Number(req.query.minPrice) };
   if (req.query.maxPrice) filter.price = { ...(filter.price || {}), $lte: Number(req.query.maxPrice) };
+  const minRating = Number(req.query.minRating || 0);
+  if (minRating > 0) {
+    const rated = await ReviewModel.aggregate([
+      { $match: { productId: { $exists: true, $ne: "" } } },
+      { $group: { _id: "$productId", avg: { $avg: { $toDouble: "$rating" } } } },
+      { $match: { avg: { $gte: minRating } } },
+    ]);
+    const ids = rated.map((r) => r._id).filter((id) => isObjectId(id));
+    filter._id = ids.length ? { $in: ids } : { $in: [] };
+  }
   return filter;
 };
 
 const buildRestaurantFilterMeta = async (restaurantId) => {
   const [rows, menus] = await Promise.all([
     RestaurantItem.find({ restaurantId })
-      .select("price categoryId subCategoryId menuId")
-      .populate("categoryId subCategoryId")
+      .select("price categoryId subCategoryId subSubCategoryId menuId")
+      .populate("categoryId subCategoryId subSubCategoryId")
       .lean(),
     RestaurantMenu.find({ restaurantId }).select("_id menuName").lean(),
   ]);
@@ -722,6 +743,7 @@ const buildRestaurantFilterMeta = async (restaurantId) => {
   const catMap = new Map();
   const subMap = new Map();
   const menuMap = new Map();
+  const subSubMap = new Map();
   let minPrice = null;
   let maxPrice = null;
   
@@ -733,6 +755,7 @@ const buildRestaurantFilterMeta = async (restaurantId) => {
     }
     if (row.categoryId?._id) catMap.set(String(row.categoryId._id), { _id: row.categoryId._id, name: row.categoryId.name });
     if (row.subCategoryId?._id) subMap.set(String(row.subCategoryId._id), { _id: row.subCategoryId._id, name: row.subCategoryId.name, parentId: row.subCategoryId.parentId });
+    if (row.subSubCategoryId?._id) subSubMap.set(String(row.subSubCategoryId._id), { _id: row.subSubCategoryId._id, name: row.subSubCategoryId.name, categoryId: row.subSubCategoryId.categoryId, subCategoryId: row.subSubCategoryId.subCategoryId });
   });
   
   menus.forEach((menu) => {
@@ -742,6 +765,7 @@ const buildRestaurantFilterMeta = async (restaurantId) => {
   return {
     categories: [...catMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
     subCategories: [...subMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    subSubCategories: [...subSubMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
     menus: [...menuMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
     priceRange: { min: minPrice ?? 0, max: maxPrice ?? 0 },
   };
@@ -773,10 +797,10 @@ export const listRestaurantItemsCatalog = async (req, res) => {
     restaurant.totalItems = totalItems;
     restaurant.totalMenus = totalMenus;
 
-    const filter = buildRestaurantCatalogFilter(req, restaurantId);
+    const filter = await buildRestaurantCatalogFilter(req, restaurantId);
     const tab = String(req.query.tab || "featured").toLowerCase();
     const sort = req.query.sort ? itemSort(req.query) : itemSort({ tab });
-    const result = await paginate(RestaurantItem, filter, { ...req.query, sort }, "categoryId subCategoryId menuId");
+    const result = await paginate(RestaurantItem, filter, { ...req.query, sort }, "categoryId subCategoryId subSubCategoryId menuId");
     const filterMeta = await buildRestaurantFilterMeta(restaurantId);
     const baseUrl = apiBaseFromRequest(req);
     const normalizedRestaurant = {
@@ -879,7 +903,7 @@ export const getGroceryProductStorefront = async (req, res) => {
 
     const baseUrl = apiBaseFromRequest(req);
     const product = await GroceryProduct.findById(id)
-      .populate("categoryId subCategoryId")
+      .populate("categoryId subCategoryId subSubCategoryId")
       .lean();
     if (!product) return sendError(res, "Product not found", 404);
 
@@ -982,7 +1006,7 @@ export const getRestaurantItemStorefront = async (req, res) => {
 
     const baseUrl = apiBaseFromRequest(req);
     const item = await RestaurantItem.findById(id)
-      .populate("categoryId subCategoryId menuId")
+      .populate("categoryId subCategoryId subSubCategoryId menuId")
       .lean();
     if (!item) return sendError(res, "Item not found", 404);
 

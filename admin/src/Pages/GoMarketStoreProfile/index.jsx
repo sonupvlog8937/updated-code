@@ -226,6 +226,7 @@ const GoMarketStoreProfile = () => {
   const [isLocating, setIsLocating] = useState(false);
   const [menus, setMenus] = useState([]);
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const [editMenuId, setEditMenuId] = useState(null);
   const [newMenuName, setNewMenuName] = useState("");
   const [newMenuDescription, setNewMenuDescription] = useState("");
   const [newMenuImage, setNewMenuImage] = useState("");
@@ -335,7 +336,7 @@ const GoMarketStoreProfile = () => {
         return;
       }
       
-      let imageUrl = "";
+      let imageUrl = newMenuImage;
       
       // Upload image if file is selected
       if (newMenuImageFile) {
@@ -361,13 +362,22 @@ const GoMarketStoreProfile = () => {
         image: imageUrl,
       };
       
-      const res = await postData("/api/go-market/menus", payload);
+      let res;
+      if (editMenuId) {
+        // Update existing menu
+        res = await putData(`/api/go-market/menus/${editMenuId}`, payload);
+      } else {
+        // Create new menu
+        res = await postData("/api/go-market/menus", payload);
+      }
+      
       if (res?.error === false || res?.success === true) {
-        toast.success("Menu created successfully!");
+        toast.success(editMenuId ? "Menu updated successfully!" : "Menu created successfully!");
         setNewMenuName("");
         setNewMenuDescription("");
         setNewMenuImage("");
         setNewMenuImageFile(null);
+        setEditMenuId(null);
         setShowMenuModal(false);
         
         // Refresh menus
@@ -375,10 +385,10 @@ const GoMarketStoreProfile = () => {
           setMenus(menuRes?.data || []);
         });
       } else {
-        toast.error(res?.message || "Failed to create menu");
+        toast.error(res?.message || (editMenuId ? "Failed to update menu" : "Failed to create menu"));
       }
     } catch (error) {
-      toast.error("Failed to create menu");
+      toast.error(editMenuId ? "Failed to update menu" : "Failed to create menu");
     } finally {
       setIsAddingMenu(false);
     }
@@ -398,6 +408,33 @@ const GoMarketStoreProfile = () => {
     } catch (error) {
       toast.error("Failed to delete menu");
     }
+  };
+
+  const handleEditMenu = (menu) => {
+    setEditMenuId(menu._id);
+    setNewMenuName(menu.menuName);
+    setNewMenuDescription(menu.description || "");
+    setNewMenuImage(menu.image || "");
+    setNewMenuImageFile(null);
+    setShowMenuModal(true);
+  };
+
+  const handleOpenAddMenu = () => {
+    setEditMenuId(null);
+    setNewMenuName("");
+    setNewMenuDescription("");
+    setNewMenuImage("");
+    setNewMenuImageFile(null);
+    setShowMenuModal(true);
+  };
+
+  const handleCloseMenuModal = () => {
+    setEditMenuId(null);
+    setNewMenuName("");
+    setNewMenuDescription("");
+    setNewMenuImage("");
+    setNewMenuImageFile(null);
+    setShowMenuModal(false);
   };
 
   const onSubmit = async (e) => {
@@ -716,7 +753,7 @@ const GoMarketStoreProfile = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowMenuModal(true)}
+                  onClick={handleOpenAddMenu}
                   style={{
                     display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
                     background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)",
@@ -743,16 +780,28 @@ const GoMarketStoreProfile = () => {
                     }}>
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
                         <h3 style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", margin: 0 }}>{menu.menuName}</h3>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteMenu(menu._id)}
-                          style={{
-                            padding: 4, background: "rgba(239,68,68,0.1)", border: "none",
-                            borderRadius: 6, cursor: "pointer", color: "#EF4444",
-                          }}
-                        >
-                          <FiTrash2 size={12} />
-                        </button>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button
+                            type="button"
+                            onClick={() => handleEditMenu(menu)}
+                            style={{
+                              padding: 4, background: "rgba(59,130,246,0.1)", border: "none",
+                              borderRadius: 6, cursor: "pointer", color: "#3B82F6",
+                            }}
+                          >
+                            <FiEdit2 size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMenu(menu._id)}
+                            style={{
+                              padding: 4, background: "rgba(239,68,68,0.1)", border: "none",
+                              borderRadius: 6, cursor: "pointer", color: "#EF4444",
+                            }}
+                          >
+                            <FiTrash2 size={12} />
+                          </button>
+                        </div>
                       </div>
                       {menu.description && (
                         <p style={{ fontSize: 11, color: "#64748B", margin: "0 0 8px 0", lineHeight: 1.4 }}>{menu.description}</p>
@@ -837,10 +886,10 @@ const GoMarketStoreProfile = () => {
               overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
             }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0F172A", margin: 0 }}>Create New Menu</h2>
+                <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0F172A", margin: 0 }}>{editMenuId ? "Edit Menu" : "Create New Menu"}</h2>
                 <button
                   type="button"
-                  onClick={() => setShowMenuModal(false)}
+                  onClick={handleCloseMenuModal}
                   style={{ padding: 8, background: "#F1F5F9", border: "none", borderRadius: 8, cursor: "pointer" }}
                 >
                   <FiX size={16} color="#64748B" />

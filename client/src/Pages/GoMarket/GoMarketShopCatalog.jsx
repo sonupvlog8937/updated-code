@@ -35,6 +35,7 @@ const buildParams = (state, page) => {
     ...(state.inStock ? { inStock: "true" } : {}),
     ...(state.categoryId ? { categoryId: state.categoryId } : {}),
     ...(state.subCategoryId ? { subCategoryId: state.subCategoryId } : {}),
+    ...(state.subSubCategoryId ? { subSubCategoryId: state.subSubCategoryId } : {}),
     ...(state.minPrice ? { minPrice: state.minPrice } : {}),
     ...(state.maxPrice ? { maxPrice: state.maxPrice } : {}),
     ...(state.minRating > 0 ? { minRating: String(state.minRating) } : {}),
@@ -62,6 +63,7 @@ export const GoMarketShopCatalog = ({
   const [inStock, setInStock] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [subCategoryId, setSubCategoryId] = useState("");
+  const [subSubCategoryId, setSubSubCategoryId] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [minRating, setMinRating] = useState(0);
@@ -104,11 +106,12 @@ export const GoMarketShopCatalog = ({
       inStock,
       categoryId,
       subCategoryId,
+      subSubCategoryId,
       minPrice,
       maxPrice,
       minRating,
     }),
-    [tab, sort, appliedSearch, inStock, categoryId, subCategoryId, minPrice, maxPrice, minRating],
+    [tab, sort, appliedSearch, inStock, categoryId, subCategoryId, subSubCategoryId, minPrice, maxPrice, minRating],
   );
 
   const apiPath = searchMode
@@ -195,6 +198,7 @@ export const GoMarketShopCatalog = ({
   const activeFilterCount = [
     categoryId,
     subCategoryId,
+    subSubCategoryId,
     minPrice,
     maxPrice,
     inStock,
@@ -204,6 +208,7 @@ export const GoMarketShopCatalog = ({
   const resetFilters = () => {
     setCategoryId("");
     setSubCategoryId("");
+    setSubSubCategoryId("");
     setMinPrice("");
     setMaxPrice("");
     setMinRating(0);
@@ -225,7 +230,10 @@ export const GoMarketShopCatalog = ({
   };
 
   const subCatsForCategory = (filterMeta?.subCategories || []).filter(
-    (sc) => !categoryId || String(sc.parentId) === String(categoryId),
+    (sc) => !categoryId || String(sc.parentId || sc.categoryId) === String(categoryId),
+  );
+  const subSubCatsForSubCategory = (filterMeta?.subSubCategories || []).filter(
+    (ssc) => !subCategoryId || String(ssc.subCategoryId) === String(subCategoryId),
   );
 
   const optionGroups = normalizeProductOptions(optionProduct?.productOptions || []);
@@ -657,6 +665,7 @@ export const GoMarketShopCatalog = ({
               onChange={(e) => {
                 setCategoryId(e.target.value);
                 setSubCategoryId("");
+                setSubSubCategoryId("");
               }}
             >
               <option value="">All categories</option>
@@ -670,7 +679,7 @@ export const GoMarketShopCatalog = ({
               className="gmp-select"
               style={{ paddingLeft: 12 }}
               value={subCategoryId}
-              onChange={(e) => setSubCategoryId(e.target.value)}
+              onChange={(e) => { setSubCategoryId(e.target.value); setSubSubCategoryId(""); }}
               disabled={!categoryId && !(filterMeta?.subCategories || []).length}
             >
               <option value="">All sub categories</option>
@@ -678,6 +687,12 @@ export const GoMarketShopCatalog = ({
                 <option key={sc._id} value={sc._id}>
                   {sc.name}
                 </option>
+              ))}
+            </select>
+            <select className="gmp-select" style={{ paddingLeft: 12 }} value={subSubCategoryId} onChange={(e) => setSubSubCategoryId(e.target.value)} disabled={!subCategoryId}>
+              <option value="">All sub sub categories</option>
+              {subSubCatsForSubCategory.map((c) => (
+                <option key={c._id} value={c._id}>{c.name}</option>
               ))}
             </select>
             <input

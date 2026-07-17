@@ -16,7 +16,7 @@ const TABS = [
 ];
 
 const SORT_OPTIONS = [
-  { value: "", label: "Smart tab order" },
+  { value: "", label: "Sort" },
   { value: "newest", label: "Newest" },
   { value: "price_asc", label: "Price: Low to High" },
   { value: "price_desc", label: "Price: High to Low" },
@@ -35,6 +35,9 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
   const [availableOnly, setAvailableOnly] = useState(true);
   const [categoryId, setCategoryId] = useState("");
   const [subCategoryId, setSubCategoryId] = useState("");
+  const [subSubCategoryId, setSubSubCategoryId] = useState("");
+  const [menuId, setMenuId] = useState("");
+  const [minRating, setMinRating] = useState(0);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
@@ -60,7 +63,7 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
 
   useEffect(() => setSearch(initialQuery), [initialQuery]);
 
-  const state = useMemo(() => ({ tab, sort, availableOnly, categoryId, subCategoryId, minPrice, maxPrice, appliedSearch }), [tab, sort, availableOnly, categoryId, subCategoryId, minPrice, maxPrice, appliedSearch]);
+  const state = useMemo(() => ({ tab, sort, availableOnly, categoryId, subCategoryId, subSubCategoryId, menuId, minRating, minPrice, maxPrice, appliedSearch }), [tab, sort, availableOnly, categoryId, subCategoryId, subSubCategoryId, menuId, minRating, minPrice, maxPrice, appliedSearch]);
   const apiPath = searchMode ? `/api/go-market/restaurants/${restaurantId}/search` : `/api/go-market/restaurants/${restaurantId}/catalog`;
 
   const loadPage = useCallback(async (pageNum, append) => {
@@ -80,6 +83,9 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
       ...(state.availableOnly ? { availableOnly: "true" } : {}),
       ...(state.categoryId ? { categoryId: state.categoryId } : {}),
       ...(state.subCategoryId ? { subCategoryId: state.subCategoryId } : {}),
+      ...(state.subSubCategoryId ? { subSubCategoryId: state.subSubCategoryId } : {}),
+      ...(state.menuId ? { menuId: state.menuId } : {}),
+      ...(state.minRating > 0 ? { minRating: String(state.minRating) } : {}),
       ...(state.minPrice ? { minPrice: state.minPrice } : {}),
       ...(state.maxPrice ? { maxPrice: state.maxPrice } : {}),
     });
@@ -138,7 +144,9 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
 
   const hasMore = page < totalPages;
   const sentinelRef = useInfiniteScroll({ enabled: true, hasMore, loading: loading || loadingMore, onLoadMore: () => loadPage(page + 1, true) });
-  const subCats = (filterMeta?.subCategories || []).filter((s) => !categoryId || String(s.parentId) === String(categoryId));
+  const subCats = (filterMeta?.subCategories || []).filter((s) => !categoryId || String(s.parentId || s.categoryId) === String(categoryId));
+  const subSubCats = (filterMeta?.subSubCategories || []).filter((s) => !subCategoryId || String(s.subCategoryId) === String(subCategoryId));
+  const activeFilterCount = [categoryId, subCategoryId, subSubCategoryId, menuId, minPrice, maxPrice, minRating > 0, availableOnly].filter(Boolean).length;
 
   const optionGroups = normalizeProductOptions(optionProduct?.productOptions || []);
   const quickPrice = optionGroups.reduce((price, opt) => { const key = opt.name || opt.label; const found = (opt.values || []).find((v) => v.label === quickSelections[key] || v.value === quickSelections[key]); return Number(found?.price) > 0 ? Number(found.price) : price; }, Number(optionProduct?.price || 0));
@@ -463,13 +471,26 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
           <button className="gmp-btn gmp-btn-primary" type="submit">Search</button>
         </form>
         <select className="gmp-select" style={{ width: "auto", minWidth: 160, paddingLeft: 12 }} value={sort} onChange={(e) => setSort(e.target.value)}>{SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
-        <button type="button" className="gmp-btn gmp-btn-outline" onClick={() => setFilterOpen((v) => !v)}>Filters</button>
+        <button type="button" className="gmp-btn gmp-btn-outline" onClick={() => setFilterOpen((v) => !v)}>Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}</button>
+        <select
+          className="gmp-select"
+          style={{ width: "auto", minWidth: 160, paddingLeft: 12 }}
+          value={menuId}
+          onChange={(e) => setMenuId(e.target.value)}
+        >
+          <option value="">All menus</option>
+          {(filterMeta?.menus || []).map((m) => (
+            <option key={m._id} value={m._id}>{m.name}</option>
+          ))}
+        </select>
       </div>
-      <div className="gmp-chip-row" style={{ marginTop: 12 }}>{TABS.map((t) => <button key={t.key} type="button" className={`gmp-chip${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)}>{t.label}</button>)}</div>
+      <div className="gmp-chip-row" style={{ marginTop: 12 }}>{(filterMeta?.menus || []).map((m) => <button key={m._id} type="button" className={`gmp-chip${menuId === m._id ? " active" : ""}`} onClick={() => setMenuId(menuId === m._id ? "" : m._id)}>{m.name}</button>)}{TABS.map((t) => <button key={t.key} type="button" className={`gmp-chip${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)}>{t.label}</button>)}</div>
       {filterOpen && <div className="gmp-toolbar" style={{ marginTop: 10, alignItems: "stretch", flexDirection: "column" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
-          <select className="gmp-select" style={{ paddingLeft: 12 }} value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSubCategoryId(""); }}><option value="">All categories</option>{(filterMeta?.categories || []).map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}</select>
-          <select className="gmp-select" style={{ paddingLeft: 12 }} value={subCategoryId} onChange={(e) => setSubCategoryId(e.target.value)}><option value="">All sub categories</option>{subCats.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}</select>
+         <select className="gmp-select" style={{ paddingLeft: 12 }} value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSubCategoryId(""); setSubSubCategoryId(""); }}><option value="">All categories</option>{(filterMeta?.categories || []).map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}</select>
+          <select className="gmp-select" style={{ paddingLeft: 12 }} value={subCategoryId} onChange={(e) => { setSubCategoryId(e.target.value); setSubSubCategoryId(""); }}><option value="">All sub categories</option>{subCats.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}</select>
+          <select className="gmp-select" style={{ paddingLeft: 12 }} value={subSubCategoryId} onChange={(e) => setSubSubCategoryId(e.target.value)} disabled={!subCategoryId}><option value="">All sub sub categories</option>{subSubCats.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}</select>
+          <select className="gmp-select" style={{ paddingLeft: 12 }} value={minRating} onChange={(e) => setMinRating(Number(e.target.value))}><option value={0}>Any rating</option><option value={4}>4★ & up</option><option value={3}>3★ & up</option><option value={2}>2★ & up</option></select>
           <input className="gmp-input" style={{ height: 38, paddingLeft: 12 }} type="number" placeholder="Min ₹" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} />
           <input className="gmp-input" style={{ height: 38, paddingLeft: 12 }} type="number" placeholder="Max ₹" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
         </div>
