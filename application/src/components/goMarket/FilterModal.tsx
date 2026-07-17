@@ -19,11 +19,14 @@ type FilterModalProps = {
   filterMeta: any;
   currentFilters: FilterValues;
   subCats: any[];
+  subSubCats: any[];
+  isRestaurant?: boolean;
 };
 
 export type FilterValues = {
   categoryId: string;
   subCategoryId: string;
+  subSubCategoryId: string;
   minPrice: string;
   maxPrice: string;
   minRating: number;
@@ -37,11 +40,14 @@ export function FilterModal({
   filterMeta,
   currentFilters,
   subCats,
+  subSubCats,
+  isRestaurant = false,
 }: FilterModalProps) {
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(insets.bottom, 12) + 10;
   const [tempCategoryId, setTempCategoryId] = useState("");
   const [tempSubCategoryId, setTempSubCategoryId] = useState("");
+  const [tempSubSubCategoryId, setTempSubSubCategoryId] = useState("");
   const [tempMinPrice, setTempMinPrice] = useState("");
   const [tempMaxPrice, setTempMaxPrice] = useState("");
   const [tempMinRating, setTempMinRating] = useState(0);
@@ -51,6 +57,7 @@ export function FilterModal({
     if (visible) {
       setTempCategoryId(currentFilters.categoryId);
       setTempSubCategoryId(currentFilters.subCategoryId);
+      setTempSubSubCategoryId(currentFilters.subSubCategoryId);
       setTempMinPrice(currentFilters.minPrice);
       setTempMaxPrice(currentFilters.maxPrice);
       setTempMinRating(currentFilters.minRating);
@@ -62,6 +69,7 @@ export function FilterModal({
     onApply({
       categoryId: tempCategoryId,
       subCategoryId: tempSubCategoryId,
+      subSubCategoryId: tempSubSubCategoryId,
       minPrice: tempMinPrice,
       maxPrice: tempMaxPrice,
       minRating: tempMinRating,
@@ -73,6 +81,7 @@ export function FilterModal({
   const handleClear = () => {
     setTempCategoryId("");
     setTempSubCategoryId("");
+    setTempSubSubCategoryId("");
     setTempMinPrice("");
     setTempMaxPrice("");
     setTempMinRating(0);
@@ -82,6 +91,7 @@ export function FilterModal({
   const activeFiltersCount = [
     tempCategoryId,
     tempSubCategoryId,
+    tempSubSubCategoryId,
     tempMinPrice,
     tempMaxPrice,
     tempMinRating > 0,
@@ -149,7 +159,10 @@ export function FilterModal({
               {[{ _id: "", name: "All Sub-Categories" }, ...subCats].map((sc) => (
                 <TouchableOpacity
                   key={sc._id}
-                  onPress={() => setTempSubCategoryId(sc._id)}
+                  onPress={() => {
+                    setTempSubCategoryId(sc._id);
+                    if (!sc._id) setTempSubSubCategoryId("");
+                  }}
                   style={S.option}
                 >
                   <View
@@ -163,6 +176,32 @@ export function FilterModal({
                     )}
                   </View>
                   <Text style={S.optionText}>{sc.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Sub-sub-categories */}
+          {subSubCats.length > 0 && (
+            <View style={S.section}>
+              <Text style={S.sectionTitle}>Sub-Sub-Category</Text>
+              {[{ _id: "", name: "All Sub-Sub-Categories" }, ...subSubCats].map((ssc) => (
+                <TouchableOpacity
+                  key={ssc._id}
+                  onPress={() => setTempSubSubCategoryId(ssc._id)}
+                  style={S.option}
+                >
+                  <View
+                    style={[
+                      S.checkbox,
+                      tempSubSubCategoryId === ssc._id && S.checkboxActive,
+                    ]}
+                  >
+                    {tempSubSubCategoryId === ssc._id && (
+                      <Feather name="check" size={12} color="#fff" />
+                    )}
+                  </View>
+                  <Text style={S.optionText}>{ssc.name}</Text>
                 </TouchableOpacity>
               ))}
             </View>

@@ -701,22 +701,30 @@ const buildRestaurantCatalogFilter = (req, restaurantId) => {
   const tab = String(req.query.tab || "featured").toLowerCase();
   if (tab === "featured") filter.isFeatured = true;
   if (req.query.availableOnly === "true" || req.query.inStock === "true") filter.isAvailable = { $ne: false };
+  if (req.query.menuId && isObjectId(req.query.menuId)) filter.menuId = req.query.menuId;
   if (req.query.categoryId && isObjectId(req.query.categoryId)) filter.categoryId = req.query.categoryId;
   if (req.query.subCategoryId && isObjectId(req.query.subCategoryId)) filter.subCategoryId = req.query.subCategoryId;
+  if (req.query.subSubCategoryId && isObjectId(req.query.subSubCategoryId)) filter.subSubCategoryId = req.query.subSubCategoryId;
   if (req.query.minPrice) filter.price = { ...(filter.price || {}), $gte: Number(req.query.minPrice) };
   if (req.query.maxPrice) filter.price = { ...(filter.price || {}), $lte: Number(req.query.maxPrice) };
   return filter;
 };
 
 const buildRestaurantFilterMeta = async (restaurantId) => {
-  const rows = await RestaurantItem.find({ restaurantId })
-    .select("price categoryId subCategoryId")
-    .populate("categoryId subCategoryId")
-    .lean();
+  const [rows, menus] = await Promise.all([
+    RestaurantItem.find({ restaurantId })
+      .select("price categoryId subCategoryId menuId")
+      .populate("categoryId subCategoryId")
+      .lean(),
+    RestaurantMenu.find({ restaurantId }).select("_id menuName").lean(),
+  ]);
+  
   const catMap = new Map();
   const subMap = new Map();
+  const menuMap = new Map();
   let minPrice = null;
   let maxPrice = null;
+  
   rows.forEach((row) => {
     const price = Number(row.price || 0);
     if (price > 0) {
@@ -726,9 +734,15 @@ const buildRestaurantFilterMeta = async (restaurantId) => {
     if (row.categoryId?._id) catMap.set(String(row.categoryId._id), { _id: row.categoryId._id, name: row.categoryId.name });
     if (row.subCategoryId?._id) subMap.set(String(row.subCategoryId._id), { _id: row.subCategoryId._id, name: row.subCategoryId.name, parentId: row.subCategoryId.parentId });
   });
+  
+  menus.forEach((menu) => {
+    menuMap.set(String(menu._id), { _id: menu._id, name: menu.menuName });
+  });
+  
   return {
     categories: [...catMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
     subCategories: [...subMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    menus: [...menuMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
     priceRange: { min: minPrice ?? 0, max: maxPrice ?? 0 },
   };
 };

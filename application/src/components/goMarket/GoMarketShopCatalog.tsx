@@ -56,11 +56,14 @@ export function GoMarketShopCatalog({
   const [inStock, setInStock] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [subCategoryId, setSubCategoryId] = useState("");
+  const [subSubCategoryId, setSubSubCategoryId] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [minRating, setMinRating] = useState(0);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [gridColumns, setGridColumns] = useState<1 | 2>(2);
+  const [filteredSubCategories, setFilteredSubCategories] = useState<any[]>([]);
+  const [filteredSubSubCategories, setFilteredSubSubCategories] = useState<any[]>([]);
 
   const [products, setProducts] = useState<any[]>([]);
   const [filterMeta, setFilterMeta] = useState<any>(null);
@@ -113,6 +116,7 @@ export function GoMarketShopCatalog({
           ...(inStock ? { inStock: "true" } : {}),
           ...(categoryId ? { categoryId } : {}),
           ...(subCategoryId ? { subCategoryId } : {}),
+          ...(subSubCategoryId ? { subSubCategoryId } : {}),
           ...(minPrice ? { minPrice } : {}),
           ...(maxPrice ? { maxPrice } : {}),
           ...(minRating > 0 ? { minRating: String(minRating) } : {}),
@@ -132,7 +136,7 @@ export function GoMarketShopCatalog({
         setLoadingMore(false);
       }
     },
-    [shopId, apiPath, tab, sort, appliedSearch, inStock, categoryId, subCategoryId, minPrice, maxPrice, minRating, searchMode],
+    [shopId, apiPath, tab, sort, appliedSearch, inStock, categoryId, subCategoryId, subSubCategoryId, minPrice, maxPrice, minRating, searchMode],
   );
 
   useEffect(() => {
@@ -203,19 +207,39 @@ export function GoMarketShopCatalog({
   const handleApplyFilters = (filters: FilterValues) => {
     setCategoryId(filters.categoryId);
     setSubCategoryId(filters.subCategoryId);
+    setSubSubCategoryId(filters.subSubCategoryId);
     setMinPrice(filters.minPrice);
     setMaxPrice(filters.maxPrice);
     setMinRating(filters.minRating);
     setInStock(filters.inStock);
   };
 
-  const subCats = useMemo(
-    () =>
-      (filterMeta?.subCategories || []).filter(
-        (sc: any) => !categoryId || String(sc.parentId) === String(categoryId),
-      ),
-    [filterMeta, categoryId],
-  );
+  // Filter subcategories based on selected category
+  useEffect(() => {
+    if (categoryId && filterMeta?.subCategories) {
+      const filtered = filterMeta.subCategories.filter((sc: any) =>
+        String(sc.parentId) === String(categoryId) || String(sc.categoryId) === String(categoryId)
+      );
+      setFilteredSubCategories(filtered);
+      // Reset sub sub category when category changes
+      setSubSubCategoryId("");
+    } else {
+      setFilteredSubCategories(filterMeta?.subCategories || []);
+      setSubSubCategoryId("");
+    }
+  }, [categoryId, filterMeta]);
+
+  // Filter sub sub categories based on selected sub category
+  useEffect(() => {
+    if (subCategoryId && filterMeta?.subSubCategories) {
+      const filtered = filterMeta.subSubCategories.filter((ssc: any) =>
+        String(ssc.subCategoryId) === String(subCategoryId)
+      );
+      setFilteredSubSubCategories(filtered);
+    } else {
+      setFilteredSubSubCategories(filterMeta?.subSubCategories || []);
+    }
+  }, [subCategoryId, filterMeta]);
 
   const handleAddToCart = (product: any) => {
     if (!shopIsOpen) {
@@ -654,12 +678,15 @@ export function GoMarketShopCatalog({
         currentFilters={{
           categoryId,
           subCategoryId,
+          subSubCategoryId,
           minPrice,
           maxPrice,
           minRating,
           inStock,
         }}
-        subCats={subCats}
+        subCats={filteredSubCategories}
+        subSubCats={filteredSubSubCategories}
+        isRestaurant={false}
       />
       
       <AddToCartDialog

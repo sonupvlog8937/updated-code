@@ -309,16 +309,16 @@ export default function OrderDetailsScreen() {
   let displayDeliveryFee = 0;
   
   if (hasOrderFees) {
-    displayShippingFee = order?.shippingFee || 0;
-    displayDeliveryFee = order?.deliveryFee || 0;
+    displayShippingFee = Math.round(order?.shippingFee || 0);
+    displayDeliveryFee = Math.round(order?.deliveryFee || 0);
   } else if (commerceSettings.shippingFee > 0 || commerceSettings.deliveryFee > 0) {
     const freeByRule = commerceSettings.freeShippingAbove > 0 && baseAfterDiscount >= commerceSettings.freeShippingAbove;
     if (isGoMarketOrder) {
-      displayShippingFee = freeByRule ? 0 : Number(commerceSettings.goMarketShippingFee || 0);
-      displayDeliveryFee = freeByRule ? 0 : Number((commerceSettings.goMarketDeliveryFeePerKm || 0) * 3);
+      displayShippingFee = freeByRule ? 0 : Math.round(Number(commerceSettings.goMarketShippingFee || 0));
+      displayDeliveryFee = freeByRule ? 0 : Math.round(Number((commerceSettings.goMarketDeliveryFeePerKm || 0) * 3));
     } else {
-      displayShippingFee = freeByRule ? 0 : Number(commerceSettings.shippingFee || 0);
-      displayDeliveryFee = freeByRule ? 0 : Number(commerceSettings.deliveryFee || 0);
+      displayShippingFee = freeByRule ? 0 : Math.round(Number(commerceSettings.shippingFee || 0));
+      displayDeliveryFee = freeByRule ? 0 : Math.round(Number(commerceSettings.deliveryFee || 0));
     }
   }
 

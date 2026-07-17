@@ -52,8 +52,8 @@ const configs = {
     color: "#14b8a6",
     endpoint: "/api/go-market/categories",
     fields: [
-      { key: "name", label: "Category Name", type: "text", required: true },
       { key: "type", label: "Category Type", type: "select", options: ["grocery", "restaurant", "fashion", "electronics", "medical", "beauty", "home_kitchen", "gifts_toys", "books_stationery", "jewellery", "hardware", "automobile"], required: true },
+      { key: "name", label: "Category Name", type: "text", required: true },
       { key: "image", label: "Image URL", type: "url" },
       { key: "description", label: "Description", type: "textarea" },
       { key: "status", label: "Status", type: "select", options: ["active", "inactive"] },
@@ -192,7 +192,7 @@ const blankFor = (fields) =>
   }), {});
 
 /* ─── Field Input ───────────────────────────────────────────────── */
-const FieldInput = ({ field, value, onChange, parentCategoryOptions = [], parentSubcategories = [], filteredSubcategories = [], marketOptions = [], ownerOptions = [] }) => {
+const FieldInput = ({ field, value, onChange, parentCategoryOptions = [], parentSubcategories = [], filteredSubcategories = [], filteredCategories = [], marketOptions = [], ownerOptions = [], form = {} }) => {
   const base =
     "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all bg-white placeholder:text-gray-300";
 
@@ -234,15 +234,17 @@ const FieldInput = ({ field, value, onChange, parentCategoryOptions = [], parent
     );
   }
   if (field.type === "categorySelect") {
+    const optionsToUse = filteredCategories.length > 0 ? filteredCategories : parentCategoryOptions;
     return (
       <select
         className={base}
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         required={field.required}
+        disabled={!form.type}
       >
         <option value="">Select parent category</option>
-        {parentCategoryOptions.map((cat) => (
+        {optionsToUse.map((cat) => (
           <option key={cat._id} value={cat._id}>
             {cat.name}
           </option>
@@ -390,6 +392,7 @@ const GoMarketAdminPage = () => {
   const [parentCategories, setParentCategories] = useState([]);
   const [parentSubcategories, setParentSubcategories] = useState([]);
   const [filteredSubcategories, setFilteredSubcategories] = useState([]);
+  const [filteredCategories, setFilteredCategories] = useState([]);
   const [markets, setMarkets] = useState([]);
   const [owners, setOwners] = useState([]);
   const [form, setForm] = useState(blankFor(config.fields));
@@ -432,6 +435,16 @@ const GoMarketAdminPage = () => {
     if (sellerCategoryType) subUrl += `&type=${sellerCategoryType}`;
     fetchDataFromApi(subUrl).then((res) => setParentSubcategories(res?.data || []));
   }, [resource, sellerCategoryType]);
+
+  // Filter categories based on selected type
+  useEffect(() => {
+    if ((resource === "subcategories" || resource === "subsubcategories") && form.type) {
+      const filtered = parentCategories.filter(cat => cat.type === form.type);
+      setFilteredCategories(filtered);
+    } else {
+      setFilteredCategories(parentCategories);
+    }
+  }, [form.type, parentCategories, resource]);
 
   // Filter subcategories based on selected category
   useEffect(() => {
@@ -687,8 +700,10 @@ const GoMarketAdminPage = () => {
                       parentCategoryOptions={parentCategories}
                       parentSubcategories={parentSubcategories}
                       filteredSubcategories={filteredSubcategories}
+                      filteredCategories={filteredCategories}
                       marketOptions={markets}
                       ownerOptions={owners}
+                      form={form}
                     />
                   </label>
                 ))}

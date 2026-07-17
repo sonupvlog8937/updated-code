@@ -40,6 +40,7 @@ import { fetchDataFromApi, postData } from "@/src/utils/api";
 import { SortModal, SORT_OPTIONS } from "@/src/components/goMarket/SortModal";
 import { AddToCartDialog } from "@/src/components/goMarket/AddToCartDialog";
 import { CartViewDialog } from "@/src/components/goMarket/CartViewDialog";
+import { FilterModal, FilterValues } from "@/src/components/goMarket/FilterModal";
 import { getOutletBaseMinutes, getOutletDistanceEta } from "@/src/utils/geoCoords";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -371,6 +372,19 @@ export default function GoMarketRestaurantDetails() {
   const [gridColumns, setGridColumns] = useState<1 | 2>(2);
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [subCategoryId, setSubCategoryId] = useState("");
+  const [subSubCategoryId, setSubSubCategoryId] = useState("");
+  const [menuId, setMenuId] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [minRating, setMinRating] = useState(0);
+  const [inStock, setInStock] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [filterMeta, setFilterMeta] = useState<any>(null);
+  const [filteredSubCategories, setFilteredSubCategories] = useState<any[]>([]);
+  const [filteredSubSubCategories, setFilteredSubSubCategories] = useState<any[]>([]);
+  const [restaurantMenus, setRestaurantMenus] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<{
     suggestions: any[];
     recentSearches: string[];
@@ -479,8 +493,16 @@ export default function GoMarketRestaurantDetails() {
   const buildCatalogParams = useCallback((pageNum: number) => {
     const p = new URLSearchParams({ tab, limit: String(ITEMS_PER_PAGE), page: String(pageNum), ...(sort && sort !== "latest" ? { sort } : {}) });
     if (appliedSearch.trim()) p.set("q", appliedSearch.trim());
+    if (menuId) p.set("menuId", menuId);
+    if (categoryId) p.set("categoryId", categoryId);
+    if (subCategoryId) p.set("subCategoryId", subCategoryId);
+    if (subSubCategoryId) p.set("subSubCategoryId", subSubCategoryId);
+    if (minPrice) p.set("minPrice", minPrice);
+    if (maxPrice) p.set("maxPrice", maxPrice);
+    if (minRating > 0) p.set("minRating", String(minRating));
+    if (inStock) p.set("inStock", "true");
     return p;
-  }, [tab, sort, appliedSearch]);
+  }, [tab, sort, appliedSearch, menuId, categoryId, subCategoryId, subSubCategoryId, minPrice, maxPrice, minRating, inStock]);
 
   const loadCatalogPage = useCallback(async (pageNum: number) => {
     if (!id) return;
@@ -532,6 +554,47 @@ export default function GoMarketRestaurantDetails() {
   useEffect(() => {
     loadCatalogPage(1);
   }, [loadCatalogPage]);
+
+  // Fetch filter metadata (categories, subcategories, sub sub categories, menus)
+  useEffect(() => {
+    if (!id) return;
+    fetchDataFromApi(`/api/go-market/restaurants/${id}/catalog?limit=1&page=1`).then((res) => {
+      if (res?.success || res?.error === false) {
+        setFilterMeta(res.filterMeta || null);
+        // Set menus from filterMeta if available
+        if (res.filterMeta?.menus) {
+          setRestaurantMenus(res.filterMeta.menus);
+        }
+      }
+    });
+  }, [id]);
+
+  // Filter subcategories based on selected category
+  useEffect(() => {
+    if (categoryId && filterMeta?.subCategories) {
+      const filtered = filterMeta.subCategories.filter((sub: any) => 
+        String(sub.categoryId) === String(categoryId) || String(sub.parentId) === String(categoryId)
+      );
+      setFilteredSubCategories(filtered);
+      // Reset sub sub category when category changes
+      setSubSubCategoryId("");
+    } else {
+      setFilteredSubCategories(filterMeta?.subCategories || []);
+      setSubSubCategoryId("");
+    }
+  }, [categoryId, filterMeta]);
+
+  // Filter sub sub categories based on selected sub category
+  useEffect(() => {
+    if (subCategoryId && filterMeta?.subSubCategories) {
+      const filtered = filterMeta.subSubCategories.filter((subSub: any) => 
+        String(subSub.subCategoryId) === String(subCategoryId)
+      );
+      setFilteredSubSubCategories(filtered);
+    } else {
+      setFilteredSubSubCategories(filterMeta?.subSubCategories || []);
+    }
+  }, [subCategoryId, filterMeta]);
 
   useEffect(() => {
     if (!id) {
@@ -783,6 +846,27 @@ export default function GoMarketRestaurantDetails() {
     }
   };
 
+  const handleApplyFilter = (filters: FilterValues) => {
+    setCategoryId(filters.categoryId);
+    setSubCategoryId(filters.subCategoryId);
+    setSubSubCategoryId(filters.subSubCategoryId);
+    setMinPrice(filters.minPrice);
+    setMaxPrice(filters.maxPrice);
+    setMinRating(filters.minRating);
+    setInStock(filters.inStock);
+    loadCatalogPage(1);
+  };
+
+  const activeFiltersCount = [
+    categoryId,
+    subCategoryId,
+    subSubCategoryId,
+    minPrice,
+    maxPrice,
+    minRating > 0,
+    inStock,
+  ].filter(Boolean).length;
+
   const searchBorder = searchFocused.interpolate({ inputRange: [0, 1], outputRange: [C.border, C.accent] });
   const isOpen = restaurant.isOpen ?? restaurant.status === "open";
   const hoursText = restaurant.openingHours || restaurant.workingHours || null;
@@ -995,10 +1079,50 @@ export default function GoMarketRestaurantDetails() {
           }}
         />
 
+        {/* Menu Selection */}
+        {restaurantMenus.length > 0 && (
+          <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              <TouchableOpacity
+                style={[S.menuChip, !menuId && S.menuChipActive]}
+                onPress={() => {
+                  setMenuId("");
+                  loadCatalogPage(1);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[S.menuChipText, !menuId && S.menuChipTextActive]}>All Menus</Text>
+              </TouchableOpacity>
+              {restaurantMenus.map((m: any) => (
+                <TouchableOpacity
+                  key={m._id}
+                  style={[S.menuChip, menuId === m._id && S.menuChipActive]}
+                  onPress={() => {
+                    setMenuId(m._id);
+                    loadCatalogPage(1);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[S.menuChipText, menuId === m._id && S.menuChipTextActive]}>{m.name || m.menuName}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         <View style={S.controlRow}>
           <TouchableOpacity style={[S.sortChip, sort !== "latest" && S.sortChipActive]} onPress={() => setSortModalVisible(true)} activeOpacity={0.8}>
             <Text style={[S.sortChipText, sort !== "latest" && S.sortChipTextActive]}>
               ⇅ {sort === "latest" ? "Sort" : SORT_OPTIONS.find(o => o.key === sort)?.label ?? "Sort"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[S.sortChip, activeFiltersCount > 0 && S.sortChipActive]} 
+            onPress={() => setFilterModalVisible(true)} 
+            activeOpacity={0.8}
+          >
+            <Text style={[S.sortChipText, activeFiltersCount > 0 && S.sortChipTextActive]}>
+              🔍 Filter {activeFiltersCount > 0 && `(${activeFiltersCount})`}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={S.gridToggle} onPress={() => setGridColumns(gridColumns === 2 ? 1 : 2)} activeOpacity={0.8}>
@@ -1348,6 +1472,24 @@ export default function GoMarketRestaurantDetails() {
         selectedSort={sort}
         onSelect={(sortKey) => setSort(sortKey)}
         onClose={() => setSortModalVisible(false)}
+      />
+      <FilterModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        onApply={handleApplyFilter}
+        filterMeta={filterMeta}
+        currentFilters={{
+          categoryId,
+          subCategoryId,
+          subSubCategoryId,
+          minPrice,
+          maxPrice,
+          minRating,
+          inStock,
+        }}
+        subCats={filteredSubCategories}
+        subSubCats={filteredSubSubCategories}
+        isRestaurant={true}
       />
       <AddToCartDialog
         visible={cartDialogVisible}
@@ -1829,6 +1971,27 @@ const S = StyleSheet.create({
   sortChipActive: { backgroundColor: C.accent, borderColor: C.accent },
   sortChipText: { fontSize: 10, fontWeight: "700", color: C.sub },
   sortChipTextActive: { color: "#fff" },
+
+  menuChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    backgroundColor: C.surface,
+  },
+  menuChipActive: {
+    backgroundColor: C.accent,
+    borderColor: C.accent,
+  },
+  menuChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.sub,
+  },
+  menuChipTextActive: {
+    color: "#fff",
+  },
 
   sectionHead: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10, marginTop: 2 },
   sectionAccent: { width: 2.5, height: 14, borderRadius: 1.5, backgroundColor: C.accent },

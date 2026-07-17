@@ -1,12 +1,12 @@
 import React, { useContext, useEffect, useState } from "react";
 import { MyContext } from "../../App";
-import { editData, fetchDataFromApi, uploadImages } from "../../utils/api";
+import { editData, fetchDataFromApi, postData, deleteData, uploadImages } from "../../utils/api";
 import {
   FiPhone, FiMapPin, FiImage, FiFileText, FiInfo,
   FiSave, FiClock, FiExternalLink, FiEdit2, FiX,
   FiCheckCircle, FiAlertCircle, FiMail, FiShield,
   FiTruck, FiRefreshCw, FiEye, FiZap, FiAward, FiUpload,
-  FiCamera
+  FiCamera, FiPlus, FiTrash2, FiMenu
 } from "react-icons/fi";
 import { MdOutlineStore, MdOutlineShield, MdOutlineVerified } from "react-icons/md";
 import { BsStarFill, BsCheckCircleFill } from "react-icons/bs";
@@ -224,6 +224,14 @@ const GoMarketStoreProfile = () => {
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
   const [isLocating, setIsLocating] = useState(false);
+  const [menus, setMenus] = useState([]);
+  const [showMenuModal, setShowMenuModal] = useState(false);
+  const [newMenuName, setNewMenuName] = useState("");
+  const [newMenuDescription, setNewMenuDescription] = useState("");
+  const [newMenuImage, setNewMenuImage] = useState("");
+  const [newMenuImageFile, setNewMenuImageFile] = useState(null);
+  const [isAddingMenu, setIsAddingMenu] = useState(false);
+  const [isUploadingMenuImage, setIsUploadingMenuImage] = useState(false);
 
   useEffect(() => {
     const endpoint = isGoMarketSeller ? "/api/go-market/seller/grocery-shop" : "/api/go-market/seller/restaurant";
@@ -242,10 +250,17 @@ const GoMarketStoreProfile = () => {
         };
         setForm(data);
         setEditForm(data);
+        
+        // Fetch menus if restaurant seller
+        if (isRestaurantSeller && shop._id) {
+          fetchDataFromApi(`/api/go-market/menus/restaurant/${shop._id}`).then((menuRes) => {
+            setMenus(menuRes?.data || []);
+          });
+        }
       }
       setIsFetching(false);
     }).catch(() => setIsFetching(false));
-  }, [isGoMarketSeller]);
+  }, [isGoMarketSeller, isRestaurantSeller]);
 
   const onChange = (e) => {
     setEditForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -298,9 +313,91 @@ const GoMarketStoreProfile = () => {
       { 
         enableHighAccuracy: true, 
         timeout: 10000,
-        maximumAge: 0  // Always fetch fresh location, don't use cached
+        maximumAge: 0
       }
     );
+  };
+
+  const handleAddMenu = async () => {
+    if (!newMenuName.trim()) {
+      toast.error("Menu name is required");
+      return;
+    }
+    
+    setIsAddingMenu(true);
+    try {
+      const shopData = await fetchDataFromApi("/api/go-market/seller/restaurant");
+      const restaurantId = shopData?.shop?._id;
+      
+      if (!restaurantId) {
+        toast.error("Restaurant not found");
+        setIsAddingMenu(false);
+        return;
+      }
+      
+      let imageUrl = "";
+      
+      // Upload image if file is selected
+      if (newMenuImageFile) {
+        setIsUploadingMenuImage(true);
+        try {
+          const formData = new FormData();
+          formData.append("images", newMenuImageFile);
+          const uploadRes = await uploadImages("/api/category/upload-image", formData);
+          imageUrl = uploadRes?.data?.[0] || uploadRes?.images?.[0] || "";
+          setIsUploadingMenuImage(false);
+        } catch (uploadError) {
+          setIsUploadingMenuImage(false);
+          toast.error("Failed to upload image");
+          setIsAddingMenu(false);
+          return;
+        }
+      }
+      
+      const payload = {
+        restaurantId,
+        menuName: newMenuName.trim(),
+        description: newMenuDescription.trim(),
+        image: imageUrl,
+      };
+      
+      const res = await postData("/api/go-market/menus", payload);
+      if (res?.error === false || res?.success === true) {
+        toast.success("Menu created successfully!");
+        setNewMenuName("");
+        setNewMenuDescription("");
+        setNewMenuImage("");
+        setNewMenuImageFile(null);
+        setShowMenuModal(false);
+        
+        // Refresh menus
+        fetchDataFromApi(`/api/go-market/menus/restaurant/${restaurantId}`).then((menuRes) => {
+          setMenus(menuRes?.data || []);
+        });
+      } else {
+        toast.error(res?.message || "Failed to create menu");
+      }
+    } catch (error) {
+      toast.error("Failed to create menu");
+    } finally {
+      setIsAddingMenu(false);
+    }
+  };
+
+  const handleDeleteMenu = async (menuId) => {
+    if (!window.confirm("Are you sure you want to delete this menu?")) return;
+    
+    try {
+      const res = await deleteData(`/api/go-market/menus/${menuId}`);
+      if (res?.error === false || res?.success === true) {
+        toast.success("Menu deleted successfully!");
+        setMenus(menus.filter(m => m._id !== menuId));
+      } else {
+        toast.error(res?.message || "Failed to delete menu");
+      }
+    } catch (error) {
+      toast.error("Failed to delete menu");
+    }
   };
 
   const onSubmit = async (e) => {
@@ -587,37 +684,88 @@ const GoMarketStoreProfile = () => {
                 <div>
                   <label style={S.label}><FiImage size={10} />Shop Banner</label>
                   {form.shopBanner ? (
-                    <div>
-                      <img src={form.shopBanner} alt="banner" style={{ width: "100%", maxHeight: 200, borderRadius: 10, objectFit: "contain", marginBottom: 8, background: "#F8FAFC" }} />
-                      <a href={form.shopBanner} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#FF6B2B", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
-                        <FiExternalLink size={11} /> View full size
-                      </a>
-                    </div>
+                    <img src={form.shopBanner} alt="Banner" style={{ width: "100%", borderRadius: 10, maxHeight: 120, objectFit: "cover" }} />
                   ) : (
-                    <div style={{ padding: 20, borderRadius: 10, background: "#F8FAFC", border: "1px dashed #E2E8F0", textAlign: "center", color: "#94A3B8" }}>
-                      No banner uploaded
-                    </div>
+                    <div style={{ ...S.viewValue, justifyContent: "center", color: "#94A3B8" }}>No banner uploaded</div>
                   )}
                 </div>
-
                 <div>
                   <label style={S.label}><FiImage size={10} />Shop Logo</label>
                   {form.shopLogo ? (
-                    <div>
-                      <img src={form.shopLogo} alt="logo" style={{ maxWidth: 150, maxHeight: 150, borderRadius: 10, objectFit: "contain", marginBottom: 8, background: "#F8FAFC" }} />
-                      <a href={form.shopLogo} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#FF6B2B", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
-                        <FiExternalLink size={11} /> View full size
-                      </a>
-                    </div>
+                    <img src={form.shopLogo} alt="Logo" style={{ width: 80, height: 80, borderRadius: 10, objectFit: "cover" }} />
                   ) : (
-                    <div style={{ width: "100%", minHeight: 150, borderRadius: 10, background: "#F8FAFC", border: "1px dashed #E2E8F0", display: "flex", alignItems: "center", justifyContent: "center", color: "#94A3B8", fontSize: 12, textAlign: "center" }}>
-                      No logo
-                    </div>
+                    <div style={{ ...S.viewValue, justifyContent: "center", color: "#94A3B8" }}>No logo uploaded</div>
                   )}
                 </div>
               </div>
             )}
           </div>
+
+          {/* Menu Management Card - Restaurant Only */}
+          {isRestaurantSeller && (
+            <div style={{ ...S.card, padding: 24, marginBottom: 24 }} className="card-hover">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22, paddingBottom: 16, borderBottom: "1px solid #F1F5F9" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 9, background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <FiMenu size={15} color="#8B5CF6" />
+                  </div>
+                  <div>
+                    <h2 style={{ fontSize: 14, fontWeight: 700, color: "#0F172A" }}>Menu Management</h2>
+                    <p style={{ fontSize: 12, color: "#94A3B8" }}>Create and manage restaurant menus</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMenuModal(true)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+                    background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)",
+                    borderRadius: 10, fontSize: 12, fontWeight: 700, color: "#8B5CF6",
+                    cursor: "pointer", transition: "all 0.2s", fontFamily: "'Outfit', sans-serif",
+                  }}
+                >
+                  <FiPlus size={12} /> Add Menu
+                </button>
+              </div>
+
+              {menus.length === 0 ? (
+                <div style={{ padding: 32, textAlign: "center", background: "#F8FAFC", borderRadius: 10 }}>
+                  <FiMenu size={32} color="#CBD5E1" style={{ marginBottom: 12 }} />
+                  <p style={{ fontSize: 13, color: "#64748B", marginBottom: 0 }}>No menus created yet</p>
+                  <p style={{ fontSize: 11, color: "#94A3B8" }}>Create menus to organize your dishes</p>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
+                  {menus.map((menu) => (
+                    <div key={menu._id} style={{
+                      border: "1px solid #E2E8F0", borderRadius: 12, padding: 16,
+                      background: "#F8FAFC", transition: "all 0.2s",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
+                        <h3 style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", margin: 0 }}>{menu.menuName}</h3>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMenu(menu._id)}
+                          style={{
+                            padding: 4, background: "rgba(239,68,68,0.1)", border: "none",
+                            borderRadius: 6, cursor: "pointer", color: "#EF4444",
+                          }}
+                        >
+                          <FiTrash2 size={12} />
+                        </button>
+                      </div>
+                      {menu.description && (
+                        <p style={{ fontSize: 11, color: "#64748B", margin: "0 0 8px 0", lineHeight: 1.4 }}>{menu.description}</p>
+                      )}
+                      {menu.image && (
+                        <img src={menu.image} alt={menu.menuName} style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 8 }} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Save Button */}
           <div style={{ marginTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", ...S.card }}>
@@ -675,6 +823,158 @@ const GoMarketStoreProfile = () => {
             )}
           </div>
         </form>
+
+        {/* Add Menu Modal */}
+        {showMenuModal && (
+          <div style={{
+            position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+            background: "rgba(0,0,0,0.5)", zIndex: 1000,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <div style={{
+              background: "#fff", borderRadius: 16, padding: 24,
+              width: "100%", maxWidth: 480, maxHeight: "90vh",
+              overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0F172A", margin: 0 }}>Create New Menu</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowMenuModal(false)}
+                  style={{ padding: 8, background: "#F1F5F9", border: "none", borderRadius: 8, cursor: "pointer" }}
+                >
+                  <FiX size={16} color="#64748B" />
+                </button>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={S.label}><FiMenu size={10} />Menu Name *</label>
+                <input
+                  value={newMenuName}
+                  onChange={(e) => setNewMenuName(e.target.value)}
+                  placeholder="e.g. Breakfast Menu, Lunch Specials"
+                  style={S.input(false)}
+                />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={S.label}><FiFileText size={10} />Description</label>
+                <textarea
+                  value={newMenuDescription}
+                  onChange={(e) => setNewMenuDescription(e.target.value)}
+                  placeholder="Describe this menu..."
+                  rows={3}
+                  style={S.textarea(false)}
+                />
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={S.label}><FiImage size={10} />Menu Image</label>
+                <div style={{
+                  border: "2px dashed #E2E8F0",
+                  borderRadius: 10,
+                  padding: 16,
+                  textAlign: "center",
+                  background: "#F8FAFC",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#8B5CF6"; e.currentTarget.style.background = "rgba(139,92,246,0.02)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#E2E8F0"; e.currentTarget.style.background = "#F8FAFC"; }}
+                onClick={() => document.getElementById('menuImageInput')?.click()}>
+                  
+                  {newMenuImageFile ? (
+                    <>
+                      <img src={URL.createObjectURL(newMenuImageFile)} alt="Preview" style={{
+                        maxWidth: "100%", maxHeight: 120, borderRadius: 8, marginBottom: 12
+                      }} />
+                      <p style={{ fontSize: 12, color: "#8B5CF6", fontWeight: 600, marginBottom: 8 }}>
+                        Image selected
+                      </p>
+                      <button type="button" onClick={(e) => {
+                        e.stopPropagation();
+                        setNewMenuImageFile(null);
+                        const input = document.getElementById('menuImageInput');
+                        if (input) input.value = "";
+                      }} style={{
+                        fontSize: 12, color: "#EF4444", textDecoration: "underline", background: "none", border: "none", cursor: "pointer"
+                      }}>
+                        Remove image
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <FiUpload size={28} style={{ margin: "0 auto 8px", color: "#94A3B8" }} />
+                      <p style={{ fontSize: 13, fontWeight: 600, color: "#0F172A", marginBottom: 4 }}>
+                        Click or drag image here
+                      </p>
+                      <p style={{ fontSize: 11, color: "#94A3B8" }}>
+                        Any image format • Up to 50MB
+                      </p>
+                    </>
+                  )}
+
+                  <input
+                    id="menuImageInput"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (!file.type.startsWith("image/")) {
+                          toast.error("Please select an image file");
+                          return;
+                        }
+                        if (file.size > 50 * 1024 * 1024) {
+                          toast.error("File size must be less than 50MB");
+                          return;
+                        }
+                        setNewMenuImageFile(file);
+                      }
+                    }}
+                    disabled={isUploadingMenuImage}
+                    style={{ display: "none" }}
+                  />
+                </div>
+                {isUploadingMenuImage && (
+                  <p style={{ fontSize: 11, color: "#8B5CF6", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ width: 12, height: 12, border: "2px solid #E2E8F0", borderTopColor: "#8B5CF6", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                    Uploading image...
+                  </p>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowMenuModal(false)}
+                  style={{
+                    flex: 1, padding: "10px 18px", borderRadius: 10,
+                    background: "#F1F5F9", border: "1px solid #E2E8F0",
+                    color: "#64748B", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                    fontFamily: "'Outfit', sans-serif",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddMenu}
+                  disabled={isAddingMenu}
+                  style={{
+                    flex: 1, padding: "10px 18px", borderRadius: 10,
+                    background: isAddingMenu ? "#F1F5F9" : "linear-gradient(135deg, #8B5CF6, #A78BFA)",
+                    border: "none", color: isAddingMenu ? "#94A3B8" : "#fff",
+                    fontSize: 13, fontWeight: 700, cursor: isAddingMenu ? "not-allowed" : "pointer",
+                    fontFamily: "'Outfit', sans-serif",
+                  }}
+                >
+                  {isAddingMenu ? "Creating..." : "Create Menu"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
