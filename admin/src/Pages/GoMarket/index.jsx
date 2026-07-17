@@ -193,6 +193,14 @@ const blankFor = (fields) =>
     [f.key]: f.type === "toggle" ? true : f.type === "select" ? (f.options?.[0] ?? "") : "",
   }), {});
 
+  const getRefId = (value) => {
+  if (!value) return "";
+  if (typeof value === "object") return value._id || value.id || "";
+  return value;
+};
+
+const sameId = (left, right) => String(getRefId(left)) === String(getRefId(right));
+
 /* ─── Field Input ───────────────────────────────────────────────── */
 const FieldInput = ({ field, value, onChange, parentCategoryOptions = [], parentSubcategories = [], filteredSubcategories = [], filteredCategories = [], marketOptions = [], ownerOptions = [], form = {} }) => {
   const base =
@@ -443,7 +451,7 @@ const GoMarketAdminPage = () => {
     if ((resource === "subcategories" || resource === "subsubcategories") && form.type) {
       const filtered = parentCategories.filter(cat => cat.type === form.type);
       setFilteredCategories(filtered);
-      if (form.categoryId && !filtered.some((cat) => String(cat._id) === String(form.categoryId))) {
+      if (form.categoryId && !filtered.some((cat) => sameId(cat._id, form.categoryId))) {
         setForm((prev) => ({ ...prev, categoryId: "", subCategoryId: "" }));
       }
     } else {
@@ -455,10 +463,10 @@ const GoMarketAdminPage = () => {
   useEffect(() => {
     if (resource === "subsubcategories" && form.categoryId) {
       const filtered = parentSubcategories.filter(sub => 
-        String(sub.categoryId) === String(form.categoryId) || String(sub.parentId) === String(form.categoryId)
+        sameId(sub.categoryId, form.categoryId) || sameId(sub.parentId, form.categoryId)
       );
       setFilteredSubcategories(filtered);
-      if (form.subCategoryId && !filtered.some((sub) => String(sub._id) === String(form.subCategoryId))) {
+      if (form.subCategoryId && !filtered.some((sub) => sameId(sub._id, form.subCategoryId))) {
         setForm((prev) => ({ ...prev, subCategoryId: "" }));
       }
     } else {
