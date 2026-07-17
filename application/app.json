@@ -25,8 +25,9 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.zeedaddy.app",
-      "versionCode": 28,
+      "versionCode": 29,
       "permissions": [
+        "android.permission.INTERNET",
         "android.permission.INTERNET"
       ]
     },
@@ -59,6 +60,12 @@
         "projectId": "d12aec82-4eb9-4015-8c5b-94c03e95ff25"
       }
     },
-    "owner": "sonuee15x"
+    "owner": "sonuee15x",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d12aec82-4eb9-4015-8c5b-94c03e95ff25"
+    }
   }
 }

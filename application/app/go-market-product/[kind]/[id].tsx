@@ -252,6 +252,12 @@ export default function GoMarketProductScreen() {
         countInStock: product.countInStock ?? product.stock ?? 0,
         rating: data?.averageRating || product.rating,
         brand: product.brand,
+        source: `gomarket-${kind}`,
+        goMarketKind: kind,
+        shopId: product.shopId || data?.shop?._id || data?.groceryShop?._id || "",
+        restaurantId: product.restaurantId || data?.restaurant?._id || "",
+        marketId: product.marketId || shopData?.marketId || "",
+        sellerId: product.sellerId || null,
         selectedOptions,
       }
     : null;
@@ -317,6 +323,11 @@ export default function GoMarketProductScreen() {
       quantity: qty,
       subTotal: displayPrice * qty,
       selectedOptions,
+      source: `gomarket-${kind}`,
+      goMarketKind: kind,
+      shopId: product.shopId || data?.shop?._id || data?.groceryShop?._id || "",
+      restaurantId: product.restaurantId || data?.restaurant?._id || "",
+      marketId: product.marketId || shopData?.marketId || "",
       sellerId: product.sellerId || null,
     };
     router.push({ pathname: "/checkout", params: { isBuyNow: "true", buyNowItem: JSON.stringify(buyNowItem) } } as never);

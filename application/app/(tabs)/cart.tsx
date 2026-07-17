@@ -24,6 +24,7 @@ import { useAppDispatch, useAppSelector } from "@/src/store";
 import { CartItem, fetchCartItems, setCartData } from "@/src/store/appSlice";
 import { deleteData, fetchDataFromApi, postData, putData } from "@/src/utils/api";
 import { showToast } from "@/src/utils/toast";
+import { isGoMarketItem } from "@/src/utils/goMarketPricing";
 
 const { width } = Dimensions.get("window");
 const IS_SMALL = width < 375;
@@ -370,7 +371,6 @@ export default function CartScreen() {
 
   const [busy, setBusy] = useState<string | null>(null);
   const [commerceSettings, setCommerceSettings] = useState<any>({ shippingFee: 0, deliveryFee: 0, freeShippingAbove: 0, goMarketShippingFee: 0, goMarketDeliveryFeePerKm: 0 });
-  const [isFirstOrder, setIsFirstOrder] = useState(false);
   const [distanceKm, setDistanceKm] = useState(0);
   const [distanceCalculated, setDistanceCalculated] = useState(false);
 
@@ -391,20 +391,6 @@ export default function CartScreen() {
       });
   }, []);
 
-  // Check if user has any previous orders
-  useEffect(() => {
-    if (userData?._id) {
-      fetchDataFromApi(`/api/order/order-list/orders`)
-        .then((res) => {
-          console.log("✅ First Order Check - Response:", res);
-          setIsFirstOrder(res?.total === 0 || res?.data?.length === 0);
-        })
-        .catch((err) => {
-          console.error("❌ First Order Check Failed:", err);
-          setIsFirstOrder(false);
-        });
-    }
-  }, [userData]);
 
   const subTotal = useMemo(
     () => cartData.reduce((sum, c) => sum + c.price * c.quantity, 0),
@@ -423,35 +409,28 @@ export default function CartScreen() {
   const itemDiscount = Math.max(0, oldTotal - subTotal);
   
   // Separate Go Market and non-Go Market items
-  const goMarketItems = cartData.filter((item: any) => {
-    const source = String(item?.source || "").toLowerCase();
-    const brand = String(item?.brand || "").toLowerCase();
-    const isGoMarketSeller = item?.sellerId?.storeProfile?.marketId != null || 
-                             item?.sellerId?.storeProfile?.goMarketOwnerId != null;
-    return source.includes("gomarket") || brand.includes("gomarket") || isGoMarketSeller;
-  });
+  const goMarketItems = cartData.filter(isGoMarketItem);
   
-  const nonGoMarketItems = cartData.filter((item: any) => {
-    const source = String(item?.source || "").toLowerCase();
-    const brand = String(item?.brand || "").toLowerCase();
-    const isGoMarketSeller = item?.sellerId?.storeProfile?.marketId != null || 
-                             item?.sellerId?.storeProfile?.goMarketOwnerId != null;
-    return !source.includes("gomarket") && !brand.includes("gomarket") && !isGoMarketSeller;
-  });
+  const nonGoMarketItems = cartData.filter((item: any) => !isGoMarketItem(item));
   
   const hasGoMarketItems = goMarketItems.length > 0;
   const hasNonGoMarketItems = nonGoMarketItems.length > 0;
   
-  // Calculate distance for Go Market delivery fees
+  const distanceRequestLocation = useMemo(() => {
+    const goMarketLocation = (userData as any)?.goMarketLocation || null;
+    if (goMarketLocation?.coordinates?.length) return goMarketLocation;
+
+    const defaultAddress = (userData as any)?.address_details?.[0] || null;
+    return defaultAddress?.latitude && defaultAddress?.longitude
+      ? { lat: defaultAddress.latitude, lng: defaultAddress.longitude }
+      : null;
+  }, [userData]);
+
+  // Calculate distance for Go Market delivery fees. The API can also fall back
+  // to the user's saved Go Market location, so call it even when the app state
+  // has not hydrated goMarketLocation yet.
   useEffect(() => {
     if (!hasGoMarketItems) {
-      setDistanceKm(0);
-      setDistanceCalculated(false);
-      return;
-    }
-    
-    const userLocation = (userData as any)?.goMarketLocation || null;
-    if (!userLocation?.coordinates?.length) {
       setDistanceKm(0);
       setDistanceCalculated(false);
       return;
@@ -461,34 +440,37 @@ export default function CartScreen() {
     postData("/api/order/go-market-distance", {
       userId: userData?._id,
       products: goMarketItems,
-      userLocation,
+      userLocation: distanceRequestLocation,
     }).then((res: any) => {
       if (cancelled) return;
       const nextDistance = Number(res?.data?.distanceKm || 0);
       setDistanceKm(Number.isFinite(nextDistance) ? nextDistance : 0);
       setDistanceCalculated(Boolean(nextDistance > 0));
     }).catch(() => {
-      if (!cancelled) setDistanceCalculated(false);
+      if (!cancelled) {
+        setDistanceKm(0);
+        setDistanceCalculated(false);
+      }
     });
 
     return () => { cancelled = true; };
-  }, [hasGoMarketItems, goMarketItems, (userData as any)?.goMarketLocation, userData?._id]);
+  }, [hasGoMarketItems, goMarketItems, distanceRequestLocation, userData?._id]);
   
   const freeByRule = commerceSettings.freeShippingAbove > 0 && subTotal >= commerceSettings.freeShippingAbove;
   
-  // Calculate Go Market fees
-  const goMarketShipping = (hasGoMarketItems && !isFirstOrder && !freeByRule) 
+  /// Calculate fees like the client cart: Go Market uses flat shipping + per-km
+  // delivery, regular products use normal shipping + normal delivery.
+  const goMarketShipping = (hasGoMarketItems && !freeByRule) 
     ? Math.round(Number(commerceSettings.goMarketShippingFee || 0))
     : 0;
-  const goMarketDelivery = (hasGoMarketItems && !isFirstOrder && !freeByRule) 
+  const goMarketDelivery = (hasGoMarketItems && !freeByRule)
     ? Math.round(Number((commerceSettings.goMarketDeliveryFeePerKm || 0) * distanceKm))
     : 0;
   
-  // Calculate normal fees
-  const normalShipping = (hasNonGoMarketItems && !isFirstOrder && !freeByRule) 
+  const normalShipping = (hasNonGoMarketItems && !freeByRule) 
     ? Math.round(Number(commerceSettings.shippingFee || 0))
     : 0;
-  const normalDelivery = (hasNonGoMarketItems && !isFirstOrder && !freeByRule) 
+  const normalDelivery = (hasNonGoMarketItems && !freeByRule) 
     ? Math.round(Number(commerceSettings.deliveryFee || 0))
     : 0;
   

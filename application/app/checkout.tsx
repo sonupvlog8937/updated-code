@@ -27,6 +27,7 @@ import { useAppDispatch, useAppSelector } from "@/src/store";
 import { fetchCartItems, UserAddress } from "@/src/store/appSlice";
 import { deleteData, fetchDataFromApi, postData } from "@/src/utils/api";
 import { showToast } from "@/src/utils/toast";
+import { isGoMarketItem } from "@/src/utils/goMarketPricing";
 
 if (
   Platform.OS === "android" &&
@@ -1249,21 +1250,9 @@ export default function CheckoutScreen() {
   const baseAfterDiscount = Math.max(subTotal - discount, 0);
   
   // Separate Go Market and non-Go Market items
-  const goMarketItems = checkoutItems.filter((item: any) => {
-    const source = String(item?.source || "").toLowerCase();
-    const brand = String(item?.brand || "").toLowerCase();
-    const isGoMarketSeller = item?.sellerId?.storeProfile?.marketId != null || 
-                             item?.sellerId?.storeProfile?.goMarketOwnerId != null;
-    return source.includes("gomarket") || brand.includes("gomarket") || isGoMarketSeller;
-  });
+  const goMarketItems = checkoutItems.filter(isGoMarketItem);
   
-  const nonGoMarketItems = checkoutItems.filter((item: any) => {
-    const source = String(item?.source || "").toLowerCase();
-    const brand = String(item?.brand || "").toLowerCase();
-    const isGoMarketSeller = item?.sellerId?.storeProfile?.marketId != null || 
-                             item?.sellerId?.storeProfile?.goMarketOwnerId != null;
-    return !source.includes("gomarket") && !brand.includes("gomarket") && !isGoMarketSeller;
-  });
+  const nonGoMarketItems = checkoutItems.filter((item: any) => !isGoMarketItem(item));
   
   const hasGoMarketItems = goMarketItems.length > 0;
   const hasNonGoMarketItems = nonGoMarketItems.length > 0;
@@ -1333,8 +1322,20 @@ export default function CheckoutScreen() {
     }
   }, [hasGoMarketItems, hasNonGoMarketItems, goMarketShipping, goMarketDelivery, normalShipping, normalDelivery, distanceKm, baseAfterDiscount, isFirstOrder, freeByRule]);
 
+  const distanceRequestLocation = useMemo(() => {
+    const goMarketLocation = (userData as any)?.goMarketLocation || null;
+    if (goMarketLocation?.coordinates?.length) return goMarketLocation;
+
+    const selectedAddress = userData?.address_details?.find((addr: any) => addr?._id === selectedAddrId) || defaultAddr || null;
+    return selectedAddress?.latitude && selectedAddress?.longitude
+      ? { lat: selectedAddress.latitude, lng: selectedAddress.longitude }
+      : null;
+  }, [defaultAddr, selectedAddrId, userData]);
+
   // Calculate dynamic Go Market distance on the server so old cart items can
   // fall back to seller/market coordinates instead of showing a static distance.
+  // The API can also fall back to the user's saved Go Market location, so call
+  // it even when the app state has not hydrated goMarketLocation yet.
   useEffect(() => {
     
     if (!hasGoMarketItems) {
@@ -1343,29 +1344,27 @@ export default function CheckoutScreen() {
       return;
     }
     
-    const userLocation = (userData as any)?.goMarketLocation || null;
-    if (!userLocation?.coordinates?.length) {
-      setDistanceKm(0);
-      setDistanceCalculated(false);
-      return;
-    }
+    
     
     let cancelled = false;
     postData("/api/order/go-market-distance", {
       userId: userData?._id,
       products: goMarketItems,
-      userLocation,
+      userLocation: distanceRequestLocation,
     }).then((res: any) => {
       if (cancelled) return;
       const nextDistance = Number(res?.data?.distanceKm || 0);
       setDistanceKm(Number.isFinite(nextDistance) ? nextDistance : 0);
       setDistanceCalculated(Boolean(nextDistance > 0));
     }).catch(() => {
-      if (!cancelled) setDistanceCalculated(false);
+      if (!cancelled) {
+        setDistanceKm(0);
+        setDistanceCalculated(false);
+      }
     });
 
     return () => { cancelled = true; };
-  }, [hasGoMarketItems, goMarketItems, (userData as any)?.goMarketLocation, userData?._id]);
+  }, [hasGoMarketItems, goMarketItems, distanceRequestLocation, userData?._id]);
 
   const removeCoupon = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);

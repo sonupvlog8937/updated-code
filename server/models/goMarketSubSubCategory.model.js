@@ -1,15 +1,15 @@
 import mongoose from "mongoose";
 
-const goMarketSubCategorySchema = new mongoose.Schema({
+const goMarketSubSubCategorySchema = new mongoose.Schema({
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "GoMarketCategory",
     required: true,
     index: true,
   },
-  parentId: {
+  subCategoryId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "GoMarketCategory",
+    ref: "GoMarketSubCategory",
     required: true,
     index: true,
   },
@@ -25,6 +25,6 @@ const goMarketSubCategorySchema = new mongoose.Schema({
   status: { type: String, enum: ["active", "inactive"], default: "active", index: true },
 }, { timestamps: true });
 
-goMarketSubCategorySchema.index({ name: 1, categoryId: 1 }, { unique: true });
+goMarketSubSubCategorySchema.index({ name: 1, subCategoryId: 1 }, { unique: true });
 
-export default mongoose.model("GoMarketSubCategory", goMarketSubCategorySchema);
+export default mongoose.model("GoMarketSubSubCategory", goMarketSubSubCategorySchema);

@@ -6,6 +6,7 @@ import RestaurantMenu from "../models/restaurantMenu.model.js";
 import RestaurantItem from "../models/restaurantItem.model.js";
 import GoMarketCategory from "../models/goMarketCategory.model.js";
 import GoMarketSubCategory from "../models/goMarketSubCategory.model.js";
+import GoMarketSubSubCategory from "../models/goMarketSubSubCategory.model.js";
 import ReviewModel from "../models/reviews.model.js";
 import {
   bumpGroceryShopProductCount,
@@ -33,6 +34,7 @@ const requiredFields = {
   items: ["restaurantId", "menuId", "itemName", "price"],
   categories: ["name", "type"],
   subcategories: ["parentId", "name", "type"],
+  subsubcategories: ["categoryId", "subCategoryId", "name", "type"],
 };
 
 const GO_MARKET_SHOP_SELLER_ROLES = ["GROCERY_SELLER", "FASHION_SELLER", "ELECTRONICS_SELLER", "MEDICAL_SELLER", "BEAUTY_SELLER", "HOME_KITCHEN_SELLER", "GIFTS_TOYS_SELLER", "BOOKS_STATIONERY_SELLER", "JEWELLERY_SELLER", "HARDWARE_SELLER", "AUTOMOBILE_SELLER"];

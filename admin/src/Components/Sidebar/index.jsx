@@ -217,7 +217,8 @@ const Sidebar = () => {
               <CollapseGroup groupKey="goMarket" icon={IoStorefrontOutline} label="Go Market">
                 <SubItem to="/go-market/markets" label="Manage Markets" />
                 <SubItem to="/go-market/categories" label="Categories" />
-                <SubItem to="/go-market/subcategories" label="Sub Categories" />
+                <SubItem to="/go-market/subcategories" label="Parent Categories" />
+                <SubItem to="/go-market/subsubcategories" label="Sub Sub Categories" />
                 <SubItem to="/go-market/grocery-shops" label="Grocery Shops" />
                 <SubItem to="/go-market/restaurants" label="Restaurants" />
                 <SubItem to="/go-market/products" label="Grocery Products" />

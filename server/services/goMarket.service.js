@@ -8,6 +8,7 @@ import RestaurantMenu from "../models/restaurantMenu.model.js";
 import RestaurantItem from "../models/restaurantItem.model.js";
 import GoMarketCategory from "../models/goMarketCategory.model.js";
 import GoMarketSubCategory from "../models/goMarketSubCategory.model.js";
+import GoMarketSubSubCategory from "../models/goMarketSubSubCategory.model.js";
 import { haversineKm as geoHaversineKm } from "../utils/geoCoords.js";
 
 export const resources = {
@@ -20,6 +21,7 @@ export const resources = {
   items: { model: RestaurantItem, label: "Restaurant item", searchFields: ["itemName", "description", "title", "keywords", "tags", "searchKeywords", "seoDescription", "attributes"], populate: "restaurantId menuId categoryId" },
   categories: { model: GoMarketCategory, label: "Go Market category", searchFields: ["name", "description"] },
   subcategories: { model: GoMarketSubCategory, label: "Go Market sub category", searchFields: ["name", "description"], populate: "parentId" },
+  subsubcategories: { model: GoMarketSubSubCategory, label: "Go Market sub sub category", searchFields: ["name", "description"], populate: "categoryId subCategoryId" },
 };
 
 export const isObjectId = (id) => mongoose.Types.ObjectId.isValid(id);

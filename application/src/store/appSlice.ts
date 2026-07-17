@@ -44,7 +44,13 @@ export interface Product {
   weight?: string;
   ram?: string;
   color?: string;
-  sellerId?: string;
+  sellerId?: any;
+  source?: string;
+  goMarketSource?: string;
+  goMarketKind?: string;
+  shopId?: string;
+  restaurantId?: string;
+  marketId?: string;
   soldCount?: number;
   selectedOptions?: Record<string, string>;
 }
@@ -76,6 +82,12 @@ export interface CartItem {
   ram?: string;
   color?: string;
   userId?: string;
+  source?: string;
+  goMarketKind?: string;
+  shopId?: string;
+  restaurantId?: string;
+  marketId?: string;
+  sellerId?: any;
 }
 
 export interface MyListItem {
@@ -263,6 +275,12 @@ export const addToCart = createAsyncThunk(
       ram: product?.ram,
       color: product?.color,
       selectedOptions: product?.selectedOptions || {},
+      source: product?.source || product?.goMarketSource || "",
+      goMarketKind: product?.goMarketKind || "",
+      shopId: product?.shopId || "",
+      restaurantId: product?.restaurantId || "",
+      marketId: product?.marketId || "",
+      sellerId: product?.sellerId || null,
     };
     const res = await postData("/api/cart/add", data);
     if (res?.error === false) {

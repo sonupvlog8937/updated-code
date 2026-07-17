@@ -60,15 +60,31 @@ const configs = {
     ],
   },
   subcategories: {
-    title: "Go Market Sub Categories",
-    subtitle: "Admin only — linked to a parent category or subcategory",
+    title: "Go Market Parent Categories",
+    subtitle: "Admin only — linked to a parent category",
     icon: MdCategory,
     color: "#0d9488",
     endpoint: "/api/go-market/subcategories",
     fields: [
-      { key: "parentId", label: "Parent Category / Subcategory", type: "parentCategory", required: true },
-      { key: "name", label: "Sub Category Name", type: "text", required: true },
       { key: "type", label: "Category Type", type: "select", options: ["grocery", "restaurant", "fashion", "electronics", "medical", "beauty", "home_kitchen", "gifts_toys", "books_stationery", "jewellery", "hardware", "automobile"], required: true },
+      { key: "categoryId", label: "Parent Category", type: "categorySelect", required: true },
+      { key: "name", label: "Sub Category Name", type: "text", required: true },
+      { key: "image", label: "Image URL", type: "url" },
+      { key: "description", label: "Description", type: "textarea" },
+      { key: "status", label: "Status", type: "select", options: ["active", "inactive"] },
+    ],
+  },
+  subsubcategories: {
+    title: "Go Market Sub Sub Categories",
+    subtitle: "Admin only — linked to a parent subcategory",
+    icon: MdCategory,
+    color: "#0f766e",
+    endpoint: "/api/go-market/subsubcategories",
+    fields: [
+      { key: "type", label: "Category Type", type: "select", options: ["grocery", "restaurant", "fashion", "electronics", "medical", "beauty", "home_kitchen", "gifts_toys", "books_stationery", "jewellery", "hardware", "automobile"], required: true },
+      { key: "categoryId", label: "Parent Category", type: "categorySelect", required: true },
+      { key: "subCategoryId", label: "Parent Sub Category", type: "subcategorySelect", required: true },
+      { key: "name", label: "Sub Sub Category Name", type: "text", required: true },
       { key: "image", label: "Image URL", type: "url" },
       { key: "description", label: "Description", type: "textarea" },
       { key: "status", label: "Status", type: "select", options: ["active", "inactive"] },
@@ -176,7 +192,7 @@ const blankFor = (fields) =>
   }), {});
 
 /* ─── Field Input ───────────────────────────────────────────────── */
-const FieldInput = ({ field, value, onChange, parentCategoryOptions = [], marketOptions = [], ownerOptions = [] }) => {
+const FieldInput = ({ field, value, onChange, parentCategoryOptions = [], parentSubcategories = [], filteredSubcategories = [], marketOptions = [], ownerOptions = [] }) => {
   const base =
     "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all bg-white placeholder:text-gray-300";
 
@@ -212,6 +228,42 @@ const FieldInput = ({ field, value, onChange, parentCategoryOptions = [], market
         {ownerOptions.map((owner) => (
           <option key={owner._id} value={owner._id}>
             {owner.name} ({owner.email})
+          </option>
+        ))}
+      </select>
+    );
+  }
+  if (field.type === "categorySelect") {
+    return (
+      <select
+        className={base}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        required={field.required}
+      >
+        <option value="">Select parent category</option>
+        {parentCategoryOptions.map((cat) => (
+          <option key={cat._id} value={cat._id}>
+            {cat.name}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  if (field.type === "subcategorySelect") {
+    const optionsToUse = filteredSubcategories.length > 0 ? filteredSubcategories : parentSubcategories;
+    return (
+      <select
+        className={base}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        required={field.required}
+        disabled={!form.categoryId}
+      >
+        <option value="">Select parent sub category</option>
+        {optionsToUse.map((sub) => (
+          <option key={sub._id} value={sub._id}>
+            {sub.name}
           </option>
         ))}
       </select>
@@ -337,6 +389,7 @@ const GoMarketAdminPage = () => {
   const [rows, setRows] = useState([]);
   const [parentCategories, setParentCategories] = useState([]);
   const [parentSubcategories, setParentSubcategories] = useState([]);
+  const [filteredSubcategories, setFilteredSubcategories] = useState([]);
   const [markets, setMarkets] = useState([]);
   const [owners, setOwners] = useState([]);
   const [form, setForm] = useState(blankFor(config.fields));
@@ -370,7 +423,7 @@ const GoMarketAdminPage = () => {
   }, [config.endpoint, page, search, resource, sellerCategoryType]);
 
   useEffect(() => {
-    if (resource !== "subcategories") return;
+    if (resource !== "subcategories" && resource !== "subsubcategories") return;
     let url = "/api/go-market/categories?limit=100&status=active";
     if (sellerCategoryType) url += `&type=${sellerCategoryType}`;
     fetchDataFromApi(url).then((res) => setParentCategories(res?.data || []));
@@ -379,6 +432,18 @@ const GoMarketAdminPage = () => {
     if (sellerCategoryType) subUrl += `&type=${sellerCategoryType}`;
     fetchDataFromApi(subUrl).then((res) => setParentSubcategories(res?.data || []));
   }, [resource, sellerCategoryType]);
+
+  // Filter subcategories based on selected category
+  useEffect(() => {
+    if (resource === "subsubcategories" && form.categoryId) {
+      const filtered = parentSubcategories.filter(sub => 
+        String(sub.parentId) === String(form.categoryId)
+      );
+      setFilteredSubcategories(filtered);
+    } else {
+      setFilteredSubcategories(parentSubcategories);
+    }
+  }, [form.categoryId, parentSubcategories, resource]);
 
   useEffect(() => {
     if (resource !== "grocery-shops" && resource !== "restaurants") return;
@@ -416,8 +481,21 @@ const GoMarketAdminPage = () => {
     if (resource === "subcategories" && sellerCategoryType) {
       payload.type = sellerCategoryType;
     }
+    // For subcategories, map categoryId to parentId for backend compatibility
     if (resource === "subcategories") {
-      payload.parentModel = form.parentModel || "GoMarketCategory";
+      if (payload.categoryId) {
+        payload.parentId = payload.categoryId;
+        delete payload.categoryId;
+      }
+      payload.parentModel = "GoMarketCategory";
+    }
+    // For subsubcategories, ensure both categoryId and subCategoryId are set
+    if (resource === "subsubcategories") {
+      if (!payload.categoryId || !payload.subCategoryId) {
+        toast.error("Please select both parent category and sub category");
+        setSaving(false);
+        return;
+      }
     }
     const res = editingId
       ? await editData(`${config.endpoint}/${editingId}`, payload)
@@ -606,7 +684,9 @@ const GoMarketAdminPage = () => {
                       field={field}
                       value={form[field.key]}
                       onChange={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
-                      parentCategoryOptions={resource === "subcategories" ? [...parentCategories, ...parentSubcategories] : parentCategories}
+                      parentCategoryOptions={parentCategories}
+                      parentSubcategories={parentSubcategories}
+                      filteredSubcategories={filteredSubcategories}
                       marketOptions={markets}
                       ownerOptions={owners}
                     />
