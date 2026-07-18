@@ -182,6 +182,7 @@ const buildShopFilterMeta = async (shopId) => {
   const catMap = new Map();
   const subMap = new Map();
   const subSubMap = new Map();
+  const foodTypeMap = new Map();
   let minPrice = null;
   let maxPrice = null;
 
@@ -735,7 +736,7 @@ const buildRestaurantCatalogFilter = async (req, restaurantId) => {
 const buildRestaurantFilterMeta = async (restaurantId) => {
   const [rows, menus] = await Promise.all([
     RestaurantItem.find({ restaurantId })
-      .select("price categoryId subCategoryId subSubCategoryId menuId")
+      .select("price categoryId subCategoryId subSubCategoryId menuId foodType")
       .populate("categoryId subCategoryId subSubCategoryId")
       .lean(),
     RestaurantMenu.find({ restaurantId }).select("_id menuName").limit(100).lean(),
@@ -745,6 +746,7 @@ const buildRestaurantFilterMeta = async (restaurantId) => {
   const subMap = new Map();
   const menuMap = new Map();
   const subSubMap = new Map();
+  const foodTypeMap = new Map();
   let minPrice = null;
   let maxPrice = null;
   
@@ -757,6 +759,8 @@ const buildRestaurantFilterMeta = async (restaurantId) => {
     if (row.categoryId?._id) catMap.set(String(row.categoryId._id), { _id: row.categoryId._id, name: row.categoryId.name });
     if (row.subCategoryId?._id) subMap.set(String(row.subCategoryId._id), { _id: row.subCategoryId._id, name: row.subCategoryId.name, parentId: row.subCategoryId.parentId });
     if (row.subSubCategoryId?._id) subSubMap.set(String(row.subSubCategoryId._id), { _id: row.subSubCategoryId._id, name: row.subSubCategoryId.name, categoryId: row.subSubCategoryId.categoryId, subCategoryId: row.subSubCategoryId.subCategoryId });
+    const foodType = String(row.foodType || "").trim();
+    if (foodType) foodTypeMap.set(foodType.toLowerCase(), { _id: foodType, name: foodType });
   });
   
   menus.forEach((menu) => {
@@ -768,6 +772,7 @@ const buildRestaurantFilterMeta = async (restaurantId) => {
     subCategories: [...subMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
     subSubCategories: [...subSubMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
     menus: [...menuMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    foodTypes: [...foodTypeMap.values()].sort((a, b) => a.name.localeCompare(b.name)),
     priceRange: { min: minPrice ?? 0, max: maxPrice ?? 0 },
   };
 };
@@ -816,6 +821,7 @@ export const listRestaurantItemsCatalog = async (req, res) => {
         : 0;
       return {
         ...item,
+        foodType: item.foodType || "",
         image: resolveMediaUrl(item.image, baseUrl),
         price: selling,
         oldPrice: item.price,
@@ -1070,7 +1076,7 @@ export const getRestaurantItemStorefront = async (req, res) => {
         isGoMarket: true,
         goMarketKind: "restaurant",
         productOptions,
-        foodType: item.foodType,
+        foodType: item.foodType || "",
       },
       restaurant: restaurant
         ? {
@@ -1101,6 +1107,7 @@ export const getRestaurantItemStorefront = async (req, res) => {
             description: p.description,
             rating: stats?.averageRating || 0,
             goMarketKind: "restaurant",
+            foodType: p.foodType,
           };
         });
       })(),

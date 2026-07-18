@@ -15,6 +15,12 @@ const TABS = [
   { key: "latest", label: "Latest" },
 ];
 
+const foodTypeClassName = (foodType = "") => {
+  const normalized = String(foodType).trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+  return `gmp-food-type-badge gmp-food-type-${normalized || "other"}`;
+};
+
+
 const SORT_OPTIONS = [
   { value: "", label: "Sort" },
   { value: "newest", label: "Newest" },
@@ -148,6 +154,7 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
   const sentinelRef = useInfiniteScroll({ enabled: true, hasMore, loading: loading || loadingMore, onLoadMore: () => loadPage(page + 1, true) });
   const subCats = (filterMeta?.subCategories || []).filter((s) => !categoryId || String(s.parentId || s.categoryId) === String(categoryId));
   const subSubCats = (filterMeta?.subSubCategories || []).filter((s) => !subCategoryId || String(s.subCategoryId) === String(subCategoryId));
+  const availableFoodTypes = filterMeta?.foodTypes?.length ? filterMeta.foodTypes : [{ _id: "veg", name: "Veg" }, { _id: "non-veg", name: "Non-veg" }, { _id: "egg", name: "Egg" }];
   const activeFilterCount = [categoryId, subCategoryId, subSubCategoryId, menuId, foodType, minPrice, maxPrice, minRating > 0, availableOnly].filter(Boolean).length;
 
   const optionGroups = normalizeProductOptions(optionProduct?.productOptions || []);
@@ -489,7 +496,12 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
       <div className="gmp-chip-row" style={{ marginTop: 12 }}>{(filterMeta?.menus || []).map((m) => <button key={m._id} type="button" className={`gmp-chip${menuId === m._id ? " active" : ""}`} onClick={() => setMenuId(menuId === m._id ? "" : m._id)}>{m.name}</button>)}{TABS.map((t) => <button key={t.key} type="button" className={`gmp-chip${tab === t.key ? " active" : ""}`} onClick={() => setTab(t.key)}>{t.label}</button>)}</div>
       {filterOpen && <div className="gmp-toolbar" style={{ marginTop: 10, alignItems: "stretch", flexDirection: "column" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
-         <select className="gmp-select" style={{ paddingLeft: 12 }} value={foodType} onChange={(e) => setFoodType(e.target.value)}><option value="">All food types</option><option value="veg">Veg</option><option value="non-veg">Non-veg</option><option value="egg">Egg</option></select>
+          <select className="gmp-select" style={{ paddingLeft: 12 }} value={foodType} onChange={(e) => setFoodType(e.target.value)}>
+            <option value="">All food types</option>
+            {availableFoodTypes.map((type) => (
+              <option key={type._id || type.name} value={type._id || type.name}>{type.name}</option>
+            ))}
+          </select>
          <select className="gmp-select" style={{ paddingLeft: 12 }} value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSubCategoryId(""); setSubSubCategoryId(""); }}><option value="">All categories</option>{(filterMeta?.categories || []).map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}</select>
           <select className="gmp-select" style={{ paddingLeft: 12 }} value={subCategoryId} onChange={(e) => { setSubCategoryId(e.target.value); setSubSubCategoryId(""); }}><option value="">All sub categories</option>{subCats.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}</select>
           <select className="gmp-select" style={{ paddingLeft: 12 }} value={subSubCategoryId} onChange={(e) => setSubSubCategoryId(e.target.value)} disabled={!subCategoryId}><option value="">All sub sub categories</option>{subSubCats.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}</select>
@@ -537,7 +549,7 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <div className="gmp-product-name">{item.itemName}</div>
                     {item.foodType && (
-                      <span className={`gmp-food-type-badge gmp-food-type-${item.foodType.toLowerCase()}`}>
+                      <span className={foodTypeClassName(item.foodType)}>
                         {item.foodType}
                       </span>
                     )}

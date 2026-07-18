@@ -21,6 +21,14 @@ import {
 } from "react-native";
 
 const T = { orange: "#FF6B2C", white: "#FFF", bg: "#F9F9F9", border: "#EBEBEB", text: "#111", textSoft: "#999", black: "#111", green: "#16A34A" };
+
+const foodTypeBadgeStyles = (foodType = "") => {
+  const normalized = String(foodType).trim().toLowerCase();
+  if (normalized === "veg") return { badge: S.foodTypeVeg, text: { color: "#166534" } };
+  if (normalized === "non-veg" || normalized === "egg") return { badge: S.foodTypeNonVeg, text: { color: "#991b1b" } };
+  return { badge: S.foodTypeOther, text: { color: "#3730a3" } };
+};
+
 const FALLBACK = "https://placehold.co/600x600/FFF3ED/FF6B2C?text=Product";
 const cleanText = (value: unknown) => String(value ?? "").trim();
 const normalizeProductOptions = (options: any[] = []) =>
@@ -414,14 +422,8 @@ export default function GoMarketProductScreen() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <Text style={S.title}>{product.name}</Text>
             {product.foodType && (
-              <View style={[
-                S.foodTypeBadgeInline,
-                product.foodType.toLowerCase() === "veg" ? S.foodTypeVeg : S.foodTypeNonVeg
-              ]}>
-                <Text style={[
-                  S.foodTypeTextInline,
-                  product.foodType.toLowerCase() === "veg" ? { color: "#166534" } : { color: "#991b1b" }
-                ]}>{product.foodType}</Text>
+              <View style={[S.foodTypeBadgeInline, foodTypeBadgeStyles(product.foodType).badge]}>
+                <Text style={[S.foodTypeTextInline, foodTypeBadgeStyles(product.foodType).text]}>{product.foodType}</Text>
               </View>
             )}
           </View>
@@ -726,6 +728,11 @@ const S = StyleSheet.create({
     backgroundColor: "#fee2e2",
     borderWidth: 1,
     borderColor: "#fca5a5",
+  },
+  foodTypeOther: {
+    backgroundColor: "#eef2ff",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
   },
   foodTypeTextInline: { fontSize: 10, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase" },
   paginationDots: {

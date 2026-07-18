@@ -159,7 +159,7 @@ export function FilterModal({
           {isRestaurant && (
             <View style={S.section}>
               <Text style={S.sectionTitle}>Food Type</Text>
-              {[{ _id: "", name: "All Food Types" }, { _id: "veg", name: "Veg" }, { _id: "non-veg", name: "Non-veg" }, { _id: "egg", name: "Egg" }].map((type) => (
+                {[{ _id: "", name: "All Food Types" }, ...((filterMeta?.foodTypes?.length ? filterMeta.foodTypes : [{ _id: "veg", name: "Veg" }, { _id: "non-veg", name: "Non-veg" }, { _id: "egg", name: "Egg" }]) || [])].map((type) => (
                 <TouchableOpacity
                   key={type._id}
                   onPress={() => setTempFoodType(type._id)}

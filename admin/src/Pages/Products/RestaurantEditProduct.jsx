@@ -100,10 +100,7 @@ const RestaurantEditProduct = () => {
       if (p && typeof p === 'object') {
         const specs = p.specifications || p.specs || [];
         const foodTypeSpec = specs.find(s => s.key === 'Food type');
-        let foodTypeValue = '';
-        if (foodTypeSpec) {
-          foodTypeValue = foodTypeSpec.value;
-        }
+        let foodTypeValue = p.foodType || (foodTypeSpec ? foodTypeSpec.value : '');
 
         setForm({
           name: p.name || p.itemName || '',
@@ -242,6 +239,7 @@ const RestaurantEditProduct = () => {
       seoDescription: form.seoDescription.trim(),
       attributes: form.attributes.trim(),
       productType: form.productType.trim(),
+      foodType: form.foodType,
     };
 
     setIsLoading(true);

@@ -476,6 +476,7 @@ export async function createProduct(request, response) {
         price: Number(request.body.price || 0),
         discountPrice: Number(request.body.oldPrice || request.body.discountPrice || 0),
         description: request.body.description || "",
+        foodType: request.body.foodType || "",
       });
       imagesArr = [];
 
@@ -1480,6 +1481,7 @@ export async function updateProduct(request, response) {
           isAvailable: request.body.isAvailable !== undefined
             ? Boolean(request.body.isAvailable)
             : owned.item.isAvailable,
+          foodType: request.body.foodType !== undefined ? request.body.foodType : owned.item.foodType,
         },
         { new: true },
       ).populate("categoryId subCategoryId").lean();

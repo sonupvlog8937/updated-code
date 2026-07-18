@@ -50,6 +50,14 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 const { width: SW } = Dimensions.get("window");
 const BANNER_H = 220;
 const LOGO_SIZE = 70;
+
+const foodTypeBadgeStyles = (foodType = "") => {
+  const normalized = String(foodType).trim().toLowerCase();
+  if (normalized === "veg") return { badge: S.foodTypeVeg, text: { color: "#166534" } };
+  if (normalized === "non-veg" || normalized === "egg") return { badge: S.foodTypeNonVeg, text: { color: "#991b1b" } };
+  return { badge: S.foodTypeOther, text: { color: "#3730a3" } };
+};
+
 const FALLBACK = "https://placehold.co/800x420/2d2416/9d7d4d?text=Restaurant";
 const STATUS_H = Platform.OS === "android" ? (StatusBar.currentHeight ?? 20) : 24;
 const ITEMS_PER_PAGE = 12;
@@ -268,14 +276,8 @@ function ItemTile({ item, index, columns, onAddToCart, onWishlist, inWishlist, r
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <Text style={S.tileName} numberOfLines={1}>{itemName}</Text>
               {item.foodType && (
-                <View style={[
-                  S.foodTypeBadgeInline,
-                  item.foodType.toLowerCase() === "veg" ? S.foodTypeVeg : S.foodTypeNonVeg
-                ]}>
-                  <Text style={[
-                    S.foodTypeTextInline,
-                    item.foodType.toLowerCase() === "veg" ? { color: "#166534" } : { color: "#991b1b" }
-                  ]}>{item.foodType}</Text>
+                <View style={[S.foodTypeBadgeInline, foodTypeBadgeStyles(item.foodType).badge]}>
+                  <Text style={[S.foodTypeTextInline, foodTypeBadgeStyles(item.foodType).text]}>{item.foodType}</Text>
                 </View>
               )}
             </View>
@@ -2107,6 +2109,11 @@ const S = StyleSheet.create({
     backgroundColor: "#fee2e2",
     borderWidth: 1,
     borderColor: "#fca5a5",
+  },
+  foodTypeOther: {
+    backgroundColor: "#eef2ff",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
   },
   foodTypeTextInline: { fontSize: 8, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase" },
   outOfStockOverlay: {

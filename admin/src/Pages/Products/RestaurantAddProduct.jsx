@@ -158,6 +158,7 @@ const RestaurantAddProduct = () => {
       seoDescription: form.seoDescription.trim(),
       attributes: form.attributes.trim(),
       productType: form.productType.trim(),
+      foodType: form.foodType,
     };
 
     setIsLoading(true);
