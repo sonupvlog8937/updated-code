@@ -337,7 +337,14 @@ const GoMarketProduct = () => {
             <p style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>
               {product.brand}
             </p>
-            <h1 style={{ fontSize: 22, fontWeight: 800, margin: "6px 0 10px", lineHeight: 1.3 }}>{product.name}</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <h1 style={{ fontSize: 22, fontWeight: 800, margin: "6px 0 10px", lineHeight: 1.3 }}>{product.name}</h1>
+              {product.foodType && (
+                <span className={`gmp-food-type-badge gmp-food-type-${product.foodType.toLowerCase()}`}>
+                  {product.foodType}
+                </span>
+              )}
+            </div>
 
             {/* Rating row */}
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12, padding: "8px 12px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>

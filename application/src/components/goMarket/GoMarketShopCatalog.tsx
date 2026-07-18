@@ -276,8 +276,8 @@ export function GoMarketShopCatalog({
         selectedOption?.price && selectedOption.price > 0
           ? selectedOption.price
           : product.discountPrice && product.discountPrice > 0
-          ? product.discountPrice
-          : product.price,
+            ? product.discountPrice
+            : product.price,
       oldPrice: product.oldPrice || product.originalPrice || product.price,
       images: product.images || (product.image ? [product.image] : []),
       countInStock: product.countInStock ?? product.stock ?? 999,
@@ -563,13 +563,13 @@ export function GoMarketShopCatalog({
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[S.chip, (categoryId || subCategoryId || minPrice || maxPrice || minRating > 0 || inStock) && S.chipOn]}
+          style={[S.chip, (categoryId || subCategoryId || subSubCategoryId || minPrice || maxPrice || minRating > 0 || inStock) && S.chipOn]}
           onPress={() => setFilterModalVisible(true)}
         >
-          <Text style={[S.chipTxt, (categoryId || subCategoryId || minPrice || maxPrice || minRating > 0 || inStock) && S.chipTxtOn]}>
+          <Text style={[S.chipTxt, (categoryId || subCategoryId || subSubCategoryId || minPrice || maxPrice || minRating > 0 || inStock) && S.chipTxtOn]}>
             Filters
-            {(categoryId || subCategoryId || minPrice || maxPrice || minRating > 0 || inStock) && 
-              ` (${[categoryId, subCategoryId, minPrice, maxPrice, minRating > 0, inStock].filter(Boolean).length})`
+            {(categoryId || subCategoryId || subSubCategoryId || minPrice || maxPrice || minRating > 0 || inStock) &&
+              ` (${[categoryId, subCategoryId, subSubCategoryId, minPrice, maxPrice, minRating > 0, inStock].filter(Boolean).length})`
             }
           </Text>
         </TouchableOpacity>
@@ -669,7 +669,7 @@ export function GoMarketShopCatalog({
         onSelect={(sortKey) => setSort(sortKey)}
         onClose={() => setSortModalVisible(false)}
       />
-      
+
       <FilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
@@ -688,7 +688,7 @@ export function GoMarketShopCatalog({
         subSubCats={filteredSubSubCategories}
         isRestaurant={false}
       />
-      
+
       <AddToCartDialog
         visible={cartDialogVisible}
         product={selectedProduct}

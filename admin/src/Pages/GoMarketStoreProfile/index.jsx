@@ -254,7 +254,7 @@ const GoMarketStoreProfile = () => {
         
         // Fetch menus if restaurant seller
         if (isRestaurantSeller && shop._id) {
-          fetchDataFromApi(`/api/go-market/menus/restaurant/${shop._id}`).then((menuRes) => {
+          fetchDataFromApi(`/api/go-market/menus/restaurant/${shop._id}?limit=100`).then((menuRes) => {
             setMenus(menuRes?.data || []);
           });
         }
@@ -381,7 +381,7 @@ const GoMarketStoreProfile = () => {
         setShowMenuModal(false);
         
         // Refresh menus
-        fetchDataFromApi(`/api/go-market/menus/restaurant/${restaurantId}`).then((menuRes) => {
+        fetchDataFromApi(`/api/go-market/menus/restaurant/${restaurantId}?limit=100`).then((menuRes) => {
           setMenus(menuRes?.data || []);
         });
       } else {

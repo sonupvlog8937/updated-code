@@ -9,8 +9,14 @@ const goMarketSubCategorySchema = new mongoose.Schema({
   },
   parentId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "GoMarketCategory",
+    refPath: "parentModel",
     required: true,
+    index: true,
+  },
+  parentModel: {
+    type: String,
+    enum: ["GoMarketCategory", "GoMarketSubCategory"],
+    default: "GoMarketCategory",
     index: true,
   },
   name: { type: String, required: true, trim: true, index: true },

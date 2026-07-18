@@ -36,6 +36,7 @@ export const buildQuery = (query = {}, searchFields = []) => {
   if (query.type) filter.type = query.type;
   if (query.categoryId && isObjectId(query.categoryId)) filter.categoryId = query.categoryId;
   if (query.parentId && isObjectId(query.parentId)) filter.parentId = query.parentId;
+  if (query.parentModel) filter.parentModel = query.parentModel;
   if (query.isOpen !== undefined) filter.isOpen = query.isOpen === "true" || query.isOpen === true;
   const term = String(query.search || query.q || "").trim();
   if (term && searchFields.length) {

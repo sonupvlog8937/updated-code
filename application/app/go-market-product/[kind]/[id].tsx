@@ -411,7 +411,20 @@ export default function GoMarketProductScreen() {
 
         <View style={S.panel}>
           <Text style={S.brand}>{product.brand}</Text>
-          <Text style={S.title}>{product.name}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <Text style={S.title}>{product.name}</Text>
+            {product.foodType && (
+              <View style={[
+                S.foodTypeBadgeInline,
+                product.foodType.toLowerCase() === "veg" ? S.foodTypeVeg : S.foodTypeNonVeg
+              ]}>
+                <Text style={[
+                  S.foodTypeTextInline,
+                  product.foodType.toLowerCase() === "veg" ? { color: "#166534" } : { color: "#991b1b" }
+                ]}>{product.foodType}</Text>
+              </View>
+            )}
+          </View>
           {(data?.averageRating > 0 || product.rating > 0 || data?.totalReviews > 0) && (
             <Text style={S.rating}>
               ⭐ {Number(data?.averageRating || product.rating || 0).toFixed(1)} · {data?.totalReviews || 0} reviews
@@ -684,6 +697,37 @@ const S = StyleSheet.create({
   scroll: { paddingBottom: 120 },
   imageSliderContainer: { position: "relative", width: "100%" },
   heroImg: { width: "100%", aspectRatio: 1, backgroundColor: "#eee" },
+  foodTypeBadge: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    backgroundColor: "rgba(15, 23, 42, 0.85)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  foodTypeText: { fontSize: 10, fontWeight: "700", color: "#fff", letterSpacing: 0.3, textTransform: "uppercase" },
+  foodTypeBadgeInline: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  foodTypeVeg: {
+    backgroundColor: "#dcfce7",
+    borderWidth: 1,
+    borderColor: "#86efac",
+  },
+  foodTypeNonVeg: {
+    backgroundColor: "#fee2e2",
+    borderWidth: 1,
+    borderColor: "#fca5a5",
+  },
+  foodTypeTextInline: { fontSize: 10, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase" },
   paginationDots: {
     position: "absolute",
     bottom: 16,

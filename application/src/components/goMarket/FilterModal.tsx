@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   Modal,
   View,
@@ -27,6 +27,7 @@ export type FilterValues = {
   categoryId: string;
   subCategoryId: string;
   subSubCategoryId: string;
+  foodType: string;
   minPrice: string;
   maxPrice: string;
   minRating: number;
@@ -48,6 +49,7 @@ export function FilterModal({
   const [tempCategoryId, setTempCategoryId] = useState("");
   const [tempSubCategoryId, setTempSubCategoryId] = useState("");
   const [tempSubSubCategoryId, setTempSubSubCategoryId] = useState("");
+  const [tempFoodType, setTempFoodType] = useState("");
   const [tempMinPrice, setTempMinPrice] = useState("");
   const [tempMaxPrice, setTempMaxPrice] = useState("");
   const [tempMinRating, setTempMinRating] = useState(0);
@@ -58,6 +60,7 @@ export function FilterModal({
       setTempCategoryId(currentFilters.categoryId);
       setTempSubCategoryId(currentFilters.subCategoryId);
       setTempSubSubCategoryId(currentFilters.subSubCategoryId);
+      setTempFoodType(currentFilters.foodType || "");
       setTempMinPrice(currentFilters.minPrice);
       setTempMaxPrice(currentFilters.maxPrice);
       setTempMinRating(currentFilters.minRating);
@@ -70,6 +73,7 @@ export function FilterModal({
       categoryId: tempCategoryId,
       subCategoryId: tempSubCategoryId,
       subSubCategoryId: tempSubSubCategoryId,
+      foodType: tempFoodType,
       minPrice: tempMinPrice,
       maxPrice: tempMaxPrice,
       minRating: tempMinRating,
@@ -82,16 +86,42 @@ export function FilterModal({
     setTempCategoryId("");
     setTempSubCategoryId("");
     setTempSubSubCategoryId("");
+    setTempFoodType("");
     setTempMinPrice("");
     setTempMaxPrice("");
     setTempMinRating(0);
     setTempInStock(false);
   };
 
+  const visibleSubCats = useMemo(() => {
+    const allSubCats = filterMeta?.subCategories || subCats || [];
+    if (!tempCategoryId) return allSubCats;
+    return allSubCats.filter((subCat: any) =>
+      String(subCat.parentId) === String(tempCategoryId) ||
+      String(subCat.categoryId) === String(tempCategoryId)
+    );
+  }, [filterMeta, subCats, tempCategoryId]);
+
+  const visibleSubSubCats = useMemo(() => {
+    const allSubSubCats = filterMeta?.subSubCategories || subSubCats || [];
+    if (tempSubCategoryId) {
+      return allSubSubCats.filter((subSubCat: any) =>
+        String(subSubCat.subCategoryId) === String(tempSubCategoryId)
+      );
+    }
+    if (tempCategoryId) {
+      return allSubSubCats.filter((subSubCat: any) =>
+        String(subSubCat.categoryId) === String(tempCategoryId)
+      );
+    }
+    return allSubSubCats;
+  }, [filterMeta, subSubCats, tempCategoryId, tempSubCategoryId]);
+
   const activeFiltersCount = [
     tempCategoryId,
     tempSubCategoryId,
     tempSubSubCategoryId,
+    tempFoodType,
     tempMinPrice,
     tempMaxPrice,
     tempMinRating > 0,
@@ -125,6 +155,32 @@ export function FilterModal({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Product Type - Restaurant Only */}
+          {isRestaurant && (
+            <View style={S.section}>
+              <Text style={S.sectionTitle}>Food Type</Text>
+              {[{ _id: "", name: "All Food Types" }, { _id: "veg", name: "Veg" }, { _id: "non-veg", name: "Non-veg" }, { _id: "egg", name: "Egg" }].map((type) => (
+                <TouchableOpacity
+                  key={type._id}
+                  onPress={() => setTempFoodType(type._id)}
+                  style={S.option}
+                >
+                  <View
+                    style={[
+                      S.checkbox,
+                      tempFoodType === type._id && S.checkboxActive,
+                    ]}
+                  >
+                    {tempFoodType === type._id && (
+                      <Feather name="check" size={12} color="#fff" />
+                    )}
+                  </View>
+                  <Text style={S.optionText}>{type.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
           {/* Categories */}
           <View style={S.section}>
             <Text style={S.sectionTitle}>Category</Text>
@@ -133,7 +189,8 @@ export function FilterModal({
                 key={cat._id}
                 onPress={() => {
                   setTempCategoryId(cat._id);
-                  if (!cat._id) setTempSubCategoryId("");
+                  setTempSubCategoryId("");
+                  setTempSubSubCategoryId("");
                 }}
                 style={S.option}
               >
@@ -153,15 +210,15 @@ export function FilterModal({
           </View>
 
           {/* Sub-categories */}
-          {subCats.length > 0 && (
+          {visibleSubCats.length > 0 && (
             <View style={S.section}>
               <Text style={S.sectionTitle}>Sub-Category</Text>
-              {[{ _id: "", name: "All Sub-Categories" }, ...subCats].map((sc) => (
+              {[{ _id: "", name: "All Sub-Categories" }, ...visibleSubCats].map((sc) => (
                 <TouchableOpacity
                   key={sc._id}
                   onPress={() => {
                     setTempSubCategoryId(sc._id);
-                    if (!sc._id) setTempSubSubCategoryId("");
+                    setTempSubSubCategoryId("");
                   }}
                   style={S.option}
                 >
@@ -182,10 +239,10 @@ export function FilterModal({
           )}
 
           {/* Sub-sub-categories */}
-          {subSubCats.length > 0 && (
+          {visibleSubSubCats.length > 0 && (
             <View style={S.section}>
               <Text style={S.sectionTitle}>Sub-Sub-Category</Text>
-              {[{ _id: "", name: "All Sub-Sub-Categories" }, ...subSubCats].map((ssc) => (
+              {[{ _id: "", name: "All Sub-Sub-Categories" }, ...visibleSubSubCats].map((ssc) => (
                 <TouchableOpacity
                   key={ssc._id}
                   onPress={() => setTempSubSubCategoryId(ssc._id)}

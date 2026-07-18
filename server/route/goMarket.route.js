@@ -94,6 +94,8 @@ crud("/items", "items");
 crud("/categories", "categories", null, adminOnly);
 crud("/subcategories", "subcategories", null, adminOnly);
 crud("/subsubcategories", "subsubcategories", null, adminOnly);
+crud("/sub-subcategories", "subsubcategories", null, adminOnly);
+crud("/sub-sub-categories", "subsubcategories", null, adminOnly);
 
 router.get("/products/shop/:shopId", (req, res, next) => {
   req.query.shopId = req.params.shopId;

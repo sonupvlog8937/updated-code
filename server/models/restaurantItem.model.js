@@ -35,7 +35,7 @@ const restaurantItemSchema = new mongoose.Schema({
   searchKeywords: { type: String, default: "", trim: true },
   seoDescription: { type: String, default: "", trim: true },
   attributes: { type: String, default: "", trim: true },
-  productType: { type: String, default: "", trim: true },
+  foodType: { type: String, default: "", trim: true },
 }, { timestamps: true });
-restaurantItemSchema.index({ itemName: "text", description: "text", title: "text", keywords: "text", tags: "text", searchKeywords: "text", seoDescription: "text", attributes: "text", productType: "text" });
+restaurantItemSchema.index({ itemName: "text", description: "text", title: "text", keywords: "text", tags: "text", searchKeywords: "text", seoDescription: "text", attributes: "text", foodType: "text" });
 export default mongoose.model("RestaurantItem", restaurantItemSchema);

@@ -97,6 +97,67 @@ const applySellerScope = async (resourceKey, filter, req) => {
   return filter;
 };
 
+const normalizeGoMarketCategoryPayload = async (resourceKey, body) => {
+  if (!body || !["subcategories", "subsubcategories"].includes(resourceKey)) return body;
+
+  const payload = { ...body };
+
+  if (resourceKey === "subcategories") {
+    if (payload.parentModel === "GoMarketSubCategory" || payload.subCategoryId) {
+      payload.parentId = payload.subCategoryId || payload.parentId;
+      payload.parentModel = "GoMarketSubCategory";
+      return payload;
+    }
+
+    const categoryId = payload.categoryId || payload.parentId;
+    if (categoryId) {
+      payload.categoryId = categoryId;
+      payload.parentId = categoryId;
+      payload.parentModel = "GoMarketCategory";
+    }
+    return payload;
+  }
+
+  if (resourceKey === "subsubcategories") {
+    if (!payload.subCategoryId || !isObjectId(payload.subCategoryId)) return payload;
+
+    const subCategory = await GoMarketSubCategory.findById(payload.subCategoryId)
+      .select("categoryId parentId type")
+      .lean();
+    if (!subCategory) {
+      throw Object.assign(new Error("Selected parent sub category was not found"), { statusCode: 400 });
+    }
+
+    const derivedCategoryId = subCategory.categoryId || subCategory.parentId;
+    if (!payload.categoryId) {
+      payload.categoryId = derivedCategoryId;
+    }
+
+    if (String(payload.categoryId) !== String(derivedCategoryId)) {
+      throw Object.assign(
+        new Error("Selected sub category does not belong to the selected parent category"),
+        { statusCode: 400 },
+      );
+    }
+
+    if (!payload.type) {
+      payload.type = subCategory.type;
+    }
+
+    if (payload.type !== subCategory.type) {
+      throw Object.assign(
+        new Error("Selected sub category does not match the selected category type"),
+        { statusCode: 400 },
+      );
+    }
+
+    return payload;
+  }
+
+  return payload;
+};
+
+
 const assertSellerCanWrite = async (resourceKey, body, req) => {
   if (!isSellerRole(req.currentUser?.role)) return body;
   const ownerIds = await getSellerOwnerIds(req);
@@ -196,7 +257,8 @@ export const createResource = (resourceKey) => async (req, res) => {
     const missing = required(req.body, expectedFields);
     if (missing.length) return sendError(res, `Missing required fields: ${missing.join(", ")}`, 400);
     const resource = resources[resourceKey];
-    const payload = await assertSellerCanWrite(resourceKey, req.body, req);
+    const normalizedBody = await normalizeGoMarketCategoryPayload(resourceKey, req.body);
+    const payload = await assertSellerCanWrite(resourceKey, normalizedBody, req);
     const data = await resource.model.create(payload);
     if (resourceKey === "products" && data?.shopId) {
       await bumpGroceryShopProductCount(data.shopId, 1);
@@ -212,7 +274,8 @@ export const updateResource = (resourceKey) => async (req, res) => {
     const existingFilter = await applySellerScope(resourceKey, { _id: req.params.id }, req);
     const existing = await resource.model.findOne(existingFilter).select("_id");
     if (!existing) return sendError(res, `${resource.label} not found`, 404);
-    const payload = await assertSellerCanWrite(resourceKey, req.body, req);
+    const normalizedBody = await normalizeGoMarketCategoryPayload(resourceKey, req.body);
+    const payload = await assertSellerCanWrite(resourceKey, normalizedBody, req);
     const data = await resource.model.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
     if (!data) return sendError(res, `${resource.label} not found`, 404);
     ok(res, { message: `${resource.label} updated`, data });

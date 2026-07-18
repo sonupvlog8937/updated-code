@@ -265,7 +265,20 @@ function ItemTile({ item, index, columns, onAddToCart, onWishlist, inWishlist, r
           </View>
 
           <View style={S.tileBody}>
-            <Text style={S.tileName} numberOfLines={1}>{itemName}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <Text style={S.tileName} numberOfLines={1}>{itemName}</Text>
+              {item.foodType && (
+                <View style={[
+                  S.foodTypeBadgeInline,
+                  item.foodType.toLowerCase() === "veg" ? S.foodTypeVeg : S.foodTypeNonVeg
+                ]}>
+                  <Text style={[
+                    S.foodTypeTextInline,
+                    item.foodType.toLowerCase() === "veg" ? { color: "#166534" } : { color: "#991b1b" }
+                  ]}>{item.foodType}</Text>
+                </View>
+              )}
+            </View>
             {!!item.description && <Text style={S.tileDesc} numberOfLines={1}>{item.description}</Text>}
             {item.weight && (
               <Text style={S.tileWeight}>{item.weight}</Text>
@@ -376,6 +389,7 @@ export default function GoMarketRestaurantDetails() {
   const [subCategoryId, setSubCategoryId] = useState("");
   const [subSubCategoryId, setSubSubCategoryId] = useState("");
   const [menuId, setMenuId] = useState("");
+  const [foodType, setFoodType] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [minRating, setMinRating] = useState(0);
@@ -497,12 +511,13 @@ export default function GoMarketRestaurantDetails() {
     if (categoryId) p.set("categoryId", categoryId);
     if (subCategoryId) p.set("subCategoryId", subCategoryId);
     if (subSubCategoryId) p.set("subSubCategoryId", subSubCategoryId);
+    if (foodType) p.set("foodType", foodType);
     if (minPrice) p.set("minPrice", minPrice);
     if (maxPrice) p.set("maxPrice", maxPrice);
     if (minRating > 0) p.set("minRating", String(minRating));
     if (inStock) p.set("inStock", "true");
     return p;
-  }, [tab, sort, appliedSearch, menuId, categoryId, subCategoryId, subSubCategoryId, minPrice, maxPrice, minRating, inStock]);
+  }, [tab, sort, appliedSearch, menuId, categoryId, subCategoryId, subSubCategoryId, foodType, minPrice, maxPrice, minRating, inStock]);
 
   const loadCatalogPage = useCallback(async (pageNum: number) => {
     if (!id) return;
@@ -850,6 +865,7 @@ export default function GoMarketRestaurantDetails() {
     setCategoryId(filters.categoryId);
     setSubCategoryId(filters.subCategoryId);
     setSubSubCategoryId(filters.subSubCategoryId);
+    setFoodType(filters.foodType);
     setMinPrice(filters.minPrice);
     setMaxPrice(filters.maxPrice);
     setMinRating(filters.minRating);
@@ -861,6 +877,7 @@ export default function GoMarketRestaurantDetails() {
     categoryId,
     subCategoryId,
     subSubCategoryId,
+    foodType,
     minPrice,
     maxPrice,
     minRating > 0,
@@ -1136,7 +1153,7 @@ export default function GoMarketRestaurantDetails() {
             count={displayedItems.length}
           />
 
-          {menus.length > 0 && tab === "featured" && !search ? menus.slice(0, 3).map((m: any, i: number) => <MenuRow key={m._id} item={m} index={i} />) : null}
+          {/* {menus.length > 0 && tab === "featured" && !search ? menus.slice(0, 3).map((m: any, i: number) => <MenuRow key={m._id} item={m} index={i} />) : null} */}
 
           {catalogLoading && !displayedItems.length ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 }}>
@@ -1482,6 +1499,7 @@ export default function GoMarketRestaurantDetails() {
           categoryId,
           subCategoryId,
           subSubCategoryId,
+          foodType,
           minPrice,
           maxPrice,
           minRating,
@@ -2060,6 +2078,37 @@ const S = StyleSheet.create({
     elevation: 3,
   },
   discountText: { fontSize: 8, fontWeight: "900", color: "#fff", letterSpacing: 0.3 },
+  foodTypeBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    backgroundColor: "rgba(15, 23, 42, 0.85)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  foodTypeText: { fontSize: 8, fontWeight: "700", color: "#fff", letterSpacing: 0.3, textTransform: "uppercase" },
+  foodTypeBadgeInline: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  foodTypeVeg: {
+    backgroundColor: "#dcfce7",
+    borderWidth: 1,
+    borderColor: "#86efac",
+  },
+  foodTypeNonVeg: {
+    backgroundColor: "#fee2e2",
+    borderWidth: 1,
+    borderColor: "#fca5a5",
+  },
+  foodTypeTextInline: { fontSize: 8, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase" },
   outOfStockOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0, 0, 0, 0.65)",

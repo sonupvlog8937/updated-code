@@ -418,6 +418,30 @@
   pointer-events: none;
 }
 
+/* Food type badge next to product title */
+.gmp-food-type-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.gmp-food-type-veg {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.gmp-food-type-non-veg,
+.gmp-food-type-egg {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
 /* Out of stock overlay */
 .gmp-tile-oos-overlay {
   position: absolute;

@@ -716,6 +716,7 @@ const buildRestaurantCatalogFilter = async (req, restaurantId) => {
   if (req.query.categoryId && isObjectId(req.query.categoryId)) filter.categoryId = req.query.categoryId;
   if (req.query.subCategoryId && isObjectId(req.query.subCategoryId)) filter.subCategoryId = req.query.subCategoryId;
   if (req.query.subSubCategoryId && isObjectId(req.query.subSubCategoryId)) filter.subSubCategoryId = req.query.subSubCategoryId;
+  if (req.query.foodType) filter.foodType = req.query.foodType;
   if (req.query.minPrice) filter.price = { ...(filter.price || {}), $gte: Number(req.query.minPrice) };
   if (req.query.maxPrice) filter.price = { ...(filter.price || {}), $lte: Number(req.query.maxPrice) };
   const minRating = Number(req.query.minRating || 0);
@@ -737,7 +738,7 @@ const buildRestaurantFilterMeta = async (restaurantId) => {
       .select("price categoryId subCategoryId subSubCategoryId menuId")
       .populate("categoryId subCategoryId subSubCategoryId")
       .lean(),
-    RestaurantMenu.find({ restaurantId }).select("_id menuName").lean(),
+    RestaurantMenu.find({ restaurantId }).select("_id menuName").limit(100).lean(),
   ]);
   
   const catMap = new Map();
@@ -800,7 +801,7 @@ export const listRestaurantItemsCatalog = async (req, res) => {
     const filter = await buildRestaurantCatalogFilter(req, restaurantId);
     const tab = String(req.query.tab || "featured").toLowerCase();
     const sort = req.query.sort ? itemSort(req.query) : itemSort({ tab });
-    const result = await paginate(RestaurantItem, filter, { ...req.query, sort }, "categoryId subCategoryId subSubCategoryId menuId");
+    const result = await paginate(RestaurantItem, filter, { ...req.query, sort }, "categoryId subCategoryId subSubCategoryId menuId", "foodType");
     const filterMeta = await buildRestaurantFilterMeta(restaurantId);
     const baseUrl = apiBaseFromRequest(req);
     const normalizedRestaurant = {
@@ -1069,6 +1070,7 @@ export const getRestaurantItemStorefront = async (req, res) => {
         isGoMarket: true,
         goMarketKind: "restaurant",
         productOptions,
+        foodType: item.foodType,
       },
       restaurant: restaurant
         ? {
