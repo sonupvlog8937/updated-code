@@ -189,7 +189,7 @@ export default function OrderDetailsScreen() {
     setIsSubmitting(true);
     try {
       const reasonText = REFUND_REASONS.find(r => r.id === selectedReason)?.label || "Customer request";
-      
+
       if (modalType === "return") {
         // Submit return request to backend
         await dispatch(
@@ -198,7 +198,7 @@ export default function OrderDetailsScreen() {
             reason: reasonText,
           }) as any
         ).unwrap();
-        showToast("success","Return request submitted to seller");
+        showToast("success", "Return request submitted to seller");
       } else {
         // Submit refund request to backend
         await dispatch(
@@ -241,7 +241,7 @@ export default function OrderDetailsScreen() {
   };
 
   const formatPrice = (amount: number) => {
-    return `₹${Number(amount || 0).toLocaleString("en-IN")}`;
+    return `₹${Math.round(Number(amount || 0)).toLocaleString("en-IN")}`;
   };
 
   if (storeLoading && !order) {
@@ -299,15 +299,15 @@ export default function OrderDetailsScreen() {
   ) || 0;
   const discount = order?.discount_amount || 0;
   const baseAfterDiscount = Math.max(subtotal - discount, 0);
-  
+
   // Use order's fees if available, otherwise use commerce settings
-  const hasOrderFees = (order?.shippingFee !== undefined && order?.shippingFee !== null) || 
-                       (order?.deliveryFee !== undefined && order?.deliveryFee !== null);
+  const hasOrderFees = (order?.shippingFee !== undefined && order?.shippingFee !== null) ||
+    (order?.deliveryFee !== undefined && order?.deliveryFee !== null);
   const isGoMarketOrder = order?.products?.some((item: any) => String(item?.brand || "").toLowerCase().includes("gomarket") || String(item?.source || "").toLowerCase().includes("gomarket"));
-  
+
   let displayShippingFee = 0;
   let displayDeliveryFee = 0;
-  
+
   if (hasOrderFees) {
     displayShippingFee = Math.round(order?.shippingFee || 0);
     displayDeliveryFee = Math.round(order?.deliveryFee || 0);
@@ -706,7 +706,7 @@ export default function OrderDetailsScreen() {
                   </Text>
                 </View>
               </View></Pressable>
-                {/* Write Review Button - only show for delivered orders */}
+              {/* Write Review Button - only show for delivered orders */}
               {isDelivered && (
                 <Pressable
                   onPress={() =>
@@ -832,8 +832,8 @@ export default function OrderDetailsScreen() {
               {hasReturnRequested && hasRefundRequested
                 ? "Return & Refund Requested"
                 : hasReturnRequested
-                ? "Return Requested"
-                : "Refund Requested"}
+                  ? "Return Requested"
+                  : "Refund Requested"}
             </Text>
             <Text style={[styles.refundRequestedSubtext, { color: "#0f766e" }]}>
               Seller is reviewing your request

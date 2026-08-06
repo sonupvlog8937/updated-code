@@ -401,49 +401,127 @@ function App() {
     {
       path: '/products',
       element: (
-        <PageWrapper {...wp}>
-          <Products />
-        </PageWrapper>
+        userData?.role === 'DELIVERY_RIDER' ? (
+          <PageWrapper {...wp}>
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 12 }}>
+                Access Denied
+              </h2>
+              <p style={{ fontSize: 14, color: '#6b7280' }}>
+                Delivery riders don't have access to the products page.
+              </p>
+            </div>
+          </PageWrapper>
+        ) : (
+          <PageWrapper {...wp}>
+            <Products />
+          </PageWrapper>
+        )
       ),
     },
     {
       path: '/product/:id',
       element: (
-        <PageWrapper {...wp}>
-          <ProductDetails />
-        </PageWrapper>
+        userData?.role === 'DELIVERY_RIDER' ? (
+          <PageWrapper {...wp}>
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 12 }}>
+                Access Denied
+              </h2>
+              <p style={{ fontSize: 14, color: '#6b7280' }}>
+                Delivery riders don't have access to product details.
+              </p>
+            </div>
+          </PageWrapper>
+        ) : (
+          <PageWrapper {...wp}>
+            <ProductDetails />
+          </PageWrapper>
+        )
       ),
     },
     {
       path: '/product-viewer/:id',
       element: (
-        <PageWrapper {...wp}>
-          <ProductViewer />
-        </PageWrapper>
+        userData?.role === 'DELIVERY_RIDER' ? (
+          <PageWrapper {...wp}>
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 12 }}>
+                Access Denied
+              </h2>
+              <p style={{ fontSize: 14, color: '#6b7280' }}>
+                Delivery riders don't have access to product viewer.
+              </p>
+            </div>
+          </PageWrapper>
+        ) : (
+          <PageWrapper {...wp}>
+            <ProductViewer />
+          </PageWrapper>
+        )
       ),
     },
     {
       path: '/product/addRams',
       element: (
-        <PageWrapper {...wp}>
-          <AddRAMS />
-        </PageWrapper>
+        userData?.role === 'DELIVERY_RIDER' ? (
+          <PageWrapper {...wp}>
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 12 }}>
+                Access Denied
+              </h2>
+              <p style={{ fontSize: 14, color: '#6b7280' }}>
+                Delivery riders don't have access to this page.
+              </p>
+            </div>
+          </PageWrapper>
+        ) : (
+          <PageWrapper {...wp}>
+            <AddRAMS />
+          </PageWrapper>
+        )
       ),
     },
     {
       path: '/product/addWeight',
       element: (
-        <PageWrapper {...wp}>
-          <AddWeight />
-        </PageWrapper>
+        userData?.role === 'DELIVERY_RIDER' ? (
+          <PageWrapper {...wp}>
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 12 }}>
+                Access Denied
+              </h2>
+              <p style={{ fontSize: 14, color: '#6b7280' }}>
+                Delivery riders don't have access to this page.
+              </p>
+            </div>
+          </PageWrapper>
+        ) : (
+          <PageWrapper {...wp}>
+            <AddWeight />
+          </PageWrapper>
+        )
       ),
     },
     {
       path: '/product/addSize',
       element: (
-        <PageWrapper {...wp}>
-          <AddSize />
-        </PageWrapper>
+        userData?.role === 'DELIVERY_RIDER' ? (
+          <PageWrapper {...wp}>
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: '#111827', marginBottom: 12 }}>
+                Access Denied
+              </h2>
+              <p style={{ fontSize: 14, color: '#6b7280' }}>
+                Delivery riders don't have access to this page.
+              </p>
+            </div>
+          </PageWrapper>
+        ) : (
+          <PageWrapper {...wp}>
+            <AddSize />
+          </PageWrapper>
+        )
       ),
     },
 

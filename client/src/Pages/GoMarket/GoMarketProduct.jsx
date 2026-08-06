@@ -12,6 +12,8 @@ import GoMarketProductOptions, {
   selectedOptionPrice,
 } from "./GoMarketProductOptions";
 
+const getFoodTypeLabel = (product = {}) => String(product.foodType || product.food_type || product.foodtype || "").trim();
+
 const foodTypeClassName = (foodType = "") => {
   const normalized = String(foodType).trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-");
   return `gmp-food-type-badge gmp-food-type-${normalized || "other"}`;
@@ -145,6 +147,7 @@ const GoMarketProduct = () => {
   }, [kind, id, related.length, totalRelatedCount, loadingRelated]);
 
   const product = data?.product;
+  const foodTypeLabel = getFoodTypeLabel(product);
   const specs = data?.specifications || [];
   const productOptions = normalizeProductOptions(product?.productOptions || []);
   const optionsComplete = allOptionsSelected(productOptions, selectedOptions);
@@ -344,9 +347,9 @@ const GoMarketProduct = () => {
             </p>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <h1 style={{ fontSize: 22, fontWeight: 800, margin: "6px 0 10px", lineHeight: 1.3 }}>{product.name}</h1>
-              {product.foodType && (
-                <span className={foodTypeClassName(product.foodType)}>
-                  {product.foodType}
+              {foodTypeLabel && (
+                <span className={foodTypeClassName(foodTypeLabel)}>
+                  {foodTypeLabel}
                 </span>
               )}
             </div>

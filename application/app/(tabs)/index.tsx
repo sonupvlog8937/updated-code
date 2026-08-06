@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Dimensions,
   Image,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -32,7 +33,6 @@ import Animated, {
   FadeInDown,
   FadeIn,
   ZoomIn,
-  SlideInRight,
 } from 'react-native-reanimated';
 import {
   useAppDispatch,
@@ -48,8 +48,9 @@ import HomeCatSlider from '@/src/components/HomeCatSlider';
 import DualBanner from '@/src/components/DualBanner';
 import BannerGrid from '@/src/components/BannerGrid';
 import ProductItem from '@/src/components/ProductItem';
-import AllProductsSection from '@/src/components/AllProductsSection';
+import AllProductsSection, { AllProductsSectionHandle } from '@/src/components/AllProductsSection';
 import GoMarketPromoCard from "@/src/components/GoMarketPromoCard";
+import Footer from '@/src/components/Footer';
 
 import {
   Product,
@@ -77,64 +78,17 @@ const BRAND = {
   shadow:    'rgba(255,107,43,0.18)',
 };
 
-// ─── Floating Particle (optimized) ───────────────────────────────
-function FloatingParticle({
-  size, color, startX, startY, delay = 0,
-}: { size: number; color: string; startX: number; startY: number; delay?: number }) {
-  const translateY = useSharedValue(0);
-  const translateX = useSharedValue(0);
-  const opacity    = useSharedValue(0);
-  const scale      = useSharedValue(0.3);
-
-  useEffect(() => {
-    opacity.value    = withDelay(delay, withTiming(0.5, { duration: 700 }));
-    scale.value      = withDelay(delay, withSpring(1, { damping: 10, stiffness: 90 }));
-    translateY.value = withDelay(delay, withRepeat(
-      withSequence(
-        withTiming(-14, { duration: 2800, easing: Easing.inOut(Easing.sin) }),
-        withTiming(14,  { duration: 2800, easing: Easing.inOut(Easing.sin) }),
-      ), -1, true));
-    translateX.value = withDelay(delay + 400, withRepeat(
-      withSequence(
-        withTiming(10,  { duration: 3400, easing: Easing.inOut(Easing.sin) }),
-        withTiming(-10, { duration: 3400, easing: Easing.inOut(Easing.sin) }),
-      ), -1, true));
-  }, []);
-
-  const animStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [
-      { translateY: translateY.value },
-      { translateX: translateX.value },
-      { scale: scale.value },
-    ],
-  }));
-
-  return (
-    <Animated.View
-      style={[
-        {
-          position: 'absolute', width: size, height: size,
-          borderRadius: size / 2, backgroundColor: color,
-          top: startY, left: startX,
-        },
-        animStyle,
-      ]}
-    />
-  );
-}
-
-// ─── Shimmer Skeleton ─────────────────────────────────────────────
-function ShimmerCard({ width: w, height: h, radius = 12, delay = 0 }: {
-  width: number | string; height: number; radius?: number; delay?: number;
+// ─── Shimmer Skeleton (lightweight) ──────────────────────────────
+function ShimmerCard({ width: w, height: h, radius = 12 }: {
+  width: number | string; height: number; radius?: number;
 }) {
   const shimmer = useSharedValue(0);
 
   useEffect(() => {
-    shimmer.value = withDelay(delay, withRepeat(
+    shimmer.value = withRepeat(
       withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
       -1, true
-    ));
+    );
   }, []);
 
   const shimStyle = useAnimatedStyle(() => ({
@@ -152,83 +106,13 @@ function ShimmerCard({ width: w, height: h, radius = 12, delay = 0 }: {
   );
 }
 
-// ─── Modal Button (polished) ──────────────────────────────────────
-function ModalButton({ onPress, label, variant = 'primary', icon, delay = 0 }: {
-  onPress: () => void; label: string; variant?: 'primary' | 'outline';
-  icon?: keyof typeof Feather.glyphMap; delay?: number;
-}) {
-  const scale   = useSharedValue(1);
-  const shimmer = useSharedValue(0);
-  const glow    = useSharedValue(0);
-
-  useEffect(() => {
-    if (variant === 'primary') {
-      shimmer.value = withDelay(1400, withRepeat(
-        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
-        -1, true
-      ));
-      glow.value = withDelay(800, withRepeat(
-        withSequence(
-          withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-        ), -1, false
-      ));
-    }
-  }, []);
-
-  const btnStyle    = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-  const shimmerStyle = useAnimatedStyle(() => ({
-    opacity:   interpolate(shimmer.value, [0, 0.4, 1], [0, 0.22, 0]),
-    transform: [{ translateX: interpolate(shimmer.value, [0, 1], [-width * 0.6, width]) }],
-  }));
-  const glowStyle = useAnimatedStyle(() => ({
-    shadowOpacity: interpolate(glow.value, [0, 1], [0.25, 0.5]),
-    shadowRadius:  interpolate(glow.value, [0, 1], [10, 22]),
-  }));
-
-  return (
-    <Animated.View entering={FadeInDown.delay(delay).duration(420).springify().damping(14)}>
-      <AnimatedPressable
-        onPress={onPress}
-        onPressIn={() => { scale.value = withSpring(0.94, { damping: 18, stiffness: 380 }); }}
-        onPressOut={() => { scale.value = withSpring(1,    { damping: 14, stiffness: 260 }); }}
-        style={[variant === 'primary' ? ms.loginBtn : ms.registerBtn, btnStyle, variant === 'primary' ? glowStyle : {}]}
-      >
-        {variant === 'primary' ? (
-          <LinearGradient
-            colors={['#FF6B2B', '#FF5722', '#FF8F5E']}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={ms.loginBtnGradient}
-          >
-            <Animated.View
-              style={[
-                { position: 'absolute', top: 0, bottom: 0, width: 70, backgroundColor: '#fff', borderRadius: 14 },
-                shimmerStyle,
-              ]}
-            />
-            {icon && <Feather name={icon} size={16} color="#fff" style={{ marginRight: 8 }} />}
-            <Text style={ms.loginBtnText}>{label}</Text>
-          </LinearGradient>
-        ) : (
-          <View style={ms.registerBtnInner}>
-            {icon && <Feather name={icon} size={16} color={BRAND.primary} style={{ marginRight: 8 }} />}
-            <Text style={ms.registerBtnText}>{label}</Text>
-          </View>
-        )}
-      </AnimatedPressable>
-    </Animated.View>
-  );
-}
-
-// ─── Section Header ───────────────────────────────────────────────
+// ─── Section Header (no entering animation) ──────────────────────
 interface SectionHeaderProps { title: string; onViewAll?: () => void; icon?: keyof typeof Feather.glyphMap; }
 
 const SectionHeader: React.FC<SectionHeaderProps> = ({ title, onViewAll, icon }) => {
-  const resolvedIcon = icon ?? (title.toLowerCase().includes('featured') ? 'star' : 'clock');
+  const resolvedIcon = icon ?? (title.toLowerCase().includes('featured') ? 'star' : title.toLowerCase().includes('popular') ? 'trending-up' : 'clock');
   return (
-    <Animated.View entering={FadeInDown.duration(400).springify().damping(16)} style={s.sectionHeader}>
+    <View style={s.sectionHeader}>
       <View style={s.sectionTitleRow}>
         <LinearGradient
           colors={[BRAND.light, 'rgba(255,107,43,0.06)']}
@@ -253,67 +137,58 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ title, onViewAll, icon })
           </LinearGradient>
         </TouchableOpacity>
       )}
-    </Animated.View>
+    </View>
   );
 };
 
-// ─── Product Grid Card ────────────────────────────────────────────
-const AnimatedGridCard = ({ item, index }: { item: Product; index: number }) => {
-  const scale    = useSharedValue(1);
-  const elevation = useSharedValue(0);
-
-  const cardStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    shadowOpacity: interpolate(scale.value, [0.96, 1], [0.08, 0.03]),
-  }));
-
+// ─── Product Grid Card (no entering animation) ──────────────────
+const GridCard = ({ item }: { item: Product }) => {
   return (
-    <Animated.View
-      entering={FadeInDown.delay(index * 65).duration(420).springify().damping(15)}
-      style={[{ width: '48.5%' }, cardStyle]}
-    >
-      <Pressable
-        onPressIn={() => {
-          scale.value = withSpring(0.96, { damping: 18, stiffness: 380 });
-        }}
-        onPressOut={() => {
-          scale.value = withSpring(1, { damping: 13, stiffness: 220 });
-        }}
-      >
-        <ProductItem item={item} variant="grid" />
-      </Pressable>
-    </Animated.View>
+    <View style={{ width: '48.5%' }}>
+      <ProductItem item={item} variant="grid" />
+    </View>
   );
 };
 
+// ─── Product Row (max 10 items) ──────────────────────────────────
 const ProductRow: React.FC<{ products: Product[]; isLoading: boolean }> = ({ products, isLoading }) => {
   if (isLoading) {
     return (
       <View style={s.skeletonRow}>
         {[0, 1].map(i => (
-          <ShimmerCard key={i} width="48.5%" height={IS_SMALL_SCREEN ? 165 : 185} delay={i * 120} />
+          <ShimmerCard key={i} width="48.5%" height={IS_SMALL_SCREEN ? 165 : 185} />
         ))}
       </View>
     );
   }
   return (
     <View style={s.productGrid}>
-      {products.slice(0, 8).map((item, index) => (
-        <AnimatedGridCard key={item._id || index} item={item} index={index} />
+      {products.slice(0, 10).map((item, index) => (
+        <GridCard key={item._id || index} item={item} />
       ))}
     </View>
   );
 };
 
-// ─── Countdown Timer ──────────────────────────────────────────────
+// ─── Slider Skeleton (shown only until slider data arrives) ─────
+const SliderSkeleton: React.FC = () => (
+  <View style={{ paddingHorizontal: 12, paddingVertical: 6 }}>
+    <ShimmerCard width="100%" height={IS_SMALL_SCREEN ? 145 : 165} radius={14} />
+  </View>
+);
+
+// ─── Categories Skeleton (shown only until category data arrives) ─
+const CategoriesSkeleton: React.FC = () => (
+  <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
+    {[0, 1, 2, 3, 4].map(i => (
+      <ShimmerCard key={i} width={70} height={70} radius={35} />
+    ))}
+  </View>
+);
+
+// ─── Countdown Timer (lightweight) ───────────────────────────────
 const CountdownTimer = React.memo(() => {
   const [cd, setCd] = useState({ h: 0, m: 0, s: 0 });
-  const prevSec = useRef(-1);
-
-  // Per-digit pulse
-  const pulseH = useSharedValue(1);
-  const pulseM = useSharedValue(1);
-  const pulseS = useSharedValue(1);
 
   useEffect(() => {
     const tick = () => {
@@ -324,13 +199,7 @@ const CountdownTimer = React.memo(() => {
       const newH = Math.floor((ms / 3_600_000) % 24);
       const newM = Math.floor((ms /    60_000) % 60);
       const newS = Math.floor((ms /     1_000) % 60);
-
-      setCd(prev => {
-        if (newH !== prev.h) pulseH.value = withSequence(withTiming(0.88, { duration: 90 }), withSpring(1, { damping: 10, stiffness: 260 }));
-        if (newM !== prev.m) pulseM.value = withSequence(withTiming(0.88, { duration: 90 }), withSpring(1, { damping: 10, stiffness: 260 }));
-        pulseS.value = withSequence(withTiming(0.9, { duration: 80 }), withSpring(1, { damping: 12, stiffness: 300 }));
-        return { h: newH, m: newM, s: newS };
-      });
+      setCd({ h: newH, m: newM, s: newS });
     };
     tick();
     const t = setInterval(tick, 1000);
@@ -339,19 +208,9 @@ const CountdownTimer = React.memo(() => {
 
   const pad = (n: number) => String(n).padStart(2, '0');
 
-  const styleH = useAnimatedStyle(() => ({ transform: [{ scale: pulseH.value }] }));
-  const styleM = useAnimatedStyle(() => ({ transform: [{ scale: pulseM.value }] }));
-  const styleS = useAnimatedStyle(() => ({ transform: [{ scale: pulseS.value }] }));
-
   return (
-    <Animated.View
-      entering={FadeInDown.delay(80).duration(500).springify().damping(14)}
-      style={s.cdWrapper}
-    >
-      {/* Subtle ambient glow */}
+    <View style={s.cdWrapper}>
       <View style={s.cdAmbient} />
-
-      {/* Left label */}
       <View style={s.cdLabelCol}>
         <View style={s.cdFireBadge}>
           <Text style={s.cdFireText}>🔥</Text>
@@ -361,13 +220,12 @@ const CountdownTimer = React.memo(() => {
 
       <View style={s.cdDividerVert} />
 
-      {/* Digits */}
       <View style={s.cdDigitsRow}>
         {[
-          { val: cd.h, label: 'HRS', anim: styleH },
-          { val: cd.m, label: 'MIN', anim: styleM },
-          { val: cd.s, label: 'SEC', anim: styleS },
-        ].map(({ val, label, anim }, idx) => (
+          { val: cd.h, label: 'HRS' },
+          { val: cd.m, label: 'MIN' },
+          { val: cd.s, label: 'SEC' },
+        ].map(({ val, label }, idx) => (
           <React.Fragment key={label}>
             {idx > 0 && <Text style={s.cdColon}>:</Text>}
             <View style={s.cdBlock}>
@@ -376,7 +234,7 @@ const CountdownTimer = React.memo(() => {
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 style={s.cdDigitBox}
               >
-                <Animated.Text style={[s.cdDigit, anim]}>{pad(val)}</Animated.Text>
+                <Text style={s.cdDigit}>{pad(val)}</Text>
               </LinearGradient>
               <Text style={s.cdUnit}>{label}</Text>
             </View>
@@ -384,40 +242,19 @@ const CountdownTimer = React.memo(() => {
         ))}
       </View>
 
-      {/* Right tag */}
       <View style={s.cdRightTag}>
         <Text style={s.cdRightTagText}>{'LIMITED\nOFFER'}</Text>
       </View>
-    </Animated.View>
+    </View>
   );
 });
 
-// ─── Deal of the Day Card ─────────────────────────────────────────
+// ─── Deal of the Day Card (lightweight) ──────────────────────────
 interface DealCardProps { deal: DealData; onPress?: () => void; }
 
 const DealOfDayCard = React.memo(({ deal, onPress }: DealCardProps) => {
-  const ctaScale = useSharedValue(1);
-  const imgScale = useSharedValue(1);
-  const badgePulse = useSharedValue(1);
-
-  const ctaStyle = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
-  const imgStyle = useAnimatedStyle(() => ({ transform: [{ scale: imgScale.value }] }));
-  const badgeStyle = useAnimatedStyle(() => ({ transform: [{ scale: badgePulse.value }] }));
-
-  useEffect(() => {
-    badgePulse.value = withRepeat(
-      withSequence(
-        withTiming(1.06, { duration: 900, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1,    { duration: 900, easing: Easing.inOut(Easing.ease) }),
-      ), -1, false
-    );
-  }, []);
-
   return (
-    <Animated.View
-      entering={FadeInDown.delay(160).duration(500).springify().damping(13)}
-      style={s.dealCard}
-    >
+    <View style={s.dealCard}>
       {/* Header band */}
       <LinearGradient
         colors={['#0D0D0D', '#1A1A1A']}
@@ -430,7 +267,7 @@ const DealOfDayCard = React.memo(({ deal, onPress }: DealCardProps) => {
           </View>
           <Text style={s.dealTopSub}>Today only — don't miss it!</Text>
         </View>
-        <Animated.View style={[s.dealDiscBubble, badgeStyle]}>
+        <View style={s.dealDiscBubble}>
           <LinearGradient
             colors={['#FF6B2B', '#FF3D00']}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
@@ -439,7 +276,7 @@ const DealOfDayCard = React.memo(({ deal, onPress }: DealCardProps) => {
             <Text style={s.dealDiscNum}>{deal.discount}%</Text>
             <Text style={s.dealDiscOff}>OFF</Text>
           </LinearGradient>
-        </Animated.View>
+        </View>
       </LinearGradient>
 
       {/* Main body */}
@@ -448,7 +285,6 @@ const DealOfDayCard = React.memo(({ deal, onPress }: DealCardProps) => {
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={s.dealBody}
       >
-        {/* Decorative glows */}
         <View style={[s.dealGlow, { top: -70, right: -50, width: 200, height: 200 }]} />
         <View style={[s.dealGlow, { bottom: -40, left: -30, width: 120, height: 120, opacity: 0.04 }]} />
 
@@ -470,12 +306,7 @@ const DealOfDayCard = React.memo(({ deal, onPress }: DealCardProps) => {
               </View>
             </View>
 
-            <AnimatedPressable
-              onPress={onPress}
-              onPressIn={() => { ctaScale.value = withSpring(0.94, { damping: 18, stiffness: 380 }); }}
-              onPressOut={() => { ctaScale.value = withSpring(1,    { damping: 13, stiffness: 240 }); }}
-              style={[s.dealCtaBtn, ctaStyle]}
-            >
+            <Pressable onPress={onPress} style={s.dealCtaBtn}>
               <LinearGradient
                 colors={[BRAND.primary, BRAND.accent]}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
@@ -484,23 +315,17 @@ const DealOfDayCard = React.memo(({ deal, onPress }: DealCardProps) => {
                 <Text style={s.dealCtaText}>{deal.ctaText}</Text>
                 <Feather name="arrow-right" size={14} color="#fff" style={{ marginLeft: 6 }} />
               </LinearGradient>
-            </AnimatedPressable>
+            </Pressable>
           </View>
 
           {/* Image column */}
           <View style={s.dealImgCol}>
-            <Pressable
-              style={s.dealImgWrap}
-              onPressIn={() => { imgScale.value = withSpring(0.96, { damping: 18, stiffness: 380 }); }}
-              onPressOut={() => { imgScale.value = withSpring(1,    { damping: 13, stiffness: 240 }); }}
-            >
-              <Animated.View style={imgStyle}>
-                <Image
-                  source={{ uri: deal.image }}
-                  style={s.dealImg}
-                  resizeMode="cover"
-                />
-              </Animated.View>
+            <Pressable style={s.dealImgWrap}>
+              <Image
+                source={{ uri: deal.image }}
+                style={s.dealImg}
+                resizeMode="cover"
+              />
               <Pressable style={s.dealWish}>
                 <Feather name="heart" size={15} color={BRAND.primary} />
               </Pressable>
@@ -516,16 +341,13 @@ const DealOfDayCard = React.memo(({ deal, onPress }: DealCardProps) => {
             <View style={s.dealSoldRow}>
               <Text style={s.dealSoldLabel}>68% sold</Text>
               <View style={s.dealSoldBar}>
-                <Animated.View
-                  entering={FadeIn.delay(600).duration(900)}
-                  style={[s.dealSoldFill, { width: '68%' }]}
-                />
+                <View style={[s.dealSoldFill, { width: '68%' }]} />
               </View>
             </View>
           </View>
         </View>
       </LinearGradient>
-    </Animated.View>
+    </View>
   );
 });
 
@@ -569,16 +391,6 @@ function LoginModal({ visible, onClose, onLogin, onRegister }: {
       <View style={ms.modalRoot}>
         <Animated.View style={[StyleSheet.absoluteFillObject, backdropStyle]}>
           <Pressable style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.6)' }]} onPress={onClose} />
-          {[
-            { size: 52, color: 'rgba(255,107,43,0.15)', x: width * 0.08,  y: height * 0.12, d: 0   },
-            { size: 36, color: 'rgba(255,107,43,0.12)', x: width * 0.72,  y: height * 0.18, d: 300 },
-            { size: 46, color: 'rgba(255,143,94,0.10)', x: width * 0.28,  y: height * 0.72, d: 500 },
-            { size: 29, color: 'rgba(255,107,43,0.18)', x: width * 0.82,  y: height * 0.58, d: 200 },
-            { size: 42, color: 'rgba(255,200,150,0.10)',x: width * 0.04,  y: height * 0.5,  d: 700 },
-            { size: 23, color: 'rgba(255,107,43,0.20)', x: width * 0.52,  y: height * 0.86, d: 400 },
-          ].map((p, i) => (
-            <FloatingParticle key={i} size={p.size} color={p.color} startX={p.x} startY={p.y} delay={p.d} />
-          ))}
         </Animated.View>
 
         <Animated.View style={[ms.cardWrapper, cardStyle]}>
@@ -596,35 +408,24 @@ function LoginModal({ visible, onClose, onLogin, onRegister }: {
             >
               <View style={[ms.headerCircle, { width: 110, height: 110, top: -35, right: -25, opacity: 0.09 }]} />
               <View style={[ms.headerCircle, { width: 65,  height: 65,  bottom: -12, left: 22,  opacity: 0.07 }]} />
-              <View style={[ms.headerCircle, { width: 40,  height: 40,  top: 20, right: 60, opacity: 0.05 }]} />
 
-              <Animated.View entering={ZoomIn.delay(350).duration(400).springify()} style={ms.iconBadge}>
+              <View style={ms.iconBadge}>
                 <Feather name="shopping-bag" size={22} color={BRAND.primary} />
-              </Animated.View>
-              <Animated.View entering={FadeInDown.delay(400).duration(380)}>
-                <Text style={ms.tagText}>Welcome</Text>
-              </Animated.View>
-              <Animated.View entering={FadeInDown.delay(480).duration(380)}>
-                <Text style={ms.titleText}>{'Exclusive access\nawaits you ✨'}</Text>
-              </Animated.View>
-              <Animated.View entering={FadeInDown.delay(560).duration(380)}>
-                <Text style={ms.subText}>Login for faster checkout, wishlist sync, premium offers & order tracking.</Text>
-              </Animated.View>
+              </View>
+              <Text style={ms.tagText}>Welcome</Text>
+              <Text style={ms.titleText}>{'Exclusive access\nawaits you ✨'}</Text>
+              <Text style={ms.subText}>Login for faster checkout, wishlist sync, premium offers & order tracking.</Text>
             </LinearGradient>
 
             {/* Body */}
             <View style={ms.body}>
-              <Animated.View entering={FadeInDown.delay(640).duration(380)} style={ms.benefitsRow}>
+              <View style={ms.benefitsRow}>
                 {([
                   { icon: 'zap'   as const, label: 'Fast Checkout' },
                   { icon: 'heart' as const, label: 'Wishlist Sync' },
                   { icon: 'gift'  as const, label: 'Premium Offers' },
                 ] as const).map((item, i) => (
-                  <Animated.View
-                    key={i}
-                    entering={FadeInDown.delay(660 + i * 60).duration(360).springify()}
-                    style={ms.benefitItem}
-                  >
+                  <View key={i} style={ms.benefitItem}>
                     <LinearGradient
                       colors={[BRAND.light, 'rgba(255,107,43,0.06)']}
                       style={ms.benefitIcon}
@@ -632,23 +433,29 @@ function LoginModal({ visible, onClose, onLogin, onRegister }: {
                       <Feather name={item.icon} size={14} color={BRAND.primary} />
                     </LinearGradient>
                     <Text style={ms.benefitLabel}>{item.label}</Text>
-                  </Animated.View>
+                  </View>
                 ))}
-              </Animated.View>
+              </View>
 
-              <Animated.View entering={FadeInDown.delay(700).duration(280)} style={ms.divider}>
+              <View style={ms.divider}>
                 <View style={ms.dividerLine} />
-              </Animated.View>
+              </View>
 
-              <ModalButton onPress={onLogin}    label="Login Now"      variant="primary" icon="log-in"   delay={760} />
-              {/* <ModalButton onPress={onRegister} label="Create Account" variant="outline" icon="user-plus" delay={860} /> */}
+              <Pressable onPress={onLogin} style={ms.loginBtn}>
+                <LinearGradient
+                  colors={['#FF6B2B', '#FF5722', '#FF8F5E']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={ms.loginBtnGradient}
+                >
+                  <Feather name="log-in" size={16} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={ms.loginBtnText}>Login Now</Text>
+                </LinearGradient>
+              </Pressable>
 
-              <Animated.View entering={FadeInDown.delay(960).duration(360)}>
-                <Pressable onPress={onClose} style={ms.skipBtn}>
-                  <Text style={ms.skipText}>Maybe later</Text>
-                  <Feather name="chevron-right" size={13} color="#B0B7C3" />
-                </Pressable>
-              </Animated.View>
+              <Pressable onPress={onClose} style={ms.skipBtn}>
+                <Text style={ms.skipText}>Maybe later</Text>
+                <Feather name="chevron-right" size={13} color="#B0B7C3" />
+              </Pressable>
             </View>
           </View>
         </Animated.View>
@@ -657,7 +464,7 @@ function LoginModal({ visible, onClose, onLogin, onRegister }: {
   );
 }
 
-// ─── Promo Strip (new) ────────────────────────────────────────────
+// ─── Promo Strip (lightweight) ───────────────────────────────────
 const PromoStrip: React.FC = () => {
   const translateX = useSharedValue(0);
 
@@ -687,6 +494,21 @@ const PromoStrip: React.FC = () => {
   );
 };
 
+// ─── Section types for lazy FlatList ──────────────────────────────
+type SectionItem =
+  | { type: 'promo' }
+  | { type: 'slider' }
+  | { type: 'categories' }
+  | { type: 'featured' }
+  | { type: 'popular' }
+  | { type: 'goMarketPromo' }
+  | { type: 'countdown' }
+  | { type: 'latest' }
+  | { type: 'dealOfDay' }
+  | { type: 'dualBanner' }
+  | { type: 'bannerGrid' }
+  | { type: 'allProducts' };
+
 // ─── HomeScreen ───────────────────────────────────────────────────
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -696,6 +518,7 @@ const HomeScreen: React.FC = () => {
   const catData          = useAppSelector(s => s.app.catData);
   const homepageSlides   = useAppSelector(s => s.app.homepageSlides);
   const homepageFeatured = useAppSelector(s => s.app.homepageFeatured);
+  const homepagePopular  = useAppSelector(s => (s.app as any).homepagePopular || []);
   const homepageLatest   = useAppSelector(s => s.app.homepageLatest);
   const isLoggedIn       = useAppSelector(s => s.app.isLogin);
 
@@ -704,6 +527,9 @@ const HomeScreen: React.FC = () => {
   const [dualBannerData, setDualBannerData] = useState<DualBannerData | null>(null);
   const [bannerGridData, setBannerGridData] = useState<BannerItem[]>([]);
   const [dealOfDayData,  setDealOfDayData]  = useState<DealData | null>(null);
+
+  // Ref into AllProductsSection so the OUTER (real) scroll can drive its pagination
+  const allProductsRef = useRef<AllProductsSectionHandle>(null);
 
   useEffect(() => {
     (async () => {
@@ -719,6 +545,8 @@ const HomeScreen: React.FC = () => {
   }, [dispatch]);
 
   useEffect(() => {
+    if (catData.length === 0) return; // Wait for data before setting static content
+
     setDualBannerData({
       leftBanner: {
         title: "Men's Collection",
@@ -787,74 +615,111 @@ const HomeScreen: React.FC = () => {
   const navigate = (screen: string, params?: any) =>
     navigation.navigate(screen as any, params);
 
-  const renderHeader = useCallback(() => (
-    <>
-      {/* Promo ticker */}
-      <PromoStrip />
+  // Fired when the real (outer) scroll reaches near the bottom — drives AllProductsSection's pagination
+  const handleEndReached = useCallback(() => {
+    allProductsRef.current?.loadMore();
+  }, []);
 
-      {/* Hero Slider */}
-      {homePageLoading
-        ? <ShimmerCard width={width - 24} height={IS_SMALL_SCREEN ? 145 : 165} delay={0} />
-        : <HomeSlider data={homepageSlides} />
-      }
+  // ── Progressive section list ──────────────────────────────────
+  // Har section apna data mil jaane par turant render hota hai, poore
+  // page ke liye ek single loader ka wait nahi karna padta. Jab tak
+  // us particular section ka data nahi aaya (aur homePageLoading abhi
+  // bhi true hai), sirf uska apna shimmer/skeleton dikhta hai.
+  // Jaise hi homePageLoading false ho jaata hai aur data khaali hai,
+  // wo section poori tarah hide ho jaata hai (jaisa pehle tha).
+  const showSlider     = homePageLoading || homepageSlides.length   > 0;
+  const showCategories = homePageLoading || catData.length          > 0;
+  const showFeatured   = homePageLoading || homepageFeatured.length > 0;
+  const showPopular    = homePageLoading || homepagePopular.length  > 0;
+  const showLatest     = homePageLoading || homepageLatest.length   > 0;
 
-      {/* Category pills */}
-      {catData.length > 0 && <HomeCatSlider data={catData} />}
+  const sections: SectionItem[] = useMemo(() => {
+    const items: SectionItem[] = [];
+    items.push({ type: 'promo' });
+    if (showSlider) items.push({ type: 'slider' });
+    if (showCategories) items.push({ type: 'categories' });
+    if (showFeatured) items.push({ type: 'featured' });
+    if (showPopular) items.push({ type: 'popular' });
+    items.push({ type: 'goMarketPromo' });
+    items.push({ type: 'countdown' });
+    if (showLatest) items.push({ type: 'latest' });
+    if (dealOfDayData) items.push({ type: 'dealOfDay' });
+    if (dualBannerData) items.push({ type: 'dualBanner' });
+    if (bannerGridData.length > 0) items.push({ type: 'bannerGrid' });
+    items.push({ type: 'allProducts' });
+    return items;
+  }, [showSlider, showCategories, showFeatured, showPopular, showLatest, dealOfDayData, dualBannerData, bannerGridData]);
 
-      {/* <GoMarketPromoCard /> */}
-
-      {/* Featured Products */}
-      <View style={s.section}>
-        <SectionHeader
-          title="Featured Products"
-          icon="star"
-          onViewAll={() => navigate('products', { filterType: 'featured', categoryName: 'Featured Products' })}
-        />
-        <ProductRow products={homepageFeatured} isLoading={homePageLoading} />
-      </View>
-
-      {/* Latest Products */}
-      <View style={s.section}>
-        <SectionHeader
-          title="Latest Products"
-          icon="clock"
-          onViewAll={() => navigate('products', { filterType: 'latest', categoryName: 'Latest Products' })}
-        />
-        <ProductRow products={homepageLatest} isLoading={homePageLoading} />
-      </View>
-
-      <GoMarketPromoCard />
-
-      {/* Countdown Timer */}
-      <CountdownTimer />
-
-      {/* Deal of the Day */}
-      {dealOfDayData && (
-        <DealOfDayCard
-          deal={dealOfDayData}
-          onPress={() => navigate('products', { filterType: 'deal', categoryName: 'Deal of the Day' })}
-        />
-      )}
-
-      {/* Dual Banner */}
-      {dualBannerData && (
-        <Animated.View entering={FadeInDown.delay(120).duration(480).springify()}>
+  const renderSection = useCallback(({ item }: { item: SectionItem }) => {
+    switch (item.type) {
+      case 'promo':
+        return <PromoStrip />;
+      case 'slider':
+        return homepageSlides.length > 0
+          ? <HomeSlider data={homepageSlides} />
+          : <SliderSkeleton />;
+      case 'categories':
+        return catData.length > 0
+          ? <HomeCatSlider data={catData} />
+          : <CategoriesSkeleton />;
+      case 'featured':
+        return (
+          <View style={s.section}>
+            <SectionHeader
+              title="Featured Products"
+              icon="star"
+              onViewAll={() => navigate('products', { filterType: 'featured', categoryName: 'Featured Products' })}
+            />
+            <ProductRow products={homepageFeatured} isLoading={homepageFeatured.length === 0} />
+          </View>
+        );
+      case 'popular':
+        return (
+          <View style={s.section}>
+            <SectionHeader
+              title="Popular Products"
+              icon="trending-up"
+              onViewAll={() => navigate('products', { filterType: 'popular', categoryName: 'Popular Products' })}
+            />
+            <ProductRow products={homepagePopular} isLoading={homepagePopular.length === 0} />
+          </View>
+        );
+      // case 'goMarketPromo':
+      //   return <GoMarketPromoCard />;
+      // case 'countdown':
+      //   return <CountdownTimer />;
+      case 'latest':
+        return (
+          <View style={s.section}>
+            <SectionHeader
+              title="Latest Products"
+              icon="clock"
+              onViewAll={() => navigate('products', { filterType: 'latest', categoryName: 'Latest Products' })}
+            />
+            <ProductRow products={homepageLatest} isLoading={homepageLatest.length === 0} />
+          </View>
+        );
+      case 'dealOfDay':
+        return dealOfDayData ? (
+          <DealOfDayCard
+            deal={dealOfDayData}
+            onPress={() => navigate('products', { filterType: 'deal', categoryName: 'Deal of the Day' })}
+          />
+        ) : null;
+      case 'dualBanner':
+        return dualBannerData ? (
           <DualBanner leftBanner={dualBannerData.leftBanner} rightBanner={dualBannerData.rightBanner} />
-        </Animated.View>
-      )}
+        ) : null;
+      case 'bannerGrid':
+        return <BannerGrid banners={bannerGridData} columns={3} />;
+      case 'allProducts':
+        return <AllProductsSection ref={allProductsRef} />;
+      default:
+        return null;
+    }
+  }, [homepageSlides, catData, homepageFeatured, homepagePopular, homepageLatest, dealOfDayData, dualBannerData, bannerGridData]);
 
-      {/* Banner Grid */}
-      {bannerGridData.length > 0 && (
-        <Animated.View entering={FadeInDown.delay(200).duration(480).springify()}>
-          <BannerGrid banners={bannerGridData} columns={3} />
-        </Animated.View>
-      )}
-    </>
-  ), [
-    homePageLoading, catData, homepageSlides,
-    homepageFeatured, homepageLatest,
-    dealOfDayData, dualBannerData, bannerGridData,
-  ]);
+  const keyExtractor = useCallback((item: SectionItem, index: number) => `${item.type}-${index}`, []);
 
   return (
     <SafeAreaView style={s.safeArea}>
@@ -866,12 +731,13 @@ const HomeScreen: React.FC = () => {
       />
 
       <FlatList
-        ListHeaderComponent={renderHeader}
-        data={[{ id: 'allProducts' }]}
-        renderItem={() => <AllProductsSection />}
-        keyExtractor={() => 'allProducts'}
-        ListFooterComponent={() => <View style={{ height: 72 }} />}
+        data={sections}
+        renderItem={renderSection}
+        keyExtractor={keyExtractor}
+        // ListFooterComponent={() => <Footer />}
         showsVerticalScrollIndicator={false}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.3}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -881,10 +747,10 @@ const HomeScreen: React.FC = () => {
           />
         }
         scrollEventThrottle={16}
-        removeClippedSubviews={false}
-        windowSize={21}
-        maxToRenderPerBatch={10}
-        updateCellsBatchingPeriod={50}
+        removeClippedSubviews={true}
+        windowSize={7}
+        maxToRenderPerBatch={5}
+        initialNumToRender={sections.length}
         overScrollMode="never"
       />
     </SafeAreaView>
@@ -1045,12 +911,6 @@ const s = StyleSheet.create({
     paddingBottom: 4, justifyContent: 'space-between',
   },
   skeletonRow: { flexDirection: 'row', gap: 8, marginBottom: 4, justifyContent: 'space-between' },
-
-  // Slider skeleton
-  sliderSkeleton: {
-    marginHorizontal: 12, marginVertical: 6,
-    height: IS_SMALL_SCREEN ? 145 : 165, borderRadius: 14,
-  },
 
   // Countdown
   cdWrapper: {

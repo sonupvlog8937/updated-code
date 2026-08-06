@@ -21,6 +21,7 @@ import { AddToCartDialog } from "./AddToCartDialog";
 import { showToast } from "@/src/utils/toast";
 import { FilterModal, FilterValues } from "./FilterModal";
 import { GrocerySearchModal } from "./GrocerySearchModal";
+import { PaginationControls } from "../PaginationControls";
 
 const TABS = [
   { key: "featured", label: "Featured" },
@@ -74,6 +75,7 @@ export function GoMarketShopCatalog({
   const [totalPages, setTotalPages] = useState(1);
   const flatListRef = useRef<FlatList>(null);
   const searchInputRef = useRef<TextInput>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   const [suggestions, setSuggestions] = useState<{
     suggestions: any[];
@@ -97,19 +99,20 @@ export function GoMarketShopCatalog({
     : `/api/go-market/grocery-shops/${shopId}/catalog`;
 
   const loadPage = useCallback(
-    async (pageNum: number, append: boolean, isTabChange: boolean = false, overrideTab?: TabKey) => {
+    async (pageNum: number, isTabChange: boolean = false, overrideTab?: TabKey) => {
       if (!shopId) return;
-      if (append) setLoadingMore(true);
-      else if (isTabChange) {
+      if (isTabChange) {
         setTabLoading(true);
         setProducts([]);
+      } else {
+        setLoading(true);
+        setProducts([]); // Clear old items to show skeleton loader
       }
-      else setLoading(true);
       try {
         const activeTab = overrideTab ?? tab;
         const p = new URLSearchParams({
           page: String(pageNum),
-          limit: "12",
+          limit: "25",
           tab: activeTab,
           search: appliedSearch,
           ...(sort && sort !== "latest" ? { sort } : {}),
@@ -126,8 +129,8 @@ export function GoMarketShopCatalog({
         if (res?.success || res?.error === false) {
           const rows = res.data || [];
           setFilterMeta(res.filterMeta || null);
-          setProducts((prev) => (append ? [...prev, ...rows] : rows));
-          setTotalPages(res.pagination?.totalPages || 1);
+          setProducts(rows);
+          setTotalPages(res.pagination?.totalPages); // Keep undefined if missing
           setPage(pageNum);
         }
       } finally {
@@ -140,7 +143,7 @@ export function GoMarketShopCatalog({
   );
 
   useEffect(() => {
-    loadPage(1, false);
+    loadPage(1);
   }, [loadPage]);
 
   const fetchDefaults = useCallback(() => {
@@ -455,7 +458,7 @@ export function GoMarketShopCatalog({
 
   // ─── List Header ────────────────────────────────────────────────────────────
   const ListHeader = (
-    <View>
+    <View onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}>
       {listHeader ?? null}
 
       {/* Search bar - Different for searchMode */}
@@ -544,7 +547,7 @@ export function GoMarketShopCatalog({
             onPress={() => {
               if (tab !== t.key) {
                 setTab(t.key);
-                loadPage(1, false, true, t.key);
+                loadPage(1, true, t.key);
               }
             }}
             disabled={tabLoading}
@@ -631,20 +634,21 @@ export function GoMarketShopCatalog({
         contentContainerStyle={{ paddingBottom: 100 }}
         ListHeaderComponent={ListHeader}
         renderItem={renderProduct}
-        onEndReached={() => {
-          if (page < totalPages && !loadingMore && !loading) {
-            loadPage(page + 1, true);
-          }
-        }}
-        onEndReachedThreshold={0.4}
-        scrollEventThrottle={16}
-        maxToRenderPerBatch={12}
-        updateCellsBatchingPeriod={50}
-        initialNumToRender={12}
         ListFooterComponent={
-          loadingMore ? (
-            <ActivityIndicator color="#2563eb" style={{ marginVertical: 16 }} />
-          ) : null
+          <View style={{ marginTop: 10 }}>
+            <PaginationControls
+              currentPage={page}
+              totalPages={totalPages}
+              hasMore={totalPages !== undefined ? page < totalPages : products.length === 25}
+              loading={loadingMore || loading}
+              onPageChange={(newPage) => {
+                loadPage(newPage);
+                if (flatListRef.current && headerHeight > 0) {
+                  flatListRef.current.scrollToOffset({ offset: headerHeight, animated: true });
+                }
+              }}
+            />
+          </View>
         }
         ListEmptyComponent={
           !loading ? <Text style={S.empty}>No products found.</Text> : null

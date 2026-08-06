@@ -15,6 +15,8 @@ const TABS = [
   { key: "latest", label: "Latest" },
 ];
 
+const getFoodTypeLabel = (item = {}) => String(item.foodType || item.food_type || item.foodtype || "").trim();
+
 const foodTypeClassName = (foodType = "") => {
   const normalized = String(foodType).trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-");
   return `gmp-food-type-badge gmp-food-type-${normalized || "other"}`;
@@ -524,6 +526,7 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
               : item.discount || 0;
             const rating = Number(item.rating || item.averageRating || 0);
             const reviewCount = item.reviewCount || item.totalReviews || 0;
+            const foodTypeLabel = getFoodTypeLabel(item);
             return (
               <Link to={`/go-market/product/restaurant/${item._id}`} className="gmp-product-tile" key={item._id}>
                 <div className="gmp-tile-img-wrap">
@@ -548,9 +551,9 @@ export default function GoMarketRestaurantCatalog({ restaurantId, searchMode = f
                 <div className="gmp-product-body">
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <div className="gmp-product-name">{item.itemName}</div>
-                    {item.foodType && (
-                      <span className={foodTypeClassName(item.foodType)}>
-                        {item.foodType}
+                    {foodTypeLabel && (
+                      <span className={foodTypeClassName(foodTypeLabel)}>
+                        {foodTypeLabel}
                       </span>
                     )}
                   </div>

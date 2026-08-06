@@ -92,7 +92,7 @@ const StatCard = ({ label: lbl, value, color, bg, icon }) => (
 export const Products = () => {
     const [productCat, setProductCat] = React.useState('');
     const [page, setPage] = React.useState(0);
-    const [rowsPerPage, setRowsPerPage] = React.useState(50);
+    const [rowsPerPage, setRowsPerPage] = React.useState(25);
     const [productData, setProductData] = useState([]);
     const [productTotalData, setProductTotalData] = useState([]);
     const [productSubCat, setProductSubCat] = React.useState('');
@@ -243,12 +243,11 @@ export const Products = () => {
         setDeleteDialog({ open: false, id: null, name: '', multiple: false });
     };
 
-    // Stats
-    const allProds = productTotalData?.products || [];
-    const totalCount = productData?.totalCount || (productData?.totalPages * rowsPerPage) || 0;
-    const outOfStock = allProds.filter((p) => p.countInStock === 0).length;
-    const featuredCount = allProds.filter((p) => p.isFeatured).length;
-    const lowStockCount = allProds.filter((p) => Number(p.countInStock) > 0 && Number(p.countInStock) < 10).length;
+    const totalCount = productData?.totalCount || productData?.total || 0;
+    const outOfStock = productData?.outOfStock || 0;
+    const featuredCount = productData?.featuredCount || 0;
+    const lowStockCount = productData?.lowStockCount || 0;
+    const totalMenuCount = productData?.totalMenuCount || 0;
 
     const stockColor = (stock) => {
         if (stock === 0) return { color: '#991b1b', bg: '#fee2e2', label: 'Out' };
@@ -329,7 +328,7 @@ export const Products = () => {
                 {isGoMarketShopSeller ? (
                     <StatCard lbl="Low Stock" value={lowStockCount || 0} color="#d97706" bg="#fef3c7" icon={<IoMdAdd />} label="Low Stock" />
                 ) : isRestaurantSeller ? (
-                    <StatCard lbl="On Menu" value={totalCount || 0} color="#ea580c" bg="#ffedd5" icon={<IoMdAdd />} label="On Menu" />
+                    <StatCard lbl="Total Menu" value={totalMenuCount || 0} color="#ea580c" bg="#ffedd5" icon={<IoMdAdd />} label="Total Menu" />
                 ) : (
                     <StatCard lbl="Featured" value={featuredCount || 0} color="#0369a1" bg="#e0f2fe" icon={<IoMdAdd />} label="Featured" />
                 )}
@@ -559,9 +558,9 @@ export const Products = () => {
                 </TableContainer>
 
                 <TablePagination
-                    rowsPerPageOptions={[50, 100, 150, 200]}
+                    rowsPerPageOptions={[25, 50, 100, 150, 200]}
                     component="div"
-                    count={(productData?.totalPages || 0) * rowsPerPage}
+                    count={totalCount}
                     rowsPerPage={rowsPerPage}
                     page={page}
                     onPageChange={handleChangePage}

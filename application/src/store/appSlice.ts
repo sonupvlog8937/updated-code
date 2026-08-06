@@ -132,6 +132,7 @@ export interface UserData {
 export interface HomepageData {
   slides: any[];
   featuredProducts: Product[];
+  popularProducts: Product[];
   latestProducts: Product[];
   categories: Category[];
   banners?: any[];
@@ -145,6 +146,7 @@ export interface AppState {
   catData: Category[];
   homepageSlides: any[];
   homepageFeatured: Product[];
+  homepagePopular: Product[];
   homepageLatest: Product[];
   bannerBoxData: any[];
   bannerBoxV2Data: any[];
@@ -171,6 +173,7 @@ const initialState: AppState = {
   catData: [],
   homepageSlides: [],
   homepageFeatured: [],
+  homepagePopular: [],
   homepageLatest: [],
   bannerBoxData: [],
   bannerBoxV2Data: [],
@@ -424,16 +427,18 @@ export const fetchHomepageData = createAsyncThunk(
   "app/fetchHomepageData",
   async (_, { rejectWithValue }) => {
     try {
-      const [slidesRes, featuredRes, latestRes, catRes] = await Promise.all([
+      const [slidesRes, featuredRes, popularRes, latestRes, catRes] = await Promise.all([
         fetchDataFromApi("/api/homeSlides", { useCache: true }),
         fetchDataFromApi("/api/product/getAllFeaturedProducts", { useCache: true }),
-        fetchDataFromApi("/api/product/getAllProducts?page=1&limit=12"),
+        fetchDataFromApi("/api/product/getAllProducts?page=1&limit=10&sortBy=rating"),
+        postData("/api/product/filters", { sortType: "latest", page: 1, limit: 10 }),
         fetchDataFromApi("/api/category", { useCache: true }),
       ]);
 
       return {
         slides: slidesRes?.data || [],
         featuredProducts: featuredRes?.products || featuredRes?.data || [],
+        popularProducts: popularRes?.products || popularRes?.data || [],
         latestProducts: latestRes?.products || latestRes?.data || [],
         categories: catRes?.data || [],
       };
@@ -559,6 +564,7 @@ const appSlice = createSlice({
       .addCase(fetchHomepageData.fulfilled, (state, action) => {
         state.homepageSlides = action.payload.slides;
         state.homepageFeatured = action.payload.featuredProducts;
+        state.homepagePopular = action.payload.popularProducts;
         state.homepageLatest = action.payload.latestProducts;
         state.catData = action.payload.categories;
         state.homePageLoading = false;

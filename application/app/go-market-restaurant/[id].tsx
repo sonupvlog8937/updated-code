@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { Feather } from "@expo/vector-icons";
 import {
   Animated,
   Dimensions,
@@ -42,6 +43,7 @@ import { AddToCartDialog } from "@/src/components/goMarket/AddToCartDialog";
 import { CartViewDialog } from "@/src/components/goMarket/CartViewDialog";
 import { FilterModal, FilterValues } from "@/src/components/goMarket/FilterModal";
 import { getOutletBaseMinutes, getOutletDistanceEta } from "@/src/utils/geoCoords";
+import { PaginationControls } from "@/src/components/PaginationControls";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -50,6 +52,8 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 const { width: SW } = Dimensions.get("window");
 const BANNER_H = 220;
 const LOGO_SIZE = 70;
+
+const getFoodTypeLabel = (item: any = {}) => String(item?.foodType || item?.food_type || item?.foodtype || "").trim();
 
 const foodTypeBadgeStyles = (foodType = "") => {
   const normalized = String(foodType).trim().toLowerCase();
@@ -60,7 +64,7 @@ const foodTypeBadgeStyles = (foodType = "") => {
 
 const FALLBACK = "https://placehold.co/800x420/2d2416/9d7d4d?text=Restaurant";
 const STATUS_H = Platform.OS === "android" ? (StatusBar.currentHeight ?? 20) : 24;
-const ITEMS_PER_PAGE = 12;
+const ITEMS_PER_PAGE = 25;
 const GM_LOC_KEY = "gm_user_location";
 
 // Restaurant Theme Colors
@@ -130,10 +134,15 @@ function FadeIn({ children, delay = 0, style }: { children: React.ReactNode; del
   const op = useRef(new Animated.Value(0)).current;
   const ty = useRef(new Animated.Value(12)).current;
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(op, { toValue: 1, duration: 320, delay, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.spring(ty, { toValue: 0, speed: 20, bounciness: 6, delay, useNativeDriver: true } as any),
-    ]).start();
+    // Cap delay so late-loaded items (higher absolute list index) don't wait
+    // several seconds before becoming visible. Stagger max 260ms, then fade in.
+    const safeDelay = Math.min(delay, 260);
+    const anim = Animated.parallel([
+      Animated.timing(op, { toValue: 1, duration: 260, delay: safeDelay, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.spring(ty, { toValue: 0, speed: 20, bounciness: 6, delay: safeDelay, useNativeDriver: true } as any),
+    ]);
+    anim.start();
+    return () => anim.stop();
   }, []);
   return <Animated.View style={[{ opacity: op, transform: [{ translateY: ty }] }, style]}>{children}</Animated.View>;
 }
@@ -221,6 +230,9 @@ function ItemTile({ item, index, columns, onAddToCart, onWishlist, inWishlist, r
   const press = () => Animated.spring(sc, { toValue: 0.94, useNativeDriver: true, speed: 40 }).start();
   const release = () => Animated.spring(sc, { toValue: 1, useNativeDriver: true, speed: 20 }).start();
   const onImgLoad = () => Animated.timing(imgOp, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+  // If the image URL fails to load, show the tile anyway instead of leaving it
+  // invisible forever (opacity stuck at 0).
+  const onImgError = () => imgOp.setValue(1);
 
   const isVeg = item.isVeg || item.category === "veg";
   const discount = item.discount || item.discountPercentage;
@@ -229,6 +241,7 @@ function ItemTile({ item, index, columns, onAddToCart, onWishlist, inWishlist, r
   const isOutOfStock = item.stock === 0 || item.inStock === false;
   const isRestaurantClosed = !restaurantIsOpen;
   const itemName = item.itemName || item.name || item.productName;
+  const foodTypeLabel = getFoodTypeLabel(item);
 
   return (
     <FadeIn delay={index * 40}>
@@ -239,7 +252,12 @@ function ItemTile({ item, index, columns, onAddToCart, onWishlist, inWishlist, r
       >
         <Animated.View style={[S.tile, columns === 1 && S.tileFull, { transform: [{ scale: sc }] }]}>
           <View style={{ position: "relative" }}>
-            <Animated.Image source={{ uri: item.image || FALLBACK }} style={[S.tileImg, { opacity: imgOp }]} onLoad={onImgLoad} />
+            <Animated.Image
+              source={{ uri: item.image || FALLBACK }}
+              style={[S.tileImg, { opacity: imgOp }]}
+              onLoad={onImgLoad}
+              onError={onImgError}
+            />
             {discount ? (
               <View style={S.discountBadge}>
                 <Text style={S.discountText}>{discount}% OFF</Text>
@@ -275,9 +293,9 @@ function ItemTile({ item, index, columns, onAddToCart, onWishlist, inWishlist, r
           <View style={S.tileBody}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <Text style={S.tileName} numberOfLines={1}>{itemName}</Text>
-              {item.foodType && (
-                <View style={[S.foodTypeBadgeInline, foodTypeBadgeStyles(item.foodType).badge]}>
-                  <Text style={[S.foodTypeTextInline, foodTypeBadgeStyles(item.foodType).text]}>{item.foodType}</Text>
+              {foodTypeLabel && (
+                <View style={[S.foodTypeBadgeInline, foodTypeBadgeStyles(foodTypeLabel).badge]}>
+                  <Text style={[S.foodTypeTextInline, foodTypeBadgeStyles(foodTypeLabel).text]}>{foodTypeLabel}</Text>
                 </View>
               )}
             </View>
@@ -380,8 +398,10 @@ export default function GoMarketRestaurantDetails() {
   const [displayedItems, setDisplayedItems] = useState<any[]>([]); // Items to show (12, 24, 36...)
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogLoadingMore, setCatalogLoadingMore] = useState(false);
+  const isFetchingMoreRef = useRef(false); // synchronous guard, avoids duplicate fetches from rapid scroll events
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMorePages, setHasMorePages] = useState(true);
+  const [gridOffset, setGridOffset] = useState(0);
   const [sort, setSort] = useState("latest");
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [gridColumns, setGridColumns] = useState<1 | 2>(2);
@@ -523,15 +543,9 @@ export default function GoMarketRestaurantDetails() {
 
   const loadCatalogPage = useCallback(async (pageNum: number) => {
     if (!id) return;
-    
-    if (pageNum === 1) {
-      setCatalogLoading(true);
-      setCatalogLoadingMore(false);
-      setAllCatalogItems([]);
-      setDisplayedItems([]);
-    } else {
-      setCatalogLoadingMore(true);
-    }
+
+    setCatalogLoading(true);
+    setDisplayedItems([]); // Clear old items to show skeleton loader
     
     try {
       const params = buildCatalogParams(pageNum);
@@ -540,19 +554,16 @@ export default function GoMarketRestaurantDetails() {
       
       if (res?.success || res?.error === false) {
         const newItems = res.data || [];
-        
-        if (pageNum === 1) {
-          // First page - replace all
-          setAllCatalogItems(newItems);
-          setDisplayedItems(newItems.slice(0, ITEMS_PER_PAGE));
-        } else {
-          // Append new items
-          setAllCatalogItems((prev) => [...prev, ...newItems]);
-          setDisplayedItems((prev) => [...prev, ...newItems.slice(0, ITEMS_PER_PAGE)]);
-        }
+        setAllCatalogItems(newItems);
+        setDisplayedItems(newItems);
         
         // Check if there are more pages
-        setHasMorePages(newItems.length === ITEMS_PER_PAGE);
+        const total = res.pagination?.totalPages;
+        if (total !== undefined) {
+          setHasMorePages(pageNum < total);
+        } else {
+          setHasMorePages(newItems.length === 25);
+        }
         setCurrentPage(pageNum);
       } else {
         console.warn("API Error:", res);
@@ -560,11 +571,8 @@ export default function GoMarketRestaurantDetails() {
     } catch (error) {
       console.error("Fetch Error:", error);
     } finally {
-      if (pageNum === 1) {
-        setCatalogLoading(false);
-      } else {
-        setCatalogLoadingMore(false);
-      }
+      setCatalogLoading(false);
+      setCatalogLoadingMore(false);
     }
   }, [id, buildCatalogParams]);
 
@@ -672,18 +680,6 @@ export default function GoMarketRestaurantDetails() {
     setSearch("");
     setSuggestions({ suggestions: [], recentSearches: [], trendingSearches: [], popularProducts: [], topSearches: [] });
     setShowSuggestions(false);
-  };
-
-  const handleScroll = (event: any) => {
-    if (catalogLoading || catalogLoadingMore || !hasMorePages) return;
-    
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const scrollPosition = contentOffset.y + layoutMeasurement.height;
-    const distanceFromBottom = contentSize.height - scrollPosition;
-    
-    if (distanceFromBottom < 300 && displayedItems.length < allCatalogItems.length + ITEMS_PER_PAGE) {
-      loadCatalogPage(currentPage + 1);
-    }
   };
 
   const onSearchFocus = () => Animated.timing(searchFocused, { toValue: 1, duration: 180, useNativeDriver: false }).start();
@@ -917,8 +913,6 @@ export default function GoMarketRestaurantDetails() {
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100, paddingTop: Platform.OS === "ios" ? 24 : (StatusBar.currentHeight ?? 0) }}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
         nestedScrollEnabled={true}
       >
         <View style={{ height: BANNER_H, overflow: "hidden" }}>
@@ -1131,8 +1125,9 @@ export default function GoMarketRestaurantDetails() {
 
         <View style={S.controlRow}>
           <TouchableOpacity style={[S.sortChip, sort !== "latest" && S.sortChipActive]} onPress={() => setSortModalVisible(true)} activeOpacity={0.8}>
+            <Feather name="bar-chart-2" size={14} color={sort !== "latest" ? "#fff" : C.sub} style={{ transform: [{ rotate: "90deg" }] }} />
             <Text style={[S.sortChipText, sort !== "latest" && S.sortChipTextActive]}>
-              ⇅ {sort === "latest" ? "Sort" : SORT_OPTIONS.find(o => o.key === sort)?.label ?? "Sort"}
+              {sort === "latest" ? "Sort" : SORT_OPTIONS.find(o => o.key === sort)?.label ?? "Sort"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity 
@@ -1140,8 +1135,9 @@ export default function GoMarketRestaurantDetails() {
             onPress={() => setFilterModalVisible(true)} 
             activeOpacity={0.8}
           >
+            <Feather name="sliders" size={14} color={activeFiltersCount > 0 ? "#fff" : C.sub} />
             <Text style={[S.sortChipText, activeFiltersCount > 0 && S.sortChipTextActive]}>
-              🔍 Filter {activeFiltersCount > 0 && `(${activeFiltersCount})`}
+              Filter {activeFiltersCount > 0 && `(${activeFiltersCount})`}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={S.gridToggle} onPress={() => setGridColumns(gridColumns === 2 ? 1 : 2)} activeOpacity={0.8}>
@@ -1149,7 +1145,7 @@ export default function GoMarketRestaurantDetails() {
           </TouchableOpacity>
         </View>
 
-        <View style={{ paddingHorizontal: 12 }}>
+        <View style={{ paddingHorizontal: 12 }} onLayout={(e) => setGridOffset(e.nativeEvent.layout.y)}>
           <SectionHead
             title={`${tab[0].toUpperCase()}${tab.slice(1)} Dishes`}
             count={displayedItems.length}
@@ -1192,7 +1188,7 @@ export default function GoMarketRestaurantDetails() {
                   <ItemTile
                     key={item._id}
                     item={item}
-                    index={i}
+                    index={i % ITEMS_PER_PAGE}
                     columns={gridColumns}
                     onAddToCart={handleAddToCart}
                     onWishlist={handleWishlist}
@@ -1202,18 +1198,19 @@ export default function GoMarketRestaurantDetails() {
                 ))}
               </View>
               
-              {catalogLoadingMore && (
-                <View style={S.loadingWrap}>
-                  <ActivityIndicator color={C.accent} size="small" />
-                  <Text style={S.loadingText}>Loading more…</Text>
-                </View>
-              )}
-              
-              {!catalogLoadingMore && !hasMorePages && displayedItems.length > 0 && (
-                <View style={S.loadingWrap}>
-                  <Text style={S.loadingText}>✓ All dishes loaded</Text>
-                </View>
-              )}
+              <View style={{ marginTop: 20 }}>
+                <PaginationControls
+                  currentPage={currentPage}
+                  hasMore={hasMorePages}
+                  loading={catalogLoadingMore || catalogLoading}
+                  onPageChange={(page) => {
+                    loadCatalogPage(page);
+                    if (scrollRef.current && gridOffset > 0) {
+                      scrollRef.current.scrollTo({ y: gridOffset, animated: true });
+                    }
+                  }}
+                />
+              </View>
             </>
           )}
         </View>
@@ -1981,16 +1978,19 @@ const S = StyleSheet.create({
     paddingVertical: 6,
   },
   sortChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     borderWidth: 1.2,
     borderColor: C.borderStrong,
-    borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 5,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     backgroundColor: C.surface,
   },
   sortChipActive: { backgroundColor: C.accent, borderColor: C.accent },
-  sortChipText: { fontSize: 10, fontWeight: "700", color: C.sub },
-  sortChipTextActive: { color: "#fff" },
+  sortChipText: { fontSize: 13, fontWeight: "600", color: C.sub },
+  sortChipTextActive: { color: "#fff", fontWeight: "700" },
 
   menuChip: {
     paddingHorizontal: 16,

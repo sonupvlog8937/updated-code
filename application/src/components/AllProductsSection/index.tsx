@@ -1,8 +1,14 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   Pressable,
   StyleSheet,
@@ -24,7 +30,6 @@ import Animated, {
   Easing,
   FadeInDown,
   FadeInUp,
-  SlideInRight,
 } from 'react-native-reanimated';
 
 import { fetchDataFromApi } from '../../utils/api';
@@ -91,36 +96,42 @@ const LoadingSkeleton = () => (
 );
 
 // ─── Animated Product Card Wrapper ──────────────────────────────
-const AnimatedProductCard = React.memo(({ item, isNew, localIndex }: { item: Product; isNew: boolean; localIndex: number }) => {
-  const scale = useSharedValue(1);
+const AnimatedProductCard = React.memo(
+  ({ item, isNew, localIndex }: { item: Product; isNew: boolean; localIndex: number }) => {
+    const scale = useSharedValue(1);
 
-  const cardStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+    const cardStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scale.value }],
+    }));
 
-  return (
-    <Animated.View
-      entering={isNew ? FadeInUp.delay(Math.min(localIndex * 60, 300)).duration(450).springify().damping(14) : undefined}
-      style={[{ width: '48.5%' }, cardStyle]}
-    >
-      <AnimatedPressable
-        onPressIn={() => {
-          scale.value = withSpring(0.96, { damping: 15, stiffness: 300 });
-        }}
-        onPressOut={() => {
-          scale.value = withSpring(1, { damping: 12, stiffness: 200 });
-        }}
-        style={{ flex: 1 }}
+    return (
+      <Animated.View
+        entering={
+          isNew
+            ? FadeInUp.delay(Math.min(localIndex * 60, 300)).duration(450).springify().damping(14)
+            : undefined
+        }
+        style={[{ width: '48.5%' }, cardStyle]}
       >
-        <ProductItem item={item} variant="grid" />
-      </AnimatedPressable>
-    </Animated.View>
-  );
-}, (prevProps, nextProps) => {
-  // Prevent re-render when only animation props change
-  return prevProps.item._id === nextProps.item._id && 
-         prevProps.isNew === nextProps.isNew;
-});
+        <AnimatedPressable
+          onPressIn={() => {
+            scale.value = withSpring(0.96, { damping: 15, stiffness: 300 });
+          }}
+          onPressOut={() => {
+            scale.value = withSpring(1, { damping: 12, stiffness: 200 });
+          }}
+          style={{ flex: 1 }}
+        >
+          <ProductItem item={item} variant="grid" />
+        </AnimatedPressable>
+      </Animated.View>
+    );
+  },
+  (prevProps, nextProps) => {
+    // Prevent re-render when only animation props change
+    return prevProps.item._id === nextProps.item._id && prevProps.isNew === nextProps.isNew;
+  },
+);
 
 // ─── Pulsing Dots Loader ────────────────────────────────────────
 const PulsingDots = () => {
@@ -130,29 +141,20 @@ const PulsingDots = () => {
 
   useEffect(() => {
     dot1.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 400 }),
-        withTiming(0.3, { duration: 400 }),
-      ),
+      withSequence(withTiming(1, { duration: 400 }), withTiming(0.3, { duration: 400 })),
       -1,
     );
     dot2.value = withDelay(
       150,
       withRepeat(
-        withSequence(
-          withTiming(1, { duration: 400 }),
-          withTiming(0.3, { duration: 400 }),
-        ),
+        withSequence(withTiming(1, { duration: 400 }), withTiming(0.3, { duration: 400 })),
         -1,
       ),
     );
     dot3.value = withDelay(
       300,
       withRepeat(
-        withSequence(
-          withTiming(1, { duration: 400 }),
-          withTiming(0.3, { duration: 400 }),
-        ),
+        withSequence(withTiming(1, { duration: 400 }), withTiming(0.3, { duration: 400 })),
         -1,
       ),
     );
@@ -201,10 +203,7 @@ const SectionHeaderBlock = ({
   }));
 
   return (
-    <Animated.View
-      entering={FadeInDown.duration(500).springify()}
-      style={styles.header}
-    >
+    <Animated.View entering={FadeInDown.duration(500).springify()} style={styles.header}>
       <View style={styles.headerLeft}>
         <View style={styles.headerTitleRow}>
           <View style={styles.headerIconWrap}>
@@ -226,11 +225,7 @@ const SectionHeaderBlock = ({
         </View>
       </View>
 
-      <TouchableOpacity
-        style={styles.viewAllBtn}
-        onPress={onViewAll}
-        activeOpacity={0.8}
-      >
+      <TouchableOpacity style={styles.viewAllBtn} onPress={onViewAll} activeOpacity={0.8}>
         <LinearGradient
           colors={['#FF6B2B', '#FF8F5E']}
           start={{ x: 0, y: 0 }}
@@ -245,8 +240,14 @@ const SectionHeaderBlock = ({
   );
 };
 
+// ─── Public handle exposed to parent (HomeScreen) for scroll-driven pagination ──
+export interface AllProductsSectionHandle {
+  loadMore: () => void;
+  hasMore: boolean;
+}
+
 // ─── Main Component ─────────────────────────────────────────────
-const AllProductsSection: React.FC = () => {
+const AllProductsSection = forwardRef<AllProductsSectionHandle>((_props, ref) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
@@ -256,6 +257,8 @@ const AllProductsSection: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   // Track how many items existed before last load — only new items animate
   const prevCountRef = useRef(0);
+  // Sync guard against double-fire (state updates are async, ref is instant)
+  const loadingMoreRef = useRef(false);
 
   useEffect(() => {
     fetchDataFromApi(`/api/product/getAllProducts?page=1&limit=${PRODUCTS_PER_PAGE}`)
@@ -272,9 +275,10 @@ const AllProductsSection: React.FC = () => {
   }, []);
 
   const loadMore = useCallback(() => {
-    if (loadingMore || !hasMore) return;
-    const nextPage = page + 1;
+    if (loadingMoreRef.current || !hasMore || loading) return;
+    loadingMoreRef.current = true;
     setLoadingMore(true);
+    const nextPage = page + 1;
 
     fetchDataFromApi(`/api/product/getAllProducts?page=${nextPage}&limit=${PRODUCTS_PER_PAGE}`)
       .then(res => {
@@ -289,32 +293,21 @@ const AllProductsSection: React.FC = () => {
         setTotal(tot);
         setPage(nextPage);
         setLoadingMore(false);
+        loadingMoreRef.current = false;
       })
-      .catch(() => setLoadingMore(false));
-  }, [page, loadingMore, hasMore, total]);
+      .catch(() => {
+        setLoadingMore(false);
+        loadingMoreRef.current = false;
+      });
+  }, [page, hasMore, loading, total]);
 
-  const renderItem = useCallback(
-    ({ item, index }: { item: Product; index: number }) => {
-      const isNew = index >= prevCountRef.current;
-      const localIndex = isNew ? index - prevCountRef.current : index;
-      return (
-        <AnimatedProductCard
-          item={item}
-          isNew={isNew}
-          localIndex={localIndex}
-        />
-      );
-    },
-    [prevCountRef.current],
-  );
+  // Parent's outer FlatList onEndReached calls this when user scrolls to bottom
+  useImperativeHandle(ref, () => ({ loadMore, hasMore }), [loadMore, hasMore]);
 
   const renderFooter = () => {
     if (loadingMore) {
       return (
-        <Animated.View
-          entering={FadeInUp.duration(300)}
-          style={styles.footer}
-        >
+        <Animated.View entering={FadeInUp.duration(300)} style={styles.footer}>
           <PulsingDots />
           <Text style={styles.footerText}>Loading more products...</Text>
         </Animated.View>
@@ -322,30 +315,15 @@ const AllProductsSection: React.FC = () => {
     }
     if (!hasMore && total > 0) {
       return (
-        <Animated.View
-          entering={FadeInUp.duration(500).springify()}
-          style={styles.endBox}
-        >
-          <LinearGradient
-            colors={['#FFF7ED', '#FFF1E6', '#FFEDD5']}
-            style={styles.endGradient}
-          >
-            <Animated.Text
-              entering={FadeInDown.delay(200).duration(400)}
-              style={styles.endEmoji}
-            >
+        <Animated.View entering={FadeInUp.duration(500).springify()} style={styles.endBox}>
+          <LinearGradient colors={['#FFF7ED', '#FFF1E6', '#FFEDD5']} style={styles.endGradient}>
+            <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={styles.endEmoji}>
               🎉
             </Animated.Text>
-            <Animated.Text
-              entering={FadeInDown.delay(300).duration(400)}
-              style={styles.endTitle}
-            >
+            <Animated.Text entering={FadeInDown.delay(300).duration(400)} style={styles.endTitle}>
               You've explored all products!
             </Animated.Text>
-            <Animated.Text
-              entering={FadeInDown.delay(400).duration(400)}
-              style={styles.endSub}
-            >
+            <Animated.Text entering={FadeInDown.delay(400).duration(400)} style={styles.endSub}>
               Discover more in our categories
             </Animated.Text>
             <Animated.View entering={FadeInDown.delay(500).duration(400)}>
@@ -382,6 +360,12 @@ const AllProductsSection: React.FC = () => {
     );
   }
 
+  // Chunk products into rows of 2 — plain View/map instead of nested FlatList
+  const rows: Product[][] = [];
+  for (let i = 0; i < products.length; i += 2) {
+    rows.push(products.slice(i, i + 2));
+  }
+
   return (
     <View style={styles.container}>
       <SectionHeaderBlock
@@ -393,26 +377,33 @@ const AllProductsSection: React.FC = () => {
       {/* Divider line */}
       <View style={styles.sectionDivider} />
 
-      <FlatList
-        data={products}
-        keyExtractor={item => item._id}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
-        renderItem={renderItem}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={renderFooter}
-        scrollEnabled={false}
-        nestedScrollEnabled={true}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        updateCellsBatchingPeriod={30}
-        windowSize={21}
-        removeClippedSubviews={false}
-      />
+      <View>
+        {rows.map((row, rowIndex) => (
+          <View key={rowIndex} style={styles.row}>
+            {row.map((item, colIndex) => {
+              const index = rowIndex * 2 + colIndex;
+              const isNew = index >= prevCountRef.current;
+              const localIndex = isNew ? index - prevCountRef.current : index;
+              return (
+                <AnimatedProductCard
+                  key={item._id}
+                  item={item}
+                  isNew={isNew}
+                  localIndex={localIndex}
+                />
+              );
+            })}
+            {row.length === 1 && <View style={{ width: '48.5%' }} />}
+          </View>
+        ))}
+      </View>
+
+      {renderFooter()}
     </View>
   );
-};
+});
+
+AllProductsSection.displayName = 'AllProductsSection';
 
 // ─── Styles ─────────────────────────────────────────────────────
 const styles = StyleSheet.create({
@@ -524,6 +515,7 @@ const styles = StyleSheet.create({
 
   // ── Grid Row ──
   row: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
     gap: CARD_GAP,
     marginBottom: 4,
@@ -599,6 +591,7 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center',
     padding: 16,
+    marginBottom: 60,
     gap: 10,
   },
   dotsRow: {
@@ -622,7 +615,7 @@ const styles = StyleSheet.create({
   // ── Footer: End of List ──
   endBox: {
     marginTop: 8,
-    marginBottom: 4,
+    marginBottom: 44,
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#FF6B2B',
@@ -646,7 +639,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#111827',
-    marginBottom: 4,
+    marginBottom: 24,
     letterSpacing: -0.2,
   },
   endSub: {

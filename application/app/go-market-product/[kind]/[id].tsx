@@ -22,6 +22,8 @@ import {
 
 const T = { orange: "#FF6B2C", white: "#FFF", bg: "#F9F9F9", border: "#EBEBEB", text: "#111", textSoft: "#999", black: "#111", green: "#16A34A" };
 
+const getFoodTypeLabel = (item: any = {}) => String(item?.foodType || item?.food_type || item?.foodtype || "").trim();
+
 const foodTypeBadgeStyles = (foodType = "") => {
   const normalized = String(foodType).trim().toLowerCase();
   if (normalized === "veg") return { badge: S.foodTypeVeg, text: { color: "#166534" } };
@@ -143,6 +145,7 @@ export default function GoMarketProductScreen() {
   }, [loadProduct]);
 
   const product = data?.product;
+  const foodTypeLabel = getFoodTypeLabel(product);
   const specs = data?.specifications || [];
   const [showAllSpecs, setShowAllSpecs] = useState(false);
   const visibleSpecs = showAllSpecs ? specs : specs.slice(0, 5);
@@ -421,9 +424,9 @@ export default function GoMarketProductScreen() {
           <Text style={S.brand}>{product.brand}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <Text style={S.title}>{product.name}</Text>
-            {product.foodType && (
-              <View style={[S.foodTypeBadgeInline, foodTypeBadgeStyles(product.foodType).badge]}>
-                <Text style={[S.foodTypeTextInline, foodTypeBadgeStyles(product.foodType).text]}>{product.foodType}</Text>
+            {foodTypeLabel && (
+              <View style={[S.foodTypeBadgeInline, foodTypeBadgeStyles(foodTypeLabel).badge]}>
+                <Text style={[S.foodTypeTextInline, foodTypeBadgeStyles(foodTypeLabel).text]}>{foodTypeLabel}</Text>
               </View>
             )}
           </View>
@@ -610,7 +613,7 @@ export default function GoMarketProductScreen() {
             />
             
             {/* Load More Button */}
-            {hasMoreProducts && (
+            {/* {hasMoreProducts && (
               <TouchableOpacity
                 style={{
                   marginTop: 16,
@@ -644,15 +647,15 @@ export default function GoMarketProductScreen() {
                   </>
                 )}
               </TouchableOpacity>
-            )}
+            )} */}
             
-            {!hasMoreProducts && related.length > 0 && totalRelatedCount > 0 && (
+            {/* {!hasMoreProducts && related.length > 0 && totalRelatedCount > 0 && (
               <View style={{ marginTop: 16, padding: 14, backgroundColor: "#dcfce7", borderRadius: 12, alignItems: "center" }}>
                 <Text style={{ fontSize: 13, fontWeight: "600", color: "#16a34a" }}>
                   ✓ All {totalRelatedCount} products loaded
                 </Text>
               </View>
-            )}
+            )} */}
           </View>
         )}
 

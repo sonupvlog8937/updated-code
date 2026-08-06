@@ -18,22 +18,41 @@ const ProductViewer = () => {
   useEffect(() => {
     if (!id) return;
     
-    fetchDataFromApi(`/api/go-market/products/${id}`)
-      .catch(() => fetchDataFromApi(`/api/product/${id}`))
-      .then((res) => {
-        let p = res?.data || res?.product || res;
-        if (p?.data && typeof p.data === 'object' && !Array.isArray(p.data)) {
-          p = p.data;
+    const fetchProduct = async () => {
+      setLoading(true);
+      try {
+        const endpoints = [
+          `/api/product/${id}`,
+          `/api/go-market/products/${id}`,
+          `/api/go-market/items/${id}`
+        ];
+
+        let foundProduct = null;
+
+        for (const endpoint of endpoints) {
+          const res = await fetchDataFromApi(endpoint);
+          
+          let p = res?.data || res?.product || res;
+          if (p?.data && typeof p.data === 'object' && !Array.isArray(p.data)) {
+            p = p.data;
+          }
+          
+          if (p && !(p instanceof Error) && p.name !== 'AxiosError' && p.error !== true) {
+            foundProduct = p;
+            break; // Stop searching once we find it
+          }
         }
-        if (p) {
-          setProduct(p);
-        }
-        setLoading(false);
-      })
-      .catch((err) => {
+
+        setProduct(foundProduct);
+      } catch (err) {
         console.error("Error loading product:", err);
+        setProduct(null);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchProduct();
   }, [id]);
 
   if (loading) {

@@ -98,7 +98,7 @@ const configs = {
     icon: MdShoppingCart,
     color: "#10b981",
     endpoint: "/api/go-market/grocery-shops",
-    tableColumns: ["shopName", "address", "latitude", "longitude"],
+    tableColumns: ["shopName", "isSponsored", "address", "latitude", "longitude"],
     fields: [
       { key: "marketId",      label: "Market",         type: "marketSelect",     required: true },
       { key: "ownerId",       label: "Owner",          type: "ownerSelect",     required: true },
@@ -113,6 +113,7 @@ const configs = {
       { key: "totalProducts", label: "Total Products", type: "number" },
       { key: "description",   label: "Description",    type: "textarea" },
       { key: "isOpen",        label: "Is Open",        type: "toggle" },
+      { key: "isSponsored",   label: "Sponsored",      type: "toggle", defaultValue: false },
     ],
   },
   restaurants: {
@@ -121,7 +122,7 @@ const configs = {
     icon: MdRestaurant,
     color: "#ef4444",
     endpoint: "/api/go-market/restaurants",
-    tableColumns: ["restaurantName", "address", "latitude", "longitude"],
+    tableColumns: ["restaurantName", "isSponsored", "address", "latitude", "longitude"],
     fields: [
       { key: "marketId",        label: "Market",        type: "marketSelect",     required: true },
       { key: "ownerId",         label: "Owner",         type: "ownerSelect",     required: true },
@@ -137,6 +138,7 @@ const configs = {
       { key: "totalItems",      label: "Total Items",   type: "number" },
       { key: "description",     label: "Description",   type: "textarea" },
       { key: "isOpen",          label: "Is Open",       type: "toggle" },
+      { key: "isSponsored",     label: "Sponsored",     type: "toggle", defaultValue: false },
     ],
   },
   products: {
@@ -190,7 +192,13 @@ const configs = {
 const blankFor = (fields) =>
   fields.reduce((acc, f) => ({
     ...acc,
-    [f.key]: f.type === "toggle" ? true : f.type === "select" ? (f.options?.[0] ?? "") : "",
+    [f.key]: f.defaultValue !== undefined
+      ? f.defaultValue
+      : f.type === "toggle"
+        ? true
+        : f.type === "select"
+          ? (f.options?.[0] ?? "")
+          : "",
   }), {});
 
   const getRefId = (value) => {
@@ -601,7 +609,9 @@ const GoMarketAdminPage = () => {
     const v = row[key];
     if (v === null || v === undefined) return <span className="text-gray-300">—</span>;
     if (typeof v === "boolean") return v
-      ? <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-xs"><MdCheck /> Yes</span>
+      ? key === "isSponsored"
+        ? <span className="inline-flex items-center gap-1 text-amber-600 font-semibold text-xs"><MdCheck /> Sponsored</span>
+        : <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-xs"><MdCheck /> Yes</span>
       : <span className="text-gray-400 text-xs">No</span>;
     // Highlight missing/zero coordinates in red
     if ((key === "latitude" || key === "longitude") && (!v || v === 0 || v === "0")) {

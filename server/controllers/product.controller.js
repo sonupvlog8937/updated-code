@@ -6,6 +6,7 @@ import ProductWEIGHTModel from "../models/productWEIGHT.js";
 import ProductSIZEModel from "../models/productSIZE.js";
 import GroceryProduct from "../models/groceryProduct.model.js";
 import RestaurantItem from "../models/restaurantItem.model.js";
+import RestaurantMenu from "../models/restaurantMenu.model.js";
 import {
   assertSellerOwnsGroceryProduct,
   assertSellerOwnsRestaurantItem,
@@ -1098,53 +1099,83 @@ export async function getProductsBySellerPublic(request, response) {
 export async function getSellerProducts(request, response) {
   try {
     const role = request.currentUser?.role;
+    const page = parseInt(request.query.page) || 1;
+    const limit = parseInt(request.query.limit) || 25;
+    const skip = (page - 1) * limit;
 
     // All GoMarket shop sellers (Fashion, Electronics, etc.) use GroceryShop model
     if (GO_MARKET_SHOP_SELLERS.includes(role)) {
       const shop = await getSellerGroceryShop(request.userId, request.currentUser.email);
       if (!shop) {
-        return response.status(200).json({ error: false, success: true, products: [], total: 0 });
+        return response.status(200).json({ error: false, success: true, products: [], total: 0, totalPages: 0, page });
       }
+      const total = await GroceryProduct.countDocuments({ shopId: shop._id });
+      const outOfStock = await GroceryProduct.countDocuments({ shopId: shop._id, stock: 0 });
+      const lowStockCount = await GroceryProduct.countDocuments({ shopId: shop._id, stock: { $gt: 0, $lt: 10 } });
       const products = await GroceryProduct.find({ shopId: shop._id })
         .sort({ createdAt: -1 })
         .populate("categoryId subCategoryId")
+        .skip(skip)
+        .limit(limit)
         .lean();
       const mapped = products.map(mapGroceryProductToAdminProduct);
       return response.status(200).json({
         error: false,
         success: true,
         products: mapped,
-        total: mapped.length,
+        total,
+        outOfStock,
+        lowStockCount,
+        totalPages: Math.ceil(total / limit),
+        page,
       });
     }
 
     if (role === "RESTAURANT_SELLER") {
       const restaurant = await getSellerRestaurant(request.userId, request.currentUser.email);
       if (!restaurant) {
-        return response.status(200).json({ error: false, success: true, products: [], total: 0 });
+        return response.status(200).json({ error: false, success: true, products: [], total: 0, totalPages: 0, page });
       }
+      const total = await RestaurantItem.countDocuments({ restaurantId: restaurant._id });
+      const totalOnMenu = await RestaurantItem.countDocuments({ restaurantId: restaurant._id, isAvailable: { $ne: false } });
+      const totalMenuCount = await RestaurantMenu.countDocuments({ restaurantId: restaurant._id });
       const items = await RestaurantItem.find({ restaurantId: restaurant._id })
         .sort({ createdAt: -1 })
         .populate("categoryId subCategoryId")
+        .skip(skip)
+        .limit(limit)
         .lean();
       const mapped = items.map(mapRestaurantItemToAdminProduct);
       return response.status(200).json({
         error: false,
         success: true,
         products: mapped,
-        total: mapped.length,
+        total,
+        totalOnMenu,
+        totalMenuCount,
+        totalPages: Math.ceil(total / limit),
+        page,
       });
     }
 
+    const total = await ProductModel.countDocuments({ seller: request.userId });
+    const featuredCount = await ProductModel.countDocuments({ seller: request.userId, isFeatured: true });
+    const outOfStock = await ProductModel.countDocuments({ seller: request.userId, countInStock: 0 });
     const products = await ProductModel.find({ seller: request.userId })
       .sort({ createdAt: -1 })
-      .populate("seller", "name email role status storeProfile");
+      .populate("seller", "name email role status storeProfile")
+      .skip(skip)
+      .limit(limit);
 
     return response.status(200).json({
       error: false,
       success: true,
       products,
-      total: products.length,
+      total,
+      featuredCount,
+      outOfStock,
+      totalPages: Math.ceil(total / limit),
+      page,
     });
   } catch (error) {
     return response.status(500).json({

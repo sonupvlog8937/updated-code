@@ -12,6 +12,7 @@ import {
 } from "@/src/store";
 import { showToast } from "@/src/utils/toast";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { PaginationControls } from "@/src/components/PaginationControls";
 import * as Location from "expo-location";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -219,6 +220,7 @@ function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () 
 
 const sortFollowedOutlets = (rows: any[]) =>
   [...rows].sort((a, b) =>
+    Number(Boolean(b.isSponsored)) - Number(Boolean(a.isSponsored)) ||
     Number(Boolean(b.isFollowing)) - Number(Boolean(a.isFollowing)) ||
     (Number(b.rating || 0) - Number(a.rating || 0)) ||
     String(a.displayName || "").localeCompare(String(b.displayName || ""))
@@ -250,6 +252,8 @@ export default function GoMarketMarketScreen() {
   const [outlets, setOutlets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -363,22 +367,14 @@ export default function GoMarketMarketScreen() {
 
   // ── Load outlets ──
   const load = useCallback(
-    (pageNum: number, append: boolean) => {
+    (pageNum: number) => {
       if (!marketId) return;
-      if (append) {
-        if (loadingMoreRef.current || !hasMoreRef.current) return;
-        loadingMoreRef.current = true;
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-        setOutlets([]);  // clear immediately so skeleton shows on tab/filter change
-        hasMoreRef.current = true;
-        setHasMore(true);
-      }
+      setLoading(true);
+      setOutlets([]); // Clear old items to show skeleton loader
       const params = new URLSearchParams({
         type, sort,
         page: String(pageNum),
-        limit: "12",
+        limit: "25",
         search: debouncedSearch,
         ...(openOnly ? { openOnly: "true" } : {}),
         ...(minRating > 0 ? { minRating: String(minRating) } : {}),
@@ -388,13 +384,16 @@ export default function GoMarketMarketScreen() {
           if (res?.success || res?.error === false) {
             setMarket(res.market);
             const newOutlets = res.data || [];
-            setOutlets((prev) => (append ? [...prev, ...newOutlets] : newOutlets));
-            setTotalPages(res.pagination?.totalPages || 1);
+            setOutlets(newOutlets);
+            setTotalPages(res.pagination?.totalPages);
             setPage(pageNum);
-            const cur = res.pagination?.currentPage || pageNum;
-            const total = res.pagination?.totalPages || 1;
-            setHasMore(cur < total);
-            hasMoreRef.current = cur < total;
+            const total = res.pagination?.totalPages;
+            if (total !== undefined) {
+              setHasMore(pageNum < total);
+            } else {
+              setHasMore(newOutlets.length === 25);
+            }
+            hasMoreRef.current = total !== undefined ? pageNum < total : newOutlets.length === 25;
           }
         })
         .catch(() => {
@@ -403,7 +402,6 @@ export default function GoMarketMarketScreen() {
         })
         .finally(() => {
           setLoading(false);
-          loadingMoreRef.current = false;
           setLoadingMore(false);
           setRefreshing(false);
         });
@@ -412,18 +410,18 @@ export default function GoMarketMarketScreen() {
   );
 
   useEffect(() => {
-    load(1, false);
+    load(1);
   }, [type, sort, debouncedSearch, openOnly, minRating, marketId, load]);
 
   const handleLoadMore = () => {
-    if (!loadingMore && !loading && hasMore && page < totalPages) load(page + 1, true);
+    // Replaced by PaginationControls
   };
 
   const handleRefresh = () => {
     setRefreshing(true);
     setPage(1);
     refreshCurrentLocation();
-    load(1, false);
+    load(1);
   };
 
   const clearAllFilters = () => {
@@ -531,8 +529,14 @@ export default function GoMarketMarketScreen() {
 
             <TypeBadge type={o.outletType} />
 
-            {/* Top-right: Open badge + share */}
-            <View style={{ position: "absolute", top: 10, right: 10, flexDirection: "row", gap: 6 }}>
+            {/* Top-right: Sponsored + Open badge + share */}
+            <View style={{ position: "absolute", top: 10, right: 10, flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+              {o.isSponsored && (
+                <View style={S.sponsoredBadge}>
+                  <Text style={S.sponsoredBadgeTxt}>⭐ Sponsored</Text>
+                </View>
+              )}
+              <View style={{ flexDirection: "row", gap: 6 }}>
               {o.isOpen && (
                 <View style={S.openBadge}>
                   <View style={S.openDot} />
@@ -542,6 +546,7 @@ export default function GoMarketMarketScreen() {
               <TouchableOpacity style={S.shareIconBtn} onPress={() => handleShare(o)}>
                 <Text style={{ fontSize: 14 }}>↗</Text>
               </TouchableOpacity>
+              </View>
             </View>
 
             {/* Rating overlay on banner */}
@@ -612,7 +617,7 @@ export default function GoMarketMarketScreen() {
   // List header
   // ─────────────────────────────────────────────────────────────────────────────
   const ListHeader = (
-    <View>
+    <View onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}>
       {/* Hero banner */}
       <View style={S.heroBannerWrap}>
         <Image
@@ -863,14 +868,13 @@ export default function GoMarketMarketScreen() {
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       <FlatList
+        ref={flatListRef}
         data={loading ? [] : outlets}
         keyExtractor={(o, idx) => `${o.outletType}-${o._id}-${idx}`}
         renderItem={renderOutlet}
         extraData={userLocation}
         ListHeaderComponent={ListHeader}
         contentContainerStyle={{ paddingBottom: 100 }}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -880,18 +884,20 @@ export default function GoMarketMarketScreen() {
           />
         }
         ListFooterComponent={
-          loadingMore ? (
-            <View style={S.footerLoader}>
-              <ActivityIndicator color={T.primary} size="small" />
-              <Text style={S.footerLoaderTxt}>Loading more…</Text>
-            </View>
-          ) : !hasMore && outlets.length > 0 ? (
-            <View style={S.footerEnd}>
-              <View style={S.footerEndLine} />
-              <Text style={S.footerEndTxt}>All shops loaded</Text>
-              <View style={S.footerEndLine} />
-            </View>
-          ) : null
+          <View style={{ marginTop: 20 }}>
+            <PaginationControls
+              currentPage={page}
+              totalPages={totalPages}
+              hasMore={hasMore}
+              loading={loadingMore || loading}
+              onPageChange={(newPage) => {
+                load(newPage);
+                if (flatListRef.current && headerHeight > 0) {
+                  flatListRef.current.scrollToOffset({ offset: headerHeight, animated: true });
+                }
+              }}
+            />
+          </View>
         }
         ListEmptyComponent={
           !loading ? (
@@ -1215,6 +1221,15 @@ const S = StyleSheet.create({
     borderRadius: T.r999,
   },
   openBadgeTxt: { color: T.green, fontSize: 10, fontWeight: "800" },
+  sponsoredBadge: {
+    backgroundColor: "#FEF3C7",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: T.r999,
+  },
+  sponsoredBadgeTxt: { color: "#92400E", fontSize: 10, fontWeight: "800" },
   openDot: {
     width: 6,
     height: 6,
